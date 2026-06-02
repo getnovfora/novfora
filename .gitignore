@@ -8,3 +8,16 @@ Thumbs.db
 *~
 .idea/
 .vscode/
+
+# Spike 0 (throwaway scaffold) — keep the source files as a reference for M0; exclude heavy/generated artifacts.
+hearth-spike/vendor/
+hearth-spike/node_modules/
+hearth-spike/public/build/
+hearth-spike/public/spike-uploads/
+hearth-spike/public/hot
+hearth-spike/storage/framework/
+hearth-spike/bootstrap/cache/
+hearth-spike/database/*.sqlite
+hearth-spike/.env
+hearth-spike/test-results/
+hearth-spike/playwright-report/
