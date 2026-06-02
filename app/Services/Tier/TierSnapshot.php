@@ -1,4 +1,5 @@
 <?php
+
 // SPDX-License-Identifier: Apache-2.0
 
 declare(strict_types=1);
@@ -13,7 +14,7 @@ final readonly class TierSnapshot
 {
     /**
      * @param  array<string, CapabilityStatus>  $capabilities  keyed by Capability->value
-     * @param  array<string, ServiceStatus>  $services        keyed by probe key
+     * @param  array<string, ServiceStatus>  $services  keyed by probe key
      */
     public function __construct(
         public array $capabilities,

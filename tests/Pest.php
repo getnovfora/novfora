@@ -1,4 +1,7 @@
 <?php
+
+use Tests\TestCase;
+
 // SPDX-License-Identifier: Apache-2.0
 
 /*
@@ -6,4 +9,4 @@
 | container, config(), and helpers like $this->artisan(). Unit tests stay framework-free.
 */
 
-uses(Tests\TestCase::class)->in('Feature');
+uses(TestCase::class)->in('Feature');

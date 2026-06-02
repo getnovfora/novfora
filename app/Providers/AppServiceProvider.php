@@ -19,10 +19,10 @@ class AppServiceProvider extends ServiceProvider
         // Service-tier detection (ADR-0003): one aggregator wired with the optional-service probes.
         // Probes never throw, so resolving/using this is always safe on the baseline tier.
         $this->app->singleton(ServiceTier::class, fn () => new ServiceTier([
-            new RedisProbe(),
-            new MeilisearchProbe(),
-            new ReverbProbe(),
-            new S3Probe(),
+            new RedisProbe,
+            new MeilisearchProbe,
+            new ReverbProbe,
+            new S3Probe,
         ]));
     }
 
