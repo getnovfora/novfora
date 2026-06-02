@@ -80,6 +80,13 @@ clean-room**.
 > Dusk-needs-Chrome, and a ~1-day time-box added; memo template records all resolved versions. **Build-readiness
 > confirmed: Laravel 13 is GA (2026-03-17, PHP 8.3 floor) — the scaffold's first command resolves.** **NEXT is
 > unchanged: the Code session executes the corrected Spike 0 and returns the memo.**
+>
+> **Repo baseline (2026-06-02):** `D:\Forum` is now **git-tracked** — first commit `a875a9a` on branch `main`
+> (27 files, DCO sign-off), so Code and Cowork can commit between handoffs. The ready-to-paste Code kickoff
+> prompt is saved at [`docs/product/spike-0-code-kickoff.md`](docs/product/spike-0-code-kickoff.md).
+> *(Cowork-env caveat: the `D:\Forum` bash mount mangles git's own `config` write — if you must git-operate
+> from Cowork, enable deletes via the file-delete permission and hand-build `.git` with plain writes. The Code
+> build env has no such limitation.)*
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
@@ -99,12 +106,4 @@ clean-room**.
 
 Strict clean-room (study schemas/semantics/concepts; importers copy *data*, never code) · progressive
 enhancement (no baseline feature hard-depends on Redis / WebSocket / worker / external search) ·
-reversible, non-destructive migrations · security by default (OWASP, argon2id, CSRF, CSP, rate limits,
-audit log, sanitized rich text) · tests with every feature (permission-mask + tier-fallback suites
-dedicated) · semver'd module/theme API contracts · conventional commits, ADRs for non-obvious choices.
-
-## Model & effort (account is on Claude Max)
-
-**Code tab:** Opus 4.8 at **`xhigh`** effort (set explicitly; default is `high`). Reserve deep
-reasoning for permission-mask resolution, anti-spam, security, importers, the plugin/theme API, and
-the editor spike; Sonnet 4.6 for mechanical breadth.
+reversible, non-destru
