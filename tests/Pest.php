@@ -1,0 +1,9 @@
+<?php
+// SPDX-License-Identifier: Apache-2.0
+
+/*
+| Pest bootstrap — bind the Laravel TestCase to Feature tests so they get the application
+| container, config(), and helpers like $this->artisan(). Unit tests stay framework-free.
+*/
+
+uses(Tests\TestCase::class)->in('Feature');
