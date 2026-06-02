@@ -134,6 +134,28 @@ Server renders canonical → **sanitized HTML** (ADR-0005); the browser never su
 component + the sync contract), and any constraints it imposes on M2. **No feature work in M2's editor track
 starts until this memo says GO on a specific mechanism.**
 
+**Spike 0 result — GO (2026-06-02).** All six criteria passed with executed evidence (Pest 10 tests / 82
+assertions incl. the #4 XSS battery; Playwright 6/6 incl. the #1a state-survival GO-blocker, both paths). No
+fallback needed; **ADR-0012 stands.** Memo: [spike-0-memo.md](spike-0-memo.md); reference scaffold under
+`hearth-spike/`. **Binding M2 editor implementation notes (carry these forward):**
+
+1. **The editor lives in per-instance closure state — never a reactive Alpine property.** A reactive proxy wraps
+   ProseMirror's state and makes programmatic commands throw *"Applying a mismatched transaction."* This is the
+   #1 rule for the editor and any self-managing JS widget embedded in Livewire.
+2. **Livewire 4 = single-file components** (`⚡`-prefixed `new class extends Component` + Blade in one file under
+   `resources/views/components/`), not class-based `app/Livewire/`. Method injection + `$this->validate()` work.
+3. **Sync via deferred `$wire.set('canonicalJson', json, false)` with no debounce** — it's JS-only (no network);
+   debouncing it caused a stale doc on an immediate save. Debounce only a future *network* autosave/draft.
+4. **Async (post-upload) inserts must defer one tick + use `insertContent`**, not a synchronous command after
+   `await` (same mismatched-transaction trap).
+5. **TipTap 3 StarterKit bundles Link** (and more) — do not re-register it; Placeholder/Mention/Image are
+   separate MIT packages.
+6. **`CanonicalRenderer` is the security boundary** — JSON→HTML mapper with per-value escaping + a
+   symfony/html-sanitizer allowlist backstop; **port it from the spike**
+   (`hearth-spike/app/Support/CanonicalRenderer.php`, proven by `CanonicalRendererTest`).
+7. **Drag-drop + paste both call one `uploadAndInsert`;** automate the upload→insert pipeline via the file picker
+   (synthetic native file-drops are unreliable headless — a test-harness limitation, not an integration gap).
+
 ---
 
 ## 5. Milestones (each lands runnable + tested on the baseline tier)

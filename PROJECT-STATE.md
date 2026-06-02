@@ -96,6 +96,17 @@ clean-room**.
 > *(Cowork-env caveat: the `D:\Forum` bash mount mangles git's own `config` write — if you must git-operate
 > from Cowork, enable deletes via the file-delete permission and hand-build `.git` with plain writes. The Code
 > build env has no such limitation.)*
+>
+> **Update 2026-06-02 (Cowork — Spike 0 GO reviewed + findings folded):** verified the GO against the committed
+> memo + evidence (Pest 10/82, Playwright 6/6) — a clean GO, no gaps. **Folded the outcome into the durable
+> docs:** ADR-0012 marked **validated** with its binding constraint (*editor in per-instance closure state, never
+> a reactive Alpine property*), and the 7 findings added to [`phase-1-plan.md`](docs/product/phase-1-plan.md) §4 as
+> **M2 implementation notes**. **NEXT = owner gate: begin Phase 1 M0** (already approved in the Phase 1 plan,
+> 2026-06-01) — scaffold the real app at the **repo root** (skeleton + service-tier detection + CI + installer
+> skeleton + reversible-migration baseline). The validated editor pattern + `CanonicalRenderer` **port in M2**,
+> not M0 (per the plan); then M1→M5. Retire `hearth-spike/` once the real app supersedes it. M0 build kickoff:
+> [`docs/product/m0-code-kickoff.md`](docs/product/m0-code-kickoff.md). *(These Cowork doc edits are on disk;
+> commit them from the Code env — the Cowork mount is unreliable for git writes.)*
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
