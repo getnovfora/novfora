@@ -21,3 +21,23 @@ hearth-spike/database/*.sqlite
 hearth-spike/.env
 hearth-spike/test-results/
 hearth-spike/playwright-report/
+
+# Laravel / Node — repo-root app (M0). IMPORTANT: /public/build is intentionally NOT ignored;
+# prebuilt assets are committed so the baseline shared host needs no Node runtime.
+/vendor/
+/node_modules/
+/.env
+/.env.backup
+/.env.production
+/.phpunit.cache
+/.phpunit.result.cache
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/bootstrap/ssr
+/auth.json
+npm-debug.log
+yarn-error.log
+/.nova
+/.zed
