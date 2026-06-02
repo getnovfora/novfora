@@ -70,6 +70,15 @@ clean-room**.
 > **NEXT (Code build session): execute Spike 0, fill the GO/NO-GO memo, report the result back** — then the
 > confirmed editor pattern folds into the M0→M5 build (and ADR-0012 updates if a fallback is chosen).
 >
+> **Update 2026-06-02 (Spike 0 EXECUTED → GO):** all six criteria **PASS** with executed evidence — **Pest 10
+> passed / 82 assertions** (incl. the #4 security suite) and **Playwright 6/6** (incl. the #1a GO-blocker, both
+> paths). Run in a **Docker `php:8.3`** env (this box has no host PHP) + host Node/Playwright/Chromium. Memo:
+> [`docs/product/spike-0-memo.md`](docs/product/spike-0-memo.md); reference scaffold in `hearth-spike/` (source
+> committed, heavy artifacts git-ignored; env in `.spike-docker/`). **Key findings:** Livewire 4 = single-file
+> components; the **editor must be non-reactive closure state** (a reactive proxy breaks ProseMirror →
+> "mismatched transaction"); deferred `$wire.set` needs no debounce. **No fallback needed — ADR-0012 stands.**
+> **NEXT: owner gate → begin Phase 1 M0** (port the validated pattern into the app at the repo root).
+>
 > **Update 2026-06-02 (Cowork):** **Spike 0 handoff pressure-tested + hardened** before the Code session runs it.
 > Key fix: renamed the mechanism to **`wire:ignore` + Alpine island** — verified `wire:ignore` ≠ Livewire 4 "islands"
 > (islands = partial re-render; `wire:ignore` = the DOM-morph exclusion the editor actually needs; ADR-0012 had it
@@ -106,4 +115,12 @@ clean-room**.
 
 Strict clean-room (study schemas/semantics/concepts; importers copy *data*, never code) · progressive
 enhancement (no baseline feature hard-depends on Redis / WebSocket / worker / external search) ·
-reversible, non-destru
+reversible, non-destructive migrations · security by default (OWASP, argon2id, CSRF, CSP, rate limits,
+audit log, sanitized rich text) · tests with every feature (permission-mask + tier-fallback suites
+dedicated) · semver'd module/theme API contracts · conventional commits, ADRs for non-obvious choices.
+
+## Model & effort (account is on Claude Max)
+
+**Code tab:** Opus 4.8 at **`xhigh`** effort (set explicitly; default is `high`). Reserve deep
+reasoning for permission-mask resolution, anti-spam, security, importers, the plugin/theme API, and
+the editor spike; Sonnet 4.6 for mechanical breadth.
