@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# Local-dev convenience + a reference for the ENHANCED (Docker/VPS) tier. The BASELINE tier is plain
+# PHP 8.3 + MySQL + cron on a shared host — this compose is NOT a baseline dependency.
+services:
+  app:
+    build: ./docker/dev
+    working_dir: /app
+    volumes:
+      - ./:/app
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    command: php artisan serve --host=0.0.0.0 --port=8000
+
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_DATABASE: hearth
+      MYSQL_USER: hearth
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: secret
+    ports:
+      - "3306:3306"
+    volumes:
+      - hearth-dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-psecret"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  hearth-dbdata: {}
