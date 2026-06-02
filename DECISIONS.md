@@ -1,0 +1,87 @@
+<!--
+SPDX-License-Identifier: Apache-2.0
+Copyright 2026 The Hearth Authors
+-->
+# Architecture Decision Records (ADRs)
+
+Decision log for **Hearth** (working codename). Each ADR is the short, durable record; the linked Stage A doc
+holds the full rationale, tradeoffs, and detail. New significant decisions are added here via the RFC/ADR
+process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed · Superseded · Revises-brief
+(flagged for sign-off)**.
+
+> **Accepted at the Phase 0 gate (2026-06-01):** ADR-0001 and ADR-0002 revised the brief's stated versions
+> (Laravel 11 → **13**, Livewire 3 → **4**) and the **PHP 8.2 → 8.3** floor, on live-validated evidence and the
+> project lead's explicit sign-off. `CLAUDE.md` and `docs/PROJECT-BRIEF.md` were updated to match.
+
+| ADR | Decision | Status | Detail |
+|---|---|---|---|
+| 0001 | Stack: **Laravel 13 + Livewire 4 + Alpine + Blade**, server-rendered | **Accepted** (revised brief 11/3; signed off at Phase 0 gate) | [stack](docs/architecture/technical-stack-recommendation.md) |
+| 0002 | **Min PHP 8.3** (recommend 8.4+) | **Accepted** (revised 8.2 floor; signed off at Phase 0 gate) | [stack §5](docs/architecture/technical-stack-recommendation.md) |
+| 0003 | **Two-tier progressive enhancement** + driver abstraction + service-tier detection | Accepted | [system-arch §1](docs/architecture/system-architecture.md) |
+| 0004 | **MySQL/MariaDB default**, PostgreSQL parity (Docker/VPS), nullable `tenant_id` seam | Accepted | [data-model](docs/architecture/data-model-initial.md) |
+| 0005 | **Canonical content storage** = structured canonical + server-sanitized HTML cache + text projection | Accepted | [data-model §3](docs/architecture/data-model-initial.md) |
+| 0006 | **Permission-mask resolution** (ALLOW/NO/NEVER, global→thread scope, cache, inspector) | Accepted | [security §1](docs/architecture/security-and-permissions.md) |
+| 0007 | **First-class anti-spam** subsystem (trust levels ↔ ACL, blocklist, CAPTCHA abstraction, rate limits) | Accepted | [security §2](docs/architecture/security-and-permissions.md#anti-spam) |
+| 0008 | **Module/hook/event/slot system** — semver'd public contract, no core edits | Accepted | [plugin-theme §2](docs/architecture/plugin-and-theme-system.md) |
+| 0009 | **Dual theming** — visual configurator + Blade override layer, a11y floor, no core edits | Accepted | [plugin-theme §3](docs/architecture/plugin-and-theme-system.md) |
+| 0010 | **Search abstraction** (Scout DB → Meilisearch) + documented illustrative threshold | Accepted | [system-arch §4](docs/architecture/system-architecture.md) |
+| 0011 | **Queue via cron** (DB queue, bounded drain, coarse-cron tolerant, idempotent) | Accepted | [system-arch §3](docs/architecture/system-architecture.md) |
+| 0012 | **Editor** = TipTap-class WYSIWYG as an Alpine island (`wire:ignore`, prebuilt) — #1 risk/spike | Accepted | [stack §7](docs/architecture/technical-stack-recommendation.md) |
+| 0013 | **Importers** = resumable, dry-run/verify, attachment-verified, password-rehash, 301 redirect maps | Accepted | [plugin-theme §4](docs/architecture/plugin-and-theme-system.md) |
+| 0014 | **Email deliverability** = provider abstraction + SPF/DKIM/DMARC guidance + bounce/suppression; baseline best-effort | Accepted | [system-arch §5](docs/architecture/system-architecture.md) |
+| 0015 | **Dependency licensing** = Apache-2.0-compatible only; no GPL/AGPL bundled; **TipTap MIT-core only** | Accepted | [stack §8](docs/architecture/technical-stack-recommendation.md) |
+| 0016 | **a11y/i18n baseline** = WCAG 2.1 AA baked in; utf8mb4; externalized strings; RTL not precluded | Accepted | [data-model §10](docs/architecture/data-model-initial.md), [plugin-theme §3.3](docs/architecture/plugin-and-theme-system.md) |
+| 0017 | **License = Apache-2.0** + SPDX headers from commit one | Accepted (brief) | [LICENSE](LICENSE) |
+| 0018 | **Strict clean-room** vs all reference forums; copy *data* (importers), never *program* | Accepted (brief) | [CONTRIBUTING](CONTRIBUTING.md) |
+
+---
+
+## ADR detail (concise)
+
+### ADR-0001 — Framework & rendering stack
+**Context:** need one server-rendered, SEO-safe codebase that installs on a shared host (no Node SSR, no
+daemon) yet supports a modern product surface. **Decision:** Laravel 13 + Livewire 4 + Alpine + Blade,
+server-rendered; reject Inertia+Vue/React SPA (needs Node SSR for SEO). **Consequences:** one codebase across
+tiers; rich client widgets become Alpine islands; revises brief's "Laravel 11 / Livewire 3" to current stable.
+
+### ADR-0002 — Minimum PHP 8.3
+**Context:** Laravel 13 requires PHP 8.3; PHP 8.2 reaches EOL 2026-12-31. **Decision:** floor at 8.3, recommend
+8.4+. **Consequences:** **revised the Checkpoint-approved 8.2 floor** — starting a 2026 project on a soon-EOL
+runtime is indefensible, and reputable shared hosts offer 8.3/8.4 by mid-2026. **Signed off at the Phase 0 gate (2026-06-01).**
+
+### ADR-0005 — Canonical content storage
+**Context:** WYSIWYG-first, but must render safely, search well, re-transform, and import legacy BBCode.
+**Decision:** store a lossless **canonical** doc (TipTap JSON / Markdown / legacy) + a **server-sanitized HTML
+cache** + a **plain-text** projection; HTML always (re)generated server-side from canonical (the security
+boundary). **Consequences:** lossless edit, safe render, future-proof re-render, easy search; needs a server
+JSON→HTML renderer (MIT lib) + allowlist sanitizer (license vetted here).
+
+### ADR-0006 — Permission-mask resolution
+**Context:** phpBB-grade ACL is a primary requirement. **Decision:** three-state ALLOW/NO/**NEVER** (NEVER
+absolute), holders = users + primary/secondary groups, scope chain global→category→forum→thread (local
+overrides global, user overrides group, most-permissive group, deny-by-default), role presets, cached resolved
+masks (>95% hit), admin "why can/can't X" inspector. **Consequences:** the spine of the app; dedicated
+truth-table tests; anti-spam gating reuses it (ADR-0007).
+
+### ADR-0007 — First-class anti-spam
+**Context:** spam is the #1 evidenced operator burden and Hearth's differentiator. **Decision:** layered
+defense (registration blocklist + CAPTCHA abstraction + honeypot + velocity; trust levels as ACL groups;
+post-time scanning + rate limits + moderation queue; Spam Cleaner), **gating expressed through the
+permission-mask engine** (NEVER = hard gate, NO = soft gate), all baseline-safe/graceful. **Consequences:**
+unified with permissions + inspectable; external services optional; documented threshold defaults; privacy/GDPR
+retention on registration checks.
+
+### ADR-0011 — Queue via cron
+**Context:** baseline hosts can't run a worker daemon. **Decision:** DB queue drained by a single
+`schedule:run` cron with a bounded `queue:work --stop-when-empty`, overlap-locked; all async work idempotent
+and correct within one (possibly coarse 5–15 min) cron interval. **Consequences:** "one cron line" baseline;
+swap to Redis+worker on enhanced with no code change.
+
+### ADR-0015 — Dependency licensing
+**Context:** Apache-2.0 + clean-room. **Decision:** every dependency Apache-2.0-compatible (MIT/BSD/Apache/
+ISC); **no GPL/AGPL bundled**; **TipTap: MIT core/extensions only** (its Pro/collaboration packages are
+commercial — never pulled); Typesense (GPL server) only as an optional out-of-process service, never bundled.
+**Consequences:** per-dependency license recorded here before merge.
+
+*(ADRs 0003, 0004, 0008, 0009, 0010, 0012, 0013, 0014, 0016, 0017, 0018 are summarized in the table above; full
+detail in their linked docs.)*

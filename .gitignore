@@ -1,0 +1,10 @@
+# Hearth — repo baseline .gitignore (Cowork, 2026-06-02)
+# Laravel/Node-specific ignores (vendor/, node_modules/, .env, public/build, etc.) are added
+# by the Code session at M0 when the app is scaffolded. For now: OS / editor cruft only.
+
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
