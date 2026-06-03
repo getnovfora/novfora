@@ -73,6 +73,16 @@ return [
             'default' => 20,
         ],
 
+        // Warnings / infractions (security §3): automated consequences when live point totals cross these.
+        'warnings' => [
+            'thresholds' => [
+                'moderate' => 5,   // ≥ → posts held for moderation (status=pending) until acknowledged
+                'temp_ban' => 15,  // ≥ → a temporary ban
+                'ban' => 30,       // ≥ → a permanent ban
+            ],
+            'temp_ban_days' => 7,
+        ],
+
         // Layer 1 — registration. Every control degrades to a local mechanism (security §2.2 / §2.6).
         'registration' => [
             'stopforumspam' => [
