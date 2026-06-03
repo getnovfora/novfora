@@ -132,4 +132,34 @@ return [
         'path' => base_path('themes'),          // filesystem location of child-theme packages
         'api_version' => '1.0',                  // the semver'd theme contract (ThemeManager::API_VERSION)
     ],
+
+    // ── Operability — the no-SSH web installer (M5, phase-1-plan §5) ──────────────────────────────
+    // The installer is an UNAUTHENTICATED pre-install surface that writes .env, runs migrations, and
+    // creates the first admin. It MUST lock after install: the marker file below is written LAST and,
+    // once present, the installer refuses to run again. There is no web route that removes it — the
+    // only reset is a deliberate filesystem action on the host (documented in docs/getting-started.md).
+    'install' => [
+        // The "installed" lock marker. A plain file (not a DB flag) so the lock holds even before the
+        // DB exists and survives a DB wipe. Its presence === installed (Install\Installer::isInstalled()).
+        'marker' => env('HEARTH_INSTALL_MARKER', storage_path('installed')),
+
+        // The .env target the installer writes. Overridable so tests never clobber the real file.
+        'env_path' => env('HEARTH_INSTALL_ENV_PATH', base_path('.env')),
+
+        // When true (the default in production), an un-installed app forces every request to the wizard
+        // and the pre-install boot hook forces zero-dependency drivers (file session/cache, sync queue)
+        // + an APP_KEY so a freshly-uploaded tree boots with no DB. Disabled in the test env (phpunit.xml)
+        // so the 247-test suite — which provisions its own DB — never gets redirected to /install.
+        'enforce' => env('HEARTH_INSTALL_ENFORCE', true),
+    ],
+
+    // ── Operability — backups & restore (M5) ─────────────────────────────────────────────────────
+    // Baseline-safe: a DB dump + a storage archive + a manifest, bundled into ONE portable .zip. Runs
+    // from the single cron line (ADR-0011) and from the admin UI; restore is a CLI path. Nothing here
+    // hard-depends on an enhanced service.
+    'backup' => [
+        'path' => env('HEARTH_BACKUP_PATH', storage_path('backups')), // where archives are written
+        'keep' => (int) env('HEARTH_BACKUP_KEEP', 7),                 // retain the N newest; prune older
+        'schedule' => env('HEARTH_BACKUP_SCHEDULE', 'daily'),         // daily | weekly | off (scheduler)
+    ],
 ];

@@ -20,6 +20,10 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <!-- The test suite provisions its own database, so it must never be redirected to the installer
+             or have its drivers hardened by the pre-install boot hook. Installer-specific tests opt back
+             in by toggling this config + pointing the marker/.env at temp paths. -->
+        <env name="HEARTH_INSTALL_ENFORCE" value="false"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <!-- Anti-spam: frictionless by default in tests (no CAPTCHA, no live StopForumSpam network call);
              the dedicated anti-spam suites opt back in to the strict config per test. -->

@@ -5,6 +5,7 @@
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\BanController;
 use App\Http\Controllers\ForumController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\MentionController;
 use App\Http\Controllers\ModerationController;
 use App\Http\Controllers\NotificationController;
@@ -26,6 +27,17 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
+
+// ── No-SSH web installer (M5, phase-1-plan §5) ─────────────────────────────────────────────────────────
+// Unauthenticated pre-install surface. The `hearth.not-installed` lock 403s every installer route once
+// installed (no re-trigger, no admin-reset vector); RedirectIfNotInstalled (web group) sends an
+// un-installed site here. The wizard itself is the Livewire <livewire:installer.wizard /> component.
+Route::middleware('hearth.not-installed')->group(function () {
+    Route::view('/install', 'install.index')->name('install');
+});
+
+// Health/status endpoint for uptime monitoring (M5) — works before AND after install; no auth, no secrets.
+Route::get('/health', HealthController::class)->name('health');
 
 // ── Forums (M2) — public read, per-node authorized; anonymous resolves as the Guests group ─────────────
 Route::get('/forums', [ForumController::class, 'index'])->name('forums.index');
