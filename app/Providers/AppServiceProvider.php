@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\AntiSpam\ContentScanner;
+use App\AntiSpam\LocalHeuristicsScanner;
 use App\Models\User;
 use App\Permissions\PermissionResolver;
 use App\Permissions\Scope;
@@ -32,6 +34,10 @@ class AppServiceProvider extends ServiceProvider
         // Permission-mask engine (ADR-0006). Singleton so the per-request resolution memo
         // (and not just the cross-request cache) survives across many checks in one request.
         $this->app->singleton(PermissionResolver::class);
+
+        // Content-scanning contract (ADR-0007 §2.4): local heuristics now; an Akismet provider swaps in
+        // here in Phase 2 with no change to the moderation pipeline.
+        $this->app->bind(ContentScanner::class, LocalHeuristicsScanner::class);
     }
 
     /**

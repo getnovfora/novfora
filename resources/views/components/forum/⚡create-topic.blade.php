@@ -42,7 +42,14 @@ new class extends Component
         }
 
         [$format, $canonical] = $this->body();
-        $topic = $service->createTopic(auth()->user(), $this->forum(), $this->title, $format, $canonical);
+
+        try {
+            $topic = $service->createTopic(auth()->user(), $this->forum(), $this->title, $format, $canonical);
+        } catch (\App\AntiSpam\ContentRejectedException $e) {
+            $this->addError('body', $e->getMessage());
+
+            return null;
+        }
 
         return $this->redirectRoute('topics.show', $topic, navigate: true);
     }

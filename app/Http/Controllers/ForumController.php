@@ -36,15 +36,25 @@ class ForumController extends Controller
         $viewer = $request->user() ?? User::guest();
         abort_unless($viewer->canDo('forum.view', $forum->permissionScope()), 403);
 
+        $user = $request->user();
+        $canModerate = $user?->canDo('topic.moderate', $forum->permissionScope()) ?? false;
+
+        // Hide pending topics (a held opening post) from everyone but their author and local moderators.
         $topics = $forum->topics()
             ->with('author')
+            ->unless($canModerate, fn ($q) => $q->where(function ($q2) use ($user) {
+                $q2->where('approved_state', 'approved');
+                if ($user) {
+                    $q2->orWhere('user_id', $user->getKey());
+                }
+            }))
             ->orderByDesc('is_pinned')
             ->orderByRaw('last_posted_at IS NULL') // posted topics before empty ones
             ->orderByDesc('last_posted_at')
             ->orderByDesc('id')
             ->paginate(20);
 
-        $canPost = $request->user()?->canDo('topic.create', $forum->permissionScope()) ?? false;
+        $canPost = $user?->canDo('topic.create', $forum->permissionScope()) ?? false;
 
         return view('forum.show', compact('forum', 'topics', 'viewer', 'canPost'));
     }

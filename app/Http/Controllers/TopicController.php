@@ -20,15 +20,23 @@ class TopicController extends Controller
 
         Topic::whereKey($topic->getKey())->increment('view_count'); // quiet: no model events
 
-        $posts = $topic->posts()
-            ->with(['author', 'revisions'])
-            ->orderBy('position')->orderBy('id')
-            ->paginate(15);
-
         $user = $request->user();
         $scope = $topic->permissionScope();
         $canReply = $topic->status !== 'locked' && ($user?->canDo('post.create', $scope) ?? false);
         $canModerate = $user?->canDo('topic.moderate', $scope) ?? false;
+
+        // Moderation-queue visibility (ADR-0007 §2.4): pending posts are hidden from everyone except their
+        // author and staff who can moderate here. Approved posts are visible to all.
+        $posts = $topic->posts()
+            ->with(['author', 'revisions'])
+            ->unless($canModerate, fn ($q) => $q->where(function ($q2) use ($user) {
+                $q2->where('approved_state', 'approved');
+                if ($user) {
+                    $q2->orWhere('user_id', $user->getKey());
+                }
+            }))
+            ->orderBy('position')->orderBy('id')
+            ->paginate(15);
 
         return view('forum.topic', compact('topic', 'posts', 'viewer', 'user', 'canReply', 'canModerate'));
     }

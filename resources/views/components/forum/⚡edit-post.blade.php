@@ -41,7 +41,13 @@ new class extends Component
             ? ['markdown', ['source' => $this->markdownSource]]
             : ['tiptap_json', $this->canonicalJson];
 
-        $service->editPost(auth()->user(), $post, $format, $canonical, $this->reason !== '' ? $this->reason : null);
+        try {
+            $service->editPost(auth()->user(), $post, $format, $canonical, $this->reason !== '' ? $this->reason : null);
+        } catch (\App\AntiSpam\ContentRejectedException $e) {
+            $this->addError('body', $e->getMessage());
+
+            return null;
+        }
 
         return $this->redirectRoute('topics.show', $post->topic_id, navigate: true);
     }

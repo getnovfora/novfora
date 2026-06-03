@@ -57,6 +57,14 @@ return [
             'demotion_points' => 10,
         ],
 
+        // Post-time content scanning heuristics (LocalHeuristicsScanner, ADR-0007 §2.4). Conservative:
+        // a suspicious scan HOLDS for moderation, never hard-blocks. Operators extend suspicious_phrases.
+        'content' => [
+            'max_links' => 3,           // ≥ this many links in one post contributes to the suspicion score
+            'suspicious_score' => 2,    // score at/above which a post is held for moderation
+            'suspicious_phrases' => [], // e.g. ['cheap viagra', 'casino bonus'] — each match adds to the score
+        ],
+
         // Per-trust post-rate limits (posts/minute), enforced via Laravel's cache-backed RateLimiter —
         // DB cache on the baseline tier, Redis on enhanced, with no code change (tier-graceful, ADR-0011).
         'rate_limits' => [
