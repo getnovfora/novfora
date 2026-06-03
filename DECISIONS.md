@@ -62,7 +62,10 @@ JSON→HTML renderer (MIT lib) + allowlist sanitizer (license vetted here).
 absolute), holders = users + primary/secondary groups, scope chain global→category→forum→thread (local
 overrides global, user overrides group, most-permissive group, deny-by-default), role presets, cached resolved
 masks (>95% hit), admin "why can/can't X" inspector. **Consequences:** the spine of the app; dedicated
-truth-table tests; anti-spam gating reuses it (ADR-0007).
+truth-table tests; anti-spam gating reuses it (ADR-0007). **NO semantics (owner-confirmed 2026-06-02):**
+`NO` = neutral/inherit (**interpretation "ii"**) — an `ALLOW` lifts it and inheritance continues past it; use
+`NEVER` to hard-deny. The single decision point is marked inline in `PermissionResolver::compute()` and pinned
+by the truth-table suite.
 
 ### ADR-0007 — First-class anti-spam
 **Context:** spam is the #1 evidenced operator burden and Hearth's differentiator. **Decision:** layered

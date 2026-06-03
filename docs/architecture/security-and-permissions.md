@@ -17,6 +17,10 @@ The phpBB-grade ACL is a **primary requirement**, not a generic gate. It is reim
 
 - **Three-state values:** every permission, for every holder, at every scope, is **ALLOW (`+1`)**, **NO
   (`0`, neutral/unset)**, or **NEVER (`-1`)**. **NEVER is absolute** — no ALLOW anywhere can override it.
+  - **NO = neutral / inherit (interpretation "ii") — owner-confirmed 2026-06-02.** A `NO` never hard-denies:
+    an `ALLOW` (a more-specific scope or a higher-priority group) lifts it, and inheritance continues *past*
+    it. Use **NEVER** to hard-deny. This is implemented exactly in `PermissionResolver::compute()` (the single
+    decision point is marked inline) and pinned by the permission-mask truth-table suite.
 - **Holders:** **users** and **groups**. Users have **one primary + N secondary** groups. **Guests** are a
   system group; **banned** is enforced before resolution.
 - **Roles** are *presets* — named bundles of three-state values applied to a holder at a scope (they expand
