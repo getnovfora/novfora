@@ -181,6 +181,35 @@ clean-room**.
 > (M3/M4); oEmbed embeds + reactions/polls/tags *features* (Phase 2, seams only). Commits on `main` (small,
 > conventional, signed). **NEXT: M3 — Anti-spam baseline & moderation (ADR-0007)** — trust levels enforced
 > through the ACL, registration blocklist, moderation queue + ACP/MCP, per [`phase-1-plan.md`](docs/product/phase-1-plan.md) §5.
+>
+> **Update 2026-06-03 (M3 DONE — Code):** **Phase 1 M3 (Anti-spam baseline & moderation, ADR-0007) complete.**
+> The whole subsystem is **unified with the M1 permission engine — no second permission system.**
+> **(1) Trust→ACL gating (the crux):** TL gates seeded as `acl_entries` on TL0–TL4 from a config matrix
+> (`config/hearth.php`) — **TL0 = NEVER on links/images/mass-PM** (absolute; an admin ALLOW cannot lift it,
+> pinned by a test), TL1+ = ALLOW; attachments stay an admin-liftable soft seam. Enforced by **link/image
+> suppression at the shared sanitize step** (canonical stays lossless, ADR-0005). The inspector explains a block
+> as "tl0 group: post.links = NEVER". **Auto promotion/demotion** via the idempotent `hearth:trust:recompute`
+> cron (stats + infraction points; TL4 manual). **(2) Registration layer** (Fortify `CreateNewUser`): tri-state
+> **allow / flag→pending / block** (flag-don't-block) from StopForumSpam (live→cron-cached→no-signal),
+> disposable-email, honeypot+encrypted-timing, IP velocity + a `CaptchaProvider` abstraction (**Q&A baseline,
+> Turnstile pluggable, degrades to Q&A**); `registration_checks` purged on a GDPR retention cron. **(3)
+> Posting/reactive:** a `ContentScanner` **contract** (local heuristics now; **Akismet = Phase 2** behind it) +
+> word filters (replace/flag/block) + a **new-user moderation queue** (TL0 first-N, and any `status=pending`
+> account — which closes the registration-flag→queue loop) via `approved_state`, with pending content hidden
+> from non-staff; **per-trust rate limiting** (cache-backed, tier-graceful); **Spam Cleaner** (bulk soft-delete +
+> ban); user/IP/email/range **bans** (issuing/lifting now **bumps the ACL version** so a cached verdict can't
+> outlive a ban). **(4) Moderation + MCP:** approval queue (approve/reject), reports→staff dashboard, **warnings/
+> infractions** (typed, point-weighted, time-decaying, threshold consequences moderate→temp-ban→ban,
+> acknowledge-to-restore), an MCP control-panel + in-thread Report action — all gated through the engine and
+> audited. **Schema (reversible):** registration_checks, blocklist_cache, reports, warning_types, warnings,
+> word_filters (`rate_limit_hits`/`mod_actions` intentionally omitted — see DECISIONS). **Tests:** the DoD
+> battery — NEVER hard-gate through the engine **and admin-ALLOW-can't-lift**, tri-state registration, queue+
+> approval, bans/word-filters, and the **tier-graceful suite** (force StopForumSpam/CAPTCHA absence → degrade,
+> never error). **Pest 212 passed / 674 assertions** (M0 tier + M1 truth-table/auth + M2 suites STAY green);
+> Larastan + Pint clean; `composer audit` clean; **migrations reverse cleanly on MySQL 8**; runs on the baseline
+> tier (PHP 8.3 + MySQL + cron). **No new dependencies.** The M3 server-rendered flows are covered by feature
+> tests; the M2 Dusk editor journey is unchanged. Small conventional DCO commits on `main`. **NEXT: M4 —
+> Notifications · search · SEO · theme**, per [`phase-1-plan.md`](docs/product/phase-1-plan.md) §5.
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
