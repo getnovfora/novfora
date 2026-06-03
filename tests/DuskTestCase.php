@@ -17,7 +17,9 @@ abstract class DuskTestCase extends BaseTestCase
     #[BeforeClass]
     public static function prepare(): void
     {
-        if (! static::runningInSail()) {
+        // When DUSK_DRIVER_URL points at an already-running ChromeDriver (our Chrome-enabled CI /
+        // docker/dusk image starts the system chromedriver), don't auto-start Dusk's bundled one.
+        if (! static::runningInSail() && ! env('DUSK_DRIVER_URL') && ! isset($_ENV['DUSK_DRIVER_URL'])) {
             static::startChromeDriver(['--port=9515']);
         }
     }
@@ -35,8 +37,15 @@ abstract class DuskTestCase extends BaseTestCase
             return $items->merge([
                 '--disable-gpu',
                 '--headless=new',
+                '--no-sandbox',            // required to run Chromium as root in a CI/Docker container
+                '--disable-dev-shm-usage', // containers ship a tiny /dev/shm; use /tmp instead
             ]);
         })->all());
+
+        // Point at a specific Chrome/Chromium binary when provided (the CI image uses system Chromium).
+        if ($binary = env('DUSK_CHROME_BINARY')) {
+            $options->setBinary($binary);
+        }
 
         return RemoteWebDriver::create(
             $_ENV['DUSK_DRIVER_URL'] ?? env('DUSK_DRIVER_URL') ?? 'http://localhost:9515',

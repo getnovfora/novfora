@@ -90,7 +90,10 @@ new class extends Component
 
 <form wire:submit="save" style="display:flex;flex-direction:column;gap:.6rem">
     <label style="font-weight:600">Title</label>
-    <input type="text" wire:model="title" maxlength="160" autofocus
+    {{-- .blur syncs on blur (not deferred-until-submit): a value typed after a validation-error morph then
+         reliably reaches the server on resubmit. No autofocus — it re-fires on every morph and fights the
+         editor below for focus. --}}
+    <input type="text" wire:model.blur="title" maxlength="160" dusk="topic-title"
            style="padding:.55rem;border:1px solid #bbb;border-radius:6px;font-size:1.05rem">
     @error('title') <p style="color:#b00020;margin:0">{{ $message }}</p> @enderror
 
