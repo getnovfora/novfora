@@ -6,9 +6,11 @@ declare(strict_types=1);
 
 use App\Permissions\PermissionInspector;
 use App\Permissions\PermissionValue as V;
+use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\Support\Acl;
+use Tests\Support\Users;
 
 /*
 | The "why can / can't X?" inspector (security §1.4): the service report, the hearth:why CLI, and the
@@ -74,8 +76,11 @@ it('fails the hearth:why command cleanly for an unknown user', function () {
         ->assertFailed();
 });
 
-it('renders the ACP inspector page (testing env)', function () {
-    $this->get(route('admin.system.permissions'))
+it('renders the ACP inspector page for an authenticated admin', function () {
+    $this->seed(DatabaseSeeder::class);
+    $admin = Users::withTwoFactor(Users::inGroups(['admins']));
+
+    $this->actingAs($admin)->get(route('admin.system.permissions'))
         ->assertOk()
         ->assertSee('Permission Inspector');
 });
