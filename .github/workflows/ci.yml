@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: Apache-2.0
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    name: Lint & static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          coverage: none
+      - run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Pint (code style)
+        run: ./vendor/bin/pint --test
+      - name: Larastan (static analysis)
+        run: php -d memory_limit=512M ./vendor/bin/phpstan analyse --no-progress
+      - name: composer audit (dependency advisories)
+        run: composer audit --no-dev
+
+  test:
+    name: Pest (PHP 8.3 · MySQL 8)
+    runs-on: ubuntu-latest
+    # Matrix note: expand to PHP 8.4 + MariaDB + PostgreSQL as the suite grows; Dusk browser jobs
+    # are added in M2 when the editor + core journeys exist.
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_DATABASE: hearth_test
+          MYSQL_ROOT_PASSWORD: secret
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -psecret"
+          --health-interval=5s --health-timeout=3s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, mbstring, zip
+          tools: composer:v2
+          coverage: none
+      - run: composer install --no-interaction --no-progress --prefer-dist
+      - run: cp .env.example .env && php artisan key:generate
+      - name: Pest (unit + feature; incl. the service-tier forced-absence suite)
+        run: ./vendor/bin/pest
+      - name: Baseline MySQL migrate (proves the shared-host DB path runs on MySQL)
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: hearth_test
+          DB_USERNAME: root
+          DB_PASSWORD: secret
+        run: php artisan migrate --force && php artisan migrate:rollback --force
+
+  assets:
+    name: Asset budget
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm run build
+      - name: Main bundle gz budget
+        run: |
+          set -euo pipefail
+          MAIN=$(ls -1 public/build/assets/app-*.js | head -1)
+          GZ=$(gzip -c "$MAIN" | wc -c)
+          echo "main app JS = ${GZ} bytes gz (budget 100000)"
+          test "$GZ" -lt 100000
+          # The editor island budget (≤180 KB gz, lazy-loaded chunk) is enforced in M2 (per spike-0-memo).
