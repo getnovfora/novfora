@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\AntiSpam\ContentScanner;
 use App\AntiSpam\LocalHeuristicsScanner;
+use App\Install\EnvWriter;
+use App\Install\Installer;
 use App\Models\User;
 use App\Permissions\PermissionResolver;
 use App\Permissions\Scope;
@@ -45,6 +47,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->prepareForInstaller();
+
         // Route scope-based authorization through the permission-mask engine, deny-by-default.
         // Usage: $user->can('forum.post.create', $scope) or Gate::allows('...', $scope).
         // Any check whose argument is a Scope is answered by the resolver; everything else
@@ -56,5 +60,32 @@ class AppServiceProvider extends ServiceProvider
                 ? app(PermissionResolver::class)->can($user, $ability, $scope)
                 : null;
         });
+    }
+
+    /**
+     * Before Hearth is installed, harden the app so a freshly-uploaded tree boots with NO database and
+     * NO pre-set APP_KEY: force zero-dependency drivers (file session/cache, synchronous queue) and
+     * generate + persist an APP_KEY so sessions/encryption — and thus the Livewire installer wizard —
+     * work. Runs in boot(), before StartSession reads the session driver. A no-op once installed, and in
+     * environments that opt out (the test suite), via Installer::shouldEnforce().
+     */
+    private function prepareForInstaller(): void
+    {
+        if (! app(Installer::class)->shouldEnforce()) {
+            return;
+        }
+
+        config([
+            'session.driver' => 'file',
+            'cache.default' => 'file',
+            'queue.default' => 'sync',
+        ]);
+
+        try {
+            app(EnvWriter::class)->ensureAppKey();
+        } catch (\Throwable) {
+            // Filesystem not writable yet — the installer's requirements step will report it; never
+            // crash the boot of the very page that is meant to diagnose the problem.
+        }
     }
 }

@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\EnsureNotInstalled;
+use App\Http\Middleware\RedirectIfNotInstalled;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -12,7 +14,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Until Hearth is installed, force every web request to the no-SSH installer (M5). Appended so it
+        // runs after the session has started — the wizard is a Livewire component and needs the session.
+        $middleware->web(append: [
+            RedirectIfNotInstalled::class,
+        ]);
+
+        // The installer lock — applied to the installer routes so they 403 once installed.
+        $middleware->alias([
+            'hearth.not-installed' => EnsureNotInstalled::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Render JSON errors for any request that asks for JSON (AJAX/fetch endpoints such as the editor
