@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
             TrustGateSeeder::class,   // anti-spam trust gates on the TL groups (ADR-0007 §2.3) — needs the groups + catalog
             WarningTypeSeeder::class, // default infraction "action bundles" (security §3)
             BlocklistSeeder::class,   // local disposable-email domain list (ADR-0007 §2.2)
+            CustomFieldSeeder::class, // example profile fields (data-model §1)
         ]);
     }
 }
