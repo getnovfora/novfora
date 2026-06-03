@@ -210,6 +210,34 @@ clean-room**.
 > tier (PHP 8.3 + MySQL + cron). **No new dependencies.** The M3 server-rendered flows are covered by feature
 > tests; the M2 Dusk editor journey is unchanged. Small conventional DCO commits on `main`. **NEXT: M4 —
 > Notifications · search · SEO · theme**, per [`phase-1-plan.md`](docs/product/phase-1-plan.md) §5.
+>
+> **Update 2026-06-03 (M4 DONE — Code):** **Phase 1 M4 (Notifications · Search · SEO · Theme) complete** — the
+> last build milestone before M5. **No new dependencies.** **(1) Notifications (data-model §7):** a custom
+> merge-aware `Notifier` on two channels — **database (in-app, polled)** + **mail (queued, cron-drained,
+> ADR-0014)** — for replies, @mentions (parsed from the canonical doc), and moderation/warning notices; a new
+> same-thread reply/mention **merges** into the recipient's unread notification ("X and N others…"); held posts
+> notify at approval, not at write. Per-event×channel **preferences**, an `email_suppressions` list, a
+> `hearth:mail:test` self-test, a **Livewire polling bell** (Reverb is Phase 4). **(2) Search (ADR-0010):**
+> `Post` is Scout `Searchable` over `body_text` on the **database** driver (MySQL FULLTEXT/LIKE), approved-only,
+> results filtered to forums the viewer can see; a `SearchService` **degrades to a direct DB query when the
+> engine (Meilisearch) is absent** (forced-absence test). Inline typeahead + a per-user **unread / "what's new"**
+> read-watermark (`topic_reads`). **(3) SEO (system-architecture §6):** canonical URLs, Open Graph, schema.org
+> **DiscussionForumPosting JSON-LD**, a cached **XML sitemap** (empty containers + non-viewable content
+> excluded) + robots. **(4) Theme (ADR-0009 — the deliberate part):** a **semver'd Blade override layer**
+> (`ThemeManager`, THEME API **v1.0**) resolving **active theme → parent → core** so a child theme overrides any
+> view with **no core edit** (proven by a fixture test); manifest-declared `api_version`; **a11y floor** baked in
+> (skip-link + `#main`, `:focus-visible`, AA-contrast CSS-custom-property tokens) — themes restyle, can't strip;
+> docs in [`docs/THEME-API.md`](docs/THEME-API.md). One mobile-first default theme + a primary nav. **(5)
+> Profiles (data-model §1):** signatures via the M2 canonical pipeline + sanitizer (client HTML never trusted),
+> admin-defined custom fields (ACP CRUD), avatars/covers. **Schema (reversible):** notifications,
+> notification_preferences, email_suppressions, topic_reads, custom_fields(+values), users.signature_*. **Pest
+> 247 passed / 760 assertions** (M0–M3 suites STAY green); Larastan + Pint clean; `composer audit` clean;
+> **migrations reverse cleanly on MySQL 8**; **asset budget green** (main JS 1 KB gz, editor chunk 132 KB gz,
+> rebuilt). Tier-graceful suite covers search + notifications. Runs on the baseline tier. Small conventional DCO
+> commits on `main`. **Phase-1 §3 reconciled** (reports/warnings/edit-history now correctly listed as built).
+> **NEXT: M5 — Operability & the runnable milestone** (no-SSH web installer, automated backups + restore,
+> upgrade rehearsal, demo seed + getting-started, `.env.example` finalize, perf budgets in CI), per
+> [`phase-1-plan.md`](docs/product/phase-1-plan.md) §5.
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,

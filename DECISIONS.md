@@ -171,6 +171,16 @@ boundary, is small and fully under our control, and is proven by the XSS battery
 is the authoritative allowlist backstop for every render path. (Editor-side `@tiptap/*` JS packages, all MIT,
 are recorded with the editor commit.)
 
+**M4 — notifications · search · SEO · theme (2026-06-03):** **No new dependencies.** Notifications use
+Laravel's `notifications` table with a custom merge-aware `Notifier` (db + queued mail, ADR-0014); search uses
+`laravel/scout` (already present, M0) on the `database` driver with a `SearchService` that **degrades to a
+direct DB query** when the configured engine is absent (ADR-0010, tier-graceful); SEO is hand-rolled JSON-LD +
+a cached sitemap (system-architecture §6); the **theme override layer** (`App\Theme\ThemeManager`, ADR-0009)
+is a custom, semver'd contract over Blade's view finder (active theme → parent → core), documented in
+[THEME-API.md](docs/THEME-API.md) (**THEME API v1.0**). Signatures reuse the M2 canonical pipeline + sanitizer.
+Avatars/covers use the `public` disk (needs `storage:link`, an installer step). M4 implementation note: an
+`@mention` notification is parsed from the canonical doc; held posts notify at approval, not at write.
+
 **SPDX policy:** Hearth-authored source carries an `SPDX-License-Identifier: Apache-2.0` header. Laravel's
 scaffolded stubs are left as-is and gain a header when meaningfully edited — retrofitting every stub adds
 noise without value.
