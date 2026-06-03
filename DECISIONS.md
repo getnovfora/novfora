@@ -75,6 +75,19 @@ permission-mask engine** (NEVER = hard gate, NO = soft gate), all baseline-safe/
 unified with permissions + inspectable; external services optional; documented threshold defaults; privacy/GDPR
 retention on registration checks.
 
+**M3 implementation notes (2026-06-03):** TL gating is seeded as `acl_entries` on the TL groups from a
+config matrix (`config/hearth.php`), enforced by link/image **suppression at the shared sanitize step** (the
+canonical stays lossless, ADR-0005); auto promotion/demotion runs via the idempotent `hearth:trust:recompute`
+cron. Registration is a tri-state screener (StopForumSpam live→cron-cached→no-signal; disposable-email;
+honeypot+timing; IP velocity) + a `CaptchaProvider` abstraction that **degrades to Q&A** when an external
+provider is absent. Post-time moderation = a `ContentScanner` **contract** (local heuristics now; **Akismet is
+Phase 2** behind the same contract), word filters, and a new-user/`status=pending` queue. **Deliberate
+deviations (recorded per the conventions):** the `rate_limit_hits` table is **not** created — Laravel's
+cache-backed `RateLimiter` is already DB-on-baseline→Redis-on-enhanced (tier-graceful); `mod_actions` is **not**
+created — the append-only `audit_log` subsumes it. Issuing/lifting a **ban now bumps the ACL version** so a
+cached verdict can't outlive it. **No new runtime/dev dependencies** were added in M3 (Http via the
+framework's bundled client; `symfony/html-sanitizer` and `league/commonmark` already present).
+
 ### ADR-0011 — Queue via cron
 **Context:** baseline hosts can't run a worker daemon. **Decision:** DB queue drained by a single
 `schedule:run` cron with a bounded `queue:work --stop-when-empty`, overlap-locked; all async work idempotent
