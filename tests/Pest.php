@@ -1,5 +1,11 @@
 <?php
 
+uses(
+    DuskTestCase::class,
+    // Illuminate\Foundation\Testing\DatabaseMigrations::class,
+)->in('Browser');
+
+use Tests\DuskTestCase;
 use Tests\TestCase;
 
 // SPDX-License-Identifier: Apache-2.0

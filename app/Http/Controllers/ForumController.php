@@ -10,6 +10,7 @@ use App\Models\Forum;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class ForumController extends Controller
 {
@@ -17,11 +18,15 @@ class ForumController extends Controller
     {
         $viewer = $request->user() ?? User::guest();
 
-        $tree = Forum::query()
+        // Fragment-cache the viewer-independent category tree + counts. Tier-graceful: served from the
+        // configured store (DB on baseline, Redis on enhanced); a short TTL keeps it eventually consistent
+        // and it is NEVER load-bearing — per-viewer forum.view filtering still runs every request, and a
+        // dead cache simply re-queries. (Per-post content render is already cached in body_html_cache.)
+        $tree = Cache::remember('forum.index.tree', now()->addSeconds(60), fn () => Forum::query()
             ->whereNull('parent_id')
             ->orderBy('position')->orderBy('id')
             ->with(['children' => fn ($q) => $q->orderBy('position')->orderBy('id')])
-            ->get();
+            ->get());
 
         return view('forum.index', compact('tree', 'viewer'));
     }
