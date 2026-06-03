@@ -8,6 +8,8 @@ namespace App\Http\Controllers;
 
 use App\Forum\AttachmentService;
 use App\Models\Attachment;
+use App\Models\Post;
+use App\Models\Topic;
 use App\Models\User;
 use App\Permissions\Scope;
 use Illuminate\Http\JsonResponse;
@@ -38,15 +40,32 @@ class AttachmentController extends Controller
     /** Stream an attachment from off the web root. */
     public function show(Request $request, Attachment $attachment): StreamedResponse
     {
-        // M2: a post's attachments are public like the post HTML; an orphan (just-uploaded, not yet attached)
-        // is visible only to its uploader. Finer per-forum private-attachment gating is a later refinement.
+        // Object-level authorization (security §4 IDOR). The {attachment} key is a public, enumerable
+        // auto-increment id, so each request must prove it may read THIS file:
+        //   • an orphan (just-uploaded, not yet attached to a post) is visible only to its uploader;
+        //   • an attached file is gated exactly like the post it lives in — the viewer must hold
+        //     `forum.view` for that thread (mirrors TopicController@show), with anonymous resolving as
+        //     the Guests group. Previously attached files were served unconditionally, leaking every
+        //     attachment in private/staff-only forums to anyone walking the id space.
         if ($attachment->post_id === null) {
             abort_unless($request->user()?->getKey() === $attachment->user_id, 403);
+        } else {
+            $viewer = $request->user() instanceof User ? $request->user() : User::guest();
+            $post = Post::withTrashed()->find($attachment->post_id);
+            $topic = $post ? Topic::withTrashed()->find($post->topic_id) : null;
+            $canView = $topic instanceof Topic && $viewer->canDo('forum.view', $topic->permissionScope());
+            // The uploader keeps access to their own file (covers their own still-pending post).
+            abort_unless($canView || $request->user()?->getKey() === $attachment->user_id, 403);
         }
 
         $disk = Storage::disk($attachment->disk);
         abort_unless($disk->exists($attachment->path), 404);
 
-        return $disk->response($attachment->path, $attachment->original_name, ['Content-Type' => $attachment->mime]);
+        // nosniff so a stored file is always handled as its declared type, never sniffed into active
+        // content (defence in depth alongside the upload MIME allowlist).
+        return $disk->response($attachment->path, $attachment->original_name, [
+            'Content-Type' => $attachment->mime,
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 }
