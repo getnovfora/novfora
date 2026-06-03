@@ -119,6 +119,34 @@ clean-room**.
 > **NEXT: M1 — Identity & access** (auth + 2FA + the **permission-mask engine**, ADR-0006) per
 > [`phase-1-plan.md`](docs/product/phase-1-plan.md) §5. The validated editor pattern + `CanonicalRenderer`
 > port in **M2**; retire `hearth-spike/` then.
+>
+> **Update 2026-06-02 (M1 DONE — Code):** **Phase 1 M1 (Identity & access) complete.** Two pillars.
+> **(1) The permission-mask engine (ADR-0006 / security §1.2, implemented exactly):** three-state
+> ALLOW/NO/NEVER over the global→category→forum→thread scope chain; NEVER short-circuits, user overrides
+> group, groups merge most-permissive, deny-by-default; **NO = neutral/inherit** (interpretation "ii",
+> reconciled with §1.1/§2.3 + phpBB's tri-state — **flagged for explicit sign-off**; the single flip-point
+> is marked inline in `PermissionResolver::compute()`). Per-request memo + a resolved cache keyed by a
+> global ACL version × the user's group-set signature (event-driven invalidation, incl. scope-topology
+> changes); **correctness never depends on the cache.** Exposed via Laravel Gate (`$user->can('perm',
+> $scope)`), deny-by-default. The **"why can/can't X" inspector (§1.4)** = a service + `hearth:why` CLI + an
+> ACP Livewire panel, all reading the same resolution (no re-implementation). Schema: groups + group_user,
+> permissions + acl_entries (5-col resolution index), roles/role_permissions/role_assignments, minimal
+> forums/topics scope nodes (materialised path), bans; nullable `tenant_id` seam only (ADR-0004). **Seeds**
+> (idempotent, production-safe): system groups (guests/members/moderators/admins) + trust levels tl0–tl4
+> (the gating primitive; promotion automation is M3) + permission catalog + role presets expanded onto
+> groups. **(2) Auth (ADR-0019):** Laravel **Fortify** (headless) behind **our own clean-room Blade views** —
+> register/verify/login/logout/sessions, password reset, **argon2id**, login throttling; **2FA/TOTP
+> mandatory for staff** (`RequireTwoFactorForStaff`), opt-in for users; admin panels gated on `admin.access`
+> via the engine. Passkeys deferred (`laravel/passkeys` dormant). **DoD met:** the M0 `PermissionMaskTest`
+> placeholder is filled with an **exhaustive truth table** (ALLOW/NO/NEVER × scope chain × group-merge ×
+> primary/secondary × bans × §1.5 deleted/moved-scope edges), each assertion using the inspector trace as
+> the **oracle** (`can()` must agree with `explain()`). **Full suite: Pest 106 passed / 325 assertions**
+> (M0 tier + operability stay green); Larastan clean; Pint clean; runs on the baseline tier (PHP 8.3 +
+> MySQL + cron). Dep licenses (fortify / google2fa / bacon-qr / passkeys) in `DECISIONS.md` (ADR-0019);
+> `.env.example` gains `HASH_DRIVER=argon2id`. Commits on `main` (small, conventional, signed-off).
+> **NEXT: M2 — forum CRUD + content storage + the validated editor / `CanonicalRenderer` port**; retire
+> `hearth-spike/` then. **OPEN ITEM for the owner: confirm the NO = neutral ("ii") interpretation** (a
+> one-branch flip switches to strict-"i" if you want a set NO to hard-stop inheritance).
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
