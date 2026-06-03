@@ -42,7 +42,13 @@ new class extends Component
             ? ['markdown', ['source' => $this->markdownSource]]
             : ['tiptap_json', $this->canonicalJson];
 
-        $post = $service->reply(auth()->user(), $this->topic(), $format, $canonical);
+        try {
+            $service->reply(auth()->user(), $this->topic(), $format, $canonical);
+        } catch (\App\AntiSpam\ContentRejectedException $e) {
+            $this->addError('body', $e->getMessage());
+
+            return null;
+        }
 
         return $this->redirectRoute('topics.show', $this->topicId, navigate: true);
     }

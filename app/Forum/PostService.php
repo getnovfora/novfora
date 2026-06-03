@@ -6,6 +6,9 @@ declare(strict_types=1);
 
 namespace App\Forum;
 
+use App\AntiSpam\ContentModerator;
+use App\AntiSpam\ContentRejectedException;
+use App\AntiSpam\WordFilterService;
 use App\Content\ContentRenderer;
 use App\Models\Forum;
 use App\Models\Post;
@@ -24,7 +27,11 @@ use Illuminate\Support\Str;
  */
 final class PostService
 {
-    public function __construct(private readonly ContentRenderer $renderer) {}
+    public function __construct(
+        private readonly ContentRenderer $renderer,
+        private readonly ContentModerator $moderator,
+        private readonly WordFilterService $words,
+    ) {}
 
     /** Create a topic and its opening post atomically. */
     public function createTopic(User $author, Forum $forum, string $title, string $format, array $canonical): Topic
@@ -40,7 +47,11 @@ final class PostService
                 'approved_state' => 'approved',
             ]);
 
-            $this->writePost($author, $topic, $format, $canonical);
+            // The topic inherits its opening post's moderation state — a held OP makes the topic pending too.
+            $post = $this->writePost($author, $topic, $format, $canonical);
+            if ($post->approved_state !== 'approved') {
+                $topic->forceFill(['approved_state' => $post->approved_state])->saveQuietly();
+            }
             Audit::log('topic.created', $topic, ['title' => $title]);
 
             return $topic->refresh();
@@ -68,11 +79,19 @@ final class PostService
             ]);
 
             $rendered = $this->renderer->render($format, $canonical, $this->restrictionsFor($editor, Scope::thread((int) $post->topic_id)));
+
+            // Re-moderate the edit: a 'block' rule rejects it; a hold/flag routes it back to the queue.
+            $verdict = $this->moderator->review($editor, $rendered['text']);
+            if ($verdict->rejected()) {
+                throw new ContentRejectedException($verdict->reasons);
+            }
+
             $post->forceFill([
                 'body_format' => $format,
                 'body_canonical' => $canonical,
-                'body_html_cache' => $rendered['html'],
-                'body_text' => $rendered['text'],
+                'body_html_cache' => $this->words->applyReplacements($rendered['html']),
+                'body_text' => $this->words->applyReplacements($rendered['text']),
+                'approved_state' => $verdict->held() ? 'pending' : $post->approved_state,
                 'edited_at' => now(),
                 'edited_by' => $editor->id,
                 'edit_count' => $post->edit_count + 1,
@@ -87,6 +106,14 @@ final class PostService
     private function writePost(User $author, Topic $topic, string $format, array $canonical): Post
     {
         $rendered = $this->renderer->render($format, $canonical, $this->restrictionsFor($author, $topic->permissionScope()));
+
+        // Post-time moderation (ADR-0007 §2.4): reject aborts the write; hold stores the post as pending
+        // (new-user queue / flagged content); word-filter 'replace' rules rewrite the display.
+        $verdict = $this->moderator->review($author, $rendered['text']);
+        if ($verdict->rejected()) {
+            throw new ContentRejectedException($verdict->reasons);
+        }
+
         $position = (int) Post::where('topic_id', $topic->id)->max('position') + 1;
 
         return Post::create([
@@ -94,11 +121,11 @@ final class PostService
             'user_id' => $author->id,
             'body_format' => $format,
             'body_canonical' => $canonical,
-            'body_html_cache' => $rendered['html'],
-            'body_text' => $rendered['text'],
+            'body_html_cache' => $this->words->applyReplacements($rendered['html']),
+            'body_text' => $this->words->applyReplacements($rendered['text']),
             'position' => $position,
             'ip_address' => request()->ip(),
-            'approved_state' => 'approved',
+            'approved_state' => $verdict->held() ? 'pending' : 'approved',
         ]);
     }
 
