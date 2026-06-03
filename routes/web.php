@@ -8,6 +8,8 @@ use App\Http\Controllers\ForumController;
 use App\Http\Controllers\MentionController;
 use App\Http\Controllers\ModerationController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProfileFieldController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SitemapController;
@@ -40,6 +42,9 @@ Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap')
 Route::get('/robots.txt', function () {
     return Response::make("User-agent: *\nAllow: /\nSitemap: ".route('sitemap')."\n", 200, ['Content-Type' => 'text/plain']);
 })->name('robots');
+
+// Member profiles (data-model §1) — public read.
+Route::get('/users/{user}', [ProfileController::class, 'show'])->name('profiles.show');
 
 // Compose / moderate / upload — authenticated + email-verified.
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -99,6 +104,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('/settings/notifications', [NotificationController::class, 'preferences'])->name('settings.notifications');
     Route::post('/settings/notifications', [NotificationController::class, 'savePreferences'])->name('settings.notifications.save');
+
+    // Profile (signature, custom fields, avatar/cover) — own account.
+    Route::get('/settings/profile', [ProfileController::class, 'edit'])->name('settings.profile');
+    Route::post('/settings/profile', [ProfileController::class, 'update'])->name('settings.profile.save');
 });
 
 // Admin → System panels. Requires an authenticated admin (admin.access via the permission engine);
@@ -109,4 +118,9 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
     ->group(function () {
         Route::view('/service-tier', 'admin.system')->name('tier');
         Route::view('/permissions', 'admin.permissions')->name('permissions');
+
+        // Admin-defined custom profile fields (data-model §1).
+        Route::get('/profile-fields', [ProfileFieldController::class, 'index'])->name('profile-fields');
+        Route::post('/profile-fields', [ProfileFieldController::class, 'store'])->name('profile-fields.store');
+        Route::delete('/profile-fields/{field}', [ProfileFieldController::class, 'destroy'])->name('profile-fields.destroy');
     });

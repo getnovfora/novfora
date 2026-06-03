@@ -12,11 +12,12 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
-#[Fillable(['username', 'name', 'display_name', 'email', 'password', 'trust_level', 'status', 'tenant_id'])]
+#[Fillable(['username', 'name', 'display_name', 'email', 'password', 'trust_level', 'status', 'tenant_id', 'signature_doc', 'signature_format', 'signature_html', 'avatar_path', 'cover_path'])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -30,12 +31,19 @@ class User extends Authenticatable implements MustVerifyEmail
             'last_active_at' => 'datetime',
             'password' => 'hashed',
             'trust_level' => 'integer',
+            'signature_doc' => 'array',
         ];
     }
 
     public function groups(): BelongsToMany
     {
         return $this->belongsToMany(Group::class)->withPivot('is_primary')->withTimestamps();
+    }
+
+    /** @return HasMany<CustomFieldValue, $this> */
+    public function customFieldValues(): HasMany
+    {
+        return $this->hasMany(CustomFieldValue::class);
     }
 
     /** @return list<int> the user's group ids (primary + secondary) */
