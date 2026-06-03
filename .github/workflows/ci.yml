@@ -125,3 +125,56 @@ jobs:
       # Query-count + p95 budgets: the query-per-page budgets (thread ≤30, index ≤15) are enforced by the
       # Pest "Performance" suite in the `test` job above (an N+1 fails the build). p95 render targets are
       # profiling-verified (system-architecture §7 marks them "profiling", not a hard CI assertion).
+
+  dusk:
+    name: Dusk (editor journey, headless Chrome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, mbstring, zip
+          tools: composer:v2
+          coverage: none
+      - run: composer install --no-interaction --no-progress --prefer-dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci && npm run build
+      - name: Configure for the Dusk run (SQLite; installer enforcement off so serve isn't redirected)
+        run: |
+          set -euo pipefail
+          {
+            echo "APP_NAME=HearthDusk"
+            echo "APP_ENV=local"
+            echo "APP_DEBUG=true"
+            echo "APP_URL=http://127.0.0.1:8000"
+            echo "HEARTH_INSTALL_ENFORCE=false"
+            echo "DB_CONNECTION=sqlite"
+            echo "DB_DATABASE=${{ github.workspace }}/database/dusk.sqlite"
+            echo "CACHE_STORE=file"
+            echo "SESSION_DRIVER=file"
+            echo "QUEUE_CONNECTION=sync"
+            echo "MAIL_MAILER=array"
+            echo "SCOUT_DRIVER=database"
+            echo "BROADCAST_CONNECTION=log"
+          } > .env
+          php artisan key:generate
+          : > "${{ github.workspace }}/database/dusk.sqlite"
+          php artisan migrate:fresh --force
+      - name: Install the matching ChromeDriver
+        run: php artisan dusk:chrome-driver --detect
+      - name: Serve the app + run the Dusk journeys
+        run: |
+          set -euo pipefail
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/serve.log 2>&1 &
+          for _ in $(seq 1 30); do curl -sf http://127.0.0.1:8000/up >/dev/null 2>&1 && break || sleep 1; done
+          php artisan dusk --without-tty
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dusk-screenshots
+          path: tests/Browser/screenshots
+          if-no-files-found: ignore
