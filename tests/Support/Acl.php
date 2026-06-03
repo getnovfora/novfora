@@ -76,11 +76,12 @@ final class Acl
 
     public function group(string $slug, array $attrs = []): Group
     {
-        return $this->groups[$slug] ??= Group::create(array_merge([
-            'name' => ucfirst($slug),
-            'slug' => $slug,
-            'type' => 'custom',
-        ], $attrs));
+        // firstOrCreate so the fixture reuses seeded system/trust groups (e.g. 'members') instead of
+        // colliding on the unique slug; ad-hoc test groups are created on demand.
+        return $this->groups[$slug] ??= Group::firstOrCreate(
+            ['slug' => $slug],
+            array_merge(['name' => ucfirst($slug), 'type' => 'custom'], $attrs),
+        );
     }
 
     /**

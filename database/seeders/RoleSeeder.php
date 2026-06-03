@@ -1,0 +1,95 @@
+<?php
+
+// SPDX-License-Identifier: Apache-2.0
+
+declare(strict_types=1);
+
+namespace Database\Seeders;
+
+use App\Models\Group;
+use App\Models\Role;
+use App\Permissions\PermissionValue;
+use App\Permissions\RoleExpander;
+use Illuminate\Database\Seeder;
+
+/**
+ * Role presets (ADR-0006). Built compositionally — each role includes the one below it — then
+ * EXPANDED onto the matching system group at global scope (security §1.1). Idempotent.
+ */
+class RoleSeeder extends Seeder
+{
+    /** @return array<string, array{name:string, permissions: array<string,int>}> */
+    public static function presets(): array
+    {
+        $allow = PermissionValue::Allow->value;
+
+        $guest = ['forum.view' => $allow];
+
+        $member = $guest + [
+            'topic.create' => $allow,
+            'post.create' => $allow,
+            'post.edit.own' => $allow,
+            'post.delete.own' => $allow,
+            'attachment.create' => $allow,
+        ];
+
+        $moderator = $member + [
+            'post.edit.any' => $allow,
+            'post.delete.any' => $allow,
+            'topic.moderate' => $allow,
+            'bans.manage' => $allow,
+        ];
+
+        $administrator = $moderator + [
+            'admin.access' => $allow,
+            'admin.settings' => $allow,
+            'users.manage' => $allow,
+            'groups.manage' => $allow,
+            'permissions.manage' => $allow,
+        ];
+
+        return [
+            'guest' => ['name' => 'Guest (read-only)', 'permissions' => $guest],
+            'member' => ['name' => 'Member', 'permissions' => $member],
+            'moderator' => ['name' => 'Moderator', 'permissions' => $moderator],
+            'administrator' => ['name' => 'Administrator', 'permissions' => $administrator],
+        ];
+    }
+
+    /** Which preset each system group receives at global scope. @return array<string,string> */
+    public static function groupAssignments(): array
+    {
+        return [
+            'guests' => 'guest',
+            'members' => 'member',
+            'moderators' => 'moderator',
+            'admins' => 'administrator',
+        ];
+    }
+
+    public function run(RoleExpander $expander): void
+    {
+        $roles = [];
+
+        foreach (self::presets() as $slug => $data) {
+            $role = Role::updateOrCreate(
+                ['slug' => $slug],
+                ['name' => $data['name'], 'is_preset' => true, 'description' => $data['name'].' preset.'],
+            );
+
+            foreach ($data['permissions'] as $key => $value) {
+                $role->permissions()->updateOrCreate(['permission_key' => $key], ['value' => $value]);
+            }
+
+            $roles[$slug] = $role;
+        }
+
+        // Expand each preset onto its system group at global scope → acl_entries (the resolver's input).
+        foreach (self::groupAssignments() as $groupSlug => $roleSlug) {
+            $group = Group::where('slug', $groupSlug)->first();
+            if ($group instanceof Group && isset($roles[$roleSlug])) {
+                $expander->assignToGroup($roles[$roleSlug], $group);
+            }
+        }
+    }
+}
