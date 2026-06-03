@@ -10,6 +10,7 @@ use App\Models\Ban;
 use App\Models\User;
 use App\Models\Warning;
 use App\Models\WarningType;
+use App\Notifications\Notifier;
 use App\Support\Audit;
 use Illuminate\Support\Facades\DB;
 
@@ -21,11 +22,14 @@ use Illuminate\Support\Facades\DB;
  */
 final class WarningService
 {
-    public function __construct(private readonly TrustLevelManager $trust) {}
+    public function __construct(
+        private readonly TrustLevelManager $trust,
+        private readonly Notifier $notifier,
+    ) {}
 
     public function issue(User $actor, User $target, WarningType $type, ?string $reason = null): Warning
     {
-        return DB::transaction(function () use ($actor, $target, $type, $reason) {
+        $warning = DB::transaction(function () use ($actor, $target, $type, $reason) {
             $warning = Warning::create([
                 'user_id' => $target->getKey(),
                 'issued_by' => $actor->getKey(),
@@ -48,8 +52,13 @@ final class WarningService
                 'consequence' => $consequence['action'] ?? null,
             ]);
 
-            return $warning->fresh();
+            return $warning->refresh();
         });
+
+        // Notify the member of the moderation notice (after commit).
+        $this->notifier->send($target, 'moderation', $actor, ['url' => route('warnings.index')]);
+
+        return $warning;
     }
 
     public function acknowledge(User $user, Warning $warning): void

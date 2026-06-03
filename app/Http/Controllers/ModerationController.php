@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Forum\PostService;
 use App\Models\Forum;
 use App\Models\Post;
 use App\Models\Report;
@@ -153,13 +154,19 @@ class ModerationController extends Controller
         return view('moderation.queue', compact('topics', 'posts'));
     }
 
-    public function approveTopic(Request $request, Topic $topic): RedirectResponse
+    public function approveTopic(Request $request, Topic $topic, PostService $posts): RedirectResponse
     {
         $this->authorizeModerate($request, $topic);
         $topic->update(['approved_state' => 'approved']);
         // Approve the opening post alongside the topic it belongs to.
-        $topic->posts()->where('approved_state', 'pending')->orderBy('position')->first()?->update(['approved_state' => 'approved']);
+        $op = Post::where('topic_id', $topic->getKey())->where('approved_state', 'pending')->orderBy('position')->first();
+        $op?->update(['approved_state' => 'approved']);
         Audit::log('topic.approved', $topic);
+
+        // Now-visible content notifies @mentions (held content notifies at approval, not at write).
+        if ($op instanceof Post) {
+            $posts->dispatchPostNotifications($op); // updated in memory (approved_state set above)
+        }
 
         return back();
     }
@@ -174,11 +181,13 @@ class ModerationController extends Controller
         return redirect()->route('moderation.queue');
     }
 
-    public function approvePost(Request $request, Post $post): RedirectResponse
+    public function approvePost(Request $request, Post $post, PostService $posts): RedirectResponse
     {
         $this->authorizeModeratePost($request, $post);
         $post->update(['approved_state' => 'approved']);
         Audit::log('post.approved', $post);
+
+        $posts->dispatchPostNotifications($post); // updated in memory (approved_state set above)
 
         return back();
     }
