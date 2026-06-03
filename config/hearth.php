@@ -74,7 +74,19 @@ return [
                 'timeout' => 4,               // seconds; a slow/dead API must not stall registration
             ],
             'captcha' => [
-                'provider' => 'qa',           // qa | honeypot | hcaptcha | turnstile — pluggable, degrade→qa
+                // Default provider for any action; degrades to qa when unavailable (CaptchaManager).
+                'provider' => env('HEARTH_CAPTCHA', 'qa'), // qa | turnstile | null
+                'actions' => [
+                    // Per-action overrides, e.g. 'register' => 'turnstile', 'post' => 'qa'.
+                ],
+                'qa' => [
+                    'question' => 'What colour is a clear daytime sky? (one word)',
+                    'answers' => ['blue'],
+                ],
+                'turnstile' => [ // enhanced-tier example; absent secret → manager degrades to qa
+                    'site_key' => env('TURNSTILE_SITE_KEY', ''),
+                    'secret' => env('TURNSTILE_SECRET', ''),
+                ],
             ],
             'honeypot' => [
                 'field' => 'hp_url',          // a hidden field bots fill; humans never see it
