@@ -30,7 +30,10 @@
             <article id="post-{{ $post->id }}" style="border:1px solid #ececf1;border-radius:8px;padding:1rem;margin:1rem 0;background:#fff">
                 <header style="display:flex;justify-content:space-between;color:#888;font-size:.85rem;margin-bottom:.5rem">
                     <strong style="color:#333">{{ $post->author?->username ?? 'unknown' }}</strong>
-                    <span>{{ $post->created_at?->diffForHumans() }}@if ($post->edited_at) · edited @endif</span>
+                    <span>
+                        @if ($post->approved_state === 'pending')<span style="color:#b8860b">⏳ awaiting approval</span> · @endif
+                        {{ $post->created_at?->diffForHumans() }}@if ($post->edited_at) · edited @endif
+                    </span>
                 </header>
                 <div class="hearth-prose">{!! $post->body_html_cache !!}</div>
                 <footer style="margin-top:.6rem;display:flex;gap:.6rem;font-size:.85rem">
@@ -39,6 +42,11 @@
                         <form method="POST" action="{{ route('posts.destroy', $post) }}" style="display:inline" onsubmit="return confirm('Delete this post?')">@csrf @method('DELETE')
                             <button style="border:0;background:none;color:#a11;cursor:pointer;padding:0;font-size:.85rem">Delete</button></form>
                     @endcan
+                    @auth
+                        <form method="POST" action="{{ route('reports.store') }}" style="display:inline">@csrf
+                            <input type="hidden" name="post_id" value="{{ $post->id }}">
+                            <button style="border:0;background:none;color:#888;cursor:pointer;padding:0;font-size:.85rem">Report</button></form>
+                    @endauth
                 </footer>
             </article>
         @endforeach
