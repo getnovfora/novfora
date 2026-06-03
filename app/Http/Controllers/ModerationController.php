@@ -120,6 +120,69 @@ class ModerationController extends Controller
         return view('forum.recycle-bin', compact('topics', 'posts'));
     }
 
+    /** Moderation queue (MCP, security §3) — content held by the anti-spam layer, in scopes the actor can moderate. */
+    public function queue(Request $request): View
+    {
+        $user = $request->user();
+        abort_unless($user instanceof User, 403);
+
+        $topics = Topic::where('approved_state', 'pending')->with(['forum', 'author'])->latest()->get()
+            ->filter(fn (Topic $t) => $t->forum && $user->canDo('topic.moderate', $t->permissionScope()))
+            ->values();
+
+        $posts = Post::where('approved_state', 'pending')->with(['topic.forum', 'author'])->latest()->get()
+            ->filter(fn (Post $p) => $p->topic && $user->canDo('topic.moderate', Scope::thread((int) $p->topic_id)))
+            ->values();
+
+        return view('moderation.queue', compact('topics', 'posts'));
+    }
+
+    public function approveTopic(Request $request, Topic $topic): RedirectResponse
+    {
+        $this->authorizeModerate($request, $topic);
+        $topic->update(['approved_state' => 'approved']);
+        // Approve the opening post alongside the topic it belongs to.
+        $topic->posts()->where('approved_state', 'pending')->orderBy('position')->first()?->update(['approved_state' => 'approved']);
+        Audit::log('topic.approved', $topic);
+
+        return back();
+    }
+
+    public function rejectTopic(Request $request, Topic $topic): RedirectResponse
+    {
+        $this->authorizeModerate($request, $topic);
+        $topic->update(['approved_state' => 'rejected']);
+        $topic->delete(); // soft-delete → recoverable from the recycle bin
+        Audit::log('topic.rejected', $topic);
+
+        return redirect()->route('moderation.queue');
+    }
+
+    public function approvePost(Request $request, Post $post): RedirectResponse
+    {
+        $this->authorizeModeratePost($request, $post);
+        $post->update(['approved_state' => 'approved']);
+        Audit::log('post.approved', $post);
+
+        return back();
+    }
+
+    public function rejectPost(Request $request, Post $post): RedirectResponse
+    {
+        $this->authorizeModeratePost($request, $post);
+        $post->update(['approved_state' => 'rejected']);
+        $post->delete();
+        Audit::log('post.rejected', $post);
+
+        return redirect()->route('moderation.queue');
+    }
+
+    private function authorizeModeratePost(Request $request, Post $post): void
+    {
+        $user = $request->user();
+        abort_unless($user instanceof User && $user->canDo('topic.moderate', Scope::thread((int) $post->topic_id)), 403);
+    }
+
     private function authorizeModerate(Request $request, Topic $topic, ?Forum $forum = null): void
     {
         $user = $request->user();
