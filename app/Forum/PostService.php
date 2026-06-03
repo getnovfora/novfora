@@ -12,6 +12,7 @@ use App\Models\Post;
 use App\Models\PostRevision;
 use App\Models\Topic;
 use App\Models\User;
+use App\Permissions\Scope;
 use App\Support\Audit;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -66,7 +67,7 @@ final class PostService
                 'reason' => $reason,
             ]);
 
-            $rendered = $this->renderer->render($format, $canonical);
+            $rendered = $this->renderer->render($format, $canonical, $this->restrictionsFor($editor, Scope::thread((int) $post->topic_id)));
             $post->forceFill([
                 'body_format' => $format,
                 'body_canonical' => $canonical,
@@ -85,7 +86,7 @@ final class PostService
 
     private function writePost(User $author, Topic $topic, string $format, array $canonical): Post
     {
-        $rendered = $this->renderer->render($format, $canonical);
+        $rendered = $this->renderer->render($format, $canonical, $this->restrictionsFor($author, $topic->permissionScope()));
         $position = (int) Post::where('topic_id', $topic->id)->max('position') + 1;
 
         return Post::create([
@@ -99,6 +100,27 @@ final class PostService
             'ip_address' => request()->ip(),
             'approved_state' => 'approved',
         ]);
+    }
+
+    /**
+     * Anti-spam content suppression for the author at this scope (security §2.4 / ADR-0007). An author who
+     * lacks `post.links` / `post.images` (e.g. a TL0 account, where the gate is a hard NEVER) has those
+     * elements suppressed from the rendered HTML — links keep their text, images are dropped. Resolved
+     * through the SAME permission engine as everything else (no second system).
+     *
+     * @return list<string>
+     */
+    private function restrictionsFor(User $author, Scope $scope): array
+    {
+        $restrict = [];
+        if (! $author->canDo('post.links', $scope)) {
+            $restrict[] = 'links';
+        }
+        if (! $author->canDo('post.images', $scope)) {
+            $restrict[] = 'images';
+        }
+
+        return $restrict;
     }
 
     private function slug(string $title): string

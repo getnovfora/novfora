@@ -28,10 +28,16 @@ final class CanonicalRenderer
 
     public function __construct(private readonly ContentSanitizer $sanitizer) {}
 
-    /** @param array<string,mixed> $doc */
-    public function toSafeHtml(array $doc): string
+    /**
+     * @param  array<string,mixed>  $doc
+     * @param  list<string>  $restrict  anti-spam suppression for gated authors (security §2.4): 'links' /
+     *                                  'images'. The mapper still emits the nodes; the sanitizer is the
+     *                                  single chokepoint that drops them, so suppression is uniform across
+     *                                  formats and the canonical source stays lossless (ADR-0005).
+     */
+    public function toSafeHtml(array $doc, array $restrict = []): string
     {
-        return $this->sanitizer->sanitize($this->nodesToHtml($doc['content'] ?? []));
+        return $this->sanitizer->sanitize($this->nodesToHtml($doc['content'] ?? []), $restrict);
     }
 
     /** Plain-text projection for search/excerpts. @param array<string,mixed> $doc */
