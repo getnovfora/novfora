@@ -3,9 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\BanController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\MentionController;
 use App\Http\Controllers\ModerationController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TopicController;
 use App\Http\Middleware\EnsureSystemPanelAccess;
 use App\Http\Middleware\RequireTwoFactorForStaff;
@@ -47,6 +49,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/topics/{topic}/reject', [ModerationController::class, 'rejectTopic'])->name('topics.reject');
     Route::post('/posts/{post}/approve', [ModerationController::class, 'approvePost'])->name('posts.approve');
     Route::post('/posts/{post}/reject', [ModerationController::class, 'rejectPost'])->name('posts.reject');
+
+    // Reports → staff dashboard (security §3). Any member may report; staff (bans.manage) resolve.
+    Route::post('/reports', [ReportController::class, 'store'])->name('reports.store');
+    Route::get('/moderation/reports', [ReportController::class, 'index'])->name('moderation.reports');
+    Route::post('/reports/{report}/resolve', [ReportController::class, 'resolve'])->name('reports.resolve');
+
+    // Bans + Spam Cleaner (security §3) — gated on bans.manage.
+    Route::post('/bans', [BanController::class, 'store'])->name('bans.store');
+    Route::delete('/bans/{ban}', [BanController::class, 'destroy'])->name('bans.destroy');
+    Route::post('/users/{user}/spam-clean', [BanController::class, 'spamClean'])->name('moderation.spam-clean');
 });
 
 // Authenticated, email-verified account area. 2FA setup lives here and is intentionally NOT behind
