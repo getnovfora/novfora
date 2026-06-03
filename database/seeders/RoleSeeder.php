@@ -38,6 +38,12 @@ class RoleSeeder extends Seeder
             'post.delete.any' => $allow,
             'topic.moderate' => $allow,
             'bans.manage' => $allow,
+            // Staff are never spam-gated by trust level: grant the progressive capabilities outright so a
+            // moderator/admin can post links/images regardless of their TL group. (Staff are not TL0 in
+            // practice; a NEVER on TL0 would still bite a misassigned TL0 staff account — by design.)
+            'post.links' => $allow,
+            'post.images' => $allow,
+            'pm.send' => $allow,
         ];
 
         $administrator = $moderator + [

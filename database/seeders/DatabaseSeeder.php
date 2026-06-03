@@ -24,6 +24,8 @@ class DatabaseSeeder extends Seeder
             GroupSeeder::class,
             PermissionCatalogSeeder::class,
             RoleSeeder::class,
+            TrustGateSeeder::class,   // anti-spam trust gates on the TL groups (ADR-0007 §2.3) — needs the groups + catalog
+            WarningTypeSeeder::class, // default infraction "action bundles" (security §3)
         ]);
     }
 }
