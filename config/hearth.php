@@ -124,4 +124,12 @@ return [
             'registration_checks_days' => 90,
         ],
     ],
+
+    // Theming (ADR-0009 §3.2). The developer override layer resolves active theme → parent → core. The
+    // default (active = null) is core's mobile-first views with the a11y floor. See docs/THEME-API.md.
+    'theme' => [
+        'active' => env('HEARTH_THEME'),        // null = built-in default (core views)
+        'path' => base_path('themes'),          // filesystem location of child-theme packages
+        'api_version' => '1.0',                  // the semver'd theme contract (ThemeManager::API_VERSION)
+    ],
 ];
