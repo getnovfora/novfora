@@ -22,16 +22,27 @@ final class ContentSanitizer
     /** @var list<string> */
     private const LINK_SCHEMES = ['http', 'https', 'mailto'];
 
-    private ?HtmlSanitizer $sanitizer = null;
+    /** @var array<string, HtmlSanitizer> one cached sanitizer per restriction set */
+    private array $sanitizers = [];
 
-    public function sanitize(string $html): string
+    /**
+     * @param  list<string>  $restrict  anti-spam suppression for gated authors (security §2.4): 'links'
+     *                                  drops <a> tags (keeping their text), 'images' removes <img>. The
+     *                                  canonical source is untouched (ADR-0005); only this display HTML is
+     *                                  restricted, recomputed whenever the cache is regenerated.
+     */
+    public function sanitize(string $html, array $restrict = []): string
     {
-        return ($this->sanitizer ??= new HtmlSanitizer($this->config()))->sanitize($html);
+        sort($restrict);
+        $key = implode(',', $restrict);
+
+        return ($this->sanitizers[$key] ??= new HtmlSanitizer($this->config($restrict)))->sanitize($html);
     }
 
-    private function config(): HtmlSanitizerConfig
+    /** @param list<string> $restrict */
+    private function config(array $restrict = []): HtmlSanitizerConfig
     {
-        return (new HtmlSanitizerConfig)
+        $config = (new HtmlSanitizerConfig)
             ->allowElement('p')
             ->allowElement('h1')->allowElement('h2')->allowElement('h3')
             ->allowElement('h4')->allowElement('h5')->allowElement('h6')
@@ -41,9 +52,7 @@ final class ContentSanitizer
             ->allowElement('ul')->allowElement('ol')->allowElement('li')
             ->allowElement('blockquote')
             ->allowElement('br')->allowElement('hr')
-            ->allowElement('a', ['href'])
             ->allowElement('span', ['class'])
-            ->allowElement('img', ['src', 'alt'])
             ->allowElement('table')->allowElement('thead')->allowElement('tbody')
             ->allowElement('tr')
             ->allowElement('th', ['colspan', 'rowspan'])
@@ -53,8 +62,20 @@ final class ContentSanitizer
             ->allowMediaSchemes(['http', 'https'])
             ->allowLinkSchemes(self::LINK_SCHEMES)
             ->allowRelativeLinks()
-            ->forceAttribute('a', 'rel', 'nofollow noopener noreferrer')
             ->dropElement('script')
             ->dropElement('style');
+
+        // NOTE: HtmlSanitizerConfig is IMMUTABLE — every method returns a NEW instance, so each call must be
+        // reassigned. Links: blockElement strips the <a> tag but KEEPS its text (suppression, not deletion);
+        // allow otherwise. Images carry no text → dropElement removes them entirely when suppressed.
+        $config = in_array('links', $restrict, true)
+            ? $config->blockElement('a')
+            : $config->allowElement('a', ['href'])->forceAttribute('a', 'rel', 'nofollow noopener noreferrer');
+
+        $config = in_array('images', $restrict, true)
+            ? $config->dropElement('img')
+            : $config->allowElement('img', ['src', 'alt']);
+
+        return $config;
     }
 }

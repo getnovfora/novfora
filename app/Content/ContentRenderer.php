@@ -25,21 +25,27 @@ final class ContentRenderer
 
     /**
      * @param  array<string,mixed>  $doc  the canonical document (TipTap doc, or {"source": "...markdown"})
+     * @param  list<string>  $restrict  anti-spam suppression for gated authors (security §2.4): 'links' /
+     *                                  'images'. Applied at the (shared) sanitize step, so it is uniform
+     *                                  across both input modes. Default [] = unrestricted.
      * @return array{html:string, text:string}
      */
-    public function render(string $format, array $doc): array
+    public function render(string $format, array $doc, array $restrict = []): array
     {
         return match ($format) {
-            'markdown' => $this->renderMarkdown((string) ($doc['source'] ?? '')),
+            'markdown' => $this->renderMarkdown((string) ($doc['source'] ?? ''), $restrict),
             default => [
-                'html' => $this->canonical->toSafeHtml($doc),
+                'html' => $this->canonical->toSafeHtml($doc, $restrict),
                 'text' => $this->canonical->toText($doc),
             ],
         };
     }
 
-    /** @return array{html:string, text:string} */
-    private function renderMarkdown(string $source): array
+    /**
+     * @param  list<string>  $restrict
+     * @return array{html:string, text:string}
+     */
+    private function renderMarkdown(string $source, array $restrict = []): array
     {
         // Escape raw HTML and deny unsafe links at the converter, then sanitize (defense in depth).
         $raw = Str::markdown($source, [
@@ -48,7 +54,7 @@ final class ContentRenderer
         ]);
 
         return [
-            'html' => $this->sanitizer->sanitize($raw),
+            'html' => $this->sanitizer->sanitize($raw, $restrict),
             'text' => trim(html_entity_decode(strip_tags($raw), ENT_QUOTES | ENT_HTML5, 'UTF-8')),
         ];
     }
