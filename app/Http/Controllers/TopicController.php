@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Topic;
+use App\Models\TopicRead;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -21,6 +22,14 @@ class TopicController extends Controller
         Topic::whereKey($topic->getKey())->increment('view_count'); // quiet: no model events
 
         $user = $request->user();
+
+        // Mark this topic read for the viewer (the unread / "what's new" watermark, data-model §9).
+        if ($user instanceof User) {
+            TopicRead::updateOrCreate(
+                ['user_id' => $user->getKey(), 'topic_id' => $topic->getKey()],
+                ['last_read_at' => now()],
+            );
+        }
         $scope = $topic->permissionScope();
         $canReply = $topic->status !== 'locked' && ($user?->canDo('post.create', $scope) ?? false);
         $canModerate = $user?->canDo('topic.moderate', $scope) ?? false;

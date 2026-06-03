@@ -12,6 +12,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\TopicController;
 use App\Http\Controllers\WarningController;
+use App\Http\Controllers\WhatsNewController;
 use App\Http\Middleware\EnsureSystemPanelAccess;
 use App\Http\Middleware\RequireTwoFactorForStaff;
 use App\Models\Forum;
@@ -83,6 +84,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('/settings/two-factor', 'settings.two-factor')->name('settings.two-factor');
 
     // In-app notifications (data-model §7): list, mark read, and per-event×channel preferences.
+    Route::get('/whats-new', [WhatsNewController::class, 'index'])->name('whats-new');
+
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
