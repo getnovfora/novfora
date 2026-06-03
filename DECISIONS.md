@@ -144,6 +144,19 @@ Per ADR-0015, each dependency is recorded with its license before merge. All are
 | paragonie/constant_time_encoding | 3.1 | MIT | constant-time base32/hex (transitive, via google2fa) |
 | laravel/passkeys | 0.2 | MIT | **dormant** — a Fortify dependency; the passkeys feature, routes, and table are **not enabled** in M1 (out of scope) |
 
+**M2 — forum content (2026-06-03):**
+
+| Package | Version | License | Notes |
+|---|---|---|---|
+| symfony/html-sanitizer | 7.4 | MIT | the allowlist sanitizer — the content security boundary (ADR-0005 / security §4) |
+| league/commonmark | 2.8 | BSD-3-Clause | Markdown input mode (already present via the framework; used with html_input=escape + unsafe-links denied, then sanitized) |
+
+**Canonical-render decision (ADR-0005):** kept the **hand-rolled** TipTap-JSON→HTML mapper
+(`app/Content/CanonicalRenderer`) rather than adding a `tiptap-php` dependency — it *is* the security
+boundary, is small and fully under our control, and is proven by the XSS battery; `symfony/html-sanitizer`
+is the authoritative allowlist backstop for every render path. (Editor-side `@tiptap/*` JS packages, all MIT,
+are recorded with the editor commit.)
+
 **SPDX policy:** Hearth-authored source carries an `SPDX-License-Identifier: Apache-2.0` header. Laravel's
 scaffolded stubs are left as-is and gain a header when meaningfully edited — retrofitting every stub adds
 noise without value.
