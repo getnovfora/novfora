@@ -62,4 +62,20 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->groups->whereIn('slug', ['admins', 'moderators'])->isNotEmpty();
     }
+
+    /**
+     * A transient (non-persisted) anonymous visitor that belongs to the Guests system group, so the
+     * SAME permission engine resolves anonymous browsing (security §1.5 "guests-as-group") — no second
+     * code path. Its null key + guests group-signature make the resolved verdict cacheable per guest.
+     */
+    public static function guest(): self
+    {
+        $guest = new self;
+        $guest->exists = false;
+
+        $group = Group::where('slug', 'guests')->first();
+        $guest->setRelation('groups', $group ? collect([$group]) : collect());
+
+        return $guest;
+    }
 }

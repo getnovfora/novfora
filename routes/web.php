@@ -2,12 +2,44 @@
 
 // SPDX-License-Identifier: Apache-2.0
 
+use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\ForumController;
+use App\Http\Controllers\MentionController;
+use App\Http\Controllers\ModerationController;
+use App\Http\Controllers\TopicController;
 use App\Http\Middleware\EnsureSystemPanelAccess;
 use App\Http\Middleware\RequireTwoFactorForStaff;
+use App\Models\Forum;
+use App\Models\Post;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
+});
+
+// ── Forums (M2) — public read, per-node authorized; anonymous resolves as the Guests group ─────────────
+Route::get('/forums', [ForumController::class, 'index'])->name('forums.index');
+Route::get('/forums/{forum}', [ForumController::class, 'show'])->name('forums.show');
+Route::get('/topics/{topic}', [TopicController::class, 'show'])->name('topics.show');
+Route::get('/attachments/{attachment}', [AttachmentController::class, 'show'])->name('attachments.show');
+
+// Compose / moderate / upload — authenticated + email-verified.
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/forums/{forum}/topics/create', fn (Forum $forum) => view('forum.create-topic', ['forum' => $forum]))->name('topics.create');
+    Route::get('/posts/{post}/edit', fn (Post $post) => view('forum.edit-post', ['post' => $post]))->name('posts.edit');
+    Route::get('/recycle-bin', [ModerationController::class, 'recycleBin'])->name('moderation.recycle-bin');
+
+    Route::post('/attachments', [AttachmentController::class, 'store'])->name('attachments.store');
+    Route::get('/mentions', MentionController::class)->name('mentions');
+
+    Route::post('/topics/{topic}/lock', [ModerationController::class, 'lock'])->name('topics.lock');
+    Route::post('/topics/{topic}/pin', [ModerationController::class, 'pin'])->name('topics.pin');
+    Route::post('/topics/{topic}/stick', [ModerationController::class, 'stick'])->name('topics.stick');
+    Route::post('/topics/{topic}/move', [ModerationController::class, 'move'])->name('topics.move');
+    Route::delete('/topics/{topic}', [ModerationController::class, 'destroyTopic'])->name('topics.destroy');
+    Route::post('/topics/{topic}/restore', [ModerationController::class, 'restoreTopic'])->name('topics.restore');
+    Route::delete('/posts/{post}', [ModerationController::class, 'destroyPost'])->name('posts.destroy');
+    Route::post('/posts/{post}/restore', [ModerationController::class, 'restorePost'])->name('posts.restore');
 });
 
 // Authenticated, email-verified account area. 2FA setup lives here and is intentionally NOT behind

@@ -15,7 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Render JSON errors for any request that asks for JSON (AJAX/fetch endpoints such as the editor
+        // upload + mention typeahead), as well as future api/* routes. Web form posts (which do not
+        // expectJson) still get the redirect-back-with-errors behaviour.
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            fn (Request $request) => $request->expectsJson() || $request->is('api/*'),
         );
     })->create();
