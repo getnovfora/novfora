@@ -1,0 +1,26 @@
+{{-- SPDX-License-Identifier: Apache-2.0 --}}
+<p>Hello,</p>
+
+@switch($event)
+    @case('reply')
+        <p>{{ $actor }} replied in <strong>{{ $payload['topic_title'] ?? 'a thread you follow' }}</strong>.</p>
+        @break
+    @case('mention')
+        <p>{{ $actor }} mentioned you in <strong>{{ $payload['topic_title'] ?? 'a discussion' }}</strong>.</p>
+        @break
+    @case('moderation')
+        <p>A moderator has issued a notice on your account. Please review it when you next sign in.</p>
+        @break
+    @default
+        <p>You have a new notification.</p>
+@endswitch
+
+@if (! empty($payload['url']))
+    <p><a href="{{ $payload['url'] }}">View it on {{ config('app.name', 'Hearth') }}</a></p>
+@endif
+
+<hr>
+<p style="color:#888;font-size:.85rem">
+    You can adjust which emails you receive in your notification preferences.
+    On a shared host, email is best-effort — if these arrive late or in spam, ask your administrator about a transactional email provider.
+</p>

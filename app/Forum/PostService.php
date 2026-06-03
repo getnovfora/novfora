@@ -10,11 +10,13 @@ use App\AntiSpam\ContentModerator;
 use App\AntiSpam\ContentRejectedException;
 use App\AntiSpam\WordFilterService;
 use App\Content\ContentRenderer;
+use App\Content\Mentions;
 use App\Models\Forum;
 use App\Models\Post;
 use App\Models\PostRevision;
 use App\Models\Topic;
 use App\Models\User;
+use App\Notifications\Notifier;
 use App\Permissions\Scope;
 use App\Support\Audit;
 use Illuminate\Support\Facades\DB;
@@ -31,12 +33,13 @@ final class PostService
         private readonly ContentRenderer $renderer,
         private readonly ContentModerator $moderator,
         private readonly WordFilterService $words,
+        private readonly Notifier $notifier,
     ) {}
 
     /** Create a topic and its opening post atomically. */
     public function createTopic(User $author, Forum $forum, string $title, string $format, array $canonical): Topic
     {
-        return DB::transaction(function () use ($author, $forum, $title, $format, $canonical) {
+        $topic = DB::transaction(function () use ($author, $forum, $title, $format, $canonical) {
             $topic = Topic::create([
                 'forum_id' => $forum->id,
                 'user_id' => $author->id,
@@ -56,12 +59,22 @@ final class PostService
 
             return $topic->refresh();
         });
+
+        // Notify @mentions in the opening post (after commit; only if approved). New topic → no reply target.
+        $op = Post::where('topic_id', $topic->getKey())->orderBy('position')->orderBy('id')->first();
+        if ($op instanceof Post) {
+            $this->dispatchPostNotifications($op);
+        }
+
+        return $topic;
     }
 
     public function reply(User $author, Topic $topic, string $format, array $canonical): Post
     {
         $post = $this->writePost($author, $topic, $format, $canonical);
         Audit::log('post.created', $post);
+
+        $this->dispatchPostNotifications($post);
 
         return $post;
     }
@@ -127,6 +140,48 @@ final class PostService
             'ip_address' => request()->ip(),
             'approved_state' => $verdict->held() ? 'pending' : 'approved',
         ]);
+    }
+
+    /**
+     * Dispatch reply + @mention notifications for an APPROVED post (data-model §7). Called after the write
+     * commits, and again when staff approve a held post — so a pending post notifies once, at approval, not at
+     * write time. Reply → the topic's author; mentions → the users named in the post's canonical body.
+     */
+    public function dispatchPostNotifications(Post $post): void
+    {
+        if ($post->approved_state !== 'approved') {
+            return;
+        }
+
+        $topic = Topic::find($post->topic_id);
+        $author = $post->user_id ? User::find($post->user_id) : null;
+        if (! $topic instanceof Topic || ! $author instanceof User) {
+            return;
+        }
+
+        $payload = [
+            'thread_id' => (int) $topic->id,
+            'topic_title' => $topic->title,
+            'post_id' => (int) $post->id,
+            'url' => route('topics.show', $topic->id),
+        ];
+
+        // A reply (any earlier post exists) notifies the topic's author.
+        $isReply = Post::where('topic_id', $post->topic_id)->where('id', '<', $post->id)->exists();
+        if ($isReply && $topic->user_id && (int) $topic->user_id !== (int) $author->getKey()) {
+            $opAuthor = User::find($topic->user_id);
+            if ($opAuthor instanceof User) {
+                $this->notifier->send($opAuthor, 'reply', $author, $payload);
+            }
+        }
+
+        // @mentions in the canonical body (cast to array — tiptap docs are arrays; markdown yields none).
+        foreach (Mentions::idsIn((array) $post->body_canonical) as $id) {
+            $mentioned = User::find($id);
+            if ($mentioned instanceof User) {
+                $this->notifier->send($mentioned, 'mention', $author, $payload);
+            }
+        }
     }
 
     /**
