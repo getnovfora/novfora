@@ -38,6 +38,7 @@ final class InstallRunner
         private readonly Installer $installer,
         private readonly EnvWriter $env,
         private readonly DatabaseVerifier $verifier,
+        private readonly PublicStorageLinker $storageLinker,
     ) {}
 
     public function run(InstallInput $in): InstallResult
@@ -45,6 +46,12 @@ final class InstallRunner
         if ($this->installer->isInstalled()) {
             throw new \RuntimeException('Hearth is already installed.');
         }
+
+        // Fail fast if the lock marker won't be writable. Otherwise a run that migrates the DB and creates
+        // the admin but then CANNOT write the marker (step 7) would leave the site fully set up yet
+        // UNLOCKED — and an unauthenticated visitor could re-run the installer to mint a second admin.
+        // Checking up front means the install either completes-and-locks, or changes nothing.
+        $this->assertMarkerWritable();
 
         $notes = [];
 
@@ -98,7 +105,7 @@ final class InstallRunner
 
     private function writeEnv(InstallInput $in): void
     {
-        $this->env->set([
+        $values = [
             'APP_NAME' => $in->siteName,
             'APP_ENV' => 'production',
             'APP_DEBUG' => 'false',
@@ -110,7 +117,35 @@ final class InstallRunner
             'DB_USERNAME' => $in->dbUsername,
             'DB_PASSWORD' => $in->dbPassword,
             'MAIL_FROM_NAME' => $in->siteName,
-        ]);
+        ];
+
+        // HTTPS-only session cookie when the site is served over TLS (security §4 "HTTPS-only cookies").
+        // Left unset for an http:// URL so a non-TLS baseline host isn't locked out of its own session.
+        if (str_starts_with(strtolower($in->appUrl), 'https://')) {
+            $values['SESSION_SECURE_COOKIE'] = 'true';
+        }
+
+        $this->env->set($values);
+    }
+
+    /**
+     * Ensure the install-lock marker directory exists and is writable before any destructive step, so the
+     * installer can always lock at the end (see run()). Uses a throwaway probe write because is_writable()
+     * can misreport under some shared-host ACL/owner setups.
+     */
+    private function assertMarkerWritable(): void
+    {
+        $dir = \dirname($this->installer->markerPath());
+
+        if (! is_dir($dir) && ! @mkdir($dir, 0775, true) && ! is_dir($dir)) {
+            throw new \RuntimeException("Cannot create the install directory ({$dir}). Make storage/ writable (e.g. chmod 775) and try again.");
+        }
+
+        $probe = $dir.DIRECTORY_SEPARATOR.'.install-write-probe-'.bin2hex(random_bytes(4));
+        if (@file_put_contents($probe, '1', LOCK_EX) === false) {
+            throw new \RuntimeException("The install directory ({$dir}) is not writable, so the installer could not lock after finishing. Make storage/ writable (e.g. chmod 775) and try again.");
+        }
+        @unlink($probe);
     }
 
     private function applyDatabaseConfig(InstallInput $in): void
@@ -139,14 +174,17 @@ final class InstallRunner
                 'name' => $in->adminUsername,
                 'display_name' => $in->adminUsername,
                 'password' => Hash::make($in->adminPassword), // argon2id (config/hashing.php)
-                'status' => 'active',
-                'trust_level' => 4,
             ],
         );
 
-        // email_verified_at is guarded (not in User's #[Fillable]) — set it explicitly so the admin can
-        // sign in immediately without an email round-trip during install.
-        $admin->forceFill(['email_verified_at' => now()])->save();
+        // status, trust_level and email_verified_at are guarded (not in User's #[Fillable]) — set them
+        // explicitly: active + fully trusted (no TL0 gating) + email-verified so the admin can sign in
+        // immediately without an email round-trip during install.
+        $admin->forceFill([
+            'status' => 'active',
+            'trust_level' => 4,
+            'email_verified_at' => now(),
+        ])->save();
 
         // admins = staff/privileged (admin.access via the engine); tl4 = trusted, so no TL0 gating.
         $groups = Group::whereIn('slug', ['admins', 'tl4'])->get();
@@ -161,20 +199,25 @@ final class InstallRunner
 
     private function linkStorage(array &$notes): bool
     {
-        try {
-            $link = public_path('storage');
-            if (file_exists($link)) {
-                return true; // already linked (or a real directory) — nothing to do
-            }
-            Artisan::call('storage:link');
+        // Tries a real symlink and, where the host forbids symlinks, falls back to a copy mirror — so
+        // avatars/covers display either way (no manual `storage:link` needed on a locked-down shared host).
+        $method = $this->storageLinker->publish();
 
-            return file_exists($link);
-        } catch (Throwable) {
-            $notes[] = 'Could not create the public/storage symlink automatically (some shared hosts '
-                .'forbid symlinks). Run `php artisan storage:link`, or copy storage/app/public to '
-                .'public/storage, so uploaded avatars and images display.';
+        if ($method === 'copy') {
+            $notes[] = 'Your host does not allow symlinks, so public files (avatars, covers) are served from '
+                .'a COPY at public/storage. The cron line keeps it refreshed automatically; after bulk '
+                .'changes you can also run `php artisan hearth:storage:publish`.';
+
+            return true; // a working copy IS published — just not via a symlink
+        }
+
+        if ($method === 'failed') {
+            $notes[] = 'Could not publish public/storage automatically (symlinks are disabled and the copy '
+                .'fallback failed). Run `php artisan hearth:storage:publish` so uploaded avatars and images display.';
 
             return false;
         }
+
+        return true; // 'symlink'
     }
 }

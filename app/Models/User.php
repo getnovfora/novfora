@@ -17,7 +17,14 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
-#[Fillable(['username', 'name', 'display_name', 'email', 'password', 'trust_level', 'status', 'tenant_id', 'signature_doc', 'signature_format', 'signature_html', 'avatar_path', 'cover_path'])]
+// The mass-assignable set is intentionally NARROW (security by default). Privilege/state columns
+// (`trust_level`, `status`), the server-rendered HTML cache (`signature_html`), and storage paths
+// (`avatar_path`, `cover_path`) are deliberately EXCLUDED: they are written only by server code via
+// forceFill / direct assignment (TrustLevelManager, WarningService, SpamCleaner, BanController,
+// ProfileController, InstallRunner), never from request input — so a stray `->update($request->...)`
+// cannot self-promote trust, lift a ban, or smuggle unsanitised HTML into a signature. `tenant_id`
+// stays here for the dormant multi-tenant seam (ADR-0004); guard it before tenancy ships.
+#[Fillable(['username', 'name', 'display_name', 'email', 'password', 'tenant_id', 'signature_doc', 'signature_format'])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable implements MustVerifyEmail
 {

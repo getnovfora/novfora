@@ -146,6 +146,10 @@ final class EnvWriter
             throw new \RuntimeException('Could not write the environment file: '.$path);
         }
 
-        @chmod($path, 0644);
+        // 0600 (owner-only): `.env` holds the APP_KEY and DB password. On shared hosting a world-readable
+        // (0644) secrets file can be read by other tenants on the same box, so restrict it. The web user
+        // that writes it is the same account user that later reads it (FPM/suexec per-user), so this does
+        // not lock the app out. A no-op on Windows.
+        @chmod($path, 0600);
     }
 }

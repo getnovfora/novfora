@@ -79,6 +79,12 @@ class AppServiceProvider extends ServiceProvider
             'session.driver' => 'file',
             'cache.default' => 'file',
             'queue.default' => 'sync',
+            // The pre-install surface is unauthenticated and reachable by anyone who finds a freshly
+            // uploaded site. A fresh `.env` (copied from `.env.example`) ships APP_DEBUG=true, which would
+            // expose stack traces (paths, config) to that anonymous visitor. Force it off until the
+            // installer writes the real production `.env` (APP_DEBUG=false). Defence in depth alongside the
+            // wizard's own try/catch and the DatabaseVerifier's sanitised messages.
+            'app.debug' => false,
         ]);
 
         try {

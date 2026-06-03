@@ -159,6 +159,8 @@ it('runs the full install — env, migrate, seed, admin — then locks; a re-run
     expect($admin->groups->pluck('slug')->all())->toContain('admins')->toContain('tl4');
     expect($admin->isStaff())->toBeTrue();
     expect($admin->email_verified_at)->not->toBeNull();
+    expect($admin->trust_level)->toBe(4);                       // set via forceFill (guarded), not mass assignment
+    expect($admin->status)->toBe('active');
     expect($admin->password)->not->toBe('Sup3rSecret!!');       // not stored in plaintext
     expect(Hash::check('Sup3rSecret!!', $admin->password))->toBeTrue();
 
@@ -166,9 +168,44 @@ it('runs the full install — env, migrate, seed, admin — then locks; a re-run
     $envContents = file_get_contents($env);
     expect($envContents)->toContain('APP_NAME="Test Forum"');
     expect($envContents)->toContain('APP_KEY=base64:');
+    expect($envContents)->toContain('SESSION_SECURE_COOKIE=true'); // https APP_URL → HTTPS-only cookie
+
+    // .env holds the APP_KEY + DB password → it must not be world-readable (0600). chmod is a no-op on Windows.
+    if (PHP_OS_FAMILY !== 'Windows') {
+        expect(fileperms($env) & 0777)->toBe(0600);
+    }
 
     // The lock: the runner itself refuses a second run even if the routes were somehow bypassed.
     expect(fn () => app(InstallRunner::class)->run(sampleInput($db)))->toThrow(RuntimeException::class);
+});
+
+it('refuses to run — writing nothing — when the install lock directory is not writable', function () {
+    [$dir, $env, , $db] = installSandbox();
+
+    // Point the marker at a path whose "directory" is actually a regular file: it can be neither created
+    // nor written, the unwritable-storage case a shared host can present. The runner must bail BEFORE any
+    // destructive step, so a half-built-yet-unlocked site (re-runnable installer → second admin) is impossible.
+    $blocker = $dir.DIRECTORY_SEPARATOR.'not-a-dir';
+    touch($blocker);
+    config(['hearth.install.marker' => $blocker.DIRECTORY_SEPARATOR.'installed']);
+
+    expect(fn () => app(InstallRunner::class)->run(sampleInput($db)))->toThrow(RuntimeException::class);
+
+    expect(app(Installer::class)->isInstalled())->toBeFalse();
+    expect(is_file($env))->toBeFalse();                          // .env was never written → nothing ran
+});
+
+it('does not force a secure cookie for a plain-http site URL', function () {
+    [, $env, , $db] = installSandbox();
+
+    app(InstallRunner::class)->run(new InstallInput(
+        siteName: 'Plain', appUrl: 'http://forum.test', dbDriver: 'sqlite',
+        dbHost: '', dbPort: 0, dbDatabase: $db, dbUsername: '', dbPassword: '',
+        adminUsername: 'httpadmin', adminEmail: 'http@forum.test', adminPassword: 'Sup3rSecret!!',
+    ));
+
+    // No ACTIVE secure-cookie line for an http site (the commented hint from .env.example may remain).
+    expect(file_get_contents($env))->not->toMatch('/^SESSION_SECURE_COOKIE=true/m');
 });
 
 it('seeds the demo community when asked', function () {

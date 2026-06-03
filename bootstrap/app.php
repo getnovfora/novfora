@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureNotInstalled;
 use App\Http\Middleware\RedirectIfNotInstalled;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,6 +19,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // runs after the session has started — the wizard is a Livewire component and needs the session.
         $middleware->web(append: [
             RedirectIfNotInstalled::class,
+            // Emit the baseline security headers (CSP, nosniff, frame-ancestors, HSTS-on-TLS) on every
+            // web response, before and after install (security §4).
+            SecurityHeaders::class,
         ]);
 
         // The installer lock — applied to the installer routes so they 403 once installed.
