@@ -7,27 +7,66 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Permissions\AclVersion;
+use App\Permissions\Scope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Topic extends Model
 {
+    use SoftDeletes;
+
     protected $guarded = [];
+
+    protected $casts = [
+        'is_pinned' => 'boolean',
+        'reply_count' => 'integer',
+        'view_count' => 'integer',
+        'last_posted_at' => 'datetime',
+    ];
 
     protected static function booted(): void
     {
-        // A thread is a scope: deleting it or moving it to another forum changes resolution at that
-        // scope, so it invalidates resolved-permission caches (security §1.5), like an ACL change.
+        // A thread is a scope: deleting it or moving it to another forum changes resolution at that scope,
+        // so it invalidates resolved-permission caches (security §1.5), like an ACL change.
         static::deleted(fn () => app(AclVersion::class)->bump());
+        static::restored(fn () => app(AclVersion::class)->bump());
         static::updated(function (Topic $topic) {
             if ($topic->wasChanged('forum_id')) {
                 app(AclVersion::class)->bump();
             }
         });
+
+        // Denormalised forum.topic_count (data-model §0): adjust on create / soft-delete / restore.
+        static::created(fn (Topic $t) => $t->adjustForumTopicCount(1));
+        static::deleted(fn (Topic $t) => $t->adjustForumTopicCount(-1));
+        static::restored(fn (Topic $t) => $t->adjustForumTopicCount(1));
     }
 
     public function forum(): BelongsTo
     {
         return $this->belongsTo(Forum::class);
+    }
+
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function posts(): HasMany
+    {
+        return $this->hasMany(Post::class);
+    }
+
+    public function permissionScope(): Scope
+    {
+        return Scope::thread((int) $this->id);
+    }
+
+    public function adjustForumTopicCount(int $delta): void
+    {
+        $forum = Forum::withTrashed()->find($this->forum_id);
+        $forum?->forceFill(['topic_count' => max(0, (int) $forum->topic_count + $delta)])->saveQuietly();
     }
 }
