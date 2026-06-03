@@ -289,6 +289,35 @@ clean-room**.
 > requirement/writable-path probes + a host-compatibility checklist; real-host testing is flagged. **NEXT is a
 > strategic owner decision (not a milestone): Phase 2 (Community) vs. a Phase 5 hardening/release pass before a
 > public 1.0** — the Cowork session preps that decision packet.
+>
+> **Update 2026-06-03 (PHASE 1.5 — Validation & Hardening, pre-beta — Code):** an **adversarial security
+> review + real-host-readiness** pass over the complete Phase-1 codebase (reviewed as untrusted), per
+> [`p1.5-validation-hardening-kickoff.md`](docs/product/p1.5-validation-hardening-kickoff.md). **Findings →
+> [`docs/SECURITY-REVIEW.md`](docs/SECURITY-REVIEW.md):** 9 clear-cut issues **FIXED with a regression test
+> each**, 10 **FLAGGED for owner decision**. **Fixed:** (H-1) attachment-download **IDOR** — `forum.view`
+> now gates attached files (was an anonymous, enumerable leak of private-forum files); (H-2) **TL0
+> link/image suppression now covers signatures** (a public surface that bypassed the gate); (H-3,
+> baseline-readiness) a **pure-PHP MySQL dump+restore fallback** so cron backups work on shared hosts that
+> disable `proc_open`/lack `mysqldump` (round-trips green on real MySQL); (M-1) narrowed `User`
+> mass-assignment — `trust_level`/`status`/`signature_html`/`avatar_path`/`cover_path` out of `#[Fillable]`
+> (latent priv-esc / stored-XSS); (M-2) the installer **pre-checks marker writability** so an
+> unwritable-`storage/` host can't finish installed-but-**unlocked**; (M-3) a baseline `SecurityHeaders`
+> middleware (CSP + nosniff + frame-ancestors + Referrer/Permissions-Policy); (M-4) `.env` written **0600**;
+> (L-1) `APP_DEBUG` forced off pre-install; (L-2) HTTPS-only cookie on an https install. **Flagged (not
+> changed):** the unauthenticated install window (no-SSH tradeoff); registration rate-limit/honeypot/Q&A
+> weaknesses; StopForumSpam cold-cache fail-open; trust-promotion gaming; write-time suppression not
+> recomputed on demotion; no actor-vs-target rank check; six unguarded authz models (guard before the roles
+> ACP); mass-assignable `tenant_id` (scope-fenced — left untouched); auth-event audit-log gaps; the strict
+> nonce-CSP follow-up. **Part 2 — real-host readiness:** a **`hearth:doctor`** preflight (extends
+> RequirementChecker: disabled functions, `open_basedir`, drivers, mail, symlink-works, backup method,
+> coarse-cron) — **green on the Docker baseline**; a **copy-based public-storage fallback**
+> (`PublicStorageLinker` + `hearth:storage:publish` + a cron refresh) for symlink-disabled hosts; and
+> **[`docs/REAL-HOST-VALIDATION.md`](docs/REAL-HOST-VALIDATION.md)** — a runbook for installing on ≥2 real
+> shared hosts. **Suite: Pest 289 passed / 1 skipped (MySQL-gated) / 940 assertions** (M0–M5 stay green);
+> Pint clean, Larastan clean, `composer audit` + `npm audit` clean; the M2 **Dusk editor journey stays green
+> under the new CSP**. Verified in Docker `php:8.3` + `mysql:8`. Small conventional DCO commits on `main`.
+> **NEXT (human step): run [`docs/REAL-HOST-VALIDATION.md`](docs/REAL-HOST-VALIDATION.md) on ≥2 real shared
+> hosts; then the owner triages the flagged items → private beta.**
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
