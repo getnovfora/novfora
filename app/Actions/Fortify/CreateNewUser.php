@@ -60,16 +60,20 @@ class CreateNewUser implements CreatesNewUsers
             throw ValidationException::withMessages(['email' => 'Registration is not available from your network right now.']);
         }
 
-        $user = User::create([
+        $user = new User;
+        $user->fill([
             'username' => $input['username'],
             'name' => $input['username'],
             'display_name' => $input['username'],
             'email' => $input['email'],
             'password' => Hash::make($input['password']), // argon2id (config/hashing.php)
-            // A flagged signup is created but held for moderation (status=pending); their early posts are
-            // queued too (TL0). An allowed signup is active. Either way the account is real and recoverable.
-            'status' => $screening->flagged() ? 'pending' : 'active',
         ]);
+        // A flagged signup is created but held for moderation (status=pending); their early posts are
+        // queued too (TL0). An allowed signup is active. Either way the account is real and recoverable.
+        // `status` is set server-side (it is not in User's mass-assignable set), so a crafted register
+        // payload can never choose its own account state.
+        $user->status = $screening->flagged() ? 'pending' : 'active';
+        $user->save();
 
         // Default membership: primary Members + the entry trust level (security §1 / ADR-0007).
         // Trust levels are ACL groups; promotion automation is M3.

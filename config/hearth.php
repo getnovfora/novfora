@@ -161,5 +161,56 @@ return [
         'path' => env('HEARTH_BACKUP_PATH', storage_path('backups')), // where archives are written
         'keep' => (int) env('HEARTH_BACKUP_KEEP', 7),                 // retain the N newest; prune older
         'schedule' => env('HEARTH_BACKUP_SCHEDULE', 'daily'),         // daily | weekly | off (scheduler)
+        // How MySQL/MariaDB is dumped/restored. 'auto' shells out to mysqldump/mysql when proc_open is
+        // available, else falls back to a pure-PHP dump over PDO (baseline-safe — no proc_open/exec needed).
+        // 'php' forces the in-process path (use it if your host disables proc_open); 'shell' forces the
+        // external tools. hearth:doctor reports which one your host will use. (SQLite always copies the file;
+        // PostgreSQL uses pg_dump/psql and is an enhanced-tier database.)
+        'db_method' => env('HEARTH_BACKUP_DB_METHOD', 'auto'),        // auto | php | shell
+    ],
+
+    // ── Public storage publishing (avatars/covers) ───────────────────────────────────────────────
+    // `php artisan hearth:storage:publish` (and the installer) make uploaded public files reachable at
+    // public/storage. A real symlink is preferred; where the host forbids symlink() the files are COPIED
+    // and the cron line keeps the copy refreshed. Set use_symlink=false to force the copy on a host you
+    // know blocks symlinks. The paths are overridable mainly for testing.
+    'storage' => [
+        'use_symlink' => (bool) env('HEARTH_STORAGE_SYMLINK', true),
+        'public_link' => env('HEARTH_PUBLIC_LINK', public_path('storage')),
+        'public_source' => env('HEARTH_PUBLIC_SOURCE', storage_path('app/public')),
+    ],
+
+    // ── Security response headers (security §4: "strict CSP" + clickjacking/MIME hardening) ────────
+    // Emitted on every web response by App\Http\Middleware\SecurityHeaders. The default CSP is the
+    // NON-BREAKING baseline: it locks down the high-value sinks (object/base/frame/form) but keeps
+    // script/style permissive ('unsafe-inline'/'unsafe-eval') because Livewire + Alpine + the inline-
+    // styled core views + JSON-LD currently need them. A STRICT nonce-based CSP (script-src 'self'
+    // 'nonce-…', no unsafe-*) is the documented follow-up in docs/SECURITY-REVIEW.md — it needs Livewire
+    // nonce config + the Alpine CSP build + moving inline styles to classes, so it is owner-gated.
+    // Everything here is overridable via env so an operator can relax/replace the policy without a code
+    // change.
+    'security' => [
+        'headers' => [
+            'enabled' => (bool) env('HEARTH_SECURITY_HEADERS', true),
+            // HSTS is emitted ONLY on https requests (browsers ignore it over plain http, and sending it
+            // could strand a non-TLS baseline host). 0 disables it.
+            'hsts_max_age' => (int) env('HEARTH_HSTS_MAX_AGE', 15552000), // 180 days
+        ],
+        'csp' => [
+            'enabled' => (bool) env('HEARTH_CSP', true),
+            'policy' => env('HEARTH_CSP_POLICY', implode('; ', [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+                "style-src 'self' 'unsafe-inline'",
+                "img-src 'self' data: https:",
+                "font-src 'self' data:",
+                "connect-src 'self'",
+                "media-src 'self' https:",
+                "object-src 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
+                "frame-ancestors 'self'",
+            ])),
+        ],
     ],
 ];
