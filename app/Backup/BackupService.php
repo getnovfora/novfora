@@ -7,6 +7,8 @@ declare(strict_types=1);
 namespace App\Backup;
 
 use FilesystemIterator;
+use Illuminate\Support\Facades\DB;
+use PDO;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use Symfony\Component\Process\Process;
@@ -111,14 +113,29 @@ final class BackupService
         }
 
         if ($driver === 'mysql' || $driver === 'mariadb') {
-            $this->runDump(
-                ['mysqldump', '-h', (string) ($c['host'] ?? '127.0.0.1'), '-P', (string) ($c['port'] ?? 3306),
-                    '-u', (string) ($c['username'] ?? 'root'), '--single-transaction', '--skip-lock-tables',
-                    '--routines', '--no-tablespaces', (string) ($c['database'] ?? '')],
-                ['MYSQL_PWD' => (string) ($c['password'] ?? '')],
-                $work.DIRECTORY_SEPARATOR.'database.sql',
-                'mysqldump',
-            );
+            $out = $work.DIRECTORY_SEPARATOR.'database.sql';
+
+            // Baseline hardening (phase-1.5): cheap shared hosts frequently disable proc_open/exec, or
+            // ship without the mysqldump binary, so shelling out is NOT baseline-safe. When the process
+            // tools aren't usable we fall back to a pure-PHP dump over the live PDO connection — same .sql
+            // format, fully interoperable with the mysql client on restore. Forced via
+            // config('hearth.backup.db_method') = php|shell|auto (default auto).
+            if ($this->canShellOut()) {
+                try {
+                    $this->runDump(
+                        ['mysqldump', '-h', (string) ($c['host'] ?? '127.0.0.1'), '-P', (string) ($c['port'] ?? 3306),
+                            '-u', (string) ($c['username'] ?? 'root'), '--single-transaction', '--skip-lock-tables',
+                            '--routines', '--no-tablespaces', (string) ($c['database'] ?? '')],
+                        ['MYSQL_PWD' => (string) ($c['password'] ?? '')],
+                        $out,
+                        'mysqldump',
+                    );
+                } catch (BackupException) {
+                    $this->phpDumpMysql($out); // mysqldump missing/unrunnable on this host → pure-PHP path
+                }
+            } else {
+                $this->phpDumpMysql($out);
+            }
 
             return ['kind' => 'sql', 'driver' => $driver, 'file' => 'database.sql'];
         }
@@ -164,6 +181,95 @@ final class BackupService
             // Surface a trimmed stderr line — driver errors here don't contain the password (it's in env).
             throw new BackupException(trim($tool.' failed: '.$process->getErrorOutput()) ?: "{$tool} failed.");
         }
+    }
+
+    /**
+     * Whether this host can run external processes (mysqldump/pg_dump). 'auto' (default) defers to whether
+     * proc_open is available; 'php' forces the in-process dumper; 'shell' forces the external tools.
+     * Shared by {@see RestoreService} via the same config key.
+     */
+    public function canShellOut(): bool
+    {
+        return match ((string) config('hearth.backup.db_method', 'auto')) {
+            'php' => false,
+            'shell' => true,
+            default => self::processFunctionsAvailable(),
+        };
+    }
+
+    /** True only if proc_open exists and is not in php.ini's disable_functions (the shared-host blocker). */
+    public static function processFunctionsAvailable(): bool
+    {
+        if (! \function_exists('proc_open')) {
+            return false;
+        }
+        $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+
+        return ! in_array('proc_open', $disabled, true);
+    }
+
+    /**
+     * Pure-PHP mysqldump replacement over the live PDO connection — needs no external binary and no
+     * proc_open/exec, so it works on locked-down shared hosts (the baseline tier). Emits a standard .sql
+     * (DROP/CREATE/INSERT with FK checks disabled) that the mysql client OR {@see RestoreService}'s
+     * in-process restore can both apply. Rows are read buffered and written in batches; suitable for the
+     * small/medium databases a cheap-host forum runs (very large boards should use the enhanced tier).
+     */
+    private function phpDumpMysql(string $outFile): void
+    {
+        $handle = fopen($outFile, 'w');
+        if ($handle === false) {
+            throw new BackupException('Could not open the dump output file.');
+        }
+
+        try {
+            $pdo = DB::connection()->getPdo();
+            fwrite($handle, "-- Hearth pure-PHP MySQL backup\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n");
+
+            /** @var list<string> $tables */
+            $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($tables as $table) {
+                $q = '`'.str_replace('`', '``', (string) $table).'`';
+
+                $create = $pdo->query("SHOW CREATE TABLE {$q}")->fetch(PDO::FETCH_ASSOC);
+                $ddl = $create['Create Table'] ?? null; // views are unused in Hearth's schema
+                if (! is_string($ddl)) {
+                    continue;
+                }
+                fwrite($handle, "\nDROP TABLE IF EXISTS {$q};\n{$ddl};\n");
+
+                $stmt = $pdo->query("SELECT * FROM {$q}", PDO::FETCH_ASSOC);
+                $columns = null;
+                $batch = [];
+                foreach ($stmt as $row) {
+                    if ($columns === null) {
+                        $columns = implode(',', array_map(
+                            fn ($col) => '`'.str_replace('`', '``', (string) $col).'`',
+                            array_keys($row),
+                        ));
+                    }
+                    $batch[] = '('.implode(',', array_map(
+                        fn ($v) => $v === null ? 'NULL' : $pdo->quote((string) $v),
+                        array_values($row),
+                    )).')';
+
+                    if (count($batch) >= 200) {
+                        fwrite($handle, "INSERT INTO {$q} ({$columns}) VALUES ".implode(',', $batch).";\n");
+                        $batch = [];
+                    }
+                }
+                if ($batch !== []) {
+                    fwrite($handle, "INSERT INTO {$q} ({$columns}) VALUES ".implode(',', $batch).";\n");
+                }
+            }
+
+            fwrite($handle, "SET FOREIGN_KEY_CHECKS=1;\n");
+        } catch (Throwable $e) {
+            fclose($handle);
+            throw new BackupException('Pure-PHP database dump failed: '.$e->getMessage());
+        }
+
+        fclose($handle);
     }
 
     /** Mirror storage/app into the work dir. Returns whether anything was included. */

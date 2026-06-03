@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use App\Http\Controllers\HealthController;
+use App\Install\PublicStorageLinker;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -34,6 +35,12 @@ Schedule::command('queue:work --stop-when-empty --tries=3 --max-time=50')
 Schedule::call(fn () => Cache::put(HealthController::QUEUE_HEARTBEAT, now()->timestamp, now()->addDay()))
     ->everyMinute()
     ->name('hearth-queue-heartbeat');
+
+// On hosts without symlinks, public/storage is a COPIED mirror of uploaded avatars/covers (the installer's
+// copy fallback). Refresh it each tick so new uploads appear; a fast no-op where a real symlink is in place.
+Schedule::call(fn () => app(PublicStorageLinker::class)->refresh())
+    ->everyMinute()
+    ->name('hearth-storage-mirror');
 
 // Anti-spam trust automation (ADR-0007 §2.3): auto promotion/demotion. Idempotent + overlap-guarded so a
 // long run on a large board never doubles up on a coarse interval.
