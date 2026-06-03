@@ -9,6 +9,7 @@ use App\Http\Controllers\MentionController;
 use App\Http\Controllers\ModerationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TopicController;
+use App\Http\Controllers\WarningController;
 use App\Http\Middleware\EnsureSystemPanelAccess;
 use App\Http\Middleware\RequireTwoFactorForStaff;
 use App\Models\Forum;
@@ -59,6 +60,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/bans', [BanController::class, 'store'])->name('bans.store');
     Route::delete('/bans/{ban}', [BanController::class, 'destroy'])->name('bans.destroy');
     Route::post('/users/{user}/spam-clean', [BanController::class, 'spamClean'])->name('moderation.spam-clean');
+
+    // Warnings / infractions (security §3): staff issue (bans.manage); members acknowledge their own.
+    Route::post('/users/{user}/warn', [WarningController::class, 'store'])->name('warnings.store');
+    Route::get('/warnings', [WarningController::class, 'index'])->name('warnings.index');
+    Route::post('/warnings/{warning}/acknowledge', [WarningController::class, 'acknowledge'])->name('warnings.acknowledge');
 });
 
 // Authenticated, email-verified account area. 2FA setup lives here and is intentionally NOT behind
