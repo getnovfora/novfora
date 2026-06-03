@@ -40,6 +40,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/topics/{topic}/restore', [ModerationController::class, 'restoreTopic'])->name('topics.restore');
     Route::delete('/posts/{post}', [ModerationController::class, 'destroyPost'])->name('posts.destroy');
     Route::post('/posts/{post}/restore', [ModerationController::class, 'restorePost'])->name('posts.restore');
+
+    // Approval queue — content held by the anti-spam layer (ADR-0007 §2.4 / security §3).
+    Route::get('/moderation/queue', [ModerationController::class, 'queue'])->name('moderation.queue');
+    Route::post('/topics/{topic}/approve', [ModerationController::class, 'approveTopic'])->name('topics.approve');
+    Route::post('/topics/{topic}/reject', [ModerationController::class, 'rejectTopic'])->name('topics.reject');
+    Route::post('/posts/{post}/approve', [ModerationController::class, 'approvePost'])->name('posts.approve');
+    Route::post('/posts/{post}/reject', [ModerationController::class, 'rejectPost'])->name('posts.reject');
 });
 
 // Authenticated, email-verified account area. 2FA setup lives here and is intentionally NOT behind
