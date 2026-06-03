@@ -44,6 +44,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/posts/{post}', [ModerationController::class, 'destroyPost'])->name('posts.destroy');
     Route::post('/posts/{post}/restore', [ModerationController::class, 'restorePost'])->name('posts.restore');
 
+    // Moderator control panel (MCP, security §3).
+    Route::get('/moderation', [ModerationController::class, 'dashboard'])->name('moderation.dashboard');
+
     // Approval queue — content held by the anti-spam layer (ADR-0007 §2.4 / security §3).
     Route::get('/moderation/queue', [ModerationController::class, 'queue'])->name('moderation.queue');
     Route::post('/topics/{topic}/approve', [ModerationController::class, 'approveTopic'])->name('topics.approve');

@@ -8,6 +8,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Forum;
 use App\Models\Post;
+use App\Models\Report;
 use App\Models\Topic;
 use App\Models\User;
 use App\Permissions\Scope;
@@ -118,6 +119,21 @@ class ModerationController extends Controller
             ->values();
 
         return view('forum.recycle-bin', compact('topics', 'posts'));
+    }
+
+    /** MCP landing (security §3) — the moderator control-panel baseline: queue, reports, recycle bin. */
+    public function dashboard(Request $request): View
+    {
+        $user = $request->user();
+        abort_unless($user instanceof User && $user->canDo('bans.manage', Scope::global()), 403);
+
+        $counts = [
+            'pending_topics' => Topic::where('approved_state', 'pending')->count(),
+            'pending_posts' => Post::where('approved_state', 'pending')->count(),
+            'open_reports' => Report::where('status', 'open')->count(),
+        ];
+
+        return view('moderation.dashboard', compact('counts'));
     }
 
     /** Moderation queue (MCP, security §3) — content held by the anti-spam layer, in scopes the actor can moderate. */
