@@ -10,6 +10,7 @@ use App\Content\ContentRenderer;
 use App\Models\CustomField;
 use App\Models\CustomFieldValue;
 use App\Models\User;
+use App\Permissions\Scope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -54,7 +55,18 @@ class ProfileController extends Controller
         if ($signature === '') {
             $user->forceFill(['signature_doc' => null, 'signature_format' => null, 'signature_html' => null]);
         } else {
-            $rendered = $renderer->render('markdown', ['source' => $signature]);
+            // Apply the SAME anti-spam link/image suppression as post bodies (security §2.4): a gated
+            // author (e.g. TL0, where post.links/post.images are a hard NEVER) must not render links or
+            // images in their signature either — the signature is a public surface (/users/{user}).
+            // Resolved through the permission engine, exactly like PostService::restrictionsFor.
+            $restrict = [];
+            if (! $user->canDo('post.links', Scope::global())) {
+                $restrict[] = 'links';
+            }
+            if (! $user->canDo('post.images', Scope::global())) {
+                $restrict[] = 'images';
+            }
+            $rendered = $renderer->render('markdown', ['source' => $signature], $restrict);
             $user->forceFill([
                 'signature_doc' => ['source' => $signature],
                 'signature_format' => 'markdown',
