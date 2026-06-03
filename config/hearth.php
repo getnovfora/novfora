@@ -50,6 +50,13 @@ return [
             'posts' => 2,
         ],
 
+        // Auto promotion/demotion (data-model §4). Numeric promotion thresholds live on each TL group's
+        // `auto_promotion` (seeded by GroupSeeder); this governs the demotion side. A live infraction-point
+        // total at/above this demotes the account to TL0; any live flag below it freezes promotion.
+        'trust' => [
+            'demotion_points' => 10,
+        ],
+
         // Per-trust post-rate limits (posts/minute), enforced via Laravel's cache-backed RateLimiter —
         // DB cache on the baseline tier, Redis on enhanced, with no code change (tier-graceful, ADR-0011).
         'rate_limits' => [
