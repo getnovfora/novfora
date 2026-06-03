@@ -130,6 +130,7 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
     ->group(function () {
         Route::view('/service-tier', 'admin.system')->name('tier');
         Route::view('/permissions', 'admin.permissions')->name('permissions');
+        Route::view('/backups', 'admin.backups')->name('backups');
 
         // Admin-defined custom profile fields (data-model §1).
         Route::get('/profile-fields', [ProfileFieldController::class, 'index'])->name('profile-fields');
