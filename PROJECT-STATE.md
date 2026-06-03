@@ -147,6 +147,40 @@ clean-room**.
 > **NEXT: M2 — forum CRUD + content storage + the validated editor / `CanonicalRenderer` port**; retire
 > `hearth-spike/` then. **OPEN ITEM for the owner: confirm the NO = neutral ("ii") interpretation** (a
 > one-branch flip switches to strict-"i" if you want a set NO to hard-stop inheritance).
+>
+> **Update 2026-06-03 (M2 DONE — Code):** **Phase 1 M2 (Forum structure, content & the WYSIWYG editor)
+> complete.** The owner's **NO=neutral ("ii") sign-off is now recorded durably** (security §1.1 + ADR-0006).
+> **Schema (ADR-0005 / data-model §2-3, reversible):** forums/topics extended (counts, last-post pointers,
+> type/status/pin/approved_state, reserved prefix/poll/moved seams) + new posts (canonical storage:
+> body_format / body_canonical / **body_html_cache** / body_text), post_revisions, attachments, append-only
+> audit_log; SoftDeletes on forums/topics/posts/attachments — which cleanly realises the resolver's §1.5
+> "deleted scope → inherit from surviving parent" via the recycle bin. Denormalised counters via model events
+> (no COUNT(*) on read paths). **Content security boundary (ported from Spike 0, extended):**
+> `app/Content/CanonicalRenderer` (TipTap-JSON→HTML, M2 node set incl. tables/spoilers/hr/strike) + the
+> `ContentSanitizer` allowlist (symfony/html-sanitizer) — **kept hand-rolled, no tiptap-php dep**;
+> `ContentRenderer` dispatches tiptap_json vs **Markdown** (CommonMark, raw-HTML-escaped + unsafe-links-denied)
+> through the SAME sanitizer. HTML is always regenerated server-side; client HTML never trusted. **Editor:**
+> the validated `wire:ignore` + Alpine-island TipTap ported with **all 7 findings** (closure-state, deferred
+> $wire.set, defer-tick insert, StarterKit-bundles-Link), richer nodes (tables, /slash menu, @mentions via
+> suggestion, images) + Markdown toggle, as a reusable `<x-content-editor>`; **lazy chunk 132 KB gz** (main
+> bundle 1 KB) — under the ≤180 KB budget; prebuilt assets committed. **CRUD + per-node authz:** server-rendered
+> forums→topics→posts, **every gated action through the M1 engine** (deny-by-default); **anonymous browsing
+> resolves as the Guests group** (`User::guest()`, no second code path). Livewire composers (create/reply/edit)
+> with revisions. **Moderation:** lock/pin/sticky/move/soft-delete/**recycle bin**/restore + own-vs-any post
+> deletes (PostPolicy) + **audit log**. **Attachments:** typed allowlist + size + sha-256 + off-web-root +
+> tier-graceful image dims/thumbnails (GD when present), authorized streaming, wired to the editor upload.
+> **Tier-graceful index caching.** **Fixed an M0-scaffold bug:** `shouldRenderJsonWhen` only covered `api/*`,
+> so AJAX endpoints 500'd on validation errors — now honours `expectsJson()`. **Tests:** the **XSS battery**
+> (extended to the M2 node set + the Markdown path), per-node authz, CRUD, moderation, soft-delete/restore,
+> attachments, counters, and the editor round-trip (server half). **Pest 148 passed / 510 assertions** (M0
+> tier + M1 truth-table/auth suites STAY green); Larastan + Pint clean; reversible migrations; `composer audit`
+> clean. The Spike-0 battery is also written as a **Dusk journey** (`tests/Browser`) that runs in a
+> Chrome-enabled CI (`php artisan dusk`) — the normal `pest` run excludes Browser, so CI without a browser
+> stays green. **`hearth-spike/` retired.** **Deferred (per the scope fence):** anti-spam enforcement +
+> moderation queue/approval workflows + ACP/MCP + word-filters (M3); reactions/PMs/notifications/search/SEO/theme
+> (M3/M4); oEmbed embeds + reactions/polls/tags *features* (Phase 2, seams only). Commits on `main` (small,
+> conventional, signed). **NEXT: M3 — Anti-spam baseline & moderation (ADR-0007)** — trust levels enforced
+> through the ACL, registration blocklist, moderation queue + ACP/MCP, per [`phase-1-plan.md`](docs/product/phase-1-plan.md) §5.
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
