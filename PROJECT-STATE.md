@@ -107,6 +107,18 @@ clean-room**.
 > not M0 (per the plan); then M1→M5. Retire `hearth-spike/` once the real app supersedes it. M0 build kickoff:
 > [`docs/product/m0-code-kickoff.md`](docs/product/m0-code-kickoff.md). *(These Cowork doc edits are on disk;
 > commit them from the Code env — the Cowork mount is unreliable for git writes.)*
+>
+> **Update 2026-06-02 (M0 DONE — Code):** **Phase 1 M0 (skeleton & guardrails) complete** at the repo root.
+> Laravel **13.13** + Livewire **4.3** + Scout merged in (preserving docs/git); baseline-safe drivers +
+> `.env.example` (MySQL). **Service-tier detection (ADR-0003):** probes that never throw + `hearth:tier` CLI
+> + a local-gated `Admin → System → Service Tier` Livewire panel + **5 forced-absence tests**.
+> Reversible-migration guard + `hearth:backup` skeleton. **Prebuilt Vite assets committed** (no host Node).
+> **CI** (Pint, Larastan, Pest, `composer audit`, asset budget) — green; full local run: **Pest 9 passed + 1
+> todo**, Larastan clean, Pint 46 files. Built via a Docker **php:8.3 + mysql:8** dev env (`docker-compose.yml`,
+> `docker/dev/`). Commits `4227af5`…`d686cbd` on `main`; dep licenses recorded in `DECISIONS.md`.
+> **NEXT: M1 — Identity & access** (auth + 2FA + the **permission-mask engine**, ADR-0006) per
+> [`phase-1-plan.md`](docs/product/phase-1-plan.md) §5. The validated editor pattern + `CanonicalRenderer`
+> port in **M2**; retire `hearth-spike/` then.
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,

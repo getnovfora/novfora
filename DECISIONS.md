@@ -96,3 +96,29 @@ components are **single-file** (`⚡`-prefixed). Full M2 notes: [phase-1-plan.md
 
 *(ADRs 0003, 0004, 0008, 0009, 0010, 0013, 0014, 0016, 0017, 0018 are summarized in the table above; full
 detail in their linked docs.)*
+
+---
+
+## Dependency license register (ADR-0015)
+
+Per ADR-0015, each dependency is recorded with its license before merge. All are Apache-2.0-compatible
+(MIT/BSD); **no GPL/AGPL is bundled**.
+
+**M0 — repo-root app (2026-06-02):**
+
+| Package | Version | License | Notes |
+|---|---|---|---|
+| laravel/framework | 13.13 | MIT | core |
+| livewire/livewire | 4.3 | MIT | server-driven UI |
+| laravel/scout | 11.2 | MIT | search abstraction (DB driver = baseline) |
+| laravel/pint | 1.29 | MIT | dev — code style |
+| larastan/larastan | 3.10 | MIT | dev — static analysis |
+| pestphp/pest (+ pest-plugin-laravel) | 4.7 / 4.1 | MIT | dev — tests |
+| laravel/dusk | 8.6 | MIT | dev — browser tests (used from M2) |
+
+**SPDX policy:** Hearth-authored source carries an `SPDX-License-Identifier: Apache-2.0` header. Laravel's
+scaffolded stubs are left as-is and gain a header when meaningfully edited — retrofitting every stub adds
+noise without value.
+
+*(Spike 0 deps are recorded in [spike-0-memo.md](docs/product/spike-0-memo.md): `@tiptap/*` 3.24 MIT (core
+only, never Pro), `symfony/html-sanitizer` 7.4 MIT, `@playwright/test` 1.60 MIT.)*
