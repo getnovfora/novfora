@@ -65,6 +65,31 @@ jobs:
           DB_PASSWORD: secret
         run: php artisan migrate --force && php artisan migrate:rollback --force
 
+      - name: Backup → restore round-trip on MySQL (exit criterion 6, on the baseline engine)
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: hearth_test
+          DB_USERNAME: root
+          DB_PASSWORD: secret
+        run: |
+          set -euo pipefail
+          php artisan migrate --force
+          php artisan db:seed --force
+          BEFORE=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' hearth_test)
+          test "$BEFORE" -gt 0
+          php artisan hearth:backup --path=storage/citest
+          ARCHIVE=$(ls -1t storage/citest/hearth-*.zip | head -1)
+          echo "archive = $ARCHIVE"
+          php artisan migrate:fresh --force          # simulate a wipe / bad upgrade
+          DURING=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' hearth_test)
+          test "$DURING" -eq 0
+          php artisan hearth:restore "$ARCHIVE" --force
+          AFTER=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' hearth_test)
+          echo "groups before=$BEFORE during=$DURING after=$AFTER"
+          test "$BEFORE" = "$AFTER"
+
   assets:
     name: Asset budget
     runs-on: ubuntu-latest
@@ -75,11 +100,28 @@ jobs:
           node-version: '20'
       - run: npm ci
       - run: npm run build
-      - name: Main bundle gz budget
+      - name: Asset budgets (system-architecture §7)
         run: |
           set -euo pipefail
+          # Base JS (excl. the lazy editor island): the main entry bundle. Doc target < 50 KB gz.
           MAIN=$(ls -1 public/build/assets/app-*.js | head -1)
-          GZ=$(gzip -c "$MAIN" | wc -c)
-          echo "main app JS = ${GZ} bytes gz (budget 100000)"
-          test "$GZ" -lt 100000
-          # The editor island budget (≤180 KB gz, lazy-loaded chunk) is enforced in M2 (per spike-0-memo).
+          MAIN_GZ=$(gzip -c "$MAIN" | wc -c)
+          echo "main app JS = ${MAIN_GZ} bytes gz (budget 51200)"
+          test "$MAIN_GZ" -lt 51200
+
+          # No single JS chunk may exceed the editor-island budget (≤ 180 KB gz, lazy-loaded).
+          fail=0
+          for f in public/build/assets/*.js; do
+            GZ=$(gzip -c "$f" | wc -c)
+            echo "  $(basename "$f") = ${GZ} bytes gz"
+            if [ "$GZ" -gt 184320 ]; then echo "::error::$(basename "$f") exceeds the 180 KB gz island budget (${GZ})"; fail=1; fi
+          done
+          test "$fail" -eq 0
+
+          # Total CSS gz budget.
+          CSS_GZ=$(cat public/build/assets/*.css | gzip -c | wc -c)
+          echo "total CSS = ${CSS_GZ} bytes gz (budget 51200)"
+          test "$CSS_GZ" -lt 51200
+      # Query-count + p95 budgets: the query-per-page budgets (thread ≤30, index ≤15) are enforced by the
+      # Pest "Performance" suite in the `test` job above (an N+1 fails the build). p95 render targets are
+      # profiling-verified (system-architecture §7 marks them "profiling", not a hard CI assertion).
