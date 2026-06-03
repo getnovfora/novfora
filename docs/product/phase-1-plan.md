@@ -77,10 +77,15 @@ schema.org, OG, sitemap); **mobile-first theme + Blade override layer** + a11y f
 detection**; **no-SSH installer**; **automated backups + reversible migrations**.
 
 **Explicitly NOT in Phase 1 (Phase 2+, per [roadmap](roadmap.md)):** reactions; PMs; rich/digest
-notifications; reports; warnings/infractions; inline moderation + cross-page bulk; activity feeds; oEmbed;
-drafts/autosave; edit history; the visual point-and-click theme configurator; module/plugin API; REST
+notifications; **cross-page bulk** moderation selection; activity feeds; oEmbed;
+drafts/autosave; the visual point-and-click theme configurator; module/plugin API; REST
 API/webhooks; importers; analytics; SSO; monetization; Meilisearch/Reverb/PWA. *(general-user opt-in 2FA is
 Should/Phase 2.)*
+
+> **Reconciliation (2026-06-03):** three items once listed here shipped earlier than the plan implied —
+> **reports** and **warnings/infractions** in M3, and **edit history** (post revisions) in M2 (brief §6 +
+> security §3). They have been removed from the list above; basic **inline moderation** also landed in M2/M3
+> (only XF-style *cross-page bulk selection* remains deferred).
 
 **Trimmed from Full MVP at your request (→ Phase 2):** (a) the **dark-mode token set + a second example
 theme** — Phase 1 ships one polished default theme + the Blade override layer; (b) **search filters/facets** —
