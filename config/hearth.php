@@ -1,0 +1,90 @@
+<?php
+
+// SPDX-License-Identifier: Apache-2.0
+
+/*
+|--------------------------------------------------------------------------
+| Hearth — anti-spam & moderation (ADR-0007)
+|--------------------------------------------------------------------------
+| All tunables for the M3 anti-spam baseline. Trust-level gating is expressed as ACL entries on the
+| seeded TL groups (security §2.3) — there is no parallel permission system. Every external dependency
+| degrades gracefully to a local mechanism; nothing here is load-bearing on a network service.
+|
+| Gate values are plain strings (allow | no | never) — config:cache–safe on the baseline tier — and are
+| mapped to the three-state PermissionValue by TrustGateSeeder.
+*/
+
+// Progressive capabilities granted from TL1 up. A user is in exactly ONE trust group, so each level's
+// gate set is self-contained (higher levels are not unions of lower ones). Defined once, reused for tl1+.
+$trusted = [
+    'post.links' => 'allow',         // hard-gated at TL0 (never); granted here
+    'post.images' => 'allow',
+    'pm.send' => 'allow',            // PMs are a Phase 2 feature; this is the gate seam
+    'attachment.create' => 'allow',  // soft gate at TL0 (no); granted here
+];
+
+return [
+
+    'antispam' => [
+
+        // Seeded as acl_entries on the trust groups (TrustGateSeeder). never = absolute hard gate an admin
+        // cannot lift (the spam-vector lockdown); no = soft, admin-liftable seam; allow = granted. These are
+        // the DEFAULTS — admins tune them per-forum within the never/no rules via the ACL (the inspector
+        // explains any block, e.g. "tl0 group: post.links = NEVER").
+        'trust_gates' => [
+            'tl0' => [
+                'post.links' => 'never',         // links in the first window — true spam vector
+                'post.images' => 'never',        // inline images — true spam vector
+                'pm.send' => 'never',            // mass-PM vector (PMs ship in Phase 2)
+                'attachment.create' => 'no',     // soft: members grants it by default; admin-liftable
+            ],
+            'tl1' => $trusted,
+            'tl2' => $trusted,
+            'tl3' => $trusted,
+            'tl4' => $trusted,
+        ],
+
+        // New-user moderation queue: a TL0 author's first N APPROVED posts are held (approved_state=pending)
+        // for staff approval (security §2.4). Keyed on TL0 group membership, so it never catches trusted users.
+        'new_user_moderation' => [
+            'posts' => 2,
+        ],
+
+        // Per-trust post-rate limits (posts/minute), enforced via Laravel's cache-backed RateLimiter —
+        // DB cache on the baseline tier, Redis on enhanced, with no code change (tier-graceful, ADR-0011).
+        'rate_limits' => [
+            'tl0' => 2,
+            'tl1' => 8,
+            'default' => 20,
+        ],
+
+        // Layer 1 — registration. Every control degrades to a local mechanism (security §2.2 / §2.6).
+        'registration' => [
+            'stopforumspam' => [
+                'enabled' => true,
+                'use_api' => true,            // live API best-effort; degrade to the cron-cached blocklist
+                'confidence_threshold' => 75, // ≥ this confidence → block; below → flag (flag-don't-block)
+                'timeout' => 4,               // seconds; a slow/dead API must not stall registration
+            ],
+            'captcha' => [
+                'provider' => 'qa',           // qa | honeypot | hcaptcha | turnstile — pluggable, degrade→qa
+            ],
+            'honeypot' => [
+                'field' => 'hp_url',          // a hidden field bots fill; humans never see it
+                'min_seconds' => 2,           // a form submitted faster than this is bot-like
+            ],
+            'velocity' => [
+                'per_ip_per_hour' => 5,       // local IP registration-rate ceiling → flag on spikes
+            ],
+            'disposable_email' => [
+                'enabled' => true,            // local maintained list (blocklist_cache, source=disposable)
+            ],
+        ],
+
+        // Privacy/GDPR (security §2.6): registration_checks carry PII (IP/email) and are purged after this
+        // window by `hearth:antispam:purge` (run from the scheduler).
+        'retention' => [
+            'registration_checks_days' => 90,
+        ],
+    ],
+];
