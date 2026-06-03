@@ -90,6 +90,29 @@ jobs:
           echo "groups before=$BEFORE during=$DURING after=$AFTER"
           test "$BEFORE" = "$AFTER"
 
+      - name: Pure-PHP backup → restore on MySQL (proc_open-free baseline path, phase-1.5 H-3)
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: hearth_test
+          DB_USERNAME: root
+          DB_PASSWORD: secret
+          HEARTH_BACKUP_DB_METHOD: php   # force the pure-PHP dumper + PDO restore (no mysqldump/proc_open)
+        run: |
+          set -euo pipefail
+          php artisan migrate:fresh --force
+          php artisan db:seed --force
+          BEFORE=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' hearth_test)
+          test "$BEFORE" -gt 0
+          php artisan hearth:backup --path=storage/citest-php
+          ARCHIVE=$(ls -1t storage/citest-php/hearth-*.zip | head -1)
+          php artisan migrate:fresh --force                 # wipe
+          php artisan hearth:restore "$ARCHIVE" --force      # restore via PDO (no mysql client)
+          AFTER=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' hearth_test)
+          echo "pure-php groups before=$BEFORE after=$AFTER"
+          test "$BEFORE" = "$AFTER"
+
   assets:
     name: Asset budget
     runs-on: ubuntu-latest

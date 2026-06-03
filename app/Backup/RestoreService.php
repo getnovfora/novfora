@@ -113,13 +113,24 @@ final class RestoreService
 
         // SQL dump → pipe into the client. Password via env, dump via stdin (handles large dumps).
         if ($driver === 'mysql' || $driver === 'mariadb') {
-            $this->runRestore(
-                ['mysql', '-h', (string) ($c['host'] ?? '127.0.0.1'), '-P', (string) ($c['port'] ?? 3306),
-                    '-u', (string) ($c['username'] ?? 'root'), (string) ($c['database'] ?? '')],
-                ['MYSQL_PWD' => (string) ($c['password'] ?? '')],
-                $dump,
-                'mysql',
-            );
+            // Baseline hardening (phase-1.5): when proc_open/the mysql binary aren't usable (common on
+            // shared hosts), apply the dump in-process over PDO instead of shelling out. Mirrors
+            // BackupService's pure-PHP path; the .sql produced by either dumper restores the same way.
+            if (BackupService::processFunctionsAvailable() && (string) config('hearth.backup.db_method', 'auto') !== 'php') {
+                try {
+                    $this->runRestore(
+                        ['mysql', '-h', (string) ($c['host'] ?? '127.0.0.1'), '-P', (string) ($c['port'] ?? 3306),
+                            '-u', (string) ($c['username'] ?? 'root'), (string) ($c['database'] ?? '')],
+                        ['MYSQL_PWD' => (string) ($c['password'] ?? '')],
+                        $dump,
+                        'mysql',
+                    );
+                } catch (BackupException) {
+                    $this->phpRestoreSql($dump, $conn); // mysql client missing/unrunnable → in-process apply
+                }
+            } else {
+                $this->phpRestoreSql($dump, $conn);
+            }
         } elseif ($driver === 'pgsql') {
             $this->runRestore(
                 ['psql', '-h', (string) ($c['host'] ?? '127.0.0.1'), '-p', (string) ($c['port'] ?? 5432),
@@ -156,6 +167,26 @@ final class RestoreService
 
         if (! $process->isSuccessful()) {
             throw new BackupException(trim($tool.' restore failed: '.$process->getErrorOutput()) ?: "{$tool} restore failed.");
+        }
+    }
+
+    /**
+     * Apply a .sql dump in-process via PDO (no proc_open, no mysql client) — the baseline-safe restore that
+     * pairs with BackupService::phpDumpMysql. pdo_mysql executes the multi-statement dump in one exec();
+     * our dumps contain only DDL/DML (no result sets), so there is nothing to consume between statements.
+     * Loads the dump into memory, so it suits the small/medium databases a cheap-host forum runs.
+     */
+    private function phpRestoreSql(string $dumpFile, string $conn): void
+    {
+        $sql = (string) file_get_contents($dumpFile);
+        if (trim($sql) === '') {
+            throw new BackupException('The database dump is empty.');
+        }
+
+        try {
+            DB::connection($conn)->getPdo()->exec($sql);
+        } catch (Throwable $e) {
+            throw new BackupException('Pure-PHP database restore failed: '.$e->getMessage());
         }
     }
 
