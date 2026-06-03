@@ -6,11 +6,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Post;
 use App\Models\Topic;
 use App\Models\TopicRead;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class TopicController extends Controller
 {
@@ -47,6 +49,10 @@ class TopicController extends Controller
             ->orderBy('position')->orderBy('id')
             ->paginate(15);
 
-        return view('forum.topic', compact('topic', 'posts', 'viewer', 'user', 'canReply', 'canModerate'));
+        // SEO description = an excerpt of the opening post's text projection (security-safe; no HTML).
+        $description = Str::limit((string) Post::where('topic_id', $topic->getKey())
+            ->orderBy('position')->orderBy('id')->value('body_text'), 160);
+
+        return view('forum.topic', compact('topic', 'posts', 'viewer', 'user', 'canReply', 'canModerate', 'description'));
     }
 }

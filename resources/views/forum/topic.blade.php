@@ -1,6 +1,34 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 @extends('layouts.app', ['title' => $topic->title.' · '.config('app.name', 'Hearth')])
 
+@push('head')
+    @php($canonical = route('topics.show', $topic))
+    <link rel="canonical" href="{{ $canonical }}">
+    <meta name="description" content="{{ $description }}">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="{{ $topic->title }}">
+    <meta property="og:description" content="{{ $description }}">
+    <meta property="og:url" content="{{ $canonical }}">
+    <meta name="twitter:card" content="summary">
+    {{-- schema.org DiscussionForumPosting (JSON-LD); JSON_HEX_TAG keeps it safe inside <script>. --}}
+    <script type="application/ld+json">
+        {!! json_encode([
+            '@context' => 'https://schema.org',
+            '@type' => 'DiscussionForumPosting',
+            'headline' => $topic->title,
+            'url' => $canonical,
+            'datePublished' => $topic->created_at?->toIso8601String(),
+            'dateModified' => $topic->last_posted_at?->toIso8601String(),
+            'author' => ['@type' => 'Person', 'name' => $topic->author?->username ?? 'Unknown'],
+            'interactionStatistic' => [
+                '@type' => 'InteractionCounter',
+                'interactionType' => 'https://schema.org/CommentAction',
+                'userInteractionCount' => (int) $topic->reply_count,
+            ],
+        ], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) !!}
+    </script>
+@endpush
+
 @section('content')
     <main style="max-width:52rem;margin:2rem auto;padding:0 1rem;font-family:system-ui,sans-serif">
         <nav style="color:#888;font-size:.85rem">
