@@ -21,6 +21,10 @@
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
+        <!-- Anti-spam: frictionless by default in tests (no CAPTCHA, no live StopForumSpam network call);
+             the dedicated anti-spam suites opt back in to the strict config per test. -->
+        <env name="HEARTH_CAPTCHA" value="none"/>
+        <env name="HEARTH_SFS_API" value="false"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
         <env name="DB_CONNECTION" value="sqlite"/>

@@ -69,9 +69,9 @@ return [
         'registration' => [
             'stopforumspam' => [
                 'enabled' => true,
-                'use_api' => true,            // live API best-effort; degrade to the cron-cached blocklist
-                'confidence_threshold' => 75, // ≥ this confidence → block; below → flag (flag-don't-block)
-                'timeout' => 4,               // seconds; a slow/dead API must not stall registration
+                'use_api' => env('HEARTH_SFS_API', true), // live API best-effort; degrade to the cron-cached blocklist (off in tests → no network)
+                'confidence_threshold' => 75,             // ≥ this confidence → block; below → flag (flag-don't-block)
+                'timeout' => 4,                           // seconds; a slow/dead API must not stall registration
             ],
             'captcha' => [
                 // Default provider for any action; degrades to qa when unavailable (CaptchaManager).
