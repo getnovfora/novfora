@@ -1,0 +1,97 @@
+<?php
+// SPDX-License-Identifier: Apache-2.0
+use App\Forum\PostService;
+use App\Models\Topic;
+use App\Models\User;
+use Livewire\Attributes\Locked;
+use Livewire\Component;
+
+new class extends Component
+{
+    #[Locked]
+    public int $topicId;
+
+    public string $format = 'tiptap_json';
+
+    public array $canonicalJson = ['type' => 'doc', 'content' => []];
+
+    public string $markdownSource = '';
+
+    public function mount(int $topicId): void
+    {
+        $this->topicId = $topicId;
+        $this->ensureCanReply();
+    }
+
+    public function toggleFormat(): void
+    {
+        $this->format = $this->format === 'markdown' ? 'tiptap_json' : 'markdown';
+    }
+
+    public function save(PostService $service)
+    {
+        $this->ensureCanReply();
+
+        if ($this->bodyIsEmpty()) {
+            $this->addError('body', 'Please write a reply.');
+
+            return null;
+        }
+
+        [$format, $canonical] = $this->format === 'markdown'
+            ? ['markdown', ['source' => $this->markdownSource]]
+            : ['tiptap_json', $this->canonicalJson];
+
+        $post = $service->reply(auth()->user(), $this->topic(), $format, $canonical);
+
+        return $this->redirectRoute('topics.show', $this->topicId, navigate: true);
+    }
+
+    private function ensureCanReply(): void
+    {
+        $topic = $this->topic();
+        $user = auth()->user();
+        abort_unless(
+            $topic->status !== 'locked'
+            && $user instanceof User
+            && $user->canDo('post.create', $topic->forum->permissionScope()),
+            403,
+        );
+    }
+
+    private function topic(): Topic
+    {
+        return Topic::with('forum')->findOrFail($this->topicId);
+    }
+
+    private function bodyIsEmpty(): bool
+    {
+        return $this->format === 'markdown'
+            ? trim($this->markdownSource) === ''
+            : empty($this->canonicalJson['content']);
+    }
+};
+?>
+
+<form wire:submit="save" style="display:flex;flex-direction:column;gap:.5rem;margin-top:1rem">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>Reply</strong>
+        <button type="button" wire:click="toggleFormat" style="padding:.3rem .6rem;border:1px solid #bbb;border-radius:6px;background:#fff;cursor:pointer;font-size:.8rem">
+            {{ $format === 'markdown' ? 'Switch to rich text' : 'Switch to Markdown' }}
+        </button>
+    </div>
+
+    @if ($format === 'markdown')
+        <textarea wire:model="markdownSource" rows="6" placeholder="Write Markdown…"
+                  style="padding:.6rem;border:1px solid #cfcfd6;border-radius:8px;font-family:ui-monospace,monospace"></textarea>
+    @else
+        <x-content-editor model="canonicalJson" :initial="$canonicalJson"
+                          :upload-url="route('attachments.store')" :mention-url="route('mentions')"
+                          placeholder="Write a reply…" />
+    @endif
+    @error('body') <p style="color:#b00020;margin:0">{{ $message }}</p> @enderror
+
+    <div>
+        <button type="submit" style="padding:.55rem 1.1rem;border:0;border-radius:6px;background:#2d2a6b;color:#fff;cursor:pointer">Post reply</button>
+    </div>
+</form>
