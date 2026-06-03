@@ -150,6 +150,7 @@ Per ADR-0015, each dependency is recorded with its license before merge. All are
 |---|---|---|---|
 | symfony/html-sanitizer | 7.4 | MIT | the allowlist sanitizer — the content security boundary (ADR-0005 / security §4) |
 | league/commonmark | 2.8 | BSD-3-Clause | Markdown input mode (already present via the framework; used with html_input=escape + unsafe-links denied, then sanitized) |
+| @tiptap/* (core, pm, starter-kit, placeholder, mention, image, table, suggestion) | 3.x | MIT | WYSIWYG editor (JS); **no @tiptap-pro/***. Lazy chunk **132 KB gz**, code-split out of the 1 KB main bundle |
 
 **Canonical-render decision (ADR-0005):** kept the **hand-rolled** TipTap-JSON→HTML mapper
 (`app/Content/CanonicalRenderer`) rather than adding a `tiptap-php` dependency — it *is* the security
