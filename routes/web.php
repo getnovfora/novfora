@@ -7,6 +7,7 @@ use App\Http\Controllers\BanController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\MentionController;
 use App\Http\Controllers\ModerationController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TopicController;
 use App\Http\Controllers\WarningController;
@@ -75,6 +76,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('/home', 'home')->name('home');
     Route::view('/settings/two-factor', 'settings.two-factor')->name('settings.two-factor');
+
+    // In-app notifications (data-model §7): list, mark read, and per-event×channel preferences.
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::get('/settings/notifications', [NotificationController::class, 'preferences'])->name('settings.notifications');
+    Route::post('/settings/notifications', [NotificationController::class, 'savePreferences'])->name('settings.notifications.save');
 });
 
 // Admin → System panels. Requires an authenticated admin (admin.access via the permission engine);
