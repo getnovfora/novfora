@@ -1,14 +1,9 @@
 <?php
 
-uses(
-    DuskTestCase::class,
-    // Illuminate\Foundation\Testing\DatabaseMigrations::class,
-)->in('Browser');
+// SPDX-License-Identifier: Apache-2.0
 
 use Tests\DuskTestCase;
 use Tests\TestCase;
-
-// SPDX-License-Identifier: Apache-2.0
 
 /*
 | Pest bootstrap — bind the Laravel TestCase to Feature tests so they get the application
@@ -16,3 +11,7 @@ use Tests\TestCase;
 */
 
 uses(TestCase::class)->in('Feature');
+
+// Dusk browser journeys — the Spike-0 editor battery, run via `php artisan dusk` (Chrome-enabled CI).
+// The normal pest run uses phpunit.xml's Unit + Feature suites, so it never loads Browser/Chrome.
+uses(DuskTestCase::class)->in('Browser');
