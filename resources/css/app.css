@@ -45,3 +45,23 @@
 .hearth-suggest-item { display: block; width: 100%; text-align: left; padding: 0.35rem 0.55rem; border: 0;
     border-radius: 5px; background: transparent; cursor: pointer; font-size: 0.9rem; color: #333; }
 .hearth-suggest-item:hover, .hearth-suggest-item.is-active { background: #efeff3; }
+
+/* ── a11y floor (ADR-0009 §3.3 / ADR-0016): skip link, screen-reader-only text, visible focus ──────────── */
+.skip-link { position: absolute; left: -9999px; top: 0; z-index: 100; background: #2d2a6b; color: #fff;
+    padding: 0.5rem 0.9rem; border-radius: 0 0 6px 0; }
+.skip-link:focus { left: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+:focus-visible { outline: 2px solid #2d2a6b; outline-offset: 2px; }
+
+/* ── Design tokens (CSS custom properties) — the home for the Phase 3 visual configurator; AA-contrast ──── */
+:root {
+    --hearth-bg: #ffffff;       /* text #1c1c22 on bg → ~15:1 (AAA) */
+    --hearth-fg: #1c1c22;
+    --hearth-muted: #5b5b66;    /* on white → ~6:1 (AA body) */
+    --hearth-accent: #2d2a6b;   /* on white → ~10:1; white on accent → ~10:1 */
+    --hearth-accent-fg: #ffffff;
+    --hearth-border: #e3e3ea;
+    --hearth-radius: 8px;
+}
+body { color: var(--hearth-fg); background: var(--hearth-bg); font-family: var(--font-sans); }

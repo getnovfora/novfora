@@ -11,7 +11,9 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body>
-    @yield('content')
+    {{-- a11y floor (ADR-0009 §3.3): skip link + a single main landmark. Themes may restyle, not remove. --}}
+    <a href="#main" class="skip-link">Skip to content</a>
+    <div id="main">@yield('content')</div>
     {{-- Livewire 4 auto-injects its scripts into a full-page response. --}}
 </body>
 </html>
