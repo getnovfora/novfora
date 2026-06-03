@@ -43,6 +43,12 @@ clean-room**.
 
 ## Status (as of this handoff)
 
+> **▶ PHASE 1 / CORE MVP COMPLETE (2026-06-03).** M0–M5 all done and shippable: runs on a baseline shared host
+> via the **no-SSH web installer** (one cron line drives everything), identical code on the enhanced tier,
+> **Pest 272 / 879** green + **Dusk executed (2)**, all CI guards pass, demo seed + getting-started, upgrade/
+> restore proven. The six exit criteria → evidence are mapped in the **M5 DONE** update below. **NEXT is a
+> strategic owner call (not a milestone): Phase 2 vs. a Phase 5 hardening/release pass.**
+
 - **Stage A: COMPLETE.** All Section 8 deliverables produced and the Checkpoint-1 research fixes
   applied: `docs/research/` (comparison + complaints), `docs/architecture/`
   (technical-stack-recommendation, system-architecture, data-model-initial, plugin-and-theme-system,
@@ -238,6 +244,51 @@ clean-room**.
 > **NEXT: M5 — Operability & the runnable milestone** (no-SSH web installer, automated backups + restore,
 > upgrade rehearsal, demo seed + getting-started, `.env.example` finalize, perf budgets in CI), per
 > [`phase-1-plan.md`](docs/product/phase-1-plan.md) §5.
+>
+> **Update 2026-06-03 (M5 DONE → Phase 1 / MVP COMPLETE — Code):** **Phase 1 M5 (Operability & the runnable
+> milestone) complete. The Core MVP is shippable.** **No new dependencies.** **(1) No-SSH web installer
+> (ADR-0020, the headline):** a browser wizard (system check + tier detection → DB → site & admin → run) on a
+> standalone pre-install layout, backed by one `App\Install\InstallRunner` shared with a `hearth:install` CLI
+> — write `.env` (+ generate APP_KEY) → point the live connection at the new DB → verify → migrate → seed
+> posture → optional demo → create the admin (argon2id, email-verified, staff) → `storage:link` → **LOCK
+> last**. The lock is a `storage/installed` **file marker** (checkable before the DB exists, survives a DB
+> wipe), written last; once present the installer 403s — **no re-trigger, no admin-reset web vector** (reset =
+> a filesystem action). A pre-install boot hook hardens a fresh upload (file session/cache, sync queue, ensured
+> APP_KEY) so it boots with no DB; `RedirectIfNotInstalled` sends an un-installed site to the wizard.
+> Security-tested: lock, input validation, redirect, full-run integrity, no-secret-leak. **(2) Backups +
+> restore:** completed the M0 skeleton — one portable `.zip` (DB dump + storage mirror + a manifest with a
+> **SHA-256** of the dump); `hearth:backup` (cron + `--keep` retention), `hearth:restore` (manifest+hash
+> validated, `--force`), and an **Admin → Backups** Livewire panel (run/download/delete, authorized in-component,
+> path-safe). **(3) Health:** `GET /health` (DB, cache, cron-queue freshness, tier, install state) — never
+> throws, never leaks, 503 on DB-down. **(4) One cron line (ADR-0011):** the scheduler now drives the bounded
+> queue drain + a liveness heartbeat + backups + the trust/anti-spam jobs. **(5) Demo seed + getting-started:**
+> an idempotent believable community via the real `PostService`; [`docs/getting-started.md`](docs/getting-started.md).
+> **(6) `.env.example` finalized** (every key documented, enhanced-tier blocks commented). **(7) Perf budgets in
+> CI:** query-per-page Pest gates (thread ≤30, index ≤15, no N+1) + asset budgets (main JS <50 KB, no chunk
+> >180 KB, CSS <50 KB) + a MySQL backup→restore round-trip. **(8) Dusk executed for real:** the M2 editor battery
+> now runs GREEN in a Chrome-enabled `docker/dusk/` image + CI job — compose+post a topic end-to-end and the
+> criterion-1a morph-survival GO-blocker, **2 passed**.
+>
+> **Phase 1 EXIT CRITERIA — all six met (each → evidence):**
+> 1. **Runs on the baseline tier via the no-SSH installer; one cron line.** → installer suite green; the wizard
+>    locks after install; `schedule:run` drives the whole tier (SchedulerTest).
+> 2. **Identical code on the enhanced tier, no code change.** → ServiceTier (ADR-0003) + forced-absence suites;
+>    `.env.example` enhanced blocks; tier-graceful search/notifications/cache stay green.
+> 3. **Tests green incl. permission-mask truth-tables + service-tier fallback.** → **Pest 272 passed / 879
+>    assertions** (M0–M4 + M5), both non-negotiable suites included.
+> 4. **All CI guards pass.** → Pint clean (241 files), Larastan clean, `composer audit` clean, **Dusk executed
+>    (2 passed)**, query/asset budgets enforced.
+> 5. **Demo seed + getting-started produce a working community; `.env.example` current.** → DemoSeeder
+>    (idempotent) + [`getting-started.md`](docs/getting-started.md); `.env.example` finalized.
+> 6. **Upgrade/restore proven on the baseline tier.** → reversible-migration cycle + backup→restore round-trip
+>    asserted green (BackupRestoreTest) + a MySQL end-to-end round-trip in CI.
+>
+> **Verified in Docker `php:8.3` + `mysql:8`** (this box has no host PHP); Dusk in a `php:8.3` + system
+> Chromium/ChromeDriver image. Small conventional DCO commits on `main`. **Manual follow-up (per the phase-1
+> risk table): live shared-host validation on ≥2 real hosts** can't run in the container — the installer ships
+> requirement/writable-path probes + a host-compatibility checklist; real-host testing is flagged. **NEXT is a
+> strategic owner decision (not a milestone): Phase 2 (Community) vs. a Phase 5 hardening/release pass before a
+> public 1.0** — the Cowork session preps that decision packet.
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,

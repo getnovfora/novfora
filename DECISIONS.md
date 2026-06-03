@@ -34,6 +34,7 @@ process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed
 | 0017 | **License = Apache-2.0** + SPDX headers from commit one | Accepted (brief) | [LICENSE](LICENSE) |
 | 0018 | **Strict clean-room** vs all reference forums; copy *data* (importers), never *program* | Accepted (brief) | [CONTRIBUTING](CONTRIBUTING.md) |
 | 0019 | **Auth = Laravel Fortify (headless) + our own Blade views**; **argon2id**; **2FA/TOTP mandatory for staff**, opt-in for users; passkeys deferred | Accepted | [security §1](docs/architecture/security-and-permissions.md) |
+| 0020 | **No-SSH web installer** with a **post-install file-marker lock** (no re-trigger / admin-reset vector); one shared `InstallRunner` for web + CLI; pre-install boot hardening; **portable backup/restore** (manifest + SHA-256 integrity) | Accepted | [getting-started](docs/getting-started.md) |
 
 ---
 
@@ -125,6 +126,22 @@ auth; 2FA secrets/recovery codes encrypted at rest; the first admin is created b
 slice), not seeded. Dedicated feature tests cover registration, throttling, reset, verification, the full
 2FA enable/confirm/challenge flow, and the staff-2FA gate.
 
+### ADR-0020 — No-SSH web installer, lock, and backups (M5)
+**Context:** Hearth must be installable by ordinary operators on a shared host with no SSH, and the
+installer is an **unauthenticated pre-install surface** that writes secrets, runs migrations, and creates
+the admin — the highest-risk code path in the project. **Decision:** a browser wizard (requirement/tier
+probes → DB → site & admin → run) backed by a single `App\Install\InstallRunner` shared with a
+`hearth:install` CLI, so there is exactly one audited install sequence. The **lock** is a `storage/installed`
+**file marker** (not a DB flag — checkable before the DB exists, survives a DB wipe), written **last**; once
+present, `EnsureNotInstalled` returns 403 and **no web route clears it** (reset is a deliberate filesystem
+action = shell trust). A pre-install boot hook forces zero-dependency drivers (file session/cache, sync
+queue) + an ensured APP_KEY so a fresh upload boots with no DB. **Backups** are one portable `.zip` (DB dump
++ storage mirror + a manifest carrying a **SHA-256** of the dump); restore validates the manifest + verifies
+the hash before overwriting. **Consequences:** input validated server-side; secrets never rendered back nor
+logged; the lock has no re-trigger/admin-reset vector; the upgrade safety net (reversible migrations +
+backup→restore) is proven by a round-trip test. Tests opt out of enforcement (`HEARTH_INSTALL_ENFORCE=false`)
+so the M0–M4 suite is untouched.
+
 *(ADRs 0003, 0004, 0008, 0009, 0010, 0013, 0014, 0016, 0017, 0018 are summarized in the table above; full
 detail in their linked docs.)*
 
@@ -180,6 +197,17 @@ is a custom, semver'd contract over Blade's view finder (active theme → parent
 [THEME-API.md](docs/THEME-API.md) (**THEME API v1.0**). Signatures reuse the M2 canonical pipeline + sanitizer.
 Avatars/covers use the `public` disk (needs `storage:link`, an installer step). M4 implementation note: an
 `@mention` notification is parsed from the canonical doc; held posts notify at approval, not at write.
+
+**M5 — operability & the runnable MVP (2026-06-03):** **No new dependencies.** The installer, backups,
+restore, health endpoint, demo seed, and scheduler are built on the framework: `symfony/process` (DB dump/
+restore via `mysqldump`/`mysql`/`pg_dump`/`pg_restore`) and PHP's `ZipArchive` were already present (the M0
+`hearth:backup` skeleton used them); the wizard is a single-file Livewire component; the perf budgets are a
+Pest `Performance` suite + shell asset checks in CI. The Dusk editor journey was **executed for real** in a
+new `docker/dusk/` Chrome image + a CI job (php:8.3 + system Chromium/ChromeDriver) — `laravel/dusk` (M0
+dev-dep) and `@tiptap/*` (M2) are unchanged. **M5 implementation notes:** the install lock is a filesystem
+marker, not a DB row (ADR-0020); `wire:model.blur` on the create-topic title (a value typed after a
+validation-error morph reliably syncs on resubmit — found by running Dusk); the demo seed pins mail to the
+array transport so it never hits SMTP during install.
 
 **SPDX policy:** Hearth-authored source carries an `SPDX-License-Identifier: Apache-2.0` header. Laravel's
 scaffolded stubs are left as-is and gain a header when meaningfully edited — retrofitting every stub adds
