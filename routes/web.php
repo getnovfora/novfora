@@ -9,6 +9,7 @@ use App\Http\Controllers\MentionController;
 use App\Http\Controllers\ModerationController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\TopicController;
 use App\Http\Controllers\WarningController;
 use App\Http\Middleware\EnsureSystemPanelAccess;
@@ -26,6 +27,10 @@ Route::get('/forums', [ForumController::class, 'index'])->name('forums.index');
 Route::get('/forums/{forum}', [ForumController::class, 'show'])->name('forums.show');
 Route::get('/topics/{topic}', [TopicController::class, 'show'])->name('topics.show');
 Route::get('/attachments/{attachment}', [AttachmentController::class, 'show'])->name('attachments.show');
+
+// Search (ADR-0010) — public; results filtered to forums the viewer can see.
+Route::get('/search', [SearchController::class, 'index'])->name('search.index');
+Route::get('/search/suggest', [SearchController::class, 'suggest'])->name('search.suggest');
 
 // Compose / moderate / upload — authenticated + email-verified.
 Route::middleware(['auth', 'verified'])->group(function () {

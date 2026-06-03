@@ -10,10 +10,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Laravel\Scout\Searchable;
 
 class Post extends Model
 {
-    use SoftDeletes;
+    use Searchable, SoftDeletes;
 
     protected $guarded = [];
 
@@ -31,11 +32,31 @@ class Post extends Model
         static::restored(fn (Post $post) => $post->syncAggregates(1));
     }
 
+    /**
+     * Search projection (ADR-0010). The baseline Scout `database` engine searches this model's `body_text`
+     * column (MySQL FULLTEXT / LIKE); the enhanced Meilisearch engine indexes the same field. Only the
+     * tags-stripped text projection is exposed — never raw HTML.
+     *
+     * @return array<string, mixed>
+     */
+    public function toSearchableArray(): array
+    {
+        return ['body_text' => (string) $this->body_text];
+    }
+
+    /** Only approved content is discoverable (pending/rejected posts stay out of search). */
+    public function shouldBeSearchable(): bool
+    {
+        return $this->approved_state === 'approved';
+    }
+
+    /** @return BelongsTo<Topic, $this> */
     public function topic(): BelongsTo
     {
         return $this->belongsTo(Topic::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
