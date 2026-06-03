@@ -13,3 +13,8 @@ Route::get('/', function () {
 Route::view('/admin/system/service-tier', 'admin.system')
     ->middleware(EnsureSystemPanelAccess::class)
     ->name('admin.system.tier');
+
+// Admin → System → Permission Inspector ("why can / can't X?", security §1.4 / ADR-0006).
+Route::view('/admin/system/permissions', 'admin.permissions')
+    ->middleware(EnsureSystemPanelAccess::class)
+    ->name('admin.system.permissions');
