@@ -28,12 +28,18 @@ new class extends Component
         $this->format = $this->format === 'markdown' ? 'tiptap_json' : 'markdown';
     }
 
-    public function save(PostService $service)
+    public function save(PostService $service, \App\AntiSpam\PostRateLimiter $limiter)
     {
         $this->ensureCanReply();
 
         if ($this->bodyIsEmpty()) {
             $this->addError('body', 'Please write a reply.');
+
+            return null;
+        }
+
+        if (! $limiter->attempt(auth()->user())) {
+            $this->addError('body', 'You are posting too quickly — please wait a moment and try again.');
 
             return null;
         }
