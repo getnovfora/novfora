@@ -1,0 +1,70 @@
+<?php
+
+// SPDX-License-Identifier: Apache-2.0
+
+declare(strict_types=1);
+
+namespace App\Permissions;
+
+use App\Models\Forum;
+use App\Models\Topic;
+
+/**
+ * Builds the scope chain (root → target): global → …ancestor categories… → forum → thread.
+ * Ancestors come from the materialised `forums.path` (ADR-0004), so this is O(depth), one query.
+ * Deleted/moved scopes degrade gracefully: a missing node is skipped, so resolution inherits from
+ * the surviving parent (security §1.5).
+ */
+final class ScopeChain
+{
+    /** @return list<Scope> ordered root (global) → target */
+    public static function for(Scope $target): array
+    {
+        if ($target->isGlobal()) {
+            return [Scope::global()];
+        }
+
+        if ($target->type === 'thread') {
+            $topic = Topic::find($target->id);
+            if (! $topic) {
+                return [Scope::global()]; // deleted thread → inherit from global/surviving parent
+            }
+            $chain = self::forumChain((int) $topic->forum_id);
+            $chain[] = Scope::thread((int) $topic->id);
+
+            return $chain;
+        }
+
+        // category or forum target
+        return self::forumChain((int) $target->id);
+    }
+
+    /** @return list<Scope> [global, …ancestor forum/category nodes…, the forum itself] */
+    private static function forumChain(int $forumId): array
+    {
+        $forum = Forum::find($forumId);
+        if (! $forum) {
+            return [Scope::global()]; // deleted/moved forum → inherit from surviving parent
+        }
+
+        // path like "/1/4/" → [1, 4] (root → self)
+        $ids = array_values(array_filter(
+            array_map('intval', explode('/', trim((string) $forum->path, '/'))),
+        ));
+        if ($ids === []) {
+            $ids = [(int) $forum->id];
+        }
+
+        $nodes = Forum::whereIn('id', $ids)->get()->keyBy('id');
+
+        $chain = [Scope::global()];
+        foreach ($ids as $id) {
+            $node = $nodes->get($id);
+            if ($node) { // skip a deleted ancestor → inherit from surviving parent
+                $chain[] = new Scope($node->type === 'category' ? 'category' : 'forum', (int) $node->id);
+            }
+        }
+
+        return $chain;
+    }
+}
