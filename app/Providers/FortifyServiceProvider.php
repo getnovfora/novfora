@@ -8,6 +8,7 @@ use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
 use App\Actions\Fortify\UpdateUserPassword;
 use App\Actions\Fortify\UpdateUserProfileInformation;
+use App\AntiSpam\Captcha\CaptchaManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -39,7 +40,9 @@ class FortifyServiceProvider extends ServiceProvider
 
         // Our own clean-room, server-rendered auth views (no SPA starter kit).
         Fortify::loginView(fn () => view('auth.login'));
-        Fortify::registerView(fn () => view('auth.register'));
+        Fortify::registerView(fn () => view('auth.register', [
+            'captcha' => app(CaptchaManager::class)->for('register')->challenge(),
+        ]));
         Fortify::requestPasswordResetLinkView(fn () => view('auth.forgot-password'));
         Fortify::resetPasswordView(fn (Request $request) => view('auth.reset-password', ['request' => $request]));
         Fortify::verifyEmailView(fn () => view('auth.verify-email'));

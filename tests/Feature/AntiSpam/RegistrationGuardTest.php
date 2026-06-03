@@ -19,7 +19,11 @@ use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
 
-beforeEach(fn () => $this->seed());
+beforeEach(function () {
+    // The test env defaults the live API off (no network); these tests fake Http, so opt it back on.
+    config(['hearth.antispam.registration.stopforumspam.use_api' => true]);
+    $this->seed();
+});
 
 function guard(): RegistrationGuard
 {
