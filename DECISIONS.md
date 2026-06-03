@@ -33,6 +33,7 @@ process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed
 | 0016 | **a11y/i18n baseline** = WCAG 2.1 AA baked in; utf8mb4; externalized strings; RTL not precluded | Accepted | [data-model §10](docs/architecture/data-model-initial.md), [plugin-theme §3.3](docs/architecture/plugin-and-theme-system.md) |
 | 0017 | **License = Apache-2.0** + SPDX headers from commit one | Accepted (brief) | [LICENSE](LICENSE) |
 | 0018 | **Strict clean-room** vs all reference forums; copy *data* (importers), never *program* | Accepted (brief) | [CONTRIBUTING](CONTRIBUTING.md) |
+| 0019 | **Auth = Laravel Fortify (headless) + our own Blade views**; **argon2id**; **2FA/TOTP mandatory for staff**, opt-in for users; passkeys deferred | Accepted | [security §1](docs/architecture/security-and-permissions.md) |
 
 ---
 
@@ -94,6 +95,20 @@ programmatic commands throw *"Applying a mismatched transaction."* Canonical Tip
 **deferred `$wire.set` (no debounce)**; HTML is always rendered + sanitized server-side (ADR-0005). Livewire 4
 components are **single-file** (`⚡`-prefixed). Full M2 notes: [phase-1-plan.md](docs/product/phase-1-plan.md) §4.
 
+### ADR-0019 — Authentication & two-factor (M1)
+**Context:** M1 needs register / verify / login / password-reset on the baseline tier (server-rendered,
+no SPA), with strong hashing and mandatory 2FA for privileged accounts. **Decision:** use **Laravel
+Fortify** (headless — backend only) behind **our own clean-room Blade views**, not a starter kit;
+**argon2id** as the default password hash (bcrypt fallback for hosts lacking libargon2); rate-limited
+login (5/min per email+IP) and 2FA challenge; **TOTP 2FA mandatory for staff** (admins & moderators —
+enforced by the `RequireTwoFactorForStaff` middleware on privileged routes), **opt-in** for general users
+(Phase 2 "Should"). The admin panels are gated on the `admin.access` permission via the engine (ADR-0006).
+**WebAuthn/passkeys are deferred** — `laravel/passkeys` ships as a Fortify dependency but the feature,
+routes, and table are intentionally not enabled in M1. **Consequences:** no client framework required for
+auth; 2FA secrets/recovery codes encrypted at rest; the first admin is created by the installer (a later
+slice), not seeded. Dedicated feature tests cover registration, throttling, reset, verification, the full
+2FA enable/confirm/challenge flow, and the staff-2FA gate.
+
 *(ADRs 0003, 0004, 0008, 0009, 0010, 0013, 0014, 0016, 0017, 0018 are summarized in the table above; full
 detail in their linked docs.)*
 
@@ -115,6 +130,16 @@ Per ADR-0015, each dependency is recorded with its license before merge. All are
 | larastan/larastan | 3.10 | MIT | dev — static analysis |
 | pestphp/pest (+ pest-plugin-laravel) | 4.7 / 4.1 | MIT | dev — tests |
 | laravel/dusk | 8.6 | MIT | dev — browser tests (used from M2) |
+
+**M1 — identity & auth (2026-06-02):**
+
+| Package | Version | License | Notes |
+|---|---|---|---|
+| laravel/fortify | 1.37 | MIT | headless auth — register/login/reset/verify/2FA; our own Blade views |
+| pragmarx/google2fa | 9.0 | MIT | TOTP generation/verification for 2FA; pulled by Fortify |
+| bacon/bacon-qr-code | 3.1 | BSD-2-Clause | QR-code SVG for 2FA enrolment; pulled by Fortify |
+| paragonie/constant_time_encoding | 3.1 | MIT | constant-time base32/hex (transitive, via google2fa) |
+| laravel/passkeys | 0.2 | MIT | **dormant** — a Fortify dependency; the passkeys feature, routes, and table are **not enabled** in M1 (out of scope) |
 
 **SPDX policy:** Hearth-authored source carries an `SPDX-License-Identifier: Apache-2.0` header. Laravel's
 scaffolded stubs are left as-is and gain a header when meaningfully edited — retrofitting every stub adds
