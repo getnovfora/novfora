@@ -45,3 +45,16 @@ it('can be disabled by config (operator escape hatch)', function () {
 
     $this->get(route('forums.index'))->assertOk()->assertHeaderMissing('Content-Security-Policy');
 });
+
+it('emits a strict, nonce-based CSP when opted in (F-M3)', function () {
+    config(['hearth.security.csp.strict' => true]);
+    Forum::create(['slug' => 'general', 'title' => 'General', 'type' => 'forum']);
+
+    $csp = (string) $this->get(route('forums.index'))->assertOk()->headers->get('Content-Security-Policy');
+
+    // script-src is nonce-based (no 'unsafe-inline' → inline-script injection blocked); the high-value
+    // sinks stay locked down. 'unsafe-eval' is retained (Alpine) — see SECURITY-REVIEW.md F-M3.
+    expect($csp)->toContain("script-src 'self' 'nonce-")
+        ->not->toContain("'unsafe-inline' 'unsafe-eval'") // the baseline's permissive script-src is gone
+        ->toContain("object-src 'none'");
+});
