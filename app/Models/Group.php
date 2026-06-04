@@ -11,7 +11,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Group extends Model
 {
-    protected $guarded = [];
+    // Explicit allowlist (phase-1.5 F-G): group identity/priority drives permission resolution, so it must
+    // not be mass-assignable from request data. Written only by GroupSeeder / the Acl test helper.
+    protected $fillable = ['slug', 'name', 'type', 'priority', 'is_system', 'auto_promotion'];
 
     protected $casts = [
         'is_system' => 'boolean',

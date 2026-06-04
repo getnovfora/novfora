@@ -11,7 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Role extends Model
 {
-    protected $guarded = [];
+    // Explicit allowlist (phase-1.5 F-G): a role bundles grants, so guard it from request-driven writes.
+    protected $fillable = ['slug', 'name', 'is_preset', 'description'];
 
     protected $casts = [
         'is_preset' => 'boolean',

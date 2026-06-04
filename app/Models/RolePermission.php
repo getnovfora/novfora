@@ -11,7 +11,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class RolePermission extends Model
 {
-    protected $guarded = [];
+    // Explicit allowlist (phase-1.5 F-G): this defines what a role grants — never request-driven.
+    protected $fillable = ['role_id', 'permission_key', 'value'];
 
     protected $casts = [
         'value' => 'integer',

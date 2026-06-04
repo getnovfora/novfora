@@ -4,6 +4,12 @@
 
 declare(strict_types=1);
 
+use App\Models\AclEntry;
+use App\Models\Group;
+use App\Models\Permission;
+use App\Models\Role;
+use App\Models\RoleAssignment;
+use App\Models\RolePermission;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -19,7 +25,8 @@ uses(RefreshDatabase::class);
 it('keeps privilege/state/HTML fields out of User::$fillable', function () {
     $user = new User;
 
-    foreach (['trust_level', 'status', 'signature_html', 'avatar_path', 'cover_path'] as $field) {
+    // tenant_id added in phase-1.5 F-H (the last dangerous field after the M-1 narrowing).
+    foreach (['trust_level', 'status', 'signature_html', 'avatar_path', 'cover_path', 'tenant_id'] as $field) {
         expect($user->isFillable($field))->toBeFalse("{$field} must not be mass-assignable");
     }
 });
@@ -53,4 +60,20 @@ it('still lets server code set the guarded fields via forceFill', function () {
 
     expect($user->fresh()->trust_level)->toBe(3);
     expect($user->fresh()->status)->toBe('pending');
+});
+
+it('guards the ACL models from being fully mass-assignable (F-G)', function () {
+    // The six authz models used to be $guarded = [] (fully unguarded). They now carry an explicit allowlist,
+    // so a crafted mass-assign can no longer set their primary key (or any non-listed/future column) — while
+    // the columns the seeders legitimately write stay fillable (proven by the seed-dependent suite).
+    foreach ([AclEntry::class, Group::class, Role::class, RolePermission::class, RoleAssignment::class, Permission::class] as $model) {
+        $instance = new $model(['id' => 999999]);
+        expect($instance->isFillable('id'))->toBeFalse("{$model} must not mass-assign its primary key");
+        expect($instance->id)->toBeNull();
+    }
+
+    // Sanity: the legitimate seeder columns remain fillable so the install/seed path keeps working.
+    expect((new AclEntry)->isFillable('value'))->toBeTrue();
+    expect((new Group)->isFillable('slug'))->toBeTrue();
+    expect((new Permission)->isFillable('key'))->toBeTrue();
 });
