@@ -10,8 +10,9 @@
     <meta property="og:description" content="{{ $description }}">
     <meta property="og:url" content="{{ $canonical }}">
     <meta name="twitter:card" content="summary">
-    {{-- schema.org DiscussionForumPosting (JSON-LD); JSON_HEX_TAG keeps it safe inside <script>. --}}
-    <script type="application/ld+json">
+    {{-- schema.org DiscussionForumPosting (JSON-LD); JSON_HEX_TAG keeps it safe inside <script>.
+         nonce carries the strict-CSP token when enabled (phase-1.5 F-M3); empty/ignored under the baseline. --}}
+    <script type="application/ld+json" nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
         {!! json_encode([
             '@context' => 'https://schema.org',
             '@type' => 'DiscussionForumPosting',

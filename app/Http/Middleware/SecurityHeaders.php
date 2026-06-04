@@ -8,6 +8,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Vite;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -26,6 +27,13 @@ final class SecurityHeaders
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // Strict (nonce-based) CSP is opt-in (phase-1.5 F-M3). Generate the per-request nonce BEFORE the view
+        // renders so @vite, Livewire (both read Vite::cspNonce()), and the nonced inline scripts share it.
+        $strict = config('hearth.security.csp.enabled', true) && config('hearth.security.csp.strict', false);
+        if ($strict) {
+            Vite::useCspNonce();
+        }
+
         $response = $next($request);
 
         if (! config('hearth.security.headers.enabled', true)) {
@@ -40,7 +48,9 @@ final class SecurityHeaders
         $headers->set('Permissions-Policy', 'browsing-topics=(), geolocation=(), microphone=(), camera=()');
 
         if (config('hearth.security.csp.enabled', true)) {
-            $policy = trim((string) config('hearth.security.csp.policy', ''));
+            $policy = $strict
+                ? str_replace('{nonce}', (string) Vite::cspNonce(), trim((string) config('hearth.security.csp.strict_policy', '')))
+                : trim((string) config('hearth.security.csp.policy', ''));
             // Set only when a route hasn't already declared its own policy (allows per-route overrides).
             if ($policy !== '' && ! $headers->has('Content-Security-Policy')) {
                 $headers->set('Content-Security-Policy', $policy);
