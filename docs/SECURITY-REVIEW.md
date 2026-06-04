@@ -34,25 +34,29 @@ hardening**, plus one real IDOR and one real anti-spam bypass.
 | H‑3 | **High** | Real-host | Backups depend on `mysqldump`/`proc_open`; both commonly disabled on shared hosts → cron backups silently fail | **FIXED** (pure-PHP fallback) + test |
 | M‑1 | **Med** | Mass-assignment | `User` had `trust_level`/`status`/`signature_html`/`avatar_path`/`cover_path` in `#[Fillable]` (latent priv-esc / stored-XSS one `update($request)` away) | **FIXED** + test |
 | M‑2 | **Med** | Installer | If `storage/` is unwritable, the install could finish (admin created, DB migrated) but fail to write the lock → an **unlocked, re-runnable** installer (second-admin takeover) | **FIXED** + test |
-| M‑3 | **Med** | Headers | No CSP or security headers at all (brief §4 mandates "strict CSP") | **FIXED** (baseline CSP+headers) · strict nonce-CSP **FLAGGED** |
+| M‑3 | **Med** | Headers | No CSP or security headers at all (brief §4 mandates "strict CSP") | **FIXED** (baseline CSP+headers) · strict nonce-CSP shipped behind a toggle, see F‑M3 |
 | M‑4 | **Med** | Secrets | `.env` written world-readable (`0644`) — readable by co-tenants on shared hosting | **FIXED** (`0600`) + test |
 | L‑1 | **Low** | Installer | `APP_DEBUG=true` during the pre-install window → stack traces to an anonymous visitor | **FIXED** (forced off pre-install) |
 | L‑2 | **Low** | Cookies | HTTPS-only session cookie not enforced (brief §4 "HTTPS-only cookies") | **FIXED** (installer sets it on https) + test |
-| F‑A | **High*** | Installer | **Unauthenticated install window**: whoever reaches `/install` first owns the site (no install token) | **FLAGGED** — design tradeoff of no-SSH |
-| F‑B | **Med** | Anti-spam | Registration has no rate-limit; honeypot timing is skippable; Q&A answer is static/replayable | **FLAGGED** — registration behaviour |
-| F‑C | **Med** | Anti-spam | StopForumSpam degrades **block→allow** on a cold cache; the "cron-cached blocklist" is never warmed | **FLAGGED** — fail-open tradeoff |
-| F‑D | **Low‑Med** | Anti-spam | Trust promotion is gameable (self-posts count; the spec's read-time signals are unimplemented) | **FLAGGED** — tuning |
-| F‑E | **Low** | Anti-spam | Suppression is baked into `body_html_cache` at write time; a later demotion does not re-restrict old posts | **FLAGGED** — design |
-| F‑F | **Low** | AuthZ | No actor-vs-target rank check (a moderator can ban/warn an admin) | **FLAGGED** — privilege model |
-| F‑G | **Low** | Mass-assignment | Six authz models (`AclEntry`, `Role*`, `Group`, `Permission`) are fully unguarded; `Post`/`Topic` `approved_state`/`user_id` and `Post.body_html_cache` too | **FLAGGED** — guard before the roles ACP UI lands |
-| F‑H | **Low** | Tenancy | `tenant_id` is mass-assignable (left untouched per the scope fence) | **FLAGGED** — guard before tenancy ships |
-| F‑I | **Low** | Audit | Authentication events (login/failed/logout/password-reset/2FA) and account changes are not audit-logged | **FLAGGED** — observability |
-| F‑J | **Info** | Misc | Mention-any-user notification spam; attachment stored-extension from client; `/health` reveals install state/tier unauth | **NOTES** |
+| F‑A | **High*** | Installer | **Unauthenticated install window**: whoever reaches `/install` first owns the site (no install token) | ✅ **FIXED** (setup token) + test |
+| F‑B | **Med** | Anti-spam | Registration has no rate-limit; honeypot timing is skippable; Q&A answer is static/replayable | ✅ **FIXED** (throttle + mandatory timing + nonce) + tests |
+| F‑C | **Med** | Anti-spam | StopForumSpam degrades **block→allow** on a cold cache; the "cron-cached blocklist" is never warmed | ✅ **FIXED** (degrade→pending + warm cron) + tests |
+| F‑D | **Low‑Med** | Anti-spam | Trust promotion is gameable (self-posts count; the spec's read-time signals are unimplemented) | ✅ **FIXED** (topics-read signal) + tests |
+| F‑E | **Low** | Anti-spam | Suppression is baked into `body_html_cache` at write time; a later demotion does not re-restrict old posts | ✅ **FIXED** (re-render on trust change) + test |
+| F‑F | **Low** | AuthZ | No actor-vs-target rank check (a moderator can ban/warn an admin) | ✅ **FIXED** (rank guard) + tests |
+| F‑G | **Low** | Mass-assignment | Six authz models (`AclEntry`, `Role*`, `Group`, `Permission`) are fully unguarded | ✅ **FIXED** (explicit fillable) + test |
+| F‑H | **Low** | Tenancy | `tenant_id` is mass-assignable (left untouched per the scope fence) | ✅ **FIXED** (removed from fillable) + test |
+| F‑I | **Low** | Audit | Authentication events (login/failed/logout/password-reset/2FA) are not audit-logged | ✅ **FIXED** (auth-event subscriber) + tests |
+| F‑M3 | **Med** | Headers | Strict nonce-based CSP (follow-up to M‑3) | ✅ **shipped behind a toggle** (default = baseline) + test; default-on tracked below |
+| F‑J | **Info** | Misc | Mention-any-user notification spam; attachment stored-extension from client; `/health` reveals install state/tier unauth | **NOTES** (unchanged) |
 
-\* F‑A's severity is high in principle but is the inherent tradeoff of a no-SSH installer; the practical
-mitigation is operational (install immediately — see [REAL-HOST-VALIDATION.md](REAL-HOST-VALIDATION.md)).
+\* F‑A's severity is high in principle but is the inherent tradeoff of a no-SSH installer; the setup token now
+closes it (whoever finds `/install` also needs filesystem access to read the token), backed by the operational
+guidance in [REAL-HOST-VALIDATION.md](REAL-HOST-VALIDATION.md).
 
-**9 issues fixed with regression tests; 10 flagged for owner decision.** Details follow.
+**Initial pass: 9 issues fixed with tests; 10 flagged.** **Fix pass (owner-approved): all 10 flagged items
+addressed** — F‑A..F‑I + tenant_id fixed with regression tests, F‑M3 shipped behind a toggle (§5). The
+remaining `F‑J` items stay as informational notes. Per-item detail in §5.
 
 ---
 
@@ -151,10 +155,12 @@ installer writes `SESSION_SECURE_COOKIE=true` when the site URL is `https://`; d
 
 ---
 
-## 3. Flagged for owner decision
+## 3. Flagged for owner decision → **ALL RESOLVED in the fix pass**
 
-> These are real but involve a design change, a tradeoff, or altering approved behaviour. They were **not**
-> changed. Each lists a concrete recommendation.
+> **Update (owner-approved fix pass).** The owner reviewed these and chose to fix all of them toward
+> public-1.0 readiness. Every item below was implemented with a regression test (F‑M3 shipped behind a
+> toggle); the original finding text is kept for context, and each entry's resolution is recorded in **§6
+> (Fix pass — what was implemented)**. The recommendations below were the plan; §6 is what shipped.
 
 ### F‑A · Unauthenticated install window *(High in principle; inherent)*
 A freshly-uploaded, not-yet-installed site lets **anyone** who reaches `/install` run the wizard — point it
@@ -286,3 +292,64 @@ hardening pass; the config (`hearth.security.csp.policy`) makes it a one-line sw
 **Tests:** `tests/Feature/Security/{AttachmentAuthorization,MassAssignment,SecurityHeaders,SignatureSuppression}Test.php`,
 `tests/Feature/Operability/{HostDoctor,PhpBackup}Test.php`, extended `tests/Feature/Install/InstallerTest.php`,
 plus a MySQL pure-PHP backup step in `.github/workflows/ci.yml`.
+
+---
+
+## 6. Fix pass — what was implemented (the flagged items)
+
+> Owner-approved follow-up: all flagged items fixed (hardening only, no new product features; the spec's
+> "flag-don't-block on uncertainty" was preserved — nothing was turned into a false-positive hard-block).
+> Each strict control has a test-env opt-out (mirroring the existing `HEARTH_CAPTCHA`/`HEARTH_SFS_API`
+> pattern) so the M0–M5 + P1.5 suites stay frictionless; dedicated tests opt the control back in.
+
+- **F‑A · Install setup token.** The pre-install boot writes a random `storage/install-token.txt` (0600);
+  the wizard (step 1, gating the DB-test SSRF too) and `hearth:install` require it; it is consumed on a
+  successful install. `config: hearth.install.require_token` (off in tests). *Files:* `Installer`,
+  `InstallRunner`, `InstallInput`, the wizard, `InstallCommand`, `AppServiceProvider`. *Test:* `InstallerTest`
+  (refuses without the token / installs + consumes with it / wizard step-1 blocked). *Runbook updated.*
+- **F‑B · Registration anti-abuse.** A per-IP `/register` throttle (429), a **mandatory** honeypot timing
+  token (the "omit the token" skip is closed), and a **single-use Q&A nonce** (consume-on-success → a
+  captured answer can't be replayed). *Files:* `CreateNewUser`, `QaCaptchaProvider`, `register.blade.php`,
+  config. *Test:* `RegistrationHardeningTest`.
+- **F‑C · StopForumSpam fail-safe + warm cron.** A degraded check (API down, cold cache) now **flags →
+  pending** instead of allowing (still never a hard-block), and `hearth:antispam:warm` (daily) downloads a
+  toxic-domains list into `blocklist_cache` so it's never cold. *Files:* `RegistrationGuard`,
+  `WarmBlocklistCommand`, `routes/console.php`. *Tests:* `RegistrationGuardTest` (degrade→flag, toxic-domain,
+  warm populates the cache).
+- **F‑D · Trust promotion signals.** TL0→TL1 now requires the §2.3 engagement signals (posts **and** tenure
+  **and** topics-read via M4's `topic_reads`), so a self-poster who reads nothing can't lift the link/image
+  NEVER gate. *Files:* `TrustLevelManager`, `GroupSeeder`. *Tests:* `TrustPromotionTest` (self-poster stays
+  TL0; legitimate activity promotes).
+- **F‑E · Re-render on trust change.** A trust change dispatches a queued `RegenerateUserPostHtml` job that
+  re-renders the user's posts at their new level — re-suppressing links/images on demotion (revealing on
+  promotion). The permission memo is flushed on the group swap so the re-render resolves correctly. *Files:*
+  `TrustLevelManager`, `PostService::rerender`, the job. *Test:* `TrustPromotionTest` (demotion re-suppresses).
+- **F‑F · Actor-vs-target rank check.** A staff member can't ban/warn/spam-clean a target of equal-or-higher
+  rank (mods can't action admins or — by default — each other; admins outrank everyone; `allow_equal`
+  configurable). *Files:* `ActorRank`, `User::isAdmin/rankPriority`, `BanController`, `WarningController`,
+  config. *Test:* `RankGuardTest`.
+- **F‑G · ACL-model mass-assignment.** `AclEntry`, `Group`, `Role`, `RolePermission`, `RoleAssignment`,
+  `Permission` carry explicit `$fillable` allowlists (no longer fully unguarded); the seeders/RoleExpander
+  still write every column they need (verified by the seed-dependent suite). *Test:* `MassAssignmentTest`.
+- **F‑H · `tenant_id` guarded.** Removed from `User`'s mass-assignable set. *Test:* `MassAssignmentTest`.
+- **F‑I · Auth-event audit logging.** A subscriber records login / failed login / logout / lockout /
+  password-reset / 2FA-enable·confirm·disable to the append-only `audit_log` (actor, event, ip, ua). *Files:*
+  `AuditAuthEvents`, `AppServiceProvider`. *Test:* `AuthAuditTest`.
+- **F‑M3 · Strict nonce-based CSP — shipped behind a toggle (`HEARTH_CSP_STRICT`, default OFF).** When on,
+  the middleware emits a per-request nonce (which `@vite` and Livewire pick up automatically via
+  `Vite::cspNonce()`, and Hearth's two inline `<script>` blocks carry), so **`script-src` drops
+  `'unsafe-inline'`** — inline-script injection is blocked. *Test:* `SecurityHeadersTest` (strict mode).
+  **Why a toggle, not default-on:** two things still need `unsafe-*` and so block a fully-strict default — (1)
+  **Alpine v3** evaluates expressions with `new Function`, needing `'unsafe-eval'` until the Alpine *CSP
+  build* is adopted (which requires rewriting Alpine expressions into registered components); and (2) the
+  core Blade views use inline **`style="…"` attributes**, which CSP nonces do **not** cover, so a strict
+  `style-src` would need them all refactored to classes. Both are sizeable, browser-verified refactors;
+  doing them half-way would break the editor/Livewire/Alpine (explicitly out of bounds for this pass). The
+  toggle + nonce plumbing make the eventual switch a one-line config change once that refactor lands.
+  **Dusk-verified both ways:** the editor compose-and-post journey passes under the shipped baseline CSP AND
+  under the strict toggle — so the strict policy is functional today (it already blocks inline-script
+  injection); it's held opt-in only until it can drop `unsafe-eval`/`unsafe-inline` entirely.
+
+**Validation:** full M0–M5 + P1.5 suite green (Pest), Dusk editor journey green under the shipped (baseline)
+CSP, Pint + Larastan + `composer audit` + `npm audit` clean. New strict controls are off by default in the
+test env so M1's `RegistrationTest` and the installer suite stay green.

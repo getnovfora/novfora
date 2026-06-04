@@ -96,8 +96,12 @@ with no toolchain. (If your host *does* offer SSH + Composer, you can instead cl
 ## 4. Run the installer (the no-SSH path)
 
 1. Visit `https://your-domain/` → you are redirected to **`/install`**.
-2. **Step 1 — System check.** Every required row must be green. Fix red items on the host and re-check. (If
-   you have SSH, run `php artisan hearth:doctor` for the fuller picture, including symlink/proc_open/cron.)
+2. **Step 1 — System check + setup token.** Every required row must be green (fix red items and re-check). The
+   installer is locked to whoever can read a file on your server: open **`storage/install-token.txt`** via FTP
+   or your host's File Manager, copy its contents, and paste it into the **Setup token** field. (This is what
+   makes the unauthenticated installer safe in the upload window — finding `/install` first isn't enough; an
+   attacker would also need filesystem access. With SSH: `cat storage/install-token.txt`, and
+   `php artisan hearth:doctor` for the fuller host picture.) The token is single-use — consumed once you finish.
 3. **Step 2 — Database.** Enter the MySQL host (usually `localhost` or `127.0.0.1`), port `3306`, and the DB
    name/user/password you created. Click **Test connection** → expect ✓.
 4. **Step 3 — Site & administrator.** Community name, the public site URL (**use `https://`** so the secure
