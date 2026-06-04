@@ -28,5 +28,6 @@ final readonly class InstallInput
         public string $adminEmail,
         public string $adminPassword,
         public bool $seedDemo = false,
+        public string $setupToken = '', // phase-1.5 F-A: the pre-install setup token (verified by the runner)
     ) {}
 }

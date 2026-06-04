@@ -47,6 +47,12 @@ final class InstallRunner
             throw new \RuntimeException('Hearth is already installed.');
         }
 
+        // Setup-token gate (phase-1.5 F-A): the unauthenticated installer only runs for someone who can read
+        // the token file on the server, so a passer-by can't seize a freshly-uploaded site.
+        if (! $this->installer->verifyToken($in->setupToken)) {
+            throw new \RuntimeException('Invalid or missing installer setup token. Find it in '.$this->installer->tokenPath().' on your server (via FTP or your host\'s file manager).');
+        }
+
         // Fail fast if the lock marker won't be writable. Otherwise a run that migrates the DB and creates
         // the admin but then CANNOT write the marker (step 7) would leave the site fully set up yet
         // UNLOCKED — and an unauthenticated visitor could re-run the installer to mint a second admin.
@@ -99,6 +105,9 @@ final class InstallRunner
 
         // 7. LOCK — written last, only now that everything above succeeded.
         $this->installer->markInstalled();
+
+        // The setup token is single-use — drop it now the site is installed (phase-1.5 F-A).
+        $this->installer->consumeToken();
 
         return new InstallResult($storageLinked, $demoSeeded, $notes);
     }

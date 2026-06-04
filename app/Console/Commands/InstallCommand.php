@@ -37,6 +37,7 @@ class InstallCommand extends Command
         {--admin-email=}
         {--admin-password= : omit to be prompted (hidden input)}
         {--demo : Seed the demo community}
+        {--token= : Setup token (storage/install-token.txt; auto-read if omitted)}
         {--skip-checks : Skip the host requirement checks (not recommended)}
         {--force : Re-run even if already installed}';
 
@@ -80,6 +81,9 @@ class InstallCommand extends Command
                 adminEmail: $validated['admin-email'],
                 adminPassword: $validated['admin-password'],
                 seedDemo: (bool) $this->option('demo'),
+                // Setup token (phase-1.5 F-A): use --token, else auto-read the file (a CLI operator already
+                // has the filesystem access the token gates). The runner verifies + consumes it.
+                setupToken: (string) ($this->option('token') ?: $installer->readToken() ?? ''),
             ));
         } catch (\Throwable $e) {
             $this->components->error('Install failed (nothing was locked): '.$e->getMessage());

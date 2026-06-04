@@ -22,6 +22,9 @@ new class extends Component
 {
     public int $step = 1;
 
+    // Setup token (step 1, phase-1.5 F-A) — proves filesystem access before the wizard proceeds.
+    public string $setupToken = '';
+
     // Database (step 2).
     public string $dbDriver = 'mysql';
     public string $dbHost = '127.0.0.1';
@@ -93,7 +96,21 @@ new class extends Component
     {
         // Hard requirements gate the install (recommendations only warn).
         abort_unless($this->requirements()['ok'], 422);
+
+        // Setup-token gate (phase-1.5 F-A): block the rest of the wizard — including the DB-test SSRF — until
+        // the operator proves filesystem access by entering the token from storage/install-token.txt.
+        if (! app(Installer::class)->verifyToken($this->setupToken)) {
+            $this->addError('setupToken', 'That setup token is incorrect. Find it in storage/install-token.txt on your server (via FTP or your host file manager).');
+
+            return;
+        }
+
         $this->step = 2;
+    }
+
+    public function tokenRequired(): bool
+    {
+        return app(Installer::class)->requiresToken();
     }
 
     public function testDatabase(): void
@@ -154,6 +171,7 @@ new class extends Component
                 adminEmail: $this->adminEmail,
                 adminPassword: $this->adminPassword,
                 seedDemo: $this->seedDemo,
+                setupToken: $this->setupToken,
             ));
 
             $this->storageLinked = $result->storageLinked;
@@ -206,6 +224,18 @@ new class extends Component
         @unless ($req['ok'])
             <p class="err">Some required checks failed. Fix them on your host, then re-run the check.</p>
         @endunless
+
+        @if ($this->tokenRequired())
+            <div class="note" style="margin-top:1.25rem">
+                <strong>Setup token.</strong> For security, the installer is locked to whoever can read a file
+                on your server. Open <code>storage/install-token.txt</code> (via FTP or your host's file
+                manager) and paste its contents below.
+            </div>
+            <label for="setupToken">Setup token</label>
+            <input id="setupToken" type="text" wire:model="setupToken" autocomplete="off"
+                   style="width:100%;box-sizing:border-box;padding:.5rem;border:1px solid #cfcfd6;border-radius:6px">
+            @error('setupToken')<div class="err">{{ $message }}</div>@enderror
+        @endif
 
         <div class="actions">
             <span></span>
