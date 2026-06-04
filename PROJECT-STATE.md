@@ -318,6 +318,27 @@ clean-room**.
 > under the new CSP**. Verified in Docker `php:8.3` + `mysql:8`. Small conventional DCO commits on `main`.
 > **NEXT (human step): run [`docs/REAL-HOST-VALIDATION.md`](docs/REAL-HOST-VALIDATION.md) on ≥2 real shared
 > hosts; then the owner triages the flagged items → private beta.**
+>
+> **Update 2026-06-03 (PHASE 1.5 — Security Fix Pass — Code):** the owner reviewed the review and chose to
+> **fix ALL ten flagged items** (F-A..F-M3 + tenant_id) toward public-1.0 readiness — hardening only, no new
+> features, and without weakening the spec's "flag-don't-block on uncertainty." Every strict control has a
+> test-env opt-out (mirroring `HEARTH_CAPTCHA`/`HEARTH_SFS_API`) so M0–M5 + P1.5 stay green. **Fixed (each
+> with a regression test):** **F-A** pre-install **setup token** (`storage/install-token.txt`, 0600; wizard
+> step-1 + `hearth:install` require it, gating the DB-test SSRF; consumed on install); **F-B** registration
+> **rate-limit** + **mandatory** honeypot/timing + **single-use Q&A nonce**; **F-C** StopForumSpam **fail-safe**
+> (degrade→pending, never silently allow) + `hearth:antispam:warm` cron so the blocklist is never cold;
+> **F-D** trust promotion now needs the §2.3 **topics-read** engagement signal (a self-poster can't lift the
+> TL0 link gate); **F-E** a trust change **re-renders** the user's posts (re-suppress on demotion); **F-F**
+> actor-vs-target **rank check** (a mod can't ban/warn/spam-clean an admin or peer); **F-G** explicit
+> `$fillable` on the six ACL models; **F-H** `tenant_id` removed from `User` mass-assignment; **F-I**
+> **auth-event audit logging** (login/failed/logout/lockout/reset/2FA → `audit_log`). **F-M3** strict
+> nonce-based CSP **shipped behind a toggle** (`HEARTH_CSP_STRICT`, default OFF) — script-src drops
+> `'unsafe-inline'` via a per-request nonce that `@vite`/Livewire pick up; making it default-on still needs
+> the Alpine CSP build + an inline-style refactor (tracked in SECURITY-REVIEW §6, F-M3). **Suite: Pest 310
+> passed / 1 skipped / 1012 assertions** (M0–M5 + P1.5 stay green); Pint + Larastan + `composer audit` + `npm
+> audit` clean; **Dusk editor journey green under the shipped (baseline) CSP — and verified green under the
+> strict CSP toggle too**. `docs/SECURITY-REVIEW.md` §1/§6 record each F-x → Fixed. Small conventional DCO commits on `main`. **NEXT is unchanged: the human
+> real-host validation on ≥2 shared hosts → private beta.**
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
