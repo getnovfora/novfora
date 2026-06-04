@@ -6,6 +6,7 @@ use App\AntiSpam\ContentScanner;
 use App\AntiSpam\LocalHeuristicsScanner;
 use App\Install\EnvWriter;
 use App\Install\Installer;
+use App\Listeners\AuditAuthEvents;
 use App\Models\User;
 use App\Permissions\PermissionResolver;
 use App\Permissions\Scope;
@@ -14,6 +15,7 @@ use App\Services\Tier\Probes\RedisProbe;
 use App\Services\Tier\Probes\ReverbProbe;
 use App\Services\Tier\Probes\S3Probe;
 use App\Services\Tier\ServiceTier;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -48,6 +50,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->prepareForInstaller();
+
+        // Audit-log authentication events (phase-1.5 F-I): login / logout / failed / lockout / reset / 2FA.
+        Event::subscribe(AuditAuthEvents::class);
 
         // Route scope-based authorization through the permission-mask engine, deny-by-default.
         // Usage: $user->can('forum.post.create', $scope) or Gate::allows('...', $scope).
@@ -89,6 +94,9 @@ class AppServiceProvider extends ServiceProvider
 
         try {
             app(EnvWriter::class)->ensureAppKey();
+            // Mint the one-time installer setup token (phase-1.5 F-A) so the unauthenticated wizard can be
+            // gated on a value only someone with filesystem access (FTP/cPanel) can read.
+            app(Installer::class)->ensureToken();
         } catch (\Throwable) {
             // Filesystem not writable yet — the installer's requirements step will report it; never
             // crash the boot of the very page that is meant to diagnose the problem.

@@ -45,7 +45,7 @@ function installSandbox(): array
     return [$dir, $env, $marker, $db];
 }
 
-function sampleInput(string $sqlitePath, bool $demo = false): InstallInput
+function sampleInput(string $sqlitePath, bool $demo = false, string $token = ''): InstallInput
 {
     return new InstallInput(
         siteName: 'Test Forum',
@@ -60,6 +60,7 @@ function sampleInput(string $sqlitePath, bool $demo = false): InstallInput
         adminEmail: 'admin@forum.test',
         adminPassword: 'Sup3rSecret!!',
         seedDemo: $demo,
+        setupToken: $token,
     );
 }
 
@@ -206,6 +207,36 @@ it('does not force a secure cookie for a plain-http site URL', function () {
 
     // No ACTIVE secure-cookie line for an http site (the commented hint from .env.example may remain).
     expect(file_get_contents($env))->not->toMatch('/^SESSION_SECURE_COOKIE=true/m');
+});
+
+it('requires the setup token and consumes it on a successful install (F-A)', function () {
+    [$dir, , , $db] = installSandbox();
+    $tokenPath = $dir.DIRECTORY_SEPARATOR.'install-token.txt';
+    config(['hearth.install.require_token' => true, 'hearth.install.token_path' => $tokenPath]);
+
+    $installer = app(Installer::class);
+    $token = $installer->ensureToken();
+    expect($token)->not->toBeNull();
+
+    // No / wrong token → refused, nothing installed (also gates the DB-test SSRF in the wizard).
+    expect(fn () => app(InstallRunner::class)->run(sampleInput($db)))->toThrow(RuntimeException::class);
+    expect($installer->isInstalled())->toBeFalse();
+
+    // The correct token installs — and the single-use token is consumed.
+    app(InstallRunner::class)->run(sampleInput($db, token: (string) $token));
+    expect($installer->isInstalled())->toBeTrue();
+    expect(is_file($tokenPath))->toBeFalse();
+});
+
+it('blocks the wizard at step 1 without the setup token (F-A)', function () {
+    [$dir] = installSandbox();
+    config(['hearth.install.require_token' => true, 'hearth.install.token_path' => $dir.DIRECTORY_SEPARATOR.'install-token.txt']);
+    app(Installer::class)->ensureToken();
+
+    Livewire::test('installer.wizard')
+        ->call('toStep2')
+        ->assertHasErrors('setupToken')
+        ->assertSet('step', 1);
 });
 
 it('seeds the demo community when asked', function () {
