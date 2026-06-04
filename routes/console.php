@@ -49,6 +49,10 @@ Schedule::command('hearth:trust:recompute')->hourly()->withoutOverlapping();
 // Privacy/GDPR retention (ADR-0007 §2.6): purge aged registration checks + expired blocklist cache.
 Schedule::command('hearth:antispam:purge')->daily();
 
+// Keep the crowdsourced blocklist warm (phase-1.5 F-C) so the registration screener has an offline signal
+// when the live API is down — never cold. Degrades to a no-op on any network failure.
+Schedule::command('hearth:antispam:warm')->daily();
+
 // Automated backups (M5): DB + storage + manifest, pruned to the retention count. Honours the configured
 // cadence (daily | weekly | off — config hearth.backup.schedule).
 if (($backupCadence = (string) config('hearth.backup.schedule', 'daily')) !== 'off') {

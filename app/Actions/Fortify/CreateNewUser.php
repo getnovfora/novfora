@@ -10,7 +10,9 @@ use App\AntiSpam\Captcha\CaptchaManager;
 use App\AntiSpam\RegistrationGuard;
 use App\Models\Group;
 use App\Models\User;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -29,6 +31,10 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): User
     {
+        // Anti-abuse rate limit FIRST (phase-1.5 F-B): cap registration attempts per IP so a script can't
+        // flood the endpoint. Counts every attempt (valid or not). A 429 is the correct, honest signal.
+        $this->ensureNotRateLimited();
+
         Validator::make($input, [
             'username' => ['required', 'string', 'alpha_dash', 'min:3', 'max:30', Rule::unique(User::class)],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class)],
@@ -87,10 +93,33 @@ class CreateNewUser implements CreatesNewUsers
         return $user;
     }
 
+    /** Throw a 429 when this IP has exceeded the per-hour registration cap (no-op when disabled, e.g. tests). */
+    private function ensureNotRateLimited(): void
+    {
+        $cfg = (array) config('hearth.antispam.registration.rate_limit', []);
+        if (! ($cfg['enabled'] ?? true)) {
+            return;
+        }
+
+        $max = (int) ($cfg['per_ip_per_hour'] ?? 10);
+        if ($max <= 0) {
+            return;
+        }
+
+        $key = 'hearth:register:'.(string) request()->ip();
+        if (RateLimiter::tooManyAttempts($key, $max)) {
+            throw new ThrottleRequestsException('Too many registration attempts. Please try again later.');
+        }
+        RateLimiter::hit($key, 3600);
+    }
+
     /**
      * Honeypot + timing trap (ADR-0007 §2.2). The honeypot is a hidden field humans never see but bots fill;
      * the timing token is the (encrypted) form-render time — a submission faster than the floor is bot-like.
-     * Both are local and frictionless. A missing/invalid timing token is ignored (the form may be stale).
+     *
+     * Phase-1.5 F-B: when `honeypot.required` is on (production default), a MISSING or undecryptable timing
+     * token is itself bot-like — the real form always emits a decryptable hp_ts, so the only way to omit it
+     * is a scripted POST. The test env turns `required` off to stay frictionless.
      *
      * @param  array<string, mixed>  $input
      */
@@ -101,19 +130,22 @@ class CreateNewUser implements CreatesNewUsers
             return true; // the hidden trap was filled
         }
 
+        $required = (bool) config('hearth.antispam.registration.honeypot.required', true);
         $token = $input['hp_ts'] ?? null;
-        if (is_string($token) && $token !== '') {
-            try {
-                $renderedAt = (int) decrypt($token); // matches encrypt() in the form (serialized payload)
-                $minSeconds = (int) config('hearth.antispam.registration.honeypot.min_seconds', 2);
-                if ($renderedAt > 0 && (now()->timestamp - $renderedAt) < $minSeconds) {
-                    return true; // submitted implausibly fast
-                }
-            } catch (\Throwable) {
-                // Undecryptable/old token — ignore timing; the honeypot + screener still apply.
-            }
+
+        if (! is_string($token) || $token === '') {
+            return $required; // absent token → reject when required (prod), tolerate in the test opt-out
         }
 
-        return false;
+        try {
+            $renderedAt = (int) decrypt($token); // matches encrypt() in the form
+        } catch (\Throwable) {
+            return $required; // tampered/undecryptable token → reject when required
+        }
+
+        $minSeconds = (int) config('hearth.antispam.registration.honeypot.min_seconds', 2);
+
+        // A non-positive timestamp is bogus; submitting faster than the floor is bot-like.
+        return $renderedAt <= 0 || (now()->timestamp - $renderedAt) < $minSeconds;
     }
 }

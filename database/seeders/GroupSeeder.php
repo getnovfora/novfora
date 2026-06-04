@@ -33,8 +33,10 @@ class GroupSeeder extends Seeder
     public static function trustGroups(): array
     {
         return [
-            'tl0' => ['name' => 'Trust level 0 — new', 'priority' => 1, 'auto_promotion' => ['min_posts' => 0, 'min_days' => 0]],
-            'tl1' => ['name' => 'Trust level 1 — basic', 'priority' => 2, 'auto_promotion' => ['min_posts' => 5, 'min_days' => 1]],
+            'tl0' => ['name' => 'Trust level 0 — new', 'priority' => 1, 'auto_promotion' => ['min_posts' => 0, 'min_days' => 0, 'min_topics_read' => 0]],
+            // TL0→TL1 lifts the link/image NEVER gate, so it requires real engagement (security §2.3,
+            // phase-1.5 F-D): posts + tenure + topics read, not a raw self-post count.
+            'tl1' => ['name' => 'Trust level 1 — basic', 'priority' => 2, 'auto_promotion' => ['min_posts' => 5, 'min_days' => 1, 'min_topics_read' => 5]],
             'tl2' => ['name' => 'Trust level 2 — member', 'priority' => 3, 'auto_promotion' => ['min_posts' => 50, 'min_days' => 15, 'min_trust_level' => 1]],
             'tl3' => ['name' => 'Trust level 3 — regular', 'priority' => 4, 'auto_promotion' => ['min_posts' => 200, 'min_days' => 50, 'min_trust_level' => 2]],
             'tl4' => ['name' => 'Trust level 4 — leader', 'priority' => 5, 'auto_promotion' => ['manual' => true]],

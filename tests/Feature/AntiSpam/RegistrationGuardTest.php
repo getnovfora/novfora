@@ -72,13 +72,37 @@ it('degrades to the cached blocklist when the API is down — never errors', fun
     expect($result->blocked())->toBeTrue(); // cached confidence 90 ≥ threshold 75
 });
 
-it('allows + flags-as-degraded when the API is down and nothing is cached', function () {
+it('FLAGS (never silently allows) when the API is down and nothing is cached — fail safe, not open', function () {
     Http::fake(['api.stopforumspam.org/*' => Http::response('', 503)]);
 
     $result = guard()->screen(['email' => 'newcomer@example.com', 'username' => 'newcomer', 'ip' => '203.0.113.5']);
 
-    expect($result->allowed())->toBeTrue();   // no signal → allow (flag-don't-block)
-    expect($result->degraded)->toBeTrue();    // …but recorded as degraded for admin metrics
+    // Phase-1.5 F-C: a degraded check holds the account for moderation (pending) instead of failing open.
+    // Still flag-don't-block — the account is created and recoverable, never hard-blocked on a mere degrade.
+    expect($result->flagged())->toBeTrue();
+    expect($result->blocked())->toBeFalse();
+    expect($result->degraded)->toBeTrue();
+    expect($result->reasons)->toContain('stopforumspam_degraded');
+});
+
+it('flags a cron-warmed StopForumSpam toxic email domain (flag-don\'t-block)', function () {
+    sfsClean();
+    BlocklistEntry::create(['type' => 'email_domain', 'value' => 'spammer.example', 'source' => 'stopforumspam', 'confidence' => 100, 'expires_at' => now()->addDay()]);
+
+    $result = guard()->screen(['email' => 'x@spammer.example', 'username' => 'x', 'ip' => '203.0.113.42']);
+
+    expect($result->flagged())->toBeTrue();
+    expect($result->reasons)->toContain('toxic_domain');
+});
+
+it('warms the blocklist cache from the downloaded toxic-domains list', function () {
+    config(['hearth.antispam.registration.stopforumspam.warm.enabled' => true]);
+    Http::fake(['*' => Http::response("# a comment line\nbad-one.example\nbad-two.example\n", 200)]);
+
+    $this->artisan('hearth:antispam:warm')->assertSuccessful();
+
+    expect(BlocklistEntry::where('source', 'stopforumspam')->where('type', 'email_domain')->where('value', 'bad-one.example')->exists())->toBeTrue();
+    expect(BlocklistEntry::where('value', 'bad-two.example')->exists())->toBeTrue();
 });
 
 it('blocks a banned IP', function () {

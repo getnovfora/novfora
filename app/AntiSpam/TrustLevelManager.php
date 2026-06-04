@@ -6,10 +6,13 @@ declare(strict_types=1);
 
 namespace App\AntiSpam;
 
+use App\Jobs\RegenerateUserPostHtml;
 use App\Models\Group;
 use App\Models\Post;
+use App\Models\TopicRead;
 use App\Models\User;
 use App\Models\Warning;
+use App\Permissions\PermissionResolver;
 use App\Support\Audit;
 
 /**
@@ -64,10 +67,16 @@ final class TrustLevelManager
         return $this->earnedLevel($user);
     }
 
-    /** Highest level whose post/tenure/prior-level thresholds the user meets (cumulative). */
+    /**
+     * Highest level whose thresholds the user meets (cumulative). Phase-1.5 F-D: TL0→TL1 now requires the
+     * spec's §2.3 engagement signals — posts AND tenure AND topics-READ (from M4's topic_reads) — not a raw
+     * self-post count, so a patient self-poster can't lift the TL0 link/image NEVER gate by talking to
+     * themselves. The "no active flags" half is enforced by evaluate() (a live flag freezes promotion).
+     */
     private function earnedLevel(User $user): int
     {
         $posts = Post::where('user_id', $user->getKey())->count();
+        $reads = TopicRead::where('user_id', $user->getKey())->count(); // distinct topics read (one row per topic)
         $days = $user->created_at ? (int) abs($user->created_at->diffInDays(now())) : 0;
 
         $target = 0;
@@ -79,6 +88,7 @@ final class TrustLevelManager
 
             $meets = $posts >= (int) ($rules['min_posts'] ?? 0)
                 && $days >= (int) ($rules['min_days'] ?? 0)
+                && $reads >= (int) ($rules['min_topics_read'] ?? 0)
                 && $target >= (int) ($rules['min_trust_level'] ?? 0);
 
             if (! $meets) {
@@ -106,9 +116,18 @@ final class TrustLevelManager
         $user->groups()->detach(Group::where('type', 'trust')->pluck('id')->all());
         $user->groups()->attach($group->getKey(), ['is_primary' => false]);
 
+        // The user's group-set changed, so any permission already memoised this request is stale — clear it
+        // so the re-render below (and any later check in this process, e.g. the cron recompute) re-resolves.
+        app(PermissionResolver::class)->flushMemo();
+
         if ($from !== $target) {
             $user->forceFill(['trust_level' => $target])->save();
             Audit::log($target > $from ? 'user.trust.promoted' : 'user.trust.demoted', $user, ['from' => $from, 'to' => $target]);
+
+            // Phase-1.5 F-E: re-render this user's posts so link/image suppression matches their NEW trust
+            // level — re-suppress on demotion (the security-relevant direction), reveal on promotion. Queued,
+            // so a spammer with many posts doesn't stall the recompute; drained by the cron line.
+            RegenerateUserPostHtml::dispatch((int) $user->getKey());
         }
     }
 

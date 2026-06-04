@@ -85,11 +85,25 @@ return [
 
         // Layer 1 — registration. Every control degrades to a local mechanism (security §2.2 / §2.6).
         'registration' => [
+            // Per-IP rate limit on POST /register (phase-1.5 F-B). Off in the test env so M1's
+            // RegistrationTest stays frictionless; the dedicated throttle test opts back in.
+            'rate_limit' => [
+                'enabled' => env('HEARTH_REGISTER_THROTTLE', true),
+                'per_ip_per_hour' => (int) env('HEARTH_REGISTER_MAX', 10),
+            ],
             'stopforumspam' => [
                 'enabled' => true,
                 'use_api' => env('HEARTH_SFS_API', true), // live API best-effort; degrade to the cron-cached blocklist (off in tests → no network)
                 'confidence_threshold' => 75,             // ≥ this confidence → block; below → flag (flag-don't-block)
                 'timeout' => 4,                           // seconds; a slow/dead API must not stall registration
+                // Cron-warmed blocklist so the cache is never cold (phase-1.5 F-C). Downloads a curated
+                // toxic-domains list into blocklist_cache; degrades to a no-op on any network failure.
+                'warm' => [
+                    'enabled' => env('HEARTH_SFS_WARM', true),
+                    'domains_url' => env('HEARTH_SFS_DOMAINS_URL', 'https://www.stopforumspam.org/downloads/toxic_domains_whole.txt'),
+                    'ttl_days' => 14,
+                    'max_entries' => 20000, // bound the import for the baseline tier
+                ],
             ],
             'captcha' => [
                 // Default provider for any action; degrades to qa when unavailable (CaptchaManager).
@@ -100,6 +114,9 @@ return [
                 'qa' => [
                     'question' => 'What colour is a clear daytime sky? (one word)',
                     'answers' => ['blue'],
+                    // Bind each challenge to a single-use server nonce so a captured answer can't be
+                    // replayed (phase-1.5 F-B). Off in the test env; the dedicated replay test opts in.
+                    'single_use' => env('HEARTH_QA_SINGLE_USE', true),
                 ],
                 'turnstile' => [ // enhanced-tier example; absent secret → manager degrades to qa
                     'site_key' => env('TURNSTILE_SITE_KEY', ''),
@@ -109,6 +126,9 @@ return [
             'honeypot' => [
                 'field' => 'hp_url',          // a hidden field bots fill; humans never see it
                 'min_seconds' => 2,           // a form submitted faster than this is bot-like
+                // Require the timing token (phase-1.5 F-B): a submission with no/garbled hp_ts is rejected,
+                // closing the "just omit the token" skip. Off in the test env; the F-B test opts in.
+                'required' => env('HEARTH_HONEYPOT_REQUIRED', true),
             ],
             'velocity' => [
                 'per_ip_per_hour' => 5,       // local IP registration-rate ceiling → flag on spikes
@@ -122,6 +142,15 @@ return [
         // window by `hearth:antispam:purge` (run from the scheduler).
         'retention' => [
             'registration_checks_days' => 90,
+        ],
+    ],
+
+    // ── Moderation (security §3) ──────────────────────────────────────────────────────────────────
+    // Actor-vs-target rank check (phase-1.5 F-F): a staff member can't ban/warn/spam-clean a target of
+    // equal-or-higher rank. Admins outrank everyone; mods can't action admins or (by default) each other.
+    'moderation' => [
+        'rank' => [
+            'allow_equal' => (bool) env('HEARTH_MOD_RANK_ALLOW_EQUAL', false), // true → equal rank may act
         ],
     ],
 
@@ -145,6 +174,13 @@ return [
 
         // The .env target the installer writes. Overridable so tests never clobber the real file.
         'env_path' => env('HEARTH_INSTALL_ENV_PATH', base_path('.env')),
+
+        // Pre-install setup token (phase-1.5 F-A). A random token is written here (0600) on first boot of a
+        // not-yet-installed site; the wizard and `hearth:install` require it, so whoever reaches the
+        // unauthenticated installer first cannot run it (or use the DB-test SSRF) without filesystem access
+        // (FTP / cPanel File Manager) to read the value. Consumed on a successful install. Off in tests.
+        'token_path' => env('HEARTH_INSTALL_TOKEN_PATH', storage_path('install-token.txt')),
+        'require_token' => env('HEARTH_INSTALL_REQUIRE_TOKEN', true),
 
         // When true (the default in production), an un-installed app forces every request to the wizard
         // and the pre-install boot hook forces zero-dependency drivers (file session/cache, sync queue)
@@ -201,6 +237,30 @@ return [
             'policy' => env('HEARTH_CSP_POLICY', implode('; ', [
                 "default-src 'self'",
                 "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+                "style-src 'self' 'unsafe-inline'",
+                "img-src 'self' data: https:",
+                "font-src 'self' data:",
+                "connect-src 'self'",
+                "media-src 'self' https:",
+                "object-src 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
+                "frame-ancestors 'self'",
+            ])),
+
+            // ── Strict, nonce-based CSP (phase-1.5 F-M3) — OPT-IN ──────────────────────────────────
+            // When HEARTH_CSP_STRICT=true the middleware emits this policy instead, replacing {nonce}
+            // per-request. @vite and Livewire pick up the SAME nonce automatically via Vite::cspNonce(),
+            // and Hearth's two inline <script> blocks (JSON-LD, Turnstile loader) carry it too — so
+            // script-src drops 'unsafe-inline' (inline-script injection is blocked). It still keeps
+            // 'unsafe-eval' (Alpine v3 evaluates expressions with new Function) and style 'unsafe-inline'
+            // (the core views use inline style="" attributes, which nonces don't cover). Making it the
+            // DEFAULT needs the Alpine CSP build + an inline-style/style-attr refactor — tracked in
+            // docs/SECURITY-REVIEW.md (F-M3). Default OFF so the shipped baseline keeps the editor working.
+            'strict' => (bool) env('HEARTH_CSP_STRICT', false),
+            'strict_policy' => env('HEARTH_CSP_STRICT_POLICY', implode('; ', [
+                "default-src 'self'",
+                "script-src 'self' 'nonce-{nonce}' 'unsafe-eval'",
                 "style-src 'self' 'unsafe-inline'",
                 "img-src 'self' data: https:",
                 "font-src 'self' data:",

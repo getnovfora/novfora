@@ -36,9 +36,13 @@
             <label for="captcha_answer" style="display:block;margin:.6rem 0 .2rem;font-size:.85rem;color:#444">{{ $captcha['question'] }}</label>
             <input id="captcha_answer" name="{{ $captcha['field'] }}" type="text" required autocomplete="off"
                    style="width:100%;box-sizing:border-box;padding:.5rem;border:1px solid #bbb;border-radius:6px">
+            @if (! empty($captcha['nonce']))
+                {{-- Single-use challenge nonce (phase-1.5 F-B) — replay protection for the Q&A answer. --}}
+                <input type="hidden" name="{{ $captcha['nonce_field'] }}" value="{{ $captcha['nonce'] }}">
+            @endif
         @elseif (($captcha['type'] ?? null) === 'turnstile')
             <div class="cf-turnstile" data-sitekey="{{ $captcha['site_key'] }}" style="margin-top:.6rem"></div>
-            <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+            <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}"></script>
         @endif
 
         <button type="submit" style="margin-top:1rem;width:100%;padding:.6rem;border:0;border-radius:6px;background:#2d2a6b;color:#fff;font-size:1rem;cursor:pointer">Create account</button>
