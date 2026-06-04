@@ -60,18 +60,34 @@ final class RegistrationGuard
             $scores['disposable'] = true;
         }
 
+        // 2b. A cron-warmed StopForumSpam toxic email domain (phase-1.5 F-C) → flag, never hard-block: a
+        //     domain-level signal is suggestive, not certain, so it honours flag-don't-block.
+        if ($this->toxicDomain($email)) {
+            $escalate(ScreeningResult::FLAG);
+            $reasons[] = 'toxic_domain';
+            $scores['toxic_domain'] = true;
+        }
+
         // 3. StopForumSpam (live → cached → no-signal). High confidence blocks; borderline flags.
         if ($reg['stopforumspam']['enabled'] ?? true) {
             $sfs = $this->sfs->check($ip, $email, $username);
             $scores['stopforumspam'] = $sfs;
-            if ($sfs['degraded']) {
-                $degraded = true;
-            }
 
             if ($sfs['listed']) {
                 $threshold = (int) ($reg['stopforumspam']['confidence_threshold'] ?? 75);
                 $escalate(($sfs['confidence'] ?? 0) >= $threshold ? ScreeningResult::BLOCK : ScreeningResult::FLAG);
                 $reasons[] = 'stopforumspam';
+            }
+
+            if ($sfs['degraded']) {
+                $degraded = true;
+                // Fail SAFE, not open (phase-1.5 F-C): the live API was meant to run but is unreachable and
+                // nothing is cached — FLAG for moderation instead of silently allowing. Honours flag-don't-
+                // block (the account is held/pending, never hard-blocked on a mere degrade).
+                if (! $sfs['listed']) {
+                    $escalate(ScreeningResult::FLAG);
+                    $reasons[] = 'stopforumspam_degraded';
+                }
             }
         }
 
@@ -116,6 +132,18 @@ final class RegistrationGuard
 
         return $domain !== '' && BlocklistEntry::query()->live()
             ->where('source', 'disposable')->where('type', 'email_domain')->where('value', $domain)->exists();
+    }
+
+    /** A domain on the cron-warmed StopForumSpam toxic-domains list (phase-1.5 F-C, hearth:antispam:warm). */
+    private function toxicDomain(string $email): bool
+    {
+        if (! str_contains($email, '@')) {
+            return false;
+        }
+        $domain = strtolower(Str::after($email, '@'));
+
+        return $domain !== '' && BlocklistEntry::query()->live()
+            ->where('source', 'stopforumspam')->where('type', 'email_domain')->where('value', $domain)->exists();
     }
 
     private function velocityExceeded(string $ip, int $perHour): bool

@@ -205,6 +205,31 @@ final class PostService
         return $restrict;
     }
 
+    /**
+     * Re-render a post's display HTML + text from its (lossless) canonical with the author's CURRENT
+     * suppression (phase-1.5 F-E). Used after a trust change so link/image gating re-applies to a user's
+     * existing posts — re-suppressing on demotion, revealing on promotion. The canonical is never touched.
+     */
+    public function rerender(Post $post): void
+    {
+        $author = $post->user_id ? User::find($post->user_id) : null;
+        $topic = Topic::withTrashed()->find($post->topic_id);
+        if (! $author instanceof User || ! $topic instanceof Topic) {
+            return;
+        }
+
+        $rendered = $this->renderer->render(
+            (string) $post->body_format,
+            (array) $post->body_canonical,
+            $this->restrictionsFor($author, $topic->permissionScope()),
+        );
+
+        $post->forceFill([
+            'body_html_cache' => $this->words->applyReplacements($rendered['html']),
+            'body_text' => $this->words->applyReplacements($rendered['text']),
+        ])->saveQuietly(); // quiet: suppression changes display only — no counter/search churn
+    }
+
     private function slug(string $title): string
     {
         return Str::slug(Str::limit($title, 60, '')) ?: 'topic';

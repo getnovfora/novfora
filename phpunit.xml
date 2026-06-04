@@ -24,11 +24,19 @@
              or have its drivers hardened by the pre-install boot hook. Installer-specific tests opt back
              in by toggling this config + pointing the marker/.env at temp paths. -->
         <env name="HEARTH_INSTALL_ENFORCE" value="false"/>
+        <!-- Phase-1.5 F-A: the install setup token is off by default; the token tests opt in. -->
+        <env name="HEARTH_INSTALL_REQUIRE_TOKEN" value="false"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <!-- Anti-spam: frictionless by default in tests (no CAPTCHA, no live StopForumSpam network call);
              the dedicated anti-spam suites opt back in to the strict config per test. -->
         <env name="HEARTH_CAPTCHA" value="none"/>
         <env name="HEARTH_SFS_API" value="false"/>
+        <!-- Phase-1.5 F-B strict registration controls are off by default in the suite (frictionless);
+             the dedicated RegistrationHardeningTest opts each one back in. -->
+        <env name="HEARTH_REGISTER_THROTTLE" value="false"/>
+        <env name="HEARTH_HONEYPOT_REQUIRED" value="false"/>
+        <env name="HEARTH_QA_SINGLE_USE" value="false"/>
+        <env name="HEARTH_SFS_WARM" value="false"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
         <env name="DB_CONNECTION" value="sqlite"/>
