@@ -10,5 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class RoleAssignment extends Model
 {
-    protected $guarded = [];
+    // Explicit allowlist (phase-1.5 F-G): who holds which role where — never request-driven.
+    protected $fillable = ['role_id', 'holder_type', 'holder_id', 'scope_type', 'scope_id'];
 }

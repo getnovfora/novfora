@@ -22,9 +22,9 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
 // (`avatar_path`, `cover_path`) are deliberately EXCLUDED: they are written only by server code via
 // forceFill / direct assignment (TrustLevelManager, WarningService, SpamCleaner, BanController,
 // ProfileController, InstallRunner), never from request input — so a stray `->update($request->...)`
-// cannot self-promote trust, lift a ban, or smuggle unsanitised HTML into a signature. `tenant_id`
-// stays here for the dormant multi-tenant seam (ADR-0004); guard it before tenancy ships.
-#[Fillable(['username', 'name', 'display_name', 'email', 'password', 'tenant_id', 'signature_doc', 'signature_format'])]
+// cannot self-promote trust, lift a ban, smuggle unsanitised HTML into a signature, or cross the dormant
+// multi-tenant seam (`tenant_id`, ADR-0004 — removed from the fillable set in phase-1.5 F-H).
+#[Fillable(['username', 'name', 'display_name', 'email', 'password', 'signature_doc', 'signature_format'])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -76,6 +76,18 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isStaff(): bool
     {
         return $this->groups->whereIn('slug', ['admins', 'moderators'])->isNotEmpty();
+    }
+
+    /** Admins (the top system group) may take moderation actions against anyone (phase-1.5 F-F). */
+    public function isAdmin(): bool
+    {
+        return $this->groups->pluck('slug')->contains('admins');
+    }
+
+    /** A user's effective rank = the highest priority among their groups (phase-1.5 F-F rank check). */
+    public function rankPriority(): int
+    {
+        return (int) ($this->groups->max('priority') ?? 0);
     }
 
     /**

@@ -11,7 +11,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class AclEntry extends Model
 {
-    protected $guarded = [];
+    // Explicit allowlist (phase-1.5 F-G): an ACL entry IS a grant, so a fully-unguarded model would let any
+    // future `AclEntry::create($request->...)` mint a privilege (e.g. value=ALLOW on admin.access for your
+    // own holder_id). Only the resolver's columns are mass-assignable; everything is written by trusted
+    // server code (RoleExpander, seeders, the Acl test helper).
+    protected $fillable = ['permission_key', 'holder_type', 'holder_id', 'scope_type', 'scope_id', 'value'];
 
     protected $casts = [
         'value' => 'integer',

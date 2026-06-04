@@ -10,5 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class Permission extends Model
 {
-    protected $guarded = [];
+    // Explicit allowlist (phase-1.5 F-G): the permission catalog (reference list) — never request-driven.
+    protected $fillable = ['key', 'label', 'scope_kind', 'group', 'description'];
 }
