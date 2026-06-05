@@ -37,6 +37,7 @@ final class HostDoctor
         $checks[] = $this->symlinkCheck();
         $checks[] = $this->publicStorageCheck();
         $checks[] = $this->openBasedirCheck();
+        $checks[] = $this->worldWritableCheck();
         $checks[] = $this->backupMethodCheck();
         foreach ($this->driverChecks() as $c) {
             $checks[] = $c;
@@ -114,6 +115,90 @@ final class HostDoctor
                 ? 'Not restricted.'
                 : "Restricted to: {$value}. Ensure your storage and backup paths are inside it.",
         ];
+    }
+
+    /**
+     * Flag group- or world-writable application files/dirs (0777-style perms). cPanel's "Extract" often
+     * produces 0777, which (a) makes CloudLinux/suEXEC refuse to run the site (HTTP 500), and (b) is a real
+     * security hole on shared hosting — another account on the box could overwrite your code. We sample the
+     * code paths that must never carry those bits rather than walking all of vendor/. Advisory ('warn'): a
+     * non-suEXEC host tolerates it, but the fix is cheap and worth doing everywhere.
+     *
+     * @return array{name:string, status:'pass'|'warn'|'fail', detail:string}
+     */
+    private function worldWritableCheck(): array
+    {
+        // POSIX permission bits are meaningless on Windows (and Hearth's baseline target is a Linux host).
+        if (\DIRECTORY_SEPARATOR === '\\') {
+            return [
+                'name' => 'File permissions (group/world-writable)',
+                'status' => 'pass',
+                'detail' => 'Permission bits are not applicable on this OS.',
+            ];
+        }
+
+        $offenders = $this->laxPermissionOffenders($this->permissionSamplePaths());
+
+        if ($offenders === []) {
+            return [
+                'name' => 'File permissions (group/world-writable)',
+                'status' => 'pass',
+                'detail' => 'No group- or world-writable application files detected (suEXEC/CloudLinux safe).',
+            ];
+        }
+
+        return [
+            'name' => 'File permissions (group/world-writable)',
+            'status' => 'warn',
+            'detail' => 'Group/world-writable paths found: '.implode(', ', \array_slice($offenders, 0, 6)).'. '
+                .'CloudLinux/suEXEC hosts return HTTP 500 for these, and on any shared host another account '
+                .'could overwrite your code. Fix from the app root: '
+                .'`find . -type d -exec chmod 755 {} \\; ; find . -type f -exec chmod 644 {} \\; ; chmod 755 artisan` '
+                .'(storage/ and bootstrap/cache/ stay owner-writable).',
+        ];
+    }
+
+    /**
+     * The code paths that must never be group/world-writable. Sampling these catches the common
+     * "extracted everything 0777" case without walking the whole tree.
+     *
+     * @return list<string>
+     */
+    private function permissionSamplePaths(): array
+    {
+        return array_values(array_filter([
+            base_path(),
+            base_path('public'),
+            public_path('index.php'),
+            base_path('artisan'),
+            base_path('bootstrap/app.php'),
+            base_path('app'),
+            base_path('config'),
+            base_path('routes'),
+            base_path('vendor/autoload.php'),
+        ], 'file_exists'));
+    }
+
+    /**
+     * Return the given paths that are group- or world-writable, each annotated with its octal mode.
+     * Public so it can be unit-tested deterministically against fixtures with known permissions.
+     *
+     * @param  list<string>  $paths
+     * @return list<string>
+     */
+    public function laxPermissionOffenders(array $paths): array
+    {
+        $offenders = [];
+
+        foreach ($paths as $path) {
+            $perms = @fileperms($path);
+            // 0022 = group-write (0020) | other-write (0002).
+            if ($perms !== false && ($perms & 0022) !== 0) {
+                $offenders[] = basename($path).' ('.substr(sprintf('%o', $perms), -4).')';
+            }
+        }
+
+        return $offenders;
     }
 
     /** @return array{name:string, status:'pass'|'warn'|'fail', detail:string} */

@@ -43,6 +43,7 @@ it('surfaces the shared-host probes', function () {
     expect($names)->toContain('Disabled PHP functions')
         ->toContain('Symlink support (storage:link)')
         ->toContain('open_basedir')
+        ->toContain('File permissions (group/world-writable)')
         ->toContain('Database backups')
         ->toContain('Queue driver')
         ->toContain('Outbound mail')
@@ -68,6 +69,32 @@ it('falls back to copying public storage when symlinks are unavailable', functio
         expect(file_get_contents($link.DIRECTORY_SEPARATOR.'avatars'.DIRECTORY_SEPARATOR.'a.txt'))->toBe('hello');
     } finally {
         rmrf($base);
+    }
+});
+
+it('flags group/world-writable application files (the suEXEC/CloudLinux 500 cause)', function () {
+    if (DIRECTORY_SEPARATOR === '\\') {
+        $this->markTestSkipped('POSIX permission bits only.');
+    }
+
+    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-perm-'.bin2hex(random_bytes(4));
+    @mkdir($dir, 0755, true);
+    $safe = $dir.DIRECTORY_SEPARATOR.'safe.php';
+    $lax = $dir.DIRECTORY_SEPARATOR.'lax.php';
+    file_put_contents($safe, '<?php');
+    file_put_contents($lax, '<?php');
+    chmod($safe, 0644);
+    chmod($lax, 0777);
+
+    try {
+        $offenders = app(HostDoctor::class)->laxPermissionOffenders([$safe, $lax]);
+
+        expect($offenders)->toHaveCount(1);
+        expect($offenders[0])->toContain('lax.php')->toContain('0777');
+    } finally {
+        @unlink($safe);
+        @unlink($lax);
+        @rmdir($dir);
     }
 });
 
