@@ -64,10 +64,18 @@ composer install --no-dev --optimize-autoloader
 # 2. Frontend assets (already committed under public/build, but rebuild to be current)
 npm ci && npm run build
 
-# 3. Zip everything EXCEPT local-only files
+# 3. Zip the app EXCEPT local-only, per-host, and build-only files. vendor/ and public/build/ ARE
+#    included — that's the point (no toolchain on the host). NEVER bundle storage/installed or
+#    storage/install-token.txt: they are created per-host at runtime, and bundling either bricks the installer.
 zip -r hearth-release.zip . \
-  -x ".git/*" "node_modules/*" "tests/*" ".env" "storage/logs/*" \
-     "storage/framework/cache/*" "storage/framework/sessions/*" "storage/framework/views/*"
+  -x ".git/*" "node_modules/*" "tests/*" "docker/*" ".github/*" "docs/*" \
+     ".env" ".env.*" "auth.json" \
+     "storage/logs/*" "storage/framework/cache/*" "storage/framework/sessions/*" "storage/framework/views/*" \
+     "storage/installed" "storage/install-token.txt" "storage/backups/*" "storage/*.key" \
+     "bootstrap/cache/*.php" "database/*.sqlite" "hearth-release.zip"
+
+# Laravel 500s if the empty runtime dirs are missing. If the excludes above dropped any, recreate them:
+#   mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache && chmod -R 775 storage bootstrap/cache
 ```
 
 You now have `hearth-release.zip` containing `vendor/`, `public/build/`, and the app — uploadable to any host
