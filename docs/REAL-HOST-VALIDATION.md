@@ -54,33 +54,54 @@ and `proc_open`-disabled hosts get pure-PHP database backups, both automatically
 
 ## 2. Build a deployable bundle
 
-The baseline host needs **no Node** (assets are prebuilt) and ideally **no Composer** (vendor bundled). On a
-build machine (or the project's Docker image):
+The baseline host needs **no Node** (assets are prebuilt) and ideally **no Composer** (vendor bundled).
+
+**Easiest — the committed builder** (does every step below, in the project's Docker image):
+
+```bash
+docker run --rm -v "$PWD:/src" -w /src forum-app:latest sh scripts/build-release.sh /src /src/hearth-release.zip
+docker run --rm -v "$PWD:/src" -w /src forum-app:latest sh scripts/verify-release.sh /src/hearth-release.zip
+```
+
+**Or by hand**, on a build machine (or the Docker image):
 
 ```bash
 # 1. PHP deps, production only, optimized autoloader
 composer install --no-dev --optimize-autoloader
 
-# 2. Frontend assets (already committed under public/build, but rebuild to be current)
+# 2. Frontend assets (already committed under public/build; rebuild only if you changed source)
 npm ci && npm run build
 
-# 3. Zip the app EXCEPT local-only, per-host, and build-only files. vendor/ and public/build/ ARE
-#    included — that's the point (no toolchain on the host). NEVER bundle storage/installed or
-#    storage/install-token.txt: they are created per-host at runtime, and bundling either bricks the installer.
+# 3. THE COLD-BOOT FIX — pre-build the package manifest so a fresh host doesn't have to. Without
+#    bootstrap/cache/packages.php a cold first boot (no prior artisan run) builds it during RegisterFacades,
+#    BEFORE the `view` service registers; if bootstrap/cache isn't writable yet that throws and the page 500s
+#    with "Target class [view] does not exist". This one command ships the manifest and removes that path.
+HEARTH_INSTALL_ENFORCE=false php artisan package:discover --ansi
+
+# 4. Drop env-specific / per-host caches so the bundle stays portable. SHIP packages.php; NEVER ship
+#    services.php / config.php / routes.php / events.php (Laravel regenerates them per host at runtime).
+rm -f bootstrap/cache/services.php bootstrap/cache/config.php bootstrap/cache/routes.php \
+      bootstrap/cache/events.php bootstrap/cache/compiled.php
+
+# 5. Zip the app EXCEPT local-only, per-host, and build-only files. vendor/, public/build/, AND
+#    bootstrap/cache/packages.php ARE included. NEVER bundle storage/installed or storage/install-token.txt.
 zip -r hearth-release.zip . \
-  -x ".git/*" "node_modules/*" "tests/*" "docker/*" ".github/*" "docs/*" \
+  -x ".git/*" "node_modules/*" "tests/*" "docker/*" ".github/*" "docs/*" "scripts/*" \
      ".env" ".env.*" "auth.json" \
      "storage/logs/*" "storage/framework/cache/*" "storage/framework/sessions/*" "storage/framework/views/*" \
      "storage/installed" "storage/install-token.txt" "storage/backups/*" "storage/*.key" \
-     "bootstrap/cache/*.php" "database/*.sqlite" "hearth-release.zip"
+     "bootstrap/cache/services.php" "bootstrap/cache/config.php" "bootstrap/cache/routes.php" \
+     "bootstrap/cache/events.php" "bootstrap/cache/compiled.php" \
+     "database/*.sqlite" "hearth-release.zip"
 
 # Laravel 500s if the empty runtime dirs are missing. If the excludes above dropped any, recreate them:
-#   mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache && chmod -R 775 storage bootstrap/cache
+#   mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache && chmod -R 755 storage bootstrap/cache
 ```
 
-You now have `hearth-release.zip` containing `vendor/`, `public/build/`, and the app — uploadable to any host
-with no toolchain. (If your host *does* offer SSH + Composer, you can instead clone the repo and run
-`composer install --no-dev` there; the prebuilt assets are committed.)
+You now have `hearth-release.zip` containing `vendor/`, `public/build/`, `bootstrap/cache/packages.php`, and the
+app — uploadable to any host with no toolchain. (If your host *does* offer SSH + Composer, you can instead clone
+the repo and run `composer install --no-dev && php artisan package:discover` there; the prebuilt assets are
+committed.)
 
 ---
 
@@ -94,10 +115,66 @@ with no toolchain. (If your host *does* offer SSH + Composer, you can instead cl
      the two paths near the top of `public_html/index.php` to point at `__DIR__.'/../hearth/vendor/autoload.php'`
      and `__DIR__.'/../hearth/bootstrap/app.php'`. (Keeping the app out of the web root is the secure layout —
      only `public/` should be servable.)
-3. Make sure `storage/` and `bootstrap/cache/` are writable (`chmod 775`).
+3. Set safe permissions — **see §3a below** (required on CloudLinux/suEXEC). `storage/` and `bootstrap/cache/`
+   must be **owner-writable**; nothing should be group/world-writable.
 
 > **Never** let `.env`, `storage/`, or `vendor/` be directly web-served. With the document root on `public/`
-> they aren't. Hearth writes `.env` as `0600` (owner-only).
+> they aren't. Hearth writes `.env` as `0600` (owner-only). **Do not copy `docs/` or any project `*.md` into the
+> web folder** — only `public/` should be servable.
+
+---
+
+## 3a. Set safe permissions (REQUIRED on CloudLinux/suEXEC — good practice everywhere)
+
+cPanel's **Extract** often leaves files **0777** (world-writable). On CloudLinux/suEXEC hosts that causes a blank
+**HTTP 500** (the server refuses to run group/world-writable code), and on any shared host world-writable files
+let another account overwrite your code. **After extracting**, from the app root (e.g. `~/hearth`):
+
+```bash
+find . -type d -exec chmod 755 {} \;     # directories -> rwxr-xr-x
+find . -type f -exec chmod 644 {} \;     # files       -> rw-r--r--
+chmod 755 artisan                        # keep the CLI entry executable
+```
+
+`storage/` and `bootstrap/cache/` stay **owner-writable** at 755 (owner may write; group/other may not) — that is
+all Hearth needs. With SSH, `php artisan hearth:doctor` flags any remaining group/world-writable paths.
+
+> **Why `bootstrap/cache/` must be owner-writable:** the bundle ships the prebuilt `bootstrap/cache/packages.php`,
+> so package discovery never runs on the host. But Laravel still writes a small `services.php` cache there on the
+> first request. If `bootstrap/cache/` is not writable, that first page 500s with *"Target class [view] does not
+> exist"* — the same symptom, one step later. Owner-writable (755) is enough; it does **not** need 777.
+
+---
+
+## 3b. Install into a `public_html` subfolder (e.g. `https://example.com/forum/`)
+
+Prefer pointing a subdomain/addon-domain document root at `~/hearth/public` (§3.2 — cleanest). If you must serve
+Hearth from a **subfolder** of an existing `public_html`, keep the app **outside** the web root and copy only
+`public/`:
+
+```bash
+# app stays at ~/hearth (outside the web root); SUBDIR is the URL path segment, e.g. "forum"
+mkdir -p ~/public_html/forum
+cp -a ~/hearth/public/. ~/public_html/forum/      # copy the CONTENTS of public/ (incl. .htaccess)
+```
+
+Then:
+
+1. **Edit `~/public_html/forum/index.php`** — repoint its two `require` paths up out of the web root to the app
+   (paths are **case-sensitive**):
+   ```php
+   require __DIR__.'/../../hearth/vendor/autoload.php';
+   $app = require_once __DIR__.'/../../hearth/bootstrap/app.php';
+   ```
+2. **Set the Site URL to include the subpath:** in the installer's **Site & administrator** step use
+   `https://example.com/forum`, or set `APP_URL=https://example.com/forum` in `.env`.
+3. **If routes 404,** add `RewriteBase /forum/` to `~/public_html/forum/.htaccess` (just under `RewriteEngine On`).
+4. **Publish storage into the web dir** so avatars/images load:
+   - symlink host: `ln -s ~/hearth/storage/app/public ~/public_html/forum/storage`
+   - no-symlink host: `php artisan hearth:storage:publish` (writes a copy; the cron line refreshes it).
+
+Re-apply the **§3a** permissions to the copied `~/public_html/forum/` as well, and (again) **do not** copy `docs/`
+or any `*.md` into `public_html`.
 
 ---
 
