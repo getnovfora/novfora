@@ -339,6 +339,34 @@ clean-room**.
 > audit` clean; **Dusk editor journey green under the shipped (baseline) CSP — and verified green under the
 > strict CSP toggle too**. `docs/SECURITY-REVIEW.md` §1/§6 record each F-x → Fixed. Small conventional DCO commits on `main`. **NEXT is unchanged: the human
 > real-host validation on ≥2 shared hosts → private beta.**
+>
+> **Update 2026-06-05 (REAL-HOST RH-6 — installer wizard front-end FIXED + full-wizard browser coverage — Code):**
+> the live cPanel validation surfaced a dead installer front-end (RH-6): on a clean subdomain with all assets 200,
+> the wizard rendered but every `wire:click` fired no request — the install couldn't be completed in a browser.
+> **Root cause (read from Livewire 4's `dist/livewire.esm.js`):** Livewire auto-starts from a single
+> `DOMContentLoaded` *event listener* with no `readyState` fallback — it sets `window.Alpine.__fromLivewire`
+> synchronously (so Alpine is always "present") but calls `Livewire.start()` (which builds `$wire` and binds every
+> `wire:` directive) only when that event fires. The standalone pre-install layout delivered the runtime **solely**
+> via Livewire's response-rewrite auto-injection; a shared-host JS optimizer (LiteSpeed/Cloudflare, ubiquitous on
+> cPanel) that defers that `<script>` so it runs *after* `DOMContentLoaded` leaves the listener dangling →
+> `start()` never runs → Alpine present but directives unbound, no console error (the exact symptom). A clean
+> `php artisan serve` runs the script synchronously *before* the event, so it worked locally — the gap was
+> invisible because **Dusk only ever drove the editor, never `/install`.** **Fix (Blade-only,
+> `resources/views/install/index.blade.php` — no asset rebuild):** the standalone layout now declares Livewire's
+> runtime itself (explicit `@livewireStyles`/`@livewireScripts`, deterministic; FrontendAssets' render-guards
+> prevent double-injection) plus a tiny boot guard that calls `Livewire.start()` once if the bundle loaded late,
+> with a `livewire:init` flag so it can never double-start the on-time path (CSP-nonce-aware under the strict
+> toggle). **Coverage (the real fix for "invisible"):** `tests/Browser/InstallerWizardTest.php` drives the FULL
+> wizard in real Chrome (system → token → DB [a disposable MySQL] → site/admin → install → **Done**, then asserts
+> the lock → `/install` 403s) via a new `docker/dusk/compose.yml`; `tests/Feature/Install/InstallerLayoutTest.php`
+> is an in-process guard that renders `/install` with auto-injection OFF and asserts the runtime still ships and
+> isn't duplicated. **Suite: Pest 314 passed / 1 skipped (1026 assertions); Dusk 3 passed (editor + full
+> installer); Pint + Larastan + `composer audit` clean.** Bundle rebuilt + cold-boot-verified
+> (`RELEASE_VERIFY=PASS`): `hearth-release.zip` **12,936,542 bytes**, sha256
+> `b385a4bca2c9725e40a0fea6bf3ff78997d06889b3a0e25bf16627862b03bce5` (ships `bootstrap/cache/packages.php`; the
+> fixed install view is inside). RH-6 → **FIXED** in [`docs/product/real-host-findings.md`](docs/product/real-host-findings.md).
+> **NEXT unchanged: human real-host re-test of the subdomain install (now operable) → then RH-4 (subdirectory,
+> design-first) + RH-5 (assets + CI guard).**
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,

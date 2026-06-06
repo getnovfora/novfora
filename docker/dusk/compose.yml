@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+# Chrome-enabled Dusk harness WITH a disposable MySQL alongside it, so the full-wizard installer journey
+# (RH-6, InstallerWizardTest) can drive a REAL database install end-to-end. The editor journey shares the
+# same run and uses the served app's own sqlite — MySQL here exists purely as the wizard's install target.
+#
+#   Run:  docker compose -f docker/dusk/compose.yml run --rm dusk
+#
+# NOT a runtime dependency: the baseline tier is plain PHP 8.3 + MySQL + cron, no Docker, no browser.
+services:
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: hearth_install
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-psecret"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  dusk:
+    build:
+      context: ../..
+      dockerfile: docker/dusk/Dockerfile
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ../../:/app
+    working_dir: /app
