@@ -10,10 +10,12 @@ Copyright 2026 The Hearth Authors
 
 ## Outcome so far
 
-**The core promise is proven on real hardware:** after the RH-1 fix, Hearth boots on a real cPanel shared host
-and reaches the installer with every system check green (PHP 8.4, all extensions, all paths writable, Baseline
-tier detected). Full install completion is being done via the **subdomain** layout (which works cleanly); the
-**subdirectory** layout is blocked by RH-4 below.
+**The core promise is proven on real hardware, end-to-end:** after the RH-1 fix Hearth boots on a real cPanel
+shared host with every system check green (PHP 8.4, all extensions, all paths writable, Baseline tier), and
+after RH-7 the **no-SSH install completes through the browser** on the subdomain layout — wizard → demo
+community → topics render (validated on `hearth.adorablespider.com`). The post-install smoke then surfaced two
+real post-install bugs — **RH-8** (root served Laravel's scaffold page) and **RH-9** (a poisoned fragment cache
+500'd `/forums`) — both now **FIXED** (below). The **subdirectory** layout remains blocked by RH-4.
 
 ## Findings
 
@@ -118,7 +120,7 @@ toggle).
 
 Kickoff: [installer-fix-kickoff.md](installer-fix-kickoff.md).
 
-### ⭐ RH-7 — Install-enforce middleware redirects Livewire's update endpoint → wizard can't complete — FIXED
+### ⭐ RH-7 — Install-enforce middleware redirects Livewire's update endpoint → wizard can't complete — FIXED + VALIDATED on the live host
 **This was the actual reason the wizard "does nothing."** Confirmed by direct live-host inspection
 (`hearth.adorablespider.com`, cPanel) through the browser, including a manual replay of the Livewire request:
 
@@ -177,6 +179,10 @@ The deployable bundle was rebuilt (`scripts/build-release.sh`) and cold-boot-ver
 `ebff39444dae1f6357e0f7b9c27fe5e0d4ad1ac58687d12da447ab15d27db956` (ships `bootstrap/cache/packages.php`; the
 fixed middleware is inside). Kickoff: [installer-redirect-fix-kickoff.md](installer-redirect-fix-kickoff.md).
 
+**Validated on the live host:** the operator re-uploaded the bundle and the no-SSH wizard completed end-to-end
+on `hearth.adorablespider.com` — system check → token → DB → site/admin → install → lock, then the demo
+community and topics render. The post-install smoke is what surfaced RH-8 and RH-9 below.
+
 > **Note on browser coverage.** RH-7 is a purely *server-side* middleware redirect — a real browser adds nothing
 > over an in-process `POST` through the same stack, so the enforcement-ON feature tests above are the authoritative
 > guard and they run in the normal Pest CI job (no Chrome/MySQL needed). The Dusk `InstallerWizardTest` keeps
@@ -184,13 +190,93 @@ fixed middleware is inside). Kickoff: [installer-redirect-fix-kickoff.md](instal
 > must reach `/forums` etc. and would be redirected to `/install` under enforcement (no install marker). Splitting
 > the harness into a second enforce-ON serve pass is a possible follow-up but was out of scope here.
 
+### RH-8 — Root route served Laravel's scaffold welcome page — FIXED
+**Observed (post-install, live host):** with the install complete and the demo community seeded, the site root
+`/` rendered **Laravel's stock marketing page** (the "Documentation / Laracasts" scaffold), not the community.
+The forum was reachable only at `/forums`.
+
+**Root cause:** `routes/web.php` still carried the scaffold `Route::get('/', fn () => view('welcome'))`. It was
+invisible until a real install because **pre-install every request is redirected to `/install`** (RH-7's enforce
+middleware), so `/` never rendered its own view in any prior session — and **no test ever asserted the root
+route** (the stock `ExampleTest` even asserted `/` → 200, locking the scaffold in).
+
+**Fix:** `/` is now the community home. `/forums` stays the **single canonical** forum URL (it is referenced
+across views and the XML sitemap), so the root **301-redirects** to `route('forums.index')` — one canonical URL,
+no duplicate content. This is the lower-churn of the two options the kickoff offered: zero `route('forums.index')`
+references change. The stock `resources/views/welcome.blade.php` is **deleted** (clean-room hygiene — it is
+Laravel's page, not ours). Enforcement is unchanged: pre-install, `RedirectIfNotInstalled` (web group) still
+intercepts `/` → the wizard; the 301 only applies once installed / when enforcement is off (so the cold-boot
+contract `GET / → 302 → /install` is preserved).
+
+**Coverage (the gap, closed) — `tests/Feature/Forum/RootRouteTest.php`:** `/` → **301 → `/forums`** post-install;
+the welcome view no longer exists; `/forums` serves the real home; and `/` still **→ `/install`** pre-install
+(enforcement ON). The stock `ExampleTest` is updated to the redirect contract.
+
+### ⭐ RH-9 — Security hardening × object cache = poisoned fragment cache (the /forums 500) — FIXED
+**Observed (post-install, live host):** `/forums` returned **HTTP 500** in a telltale pattern — it worked on a
+cache **miss**, then 500'd for every request for the next ~60s (the TTL), then worked once, then 500'd again,
+alternating. `laravel.log` (15 identical entries, authed AND anonymous):
+> `Call to a member function isCategory() on string (View: resources/views/forum/index.blade.php) at`
+> `storage/framework/views/<hash>.php:6`
+
+**Root cause (exact chain — reproduced in a test):**
+- `config/cache.php` sets `serializable_classes => false` — the P1.5 anti-object-injection hardening (**KEEP
+  IT**). `CacheManager` passes it to the store; `DatabaseStore::unserialize()` (and file/redis) then calls
+  `unserialize($value, ['allowed_classes' => false])` — **no class survives**; every object becomes a
+  `__PHP_Incomplete_Class`.
+- `ForumController@index` fragment-cached a **live Eloquent Collection**
+  (`Cache::remember('forum.index.tree', 60, fn () => Forum::…->with('children')->get())`) — the one place in the
+  app that cached model objects.
+- On a cache **hit**, the Collection deserialized to `__PHP_Incomplete_Class`; Blade's `@forelse` iterated its
+  raw properties, the first being the incomplete-class **name string** (`"Illuminate\…\Collection"`), so
+  `$node->isCategory()` was called **on a string** → the exact 500.
+- **Why every test missed it:** the suite runs `CACHE_STORE=array` with `serialize => false` — the array store
+  round-trips objects **by reference**, so `allowed_classes` never applies. The bug needs a **serializing** store
+  (database/file/redis) — i.e. any real deployment.
+
+**Fix (keep the hardening; fix the data):**
+1. `ForumController@index` now caches **primitives only** — a plain scalar array tree
+   (`App\Forum\ForumNode::toArray()`: id / type / title / description / topic_count / post_count + nested
+   children) — and rehydrates lightweight read-only `App\Forum\ForumNode` value objects **after** the cache
+   boundary (`fromArray()`), so no object is ever serialized. A value object can't be cached either —
+   `allowed_classes:false` blocks **all** classes, so rehydration must happen outside the cache. The view +
+   `forum-row` partial render from the node; behaviour, the 60s TTL, and the ≤15-query index budget are unchanged.
+2. **Repo-wide cache-write sweep:** every `Cache::put/remember/forever/increment` value in `app/` (+ the cron
+   heartbeat) was audited. The **only** object-write was `ForumController@index` (now fixed). All others already
+   store scalars/arrays: the queue heartbeat stores an **epoch int** (`now()->timestamp` — so the live
+   `queue.ok:null` was the **cron not yet running**, NOT a deserialization failure), the sitemap a **string**,
+   the resolved permission a **bool**, the ACL version an **int**, the CAPTCHA nonce a **bool**.
+3. A **defensive note** added in `config/cache.php` above `serializable_classes`: cached values must be
+   scalars/arrays; objects do not survive a serializing store under this hardening — and do **not** allow-list
+   classes to "fix" a caching bug (that re-opens the object-injection surface the hardening closed).
+
+**Coverage (the missing class — cache HIT through a SERIALIZING store):**
+- `tests/Feature/Forum/ForumIndexCacheTest.php` — drives the **database** cache store and requests `/forums`
+  twice: both **200**, the second (hit) shows the seeded category/forum, the stored value is asserted a plain
+  array, and per-viewer `forum.view` filtering still hides a NEVER'd forum on the hit. *Verified to FAIL on the
+  unfixed controller* with the exact live error (`isCategory() on string`, 500 on the hit) and to pass after.
+- `tests/Feature/Operability/QueueHeartbeatCacheTest.php` — the heartbeat round-trips through a serializing
+  store; `queue.ok` is a real boolean (fresh→true, stale→false), never null-from-deserialization.
+- `tests/Feature/Smoke/PublicRoutesSmokeTest.php` — installed + demo seed, every public route returns no 5xx
+  **twice** through a serializing store (the cheap net that catches this whole miss-ok / hit-500 class early).
+
 ## Next
 
-1. **RH-7 — FIXED in code + regression test + rebuilt bundle (this pass).** The `RedirectIfNotInstalled` allowlist
-   now matches Livewire's hashed update endpoint, enforcement-ON regression tests are in place, and the bundle is
-   rebuilt + cold-boot-verified. **Human step:** re-upload the new `hearth-release.zip` and complete the install on
-   the live host — this is the one that actually unblocks the wizard.
-2. Re-run the **subdomain** install + the §6 acceptance checklist → confirms the full end-to-end install on a
-   real host (the validation's primary goal).
-3. Fix cycle: **RH-4 design-first** (spike → ADR → implement + test), then **RH-5** (rebuild assets + CI guard).
-   RH-1/RH-2 landed; RH-6 was a misdiagnosis (superseded by RH-7, now fixed).
+1. **RH-7 / RH-8 / RH-9 — all FIXED + the bundle rebuilt (this pass).** The live-host install completed
+   end-to-end (RH-7 validated: wizard → demo community → topics render); the post-install smoke then found RH-8
+   (root = scaffold welcome) and RH-9 (poisoned fragment cache → `/forums` 500), both fixed with the missing
+   serializing-store / root-route coverage. Suite **Pest 331 passed / 1 skipped (1108 assertions)**; Pint +
+   Larastan + `composer audit` clean. Bundle rebuilt + cold-boot-verified (`RELEASE_VERIFY=PASS`,
+   `GET / → 302 → /install`): `hearth-release.zip` **12,924,197 bytes**, sha256
+   `f48862b0aed5cef7323d4d9a8d43ad977c9ff9b90271de716e7c2fe9834c0e86` (ships `bootstrap/cache/packages.php`; the
+   fixes are inside; `/hearth-release.zip` stays gitignored). **Human step:** redeploy the rebuilt bundle (or the
+   changed files) — `/` becomes the community, `/forums` is stable under cache hits, and `/health`'s queue check
+   reports truthfully once cron is running.
+2. **RH-4 — subdirectory install (design-first):** spike → ADR → implement + add a subdirectory case to the
+   install test matrix. Still the owner-flagged priority. RH-1/RH-2 landed; RH-6 was a misdiagnosis (superseded
+   by RH-7).
+3. **RH-5 — stale committed assets + CI freshness guard:** a `chore: rebuild assets` commit **plus** a CI guard
+   that fails the build if a fresh `npm run build` changes the committed `public/build`.
+4. **Dusk enforce-ON harness split** (follow-up from RH-7): a second served-app pass with
+   `HEARTH_INSTALL_ENFORCE=true` so a browser test can drive the wizard under real enforcement (meanwhile the
+   enforcement-ON Pest feature tests are the authoritative guard).

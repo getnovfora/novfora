@@ -396,7 +396,39 @@ clean-room**.
 > guard and run in the normal Pest CI. RH-7 → **FIXED** in
 > [`docs/product/real-host-findings.md`](docs/product/real-host-findings.md). **NEXT: human re-uploads the rebuilt
 > bundle and completes the subdomain install on the live host (the validation's primary goal) → then RH-4 (subdirectory,
-> design-first) + RH-5 (stale assets + CI freshness guard).**
+> design-first) + RH-5 (stale assets + CI freshness guard).
+>
+> **Update 2026-06-06 (REAL-HOST RH-8 + RH-9 — post-install fixes → FIXED — Code):** the live-host install
+> **completed end-to-end** (RH-7 validated on `hearth.adorablespider.com`: wizard → demo community → topics
+> render). The post-install smoke then surfaced two real bugs, both fixed this pass (no new product features).
+> **RH-8 — root route was the Laravel scaffold welcome page:** `routes/web.php` still had
+> `Route::get('/', fn () => view('welcome'))`, so post-install `/` rendered Laravel's marketing page while the
+> forum lived only at `/forums` (invisible until now — pre-install everything redirects to `/install`, and no
+> test asserted `/`). **Fix:** `/` is the community home — it **301-redirects to the canonical `/forums`** (the
+> lower-churn option: `/forums` is referenced across views + the sitemap, so zero references change; one
+> canonical URL, no duplicate content); the scaffold `resources/views/welcome.blade.php` is **deleted**
+> (clean-room). Enforcement unchanged (pre-install `/` still → wizard; cold-boot stays `302 → /install`).
+> **RH-9 — security hardening × object cache = poisoned fragment cache (the `/forums` 500):** `config/cache.php`
+> sets `serializable_classes => false` (P1.5 anti-object-injection — **kept**), so on a **serializing** store
+> (database/file/redis = every real deployment) `DatabaseStore::unserialize(allowed_classes:false)` turns any
+> cached object into `__PHP_Incomplete_Class`. `ForumController@index` cached a **live Eloquent Collection**, so
+> on a cache **hit** the view's `$node->isCategory()` ran on the incomplete-class **name string** →
+> `Call to a member function isCategory() on string`. The whole suite runs `CACHE_STORE=array`
+> (`serialize:false`), which round-trips objects by reference — exactly why it was invisible. **Fix (keep the
+> hardening, fix the data):** `index` now caches a **primitive array tree** and rehydrates read-only
+> `App\Forum\ForumNode` value objects **after** the cache boundary (objects never enter the cache — a value
+> object wouldn't survive either); a **repo-wide cache-write sweep** confirmed this was the only object-write
+> (the queue heartbeat already stores an epoch int — the live `queue.ok:null` was the cron not yet running, not
+> deserialization); a defensive note added to `config/cache.php`. **Tests (the missing class — cache HIT through
+> a serializing store):** `ForumIndexCacheTest` (database store, `/forums` twice — *verified to FAIL on the
+> unfixed controller with the exact live error*), `QueueHeartbeatCacheTest` (heartbeat round-trip → `queue.ok`
+> never null), and a `PublicRoutesSmokeTest` (installed + demo seed; every public route, twice, no 5xx).
+> **Suite: Pest 331 passed / 1 skipped (1108 assertions)** (M0–M5 + P1.5 + RH-6/RH-7 stay green); Pint +
+> Larastan + `composer audit` clean. Bundle rebuilt (`scripts/build-release.sh`) + cold-boot-verified
+> (`RELEASE_VERIFY=PASS`, `GET / → 302 → /install`): `hearth-release.zip` **12,924,197 bytes**, sha256
+> `f48862b0aed5cef7323d4d9a8d43ad977c9ff9b90271de716e7c2fe9834c0e86` (`/hearth-release.zip` gitignored). **NEXT:
+> human redeploys the rebuilt bundle (or changed files) to the live host → then RH-4 (subdirectory, design-first)
+> + RH-5 (stale assets + CI freshness guard) + the Dusk enforce-ON harness split (RH-7 follow-up).****
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
