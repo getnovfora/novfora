@@ -50,7 +50,8 @@ yarn-error.log
 /hearth-release.zip
 
 # Local-only scratch — never push. Cowork session runtime artifacts and ad-hoc troubleshooting
-# (screenshots, scratch notes). If we later want to SHARE Claude Code project config (custom commands,
-# settings) across machines, un-ignore those paths selectively (e.g. !/.claude/commands/).
-/.claude/
+# (screenshots, scratch notes). Exception: the committed project Claude Code config (settings.json,
+# e.g. AI-attribution off) is kept so it travels with the repo across machines.
+/.claude/*
+!/.claude/settings.json
 /troubleshoot/
