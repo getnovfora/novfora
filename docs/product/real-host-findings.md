@@ -118,8 +118,8 @@ toggle).
 
 Kickoff: [installer-fix-kickoff.md](installer-fix-kickoff.md).
 
-### ⭐ RH-7 — Install-enforce middleware redirects Livewire's update endpoint → wizard can't complete — OPEN (true root cause)
-**This is the actual reason the wizard "does nothing."** Confirmed by direct live-host inspection
+### ⭐ RH-7 — Install-enforce middleware redirects Livewire's update endpoint → wizard can't complete — FIXED
+**This was the actual reason the wizard "does nothing."** Confirmed by direct live-host inspection
 (`hearth.adorablespider.com`, cPanel) through the browser, including a manual replay of the Livewire request:
 
 **Proof (live host, pre-install, enforcement ON):**
@@ -147,19 +147,50 @@ update path returns 405, not a redirect, because method-not-allowed is thrown du
 redirect never happens. The bug only appears with enforcement **on** — i.e. exactly the real-host pre-install
 state, which nothing exercised.
 
-**Fix (server-side, small):** make the allowlist match Livewire's *actual* update endpoint instead of the
-hardcoded `livewire/*` — derive it from Livewire (e.g. the path of `Livewire::getUpdateUri()`) so it is
-hash-agnostic, and/or broaden the pattern to `livewire-*/*` alongside `livewire/*`. Add a regression **feature
-test that runs with enforcement ON**: render `/install`, read the live update URI from the page, `POST` to it,
-and assert the response is **not** a redirect to `/install` (and ideally that a full wizard step advances).
-Kickoff: [installer-redirect-fix-kickoff.md](installer-redirect-fix-kickoff.md).
+**Fix (landed, server-side, surgical — `app/Http/Middleware/RedirectIfNotInstalled.php`).** The allowlist now
+matches Livewire's *actual* hashed update endpoint, two complementary ways so it can't silently drift:
+- a hash-agnostic **static pattern** added alongside the original — `'livewire-*/*'` (kept `'livewire/*'` too,
+  for a custom un-hashed route). `Str::is` treats `*` as spanning `/`, so `livewire-*/*` matches
+  `livewire-2cd208c8/update` and `livewire-2cd208c8/livewire.js`;
+- the **live update path derived from Livewire at runtime** — `ltrim(app('livewire')->getUpdateUri(), '/')`,
+  appended to the allowlist (guarded by try/catch; an empty result is never passed to `is()`, which would
+  spuriously match the site root). This stays correct if the hash/route changes between builds or versions.
+
+The rest of the allowlist (`install`, `install/*`, `build/*`, `vendor/*`, `up`, `health`, `favicon.ico`) is
+unchanged, and a normal page is still redirected to the wizard (pinned by a test). A repo-wide sweep confirmed
+no other code assumes the un-hashed `livewire/` prefix.
+
+**Regression coverage (the missing test, now present) — `tests/Feature/Install/InstallerEnforcedLivewireTest.php`.**
+These run with enforcement **ON** (the real pre-install state the suite at large opts out of) and exercise the
+**real web-middleware stack** — not `Livewire::test()`, which disables middleware and is exactly why this
+slipped through. They render `/install`, read the live update URI + the component snapshot from the page, and
+`POST` a faithful Livewire update (the `X-Livewire` header + JSON body the JS client sends):
+- the hashed update path is asserted to *not* match `livewire/*` but *to* match `livewire-*/*` (the root cause);
+- the middleware lets the hashed update path through, yet still redirects a non-allowlisted page (no over-broadening);
+- a real `POST` to the update endpoint is **not** redirected to `/install` (`assertOk`, real Livewire JSON body);
+- a real wizard action (`Continue` → `toStep2`) **advances to step 2** end-to-end through the update endpoint.
+
+Verified: these three failed on the unfixed middleware (`Expected 200, received 302` → `/install`) and pass
+after the fix; full Pest **319 passed / 1 skipped (1047 assertions)**, Pint + Larastan + `composer audit` clean.
+The deployable bundle was rebuilt (`scripts/build-release.sh`) and cold-boot-verified (fresh extract, empty
+`APP_KEY`, no DB → `GET /` → **302 → /install**): `hearth-release.zip` **12,937,205 bytes**, sha256
+`ebff39444dae1f6357e0f7b9c27fe5e0d4ad1ac58687d12da447ab15d27db956` (ships `bootstrap/cache/packages.php`; the
+fixed middleware is inside). Kickoff: [installer-redirect-fix-kickoff.md](installer-redirect-fix-kickoff.md).
+
+> **Note on browser coverage.** RH-7 is a purely *server-side* middleware redirect — a real browser adds nothing
+> over an in-process `POST` through the same stack, so the enforcement-ON feature tests above are the authoritative
+> guard and they run in the normal Pest CI job (no Chrome/MySQL needed). The Dusk `InstallerWizardTest` keeps
+> running with `HEARTH_INSTALL_ENFORCE=false` on purpose: it shares one served app with `EditorJourneyTest`, which
+> must reach `/forums` etc. and would be redirected to `/install` under enforcement (no install marker). Splitting
+> the harness into a second enforce-ON serve pass is a possible follow-up but was out of scope here.
 
 ## Next
 
-1. **RH-7 (blocker, true root cause):** fix `RedirectIfNotInstalled` allowlist + add the enforcement-ON
-   regression test, rebuild the bundle, re-upload, and complete the install on the live host. This is the one
-   that actually unblocks the wizard. Kickoff: [installer-redirect-fix-kickoff.md](installer-redirect-fix-kickoff.md).
+1. **RH-7 — FIXED in code + regression test + rebuilt bundle (this pass).** The `RedirectIfNotInstalled` allowlist
+   now matches Livewire's hashed update endpoint, enforcement-ON regression tests are in place, and the bundle is
+   rebuilt + cold-boot-verified. **Human step:** re-upload the new `hearth-release.zip` and complete the install on
+   the live host — this is the one that actually unblocks the wizard.
 2. Re-run the **subdomain** install + the §6 acceptance checklist → confirms the full end-to-end install on a
    real host (the validation's primary goal).
 3. Fix cycle: **RH-4 design-first** (spike → ADR → implement + test), then **RH-5** (rebuild assets + CI guard).
-   RH-1/RH-2 landed; RH-6 was a misdiagnosis (superseded by RH-7).
+   RH-1/RH-2 landed; RH-6 was a misdiagnosis (superseded by RH-7, now fixed).
