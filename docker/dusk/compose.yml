@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-# Chrome-enabled Dusk harness WITH a disposable MySQL alongside it, so the full-wizard installer journey
-# (RH-6, InstallerWizardTest) can drive a REAL database install end-to-end. The editor journey shares the
-# same run and uses the served app's own sqlite — MySQL here exists purely as the wizard's install target.
+# Chrome-enabled Dusk harness WITH a disposable MySQL alongside it. run.sh drives TWO sequential serve passes
+# (the RH-7 follow-up — enforce-ON split): PASS 1 runs the full-wizard installer journey (InstallerWizardTest)
+# under REAL pre-install enforcement (HEARTH_INSTALL_ENFORCE=true) and installs into the disposable MySQL
+# below; PASS 2 runs the editor journey against a reachable app (enforcement off) on the served app's own
+# sqlite. MySQL here exists purely as the wizard's install target.
 #
 #   Run:  docker compose -f docker/dusk/compose.yml run --rm dusk
 #

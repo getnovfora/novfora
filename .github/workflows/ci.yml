@@ -162,14 +162,30 @@ jobs:
       # profiling-verified (system-architecture §7 marks them "profiling", not a hard CI assertion).
 
   dusk:
-    name: Dusk (editor journey, headless Chrome)
+    name: Dusk (installer enforce-ON + editor journeys, headless Chrome)
     runs-on: ubuntu-latest
+    # Two serve passes (the RH-7 follow-up — enforce-ON harness split): PASS 1 drives the FULL installer
+    # wizard under REAL pre-install enforcement (HEARTH_INSTALL_ENFORCE=true, no marker, fresh DB), so every
+    # wire:click flows through RedirectIfNotInstalled like production; PASS 2 drives the editor journey against
+    # a reachable app (enforcement off). The disposable MySQL is the wizard's install target (PASS 1 only);
+    # the editor journey uses SQLite. The InstallerEnforcedLivewireTest feature tests remain the authoritative
+    # RH-7 guard — this adds the real-browser belt.
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_DATABASE: hearth_install
+          MYSQL_ROOT_PASSWORD: secret
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -psecret"
+          --health-interval=5s --health-timeout=3s --health-retries=20
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: pdo_sqlite, mbstring, zip
+          extensions: pdo_sqlite, pdo_mysql, mbstring, zip
           tools: composer:v2
           coverage: none
       - run: composer install --no-interaction --no-progress --prefer-dist
@@ -177,35 +193,70 @@ jobs:
         with:
           node-version: '20'
       - run: npm ci && npm run build
-      - name: Configure for the Dusk run (SQLite; installer enforcement off so serve isn't redirected)
-        run: |
-          set -euo pipefail
-          {
-            echo "APP_NAME=HearthDusk"
-            echo "APP_ENV=local"
-            echo "APP_DEBUG=true"
-            echo "APP_URL=http://127.0.0.1:8000"
-            echo "HEARTH_INSTALL_ENFORCE=false"
-            echo "DB_CONNECTION=sqlite"
-            echo "DB_DATABASE=${{ github.workspace }}/database/dusk.sqlite"
-            echo "CACHE_STORE=file"
-            echo "SESSION_DRIVER=file"
-            echo "QUEUE_CONNECTION=sync"
-            echo "MAIL_MAILER=array"
-            echo "SCOUT_DRIVER=database"
-            echo "BROADCAST_CONNECTION=log"
-          } > .env
-          php artisan key:generate
-          : > "${{ github.workspace }}/database/dusk.sqlite"
-          php artisan migrate:fresh --force
       - name: Install the matching ChromeDriver
         run: php artisan dusk:chrome-driver --detect
-      - name: Serve the app + run the Dusk journeys
+      - name: Serve + run both Dusk passes (installer enforce-ON, then editor)
         run: |
           set -euo pipefail
-          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/serve.log 2>&1 &
-          for _ in $(seq 1 30); do curl -sf http://127.0.0.1:8000/up >/dev/null 2>&1 && break || sleep 1; done
-          php artisan dusk --without-tty
+          WS="${{ github.workspace }}"
+          APP_KEY="base64:$(head -c 32 /dev/urandom | base64)"
+          SANDBOX="$WS/storage/dusk-install"
+          SERVE_PID=
+          start_serve() {
+            php artisan config:clear >/dev/null
+            php artisan view:clear >/dev/null
+            php artisan serve --host=127.0.0.1 --port=8000 > /tmp/serve.log 2>&1 &
+            SERVE_PID=$!
+            for _ in $(seq 1 30); do curl -sf http://127.0.0.1:8000/up >/dev/null 2>&1 && break || sleep 1; done
+          }
+          stop_serve() { kill "${SERVE_PID:-}" 2>/dev/null || true; wait "${SERVE_PID:-}" 2>/dev/null || true; SERVE_PID=; }
+
+          # ── PASS 1 — INSTALLER (enforcement ON; installs into the disposable MySQL) ──
+          rm -rf "$SANDBOX"; mkdir -p "$SANDBOX/public-storage"
+          php -r '$p=new PDO("mysql:host=127.0.0.1;port=3306","root","secret",[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); $p->exec("DROP DATABASE IF EXISTS hearth_install"); $p->exec("CREATE DATABASE hearth_install CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");'
+          {
+            echo "APP_NAME=HearthDusk"; echo "APP_ENV=local"; echo "APP_KEY=$APP_KEY"
+            echo "APP_DEBUG=true"; echo "APP_URL=http://127.0.0.1:8000"
+            echo "HEARTH_INSTALL_ENFORCE=true"
+            echo "DB_CONNECTION=sqlite"; echo "DB_DATABASE=$WS/database/dusk.sqlite"
+            echo "CACHE_STORE=file"; echo "SESSION_DRIVER=file"; echo "QUEUE_CONNECTION=sync"
+            echo "MAIL_MAILER=array"; echo "SCOUT_DRIVER=database"; echo "BROADCAST_CONNECTION=log"
+            echo "HEARTH_INSTALL_REQUIRE_TOKEN=true"
+            echo "HEARTH_INSTALL_TOKEN_PATH=$SANDBOX/install-token.txt"
+            echo "HEARTH_INSTALL_ENV_PATH=$SANDBOX/installed.env"
+            echo "HEARTH_INSTALL_MARKER=$SANDBOX/installed"
+            echo "HEARTH_PUBLIC_LINK=$SANDBOX/public-storage"
+            echo "HEARTH_DUSK_INSTALL_DB_HOST=127.0.0.1"
+            echo "HEARTH_DUSK_INSTALL_DB_NAME=hearth_install"
+            echo "HEARTH_DUSK_INSTALL_DB_USER=root"; echo "HEARTH_DUSK_INSTALL_DB_PASS=secret"
+          } > .env
+          : > "$WS/database/dusk.sqlite"
+          php artisan migrate:fresh --force
+          start_serve
+          set +e; php artisan dusk --without-tty tests/Browser/InstallerWizardTest.php; INSTALLER_CODE=$?; set -e
+          stop_serve
+
+          # ── PASS 2 — APP / editor (enforcement OFF, app reachable) ──
+          rm -rf "$SANDBOX"
+          {
+            echo "APP_NAME=HearthDusk"; echo "APP_ENV=local"; echo "APP_KEY=$APP_KEY"
+            echo "APP_DEBUG=true"; echo "APP_URL=http://127.0.0.1:8000"
+            echo "HEARTH_INSTALL_ENFORCE=false"
+            echo "DB_CONNECTION=sqlite"; echo "DB_DATABASE=$WS/database/dusk.sqlite"
+            echo "CACHE_STORE=file"; echo "SESSION_DRIVER=file"; echo "QUEUE_CONNECTION=sync"
+            echo "MAIL_MAILER=array"; echo "SCOUT_DRIVER=database"; echo "BROADCAST_CONNECTION=log"
+          } > .env
+          : > "$WS/database/dusk.sqlite"
+          php artisan migrate:fresh --force
+          start_serve
+          set +e; php artisan dusk --without-tty tests/Browser/EditorJourneyTest.php; EDITOR_CODE=$?; set -e
+          stop_serve
+
+          echo "dusk passes — installer(enforce ON)=$INSTALLER_CODE  editor(enforce OFF)=$EDITOR_CODE"
+          if [ "$INSTALLER_CODE" -ne 0 ] || [ "$EDITOR_CODE" -ne 0 ]; then
+            echo "--- serve.log (tail) ---"; tail -n 30 /tmp/serve.log || true
+            exit 1
+          fi
       - name: Upload failure screenshots
         if: failure()
         uses: actions/upload-artifact@v4
