@@ -429,6 +429,37 @@ clean-room**.
 > `f48862b0aed5cef7323d4d9a8d43ad977c9ff9b90271de716e7c2fe9834c0e86` (`/hearth-release.zip` gitignored). **NEXT:
 > human redeploys the rebuilt bundle (or changed files) to the live host → then RH-4 (subdirectory, design-first)
 > + RH-5 (stale assets + CI freshness guard) + the Dusk enforce-ON harness split (RH-7 follow-up).****
+>
+> **Update 2026-06-06 (HYGIENE — RH-5 assets + CI freshness guard + Dusk enforce-ON split → DONE — Code):** the
+> pre-theme hygiene closeout, per [`hygiene-rh5-dusk-kickoff.md`](docs/product/hygiene-rh5-dusk-kickoff.md). No
+> product features. **(1) RH-5 — stale committed assets + drift guard.** `/public/build` is committed BY DESIGN
+> (baseline shared hosts have no Node); a P1.5/RH-8 template change (utilities removed; `welcome.blade.php`
+> deleted) was never rebuilt, so the committed `app.css` hash had **drifted from source**. **Confirmed + rebuilt:**
+> the offline toolchain reproduced the committed JS + font assets **byte-for-byte**, so only the freshly-compiled
+> `app.css` changed (`app-QDMk9TCF.css` 42,977 B → `app-Bw3eeB5s.css` 18,291 B; it carried dead
+> `--tw-translate/rotate/skew/space-x-reverse` utilities). Committed the `public/build` diff (manifest + the new
+> hashed CSS) as `chore(assets)`. **CI guard:** the `assets` job now runs an **`assets-fresh`** step —
+> `npm run build` then `git diff --exit-code -- public/build` — so any future drift FAILS CI with a clear
+> "rebuild + commit" message (cheap; reuses the budget build). Rule documented in `CONTRIBUTING.md`. **Sanity
+> net:** `tests/Feature/Assets/ViteManifestTest.php` renders the `@vite([...])` head + walks the manifest and
+> asserts every referenced hash exists on disk (verified to fail on a stale/missing hash) — no Node needed to run.
+> **(2) Dusk enforce-ON harness split (the RH-7 follow-up).** The Dusk harness served ONE app with
+> `HEARTH_INSTALL_ENFORCE=false`, so `InstallerWizardTest` never exercised real pre-install enforcement in a
+> browser. Now **two sequential serve passes** (`docker/dusk/run.sh` + the CI Dusk job): **PASS 1 — INSTALLER**
+> serves enforcement-**ON** with no marker on a fresh DB so the wizard's every `wire:click` flows through
+> `RedirectIfNotInstalled` like production (installing into a disposable MySQL); **PASS 2 — APP** serves
+> enforcement-off for `EditorJourneyTest` (unchanged). Per-pass `.env` + DB + installer sandbox, no shared state;
+> the CI Dusk job gained a MySQL service + `pdo_mysql` (the wizard's install target). The enforcement-ON
+> `InstallerEnforcedLivewireTest` feature tests stay the authoritative RH-7 guard; this adds the real-browser belt.
+> **Suite: Pest 333 passed / 1 skipped (1128 assertions)** (M0–M5 + P1.5 + RH-6→RH-9 stay green); Pint + Larastan
+> + `composer audit` clean. **Could NOT run here (reported, not skipped silently):** the Dusk passes — this
+> sandbox has no Chrome and no MySQL server (and `fonts.bunny.net` is network-blocked, which is why the rebuild
+> reused the deterministic committed fonts); the harness change runs in `docker/dusk/` + the CI Dusk job. Bundle
+> rebuilt + cold-boot-verified (`RELEASE_VERIFY=PASS`, `GET / → 302 → /install`): `hearth-release.zip`
+> **12,918,542 bytes**, sha256 `3600e782e4c12b1f526604051dcc3b8a9141b618e7859a9e30ba5de8c173d12e`
+> (`/hearth-release.zip` gitignored). Small conventional DCO commits on `claude/practical-ritchie-gHg7A`. **NEXT:
+> the hygiene board is clear → the default theme / UI polish pass ([`theme-design-brief.md`](docs/product/theme-design-brief.md));
+> RH-4 (subdirectory, design-first) remains afterward.**
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,

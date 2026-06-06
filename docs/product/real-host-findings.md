@@ -63,11 +63,35 @@ the copy layout. A robust fix needs both:
 a **subdirectory case to the install test matrix** (so it's covered, like the no-SSH cold-boot now is). Until
 then, the runbook steers users to a subdomain.
 
-### RH-5 — Stale committed assets — OPEN
-The committed `public/build` CSS hash has drifted from source (a P1.5 template change wasn't rebuilt). The
-*bundle* ships internally-consistent assets, but the repo's committed assets are stale — which both muddied the
-RH-4 diagnosis and would ship outdated CSS to a git-based deploy. Fix: a `chore: rebuild assets` commit **plus
-a CI guard** that fails the build if a fresh `npm run build` changes the committed assets (prevents recurrence).
+### RH-5 — Stale committed assets — FIXED
+The committed `public/build` CSS hash had drifted from source (a P1.5 template change was never rebuilt). The
+*bundle* shipped internally-consistent assets, but the repo's committed assets were stale — which both muddied
+the RH-4 diagnosis and would ship outdated CSS to a git-based deploy.
+
+**Root cause (confirmed):** the committed `app-QDMk9TCF.css` carried Tailwind utilities (`--tw-translate-*`,
+`--tw-rotate-*`, `--tw-skew-*`, `space-x-reverse`) emitted for templates that were since changed/removed (e.g.
+RH-8 deleted `welcome.blade.php`). A fresh `npm run build` produces `app-Bw3eeB5s.css` — same content as the
+JS/font assets stay byte-identical (verified), only `app.css` shrinks (42,977 → 18,291 bytes). app.css has zero
+`@font-face` rules (the fonts ship as a separate `fonts-DkuEHybc.css`), so it is fully independent of the remote
+font fetch.
+
+**Fix (this pass):**
+- **Rebuilt + committed** `public/build` (the fresh `app.css` + its `manifest.json` entry; all other hashed
+  assets unchanged) as a `chore(assets)` commit.
+- **CI freshness guard** — the `assets` job (`.github/workflows/ci.yml`) now runs an **`assets-fresh`** step
+  after `npm run build`: `git diff --exit-code -- public/build` fails the build whenever the committed bundle
+  drifts from a fresh build (with a clear "rebuild + commit" error). Cheap — it reuses the build the budget
+  step already runs.
+- **Rule documented** in `CONTRIBUTING.md`: UI/template/JS/config changes must rebuild and commit `public/build`
+  in the same PR; CI enforces it.
+- **Sanity net in-app** — `tests/Feature/Assets/ViteManifestTest.php` renders the `@vite([...])` head and
+  asserts every referenced hash exists on disk (plus a full manifest→disk consistency check), so a rendered
+  page can never point at a missing asset. (Verified to fail on a stale/missing hash.)
+
+*(Sandbox note: the asset rebuild for this pass was done where `fonts.bunny.net` is unreachable. Because the
+font assets and JS are deterministic and already committed — the offline toolchain reproduced the committed JS
+byte-for-byte — only the freshly-compiled `app.css` changed; a network-enabled CI build reproduces the same
+tree and the `assets-fresh` guard validates it.)*
 
 ### ⭐ RH-6 — Installer wizard front-end is dead — MISDIAGNOSED → real cause is RH-7
 > **Correction (2026-06-05, live-host inspection via the browser):** the RH-6 root cause below
@@ -185,10 +209,19 @@ community and topics render. The post-install smoke is what surfaced RH-8 and RH
 
 > **Note on browser coverage.** RH-7 is a purely *server-side* middleware redirect — a real browser adds nothing
 > over an in-process `POST` through the same stack, so the enforcement-ON feature tests above are the authoritative
-> guard and they run in the normal Pest CI job (no Chrome/MySQL needed). The Dusk `InstallerWizardTest` keeps
-> running with `HEARTH_INSTALL_ENFORCE=false` on purpose: it shares one served app with `EditorJourneyTest`, which
-> must reach `/forums` etc. and would be redirected to `/install` under enforcement (no install marker). Splitting
-> the harness into a second enforce-ON serve pass is a possible follow-up but was out of scope here.
+> guard and they run in the normal Pest CI job (no Chrome/MySQL needed).
+>
+> **Follow-up LANDED — Dusk enforce-ON harness split.** The Dusk harness previously served ONE app with
+> `HEARTH_INSTALL_ENFORCE=false` (shared by `InstallerWizardTest` + `EditorJourneyTest`, since the editor needs
+> `/forums` reachable), so the installer journey never exercised real pre-install enforcement in a browser. It is
+> now split into **two sequential serve passes** (`docker/dusk/run.sh` + the CI Dusk job): **PASS 1 — INSTALLER**
+> serves with `HEARTH_INSTALL_ENFORCE=true` and no marker on a fresh DB, so `InstallerWizardTest`'s every
+> `wire:click` flows through `RedirectIfNotInstalled` exactly like production (installing into a disposable MySQL);
+> **PASS 2 — APP** serves enforcement-off for `EditorJourneyTest` (unchanged). Each pass gets its own `.env` + DB +
+> installer sandbox — no shared state. The CI Dusk job gained a MySQL service + `pdo_mysql` as the wizard's install
+> target. The enforcement-ON `InstallerEnforcedLivewireTest` feature tests remain the authoritative RH-7 guard; the
+> split adds the real-browser belt. *(Not executed in this sandbox — no Chrome/MySQL; runs in `docker/dusk/` and
+> the CI Dusk job. See PROJECT-STATE for what could not be run here.)*
 
 ### RH-8 — Root route served Laravel's scaffold welcome page — FIXED
 **Observed (post-install, live host):** with the install complete and the demo community seeded, the site root
@@ -272,11 +305,14 @@ alternating. `laravel.log` (15 identical entries, authed AND anonymous):
    fixes are inside; `/hearth-release.zip` stays gitignored). **Human step:** redeploy the rebuilt bundle (or the
    changed files) — `/` becomes the community, `/forums` is stable under cache hits, and `/health`'s queue check
    reports truthfully once cron is running.
-2. **RH-4 — subdirectory install (design-first):** spike → ADR → implement + add a subdirectory case to the
+2. **RH-5 — stale committed assets + CI freshness guard — FIXED (this pass).** Rebuilt + committed
+   `public/build` (fresh `app.css` + manifest), added the **`assets-fresh`** CI guard, documented the rule in
+   `CONTRIBUTING.md`, and added `ViteManifestTest`. **Dusk enforce-ON harness split — LANDED (this pass):** two
+   serve passes (installer enforce-ON, then editor) in `docker/dusk/run.sh` + the CI Dusk job (see the RH-7
+   entry). Suite **Pest 333 passed / 1 skipped (1128 assertions)**; Pint + Larastan + `composer audit` clean.
+   Bundle rebuilt + cold-boot-verified (`RELEASE_VERIFY=PASS`, `GET / → 302 → /install`): `hearth-release.zip`
+   **12,918,542 bytes**, sha256 `3600e782e4c12b1f526604051dcc3b8a9141b618e7859a9e30ba5de8c173d12e`
+   (`/hearth-release.zip` stays gitignored). *(Dusk not executed in this sandbox — no Chrome/MySQL.)*
+3. **RH-4 — subdirectory install (design-first):** spike → ADR → implement + add a subdirectory case to the
    install test matrix. Still the owner-flagged priority. RH-1/RH-2 landed; RH-6 was a misdiagnosis (superseded
-   by RH-7).
-3. **RH-5 — stale committed assets + CI freshness guard:** a `chore: rebuild assets` commit **plus** a CI guard
-   that fails the build if a fresh `npm run build` changes the committed `public/build`.
-4. **Dusk enforce-ON harness split** (follow-up from RH-7): a second served-app pass with
-   `HEARTH_INSTALL_ENFORCE=true` so a browser test can drive the wizard under real enforcement (meanwhile the
-   enforcement-ON Pest feature tests are the authoritative guard).
+   by RH-7). **The next phase is the default theme / UI polish pass** (`theme-design-brief.md`); RH-4 follows.
