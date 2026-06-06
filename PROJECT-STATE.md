@@ -367,6 +367,36 @@ clean-room**.
 > fixed install view is inside). RH-6 → **FIXED** in [`docs/product/real-host-findings.md`](docs/product/real-host-findings.md).
 > **NEXT unchanged: human real-host re-test of the subdomain install (now operable) → then RH-4 (subdirectory,
 > design-first) + RH-5 (assets + CI guard).**
+>
+> **Update 2026-06-06 (REAL-HOST RH-7 — install-enforce middleware ate Livewire's update endpoint → FIXED — Code):**
+> RH-6 was a misdiagnosis; the live-host browser replay proved Livewire boots fine and the wizard's failure is a
+> **server-side middleware redirect**. **Root cause:** `app/Http/Middleware/RedirectIfNotInstalled.php` allow-listed
+> `'livewire/*'`, but Livewire 4 serves its update/asset routes under a **per-install hashed prefix**
+> `livewire-<hash>/...` (the hash derives from APP_KEY, `EndpointResolver::prefix()`), so the wizard's own
+> `wire:click` POST to `livewire-<hash>/update` missed the allowlist and was **302-redirected to /install** — Livewire
+> got HTML where it expected JSON, threw, and hard-reloaded to a blank step 1 (the "pasted the token, nothing happens"
+> symptom). **Why CI missed it:** the installer suite runs with `HEARTH_INSTALL_ENFORCE=false` *and* via `Livewire::test()`,
+> which **disables the middleware stack** — so the redirect never fired. **Fix (surgical):** the allowlist now matches the
+> hashed endpoint two ways — a static `'livewire-*/*'` pattern (kept `'livewire/*'`) **and** the live path derived at
+> runtime from `app('livewire')->getUpdateUri()` (guarded; empty never passed to `is()`); rest of the allowlist
+> unchanged; a normal page still redirects. A repo sweep found no other un-hashed-prefix assumption. **Regression
+> coverage (the gap, now closed):** new `tests/Feature/Install/InstallerEnforcedLivewireTest.php` runs with enforcement
+> **ON** against the **real web-middleware stack** — renders `/install`, harvests the live update URI + component
+> snapshot, and POSTs a faithful Livewire update (X-Livewire + JSON): it pins the hashed prefix vs. the old pattern,
+> proves the middleware lets the update endpoint through (yet still redirects a non-allowlisted page), asserts the POST
+> is **not** bounced to `/install`, and drives `Continue→toStep2` to **advance to step 2** end-to-end. These three
+> failed on the unfixed middleware (`Expected 200, received 302 → /install`) and pass after the fix. **Suite: Pest 319
+> passed / 1 skipped (1047 assertions)** (M0–M5 + P1.5 + RH-6 stay green); Pint + Larastan + `composer audit` clean.
+> Bundle rebuilt (`scripts/build-release.sh`) + cold-boot-verified (fresh extract, empty APP_KEY, no DB → `GET /` →
+> **302 → /install**): `hearth-release.zip` **12,937,205 bytes**, sha256
+> `ebff39444dae1f6357e0f7b9c27fe5e0d4ad1ac58687d12da447ab15d27db956` (ships `bootstrap/cache/packages.php`; the fixed
+> middleware is inside; `/hearth-release.zip` stays gitignored). Note: the Dusk installer journey stays
+> `HEARTH_INSTALL_ENFORCE=false` on purpose (it shares a served app with the editor journey, which needs to reach
+> `/forums` un-redirected); RH-7 being a server-side redirect, the enforcement-ON feature tests are the authoritative
+> guard and run in the normal Pest CI. RH-7 → **FIXED** in
+> [`docs/product/real-host-findings.md`](docs/product/real-host-findings.md). **NEXT: human re-uploads the rebuilt
+> bundle and completes the subdomain install on the live host (the validation's primary goal) → then RH-4 (subdirectory,
+> design-first) + RH-5 (stale assets + CI freshness guard).**
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
