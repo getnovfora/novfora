@@ -37,6 +37,7 @@ hearth-spike/playwright-report/
 /storage/installed
 /storage/install-token.txt
 /storage/backups
+/storage/dusk-install
 /storage/pail
 /bootstrap/ssr
 /auth.json
@@ -47,3 +48,9 @@ yarn-error.log
 
 # Deployable release bundle — build artifact; never commit the binary (see docs/REAL-HOST-VALIDATION.md §2).
 /hearth-release.zip
+
+# Local-only scratch — never push. Cowork session runtime artifacts and ad-hoc troubleshooting
+# (screenshots, scratch notes). If we later want to SHARE Claude Code project config (custom commands,
+# settings) across machines, un-ignore those paths selectively (e.g. !/.claude/commands/).
+/.claude/
+/troubleshoot/

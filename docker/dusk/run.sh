@@ -39,7 +39,36 @@ QUEUE_CONNECTION=sync
 MAIL_MAILER=array
 SCOUT_DRIVER=database
 BROADCAST_CONNECTION=log
+# ── Installer journey (RH-6) — sandbox every install side effect ─────────────────────────────────────
+# InstallerWizardTest drives a REAL install in the browser. Point the .env target, lock marker, setup
+# token, and public-storage link at a throwaway sandbox so the wizard never clobbers THIS .env, the
+# dusk.sqlite the editor journey uses, or a real marker. require_token=true so step 1 exercises the
+# token field; the wizard installs into the disposable MySQL database prepared below.
+HEARTH_INSTALL_REQUIRE_TOKEN=true
+HEARTH_INSTALL_TOKEN_PATH=/app/storage/dusk-install/install-token.txt
+HEARTH_INSTALL_ENV_PATH=/app/storage/dusk-install/installed.env
+HEARTH_INSTALL_MARKER=/app/storage/dusk-install/installed
+HEARTH_PUBLIC_LINK=/app/storage/dusk-install/public-storage
+HEARTH_DUSK_INSTALL_DB_HOST=mysql
+HEARTH_DUSK_INSTALL_DB_NAME=hearth_install
+HEARTH_DUSK_INSTALL_DB_USER=root
+HEARTH_DUSK_INSTALL_DB_PASS=secret
 EOF
+
+# Fresh installer sandbox. InstallerWizardTest mints its own setup token at the config-driven token_path
+# (App\Install\Installer::ensureToken) — the served app reads the SAME path — so we only clear stale state
+# here and let the test own the token (robust to bind-mount timing across re-runs).
+SANDBOX=/app/storage/dusk-install
+rm -rf "$SANDBOX"; mkdir -p "$SANDBOX/public-storage"
+
+# A clean, empty MySQL database for the wizard to install INTO. Retry until the service answers (the
+# compose healthcheck gates startup, but PDO readiness can lag the first ping).
+for _ in $(seq 1 30); do
+  if php -r '$pdo=new PDO("mysql:host=mysql","root","secret",[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); $pdo->exec("DROP DATABASE IF EXISTS hearth_install"); $pdo->exec("CREATE DATABASE hearth_install CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");' 2>/tmp/dbprep.log; then
+    echo "prepared install database: hearth_install"; break
+  fi
+  sleep 2
+done
 
 export DUSK_DRIVER_URL=http://localhost:9515
 export DUSK_CHROME_BINARY=/usr/bin/chromium

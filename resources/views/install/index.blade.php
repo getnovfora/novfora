@@ -10,6 +10,13 @@
     <meta name="robots" content="noindex">
     <title>Install {{ config('app.name', 'Hearth') }}</title>
     @vite(['resources/css/app.css'])
+    {{-- This is a STANDALONE pre-install layout: it can't use layouts/app (which assumes a DB + auth), so
+         it must declare Livewire's runtime itself. Emit @livewireStyles/@livewireScripts EXPLICITLY instead
+         of leaning on Livewire's response-rewrite auto-injection — on real shared hosts (cPanel/LiteSpeed/
+         Cloudflare) the optimizer/page-cache layer can strip or defer post-render-injected assets, which
+         left the wizard rendered but its wire:click/wire:model dead (RH-6). FrontendAssets' render-guards
+         keep auto-injection from double-injecting these. --}}
+    @livewireStyles
     <style>
         :root { --ink:#1f2430; --muted:#5b6472; --line:#e3e3ea; --accent:#2d2a6b; --ok:#1a7f4b; --warn:#9a6b00; --bad:#b3261e; }
         body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: var(--ink); background:#f6f6f9; margin:0; }
@@ -48,5 +55,35 @@
         </header>
         <livewire:installer.wizard />
     </div>
+
+    @livewireScripts
+
+    {{-- Boot resilience (RH-6, the actual fix). Livewire's bundle auto-starts ONLY from a DOMContentLoaded
+         event listener (no readyState fallback): it sets window.Alpine.__fromLivewire synchronously but
+         calls Livewire.start() — which builds $wire and binds every wire: directive — only when that event
+         fires. A shared-host JS optimizer (cPanel/LiteSpeed/Cloudflare) that defers this bundle so it runs
+         AFTER DOMContentLoaded already fired leaves the listener dangling: Alpine is present but start()
+         never runs, so the wizard's Continue/Back/model bindings are dead with no console error — exactly
+         the real-host symptom. If Livewire has loaded but hasn't started by the time the window finishes
+         loading, start it once. The livewire:init flag makes this a no-op on the normal (on-time) path, so
+         it can never double-start. The data-* attributes ask the common optimizers to leave THIS guard
+         alone so it can do its job. --}}
+    <script data-no-optimize="1" data-no-defer="1" data-cfasync="false"@if ($cspNonce = \Illuminate\Support\Facades\Vite::cspNonce()) nonce="{{ $cspNonce }}"@endif>
+        (function () {
+            var started = false;
+            document.addEventListener('livewire:init', function () { started = true; });
+            function ensureLivewireStarted() {
+                if (started) return;
+                if (! window.Livewire || typeof window.Livewire.start !== 'function') return;
+                started = true;
+                try { window.Livewire.start(); } catch (e) { /* already running — nothing to do */ }
+            }
+            if (document.readyState === 'complete') {
+                ensureLivewireStarted();
+            } else {
+                window.addEventListener('load', ensureLivewireStarted);
+            }
+        })();
+    </script>
 </body>
 </html>
