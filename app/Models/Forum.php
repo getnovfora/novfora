@@ -53,16 +53,19 @@ class Forum extends Model
         });
     }
 
+    /** @return BelongsTo<self, $this> */
     public function parent(): BelongsTo
     {
         return $this->belongsTo(self::class, 'parent_id');
     }
 
+    /** @return HasMany<self, $this> */
     public function children(): HasMany
     {
         return $this->hasMany(self::class, 'parent_id');
     }
 
+    /** @return HasMany<Topic, $this> */
     public function topics(): HasMany
     {
         return $this->hasMany(Topic::class);
