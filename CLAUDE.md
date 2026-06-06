@@ -70,6 +70,11 @@ theming, weak real-time, install friction).
 ## Conventions
 
 - Small, reviewable commits; conventional-commit messages; one logical change each.
+- **Commit identity (mandatory):** every commit is authored **and** committed as
+  `Tommy Huynh <tommy@saturnhq.net>` — run `git config user.name "Tommy Huynh"` and
+  `git config user.email tommy@saturnhq.net` in your environment before the first commit (this overrides
+  any sandbox default such as `Claude <noreply@anthropic.com>`). Sign off with `-s` (DCO). Never add AI
+  co-author/attribution trailers — `.claude/settings.json` keeps attribution off; do not reintroduce it.
 - Record non-obvious choices as ADRs in `DECISIONS.md`.
 - Treat the **module and theme APIs as stable, semver'd public contracts** — a breaking change is a
   major-version event.
