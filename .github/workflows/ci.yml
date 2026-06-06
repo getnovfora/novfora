@@ -123,6 +123,18 @@ jobs:
           node-version: '20'
       - run: npm ci
       - run: npm run build
+      - name: assets-fresh (committed public/build matches a fresh build — RH-5)
+        # /public/build is committed BY DESIGN (baseline shared hosts have no Node). This guard fails the
+        # build whenever the committed assets have drifted from source — e.g. a template change that was
+        # never rebuilt (the RH-5 drift). `npm run build` above just regenerated public/build from source;
+        # if that changes any tracked file, the committed bundle is stale. Rebuild + commit public/build to fix.
+        run: |
+          set -euo pipefail
+          if ! git diff --exit-code -- public/build; then
+            echo "::error::public/build is stale. Run 'npm ci && npm run build' and commit the public/build diff."
+            git -c core.pager=cat status --short -- public/build
+            exit 1
+          fi
       - name: Asset budgets (system-architecture §7)
         run: |
           set -euo pipefail
