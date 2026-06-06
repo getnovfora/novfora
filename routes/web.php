@@ -24,9 +24,11 @@ use App\Models\Post;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+// The site root IS the community home. `/forums` is the single canonical forum URL — it is referenced
+// across views and the XML sitemap — so the root permanently (301) redirects there: one canonical URL,
+// no duplicate content (RH-8). Pre-install, RedirectIfNotInstalled (web group) still intercepts '/' and
+// sends it to the wizard; this redirect only applies once the site is installed (or enforcement is off).
+Route::get('/', fn () => redirect()->route('forums.index', [], 301));
 
 // ── No-SSH web installer (M5, phase-1-plan §5) ─────────────────────────────────────────────────────────
 // Unauthenticated pre-install surface. The `hearth.not-installed` lock 403s every installer route once
