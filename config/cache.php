@@ -129,6 +129,14 @@ return [
     | storage. By default, no PHP classes will be unserialized from your
     | cache to prevent gadget chain attacks if your APP_KEY is leaked.
     |
+    | HEARTH HARDENING (keep `false`): this closes the object-injection / gadget-chain surface an APP_KEY
+    | leak would otherwise expose. The corollary is a HARD RULE for every caller — CACHED VALUES MUST BE
+    | SCALARS OR ARRAYS. On a serializing store (database/file/redis — i.e. every real deployment) ANY
+    | cached object (Eloquent model, Collection, Carbon, even a plain value object) deserializes to a
+    | `__PHP_Incomplete_Class` and breaks on read (RH-9: the /forums 500). Cache primitives — ints,
+    | strings, ISO dates, plain arrays — and rehydrate objects AFTER reading. Do NOT allow-list classes
+    | here to paper over a caching bug: that re-opens the very surface this `false` closes.
+    |
     */
 
     'serializable_classes' => false,

@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Forum\ForumNode;
 use App\Models\Forum;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
@@ -22,11 +23,21 @@ class ForumController extends Controller
         // configured store (DB on baseline, Redis on enhanced); a short TTL keeps it eventually consistent
         // and it is NEVER load-bearing — per-viewer forum.view filtering still runs every request, and a
         // dead cache simply re-queries. (Per-post content render is already cached in body_html_cache.)
-        $tree = Cache::remember('forum.index.tree', now()->addSeconds(60), fn () => Forum::query()
+        //
+        // RH-9: cache PRIMITIVES only. config/cache.php sets serializable_classes => false, so a
+        // serializing store (database/file/redis — every real deployment) would deserialize any cached
+        // object into a __PHP_Incomplete_Class and 500 the view (`isCategory() on string`). We cache a
+        // plain scalar array tree and rehydrate value objects below, OUTSIDE the cache — never a model.
+        /** @var list<array<string, mixed>> $cached */
+        $cached = Cache::remember('forum.index.tree', now()->addSeconds(60), fn () => Forum::query()
             ->whereNull('parent_id')
             ->orderBy('position')->orderBy('id')
             ->with(['children' => fn ($q) => $q->orderBy('position')->orderBy('id')])
-            ->get());
+            ->get()
+            ->map(fn (Forum $forum): array => ForumNode::toArray($forum))
+            ->all());
+
+        $tree = array_map(static fn (array $row): ForumNode => ForumNode::fromArray($row), $cached);
 
         return view('forum.index', compact('tree', 'viewer'));
     }
