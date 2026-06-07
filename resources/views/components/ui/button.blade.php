@@ -8,9 +8,9 @@
     'icon' => false,
 ])
 @php
-    $base = 'inline-flex items-center justify-center gap-2 font-medium leading-none rounded-md text-center '
-        .'transition-[background-color,border-color,color,filter] disabled:opacity-50 disabled:pointer-events-none '
-        .'aria-disabled:opacity-50 aria-disabled:pointer-events-none';
+    $base = 'inline-flex items-center justify-center gap-2 font-medium leading-none whitespace-nowrap rounded-md '
+        .'text-center transition-[background-color,border-color,color,filter] disabled:opacity-50 '
+        .'disabled:pointer-events-none aria-disabled:opacity-50 aria-disabled:pointer-events-none';
 
     $sizes = $icon
         ? ['sm' => 'h-9 w-9', 'md' => 'h-11 w-11', 'lg' => 'h-12 w-12']

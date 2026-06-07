@@ -81,7 +81,7 @@
             </div>
 
             {{-- Wordmark (text, per the brief) --}}
-            <a href="{{ route('forums.index') }}" class="font-bold text-lg tracking-tight text-ink hover:text-accent">{{ config('app.name', 'Hearth') }}</a>
+            <a href="{{ route('forums.index') }}" class="font-bold text-base sm:text-lg tracking-tight text-ink hover:text-accent">{{ config('app.name', 'Hearth') }}</a>
 
             {{-- Desktop primary nav --}}
             <nav class="hidden sm:flex items-center gap-0.5" aria-label="Primary">
@@ -101,13 +101,8 @@
                 </div>
             </form>
 
-            {{-- Right cluster --}}
+            {{-- Right cluster. (Mobile search lives in the hamburger panel, so the bar stays uncrowded at 360px.) --}}
             <div class="flex items-center gap-1 ml-auto sm:ml-1">
-                {{-- Mobile search shortcut --}}
-                <a href="{{ route('search.index') }}" class="sm:hidden inline-flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink">
-                    <span class="sr-only">Search</span><x-ui.icon name="search" />
-                </a>
-
                 {{-- Colour-mode toggle (auto → light → dark). Works for everyone; persists server-side when signed in. --}}
                 <button type="button"
                         x-data="{ mode: document.documentElement.getAttribute('data-color-mode') || 'auto' }"
@@ -155,11 +150,12 @@
                         </div>
                     </x-ui.dropdown>
                 @else
-                    <x-ui.button :href="route('login')" size="sm" variant="ghost" class="hidden sm:inline-flex">Sign in</x-ui.button>
+                    {{-- Mobile shows just "Sign in" (the login page links to register) so the 360px bar never
+                         overflows; "Sign up" appears from the sm breakpoint up. The span wrapper carries the
+                         responsive display so it isn't fought by the button's base inline-flex. --}}
+                    <x-ui.button :href="route('login')" size="sm" variant="ghost">Sign in</x-ui.button>
                     @if (Route::has('register'))
-                        <x-ui.button :href="route('register')" size="sm">Sign up</x-ui.button>
-                    @else
-                        <x-ui.button :href="route('login')" size="sm" class="sm:hidden">Sign in</x-ui.button>
+                        <span class="hidden sm:contents"><x-ui.button :href="route('register')" size="sm">Sign up</x-ui.button></span>
                     @endif
                 @endauth
             </div>
