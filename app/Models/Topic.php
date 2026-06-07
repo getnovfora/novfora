@@ -54,6 +54,17 @@ class Topic extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    /**
+     * The author of the most recent post (read-only; backs the "Last post" column on the board table).
+     * The `last_post_user_id` column is already maintained by PostService — this only exposes it for display.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function lastPostUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'last_post_user_id');
+    }
+
     public function posts(): HasMany
     {
         return $this->hasMany(Post::class);

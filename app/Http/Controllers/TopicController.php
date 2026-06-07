@@ -23,6 +23,10 @@ class TopicController extends Controller
 
         Topic::whereKey($topic->getKey())->increment('view_count'); // quiet: no model events
 
+        // The view reads the topic's parent forum (breadcrumbs) and its author (JSON-LD); load them once
+        // here so neither lazy-loads at render time. loadMissing keeps it a no-op if already present.
+        $topic->loadMissing(['forum', 'author']);
+
         $user = $request->user();
 
         // Mark this topic read for the viewer (the unread / "what's new" watermark, data-model §9).
@@ -38,8 +42,10 @@ class TopicController extends Controller
 
         // Moderation-queue visibility (ADR-0007 §2.4): pending posts are hidden from everyone except their
         // author and staff who can moderate here. Approved posts are visible to all.
+        // Eager-load the author's groups too so the poster sidebar's staff/role badge ($author->isStaff())
+        // resolves from already-loaded data — one bounded query, never per-post (N+1).
         $posts = $topic->posts()
-            ->with(['author', 'revisions'])
+            ->with(['author.groups', 'revisions'])
             ->unless($canModerate, fn ($q) => $q->where(function ($q2) use ($user) {
                 $q2->where('approved_state', 'approved');
                 if ($user) {

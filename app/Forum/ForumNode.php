@@ -8,6 +8,7 @@ namespace App\Forum;
 
 use App\Models\Forum;
 use App\Permissions\Scope;
+use Illuminate\Support\Carbon;
 
 /**
  * A cache-safe, read-only projection of one forum/category node in the index tree (RH-9).
@@ -33,6 +34,8 @@ final class ForumNode
         public readonly ?string $description,
         public readonly int $topic_count,
         public readonly int $post_count,
+        public readonly ?Carbon $last_posted_at = null,
+        public readonly ?int $last_topic_id = null,
         public readonly array $children = [],
     ) {}
 
@@ -51,6 +54,10 @@ final class ForumNode
             'description' => $forum->description !== null ? (string) $forum->description : null,
             'topic_count' => (int) $forum->topic_count,
             'post_count' => (int) $forum->post_count,
+            // Last-post info for the row's "latest activity" (kept primitive: an ISO string + an int id, so
+            // nothing object-like is ever serialized into the cache — RH-9).
+            'last_posted_at' => $forum->last_posted_at?->toIso8601String(),
+            'last_topic_id' => $forum->last_topic_id !== null ? (int) $forum->last_topic_id : null,
             'children' => $forum->relationLoaded('children')
                 ? $forum->children->map(static fn (Forum $child): array => self::toArray($child))->all()
                 : [],
@@ -74,6 +81,9 @@ final class ForumNode
             description: isset($row['description']) ? (string) $row['description'] : null,
             topic_count: (int) ($row['topic_count'] ?? 0),
             post_count: (int) ($row['post_count'] ?? 0),
+            // Carbon is created AFTER the cache boundary (here in fromArray), so it is never serialized.
+            last_posted_at: empty($row['last_posted_at']) ? null : Carbon::parse((string) $row['last_posted_at']),
+            last_topic_id: isset($row['last_topic_id']) ? (int) $row['last_topic_id'] : null,
             children: array_map(static fn (array $child): self => self::fromArray($child), $children),
         );
     }

@@ -51,8 +51,10 @@ class ForumController extends Controller
         $canModerate = $user?->canDo('topic.moderate', $forum->permissionScope()) ?? false;
 
         // Hide pending topics (a held opening post) from everyone but their author and local moderators.
+        // Eager-load the starter (author) AND the last poster (lastPostUser) so the info-dense board table's
+        // "by …" and "Last post" cells render with no per-row query (bounded eager-loads, not N+1).
         $topics = $forum->topics()
-            ->with('author')
+            ->with(['author', 'lastPostUser'])
             ->unless($canModerate, fn ($q) => $q->where(function ($q2) use ($user) {
                 $q2->where('approved_state', 'approved');
                 if ($user) {
@@ -67,6 +69,14 @@ class ForumController extends Controller
 
         $canPost = $user?->canDo('topic.create', $forum->permissionScope()) ?? false;
 
-        return view('forum.show', compact('forum', 'topics', 'viewer', 'canPost'));
+        // Sub-boards (ProBoards-style block above the topic table): the forum's child forums, filtered with
+        // the SAME forum.view check the index uses. One bounded query; their counts/last-post are columns.
+        $children = $forum->children()
+            ->orderBy('position')->orderBy('id')
+            ->get()
+            ->filter(fn (Forum $child) => $viewer->canDo('forum.view', $child->permissionScope()))
+            ->values();
+
+        return view('forum.show', compact('forum', 'topics', 'viewer', 'canPost', 'children'));
     }
 }
