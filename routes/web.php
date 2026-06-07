@@ -139,6 +139,7 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/service-tier', 'admin.system')->name('tier');
         Route::view('/permissions', 'admin.permissions')->name('permissions');
         Route::view('/backups', 'admin.backups')->name('backups');
+        Route::view('/upgrade', 'admin.upgrade')->name('upgrade'); // no-SSH auto-upgrade status + manual apply (RH-10)
 
         // Admin-defined custom profile fields (data-model §1).
         Route::get('/profile-fields', [ProfileFieldController::class, 'index'])->name('profile-fields');

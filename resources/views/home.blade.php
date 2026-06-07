@@ -47,6 +47,14 @@
                             <x-ui.icon name="chevron-right" class="h-4 w-4 text-ink-subtle ml-auto" />
                         </a>
                     </li>
+                    <li>
+                        <a href="{{ route('admin.system.upgrade') }}"
+                           class="flex items-center gap-3 min-h-11 -mx-2 px-2 rounded-md text-sm text-ink hover:bg-surface-sunken">
+                            <x-ui.icon name="cog" class="h-5 w-5 text-ink-subtle" />
+                            <span>Admin · Upgrade</span>
+                            <x-ui.icon name="chevron-right" class="h-4 w-4 text-ink-subtle ml-auto" />
+                        </a>
+                    </li>
                 @endif
             </ul>
         </x-ui.card>
