@@ -31,3 +31,12 @@ it('registers a liveness heartbeat callback for the health endpoint', function (
 
     expect($hasHeartbeat)->toBeTrue();
 });
+
+it('registers the no-SSH auto-upgrade tick (RH-10), overlap-guarded', function () {
+    $event = collect(app(Schedule::class)->events())
+        ->first(fn ($event) => $event->description === 'hearth-auto-upgrade');
+
+    expect($event)->not->toBeNull();
+    // withoutOverlapping() so a long migration on a coarse, overlapping cron can never double-run.
+    expect($event->withoutOverlapping)->toBeTrue();
+});
