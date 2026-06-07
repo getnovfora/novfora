@@ -1,38 +1,208 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
+@php
+    // Appearance (default-theme PART 2). Signed-in users carry an authoritative server value (so the theme
+    // applies with NO JavaScript); guests get auto/comfortable here and the inline boot snippet refines from
+    // localStorage before paint. $serverColorMode/$serverDensity are null for guests (→ the snippet reads
+    // localStorage); $htmlTheme is set only for an explicit light/dark choice (auto = let the media query run).
+    $authUser = auth()->user();
+    $serverColorMode = $authUser?->color_mode;
+    $serverDensity = $authUser?->density;
+    $colorMode = $serverColorMode ?: 'auto';
+    $density = $serverDensity ?: 'comfortable';
+    $htmlTheme = in_array($colorMode, ['light', 'dark'], true) ? $colorMode : null;
+    $nonce = \Illuminate\Support\Facades\Vite::cspNonce();
+@endphp
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
+      data-color-mode="{{ $colorMode }}" data-density="{{ $density }}"
+      @if ($htmlTheme) data-theme="{{ $htmlTheme }}" @endif>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @auth <meta name="hearth-auth" content="1"> @endauth
     <title>{{ $title ?? config('app.name', 'Hearth') }}</title>
+
+    {{-- No-flash-of-wrong-theme: apply the stored colour-mode/density BEFORE first paint. nonce-aware for the
+         strict CSP (phase-1.5 F-M3); harmless under the baseline policy. --}}
+    <script @if ($nonce) nonce="{{ $nonce }}" @endif>
+        (function () {
+            try {
+                var d = document.documentElement;
+                var sm = @json($serverColorMode); // signed-in authoritative value, else null (guest)
+                var sd = @json($serverDensity);
+                var mode, den;
+                if (sm) { mode = sm; try { localStorage.setItem('hearth-color-mode', sm); } catch (e) {} }
+                else { try { mode = localStorage.getItem('hearth-color-mode'); } catch (e) {} if (['auto','light','dark'].indexOf(mode) < 0) mode = 'auto'; }
+                if (sd) { den = sd; try { localStorage.setItem('hearth-density', sd); } catch (e) {} }
+                else { try { den = localStorage.getItem('hearth-density'); } catch (e) {} if (den !== 'compact' && den !== 'comfortable') den = 'comfortable'; }
+                if (mode === 'light' || mode === 'dark') d.setAttribute('data-theme', mode); else d.removeAttribute('data-theme');
+                d.setAttribute('data-color-mode', mode);
+                d.setAttribute('data-density', den);
+            } catch (e) {}
+        })();
+    </script>
+
     {{-- Per-page SEO metadata (canonical, Open Graph, schema.org JSON-LD) is pushed here. --}}
     @stack('head')
+    @livewireStyles
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body>
+<body class="min-h-dvh flex flex-col bg-surface text-ink">
     {{-- a11y floor (ADR-0009 §3.3): skip link + a single main landmark. Themes may restyle, not remove. --}}
     <a href="#main" class="skip-link">Skip to content</a>
 
-    <header style="border-bottom:1px solid var(--hearth-border,#e3e3ea);background:#fff">
-        <nav aria-label="Primary" style="max-width:64rem;margin:0 auto;display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;padding:.6rem 1rem;font-family:system-ui,sans-serif">
-            <a href="{{ route('forums.index') }}" style="font-weight:700;color:var(--hearth-accent,#2d2a6b);text-decoration:none">{{ config('app.name', 'Hearth') }}</a>
-            <form method="GET" action="{{ route('search.index') }}" role="search" style="flex:1;min-width:8rem">
+    <header class="sticky top-0 z-30 border-b border-line bg-surface-raised/85 backdrop-blur">
+        <x-ui.container size="xl" class="flex h-14 items-center gap-2 sm:gap-3">
+            {{-- Mobile nav toggle --}}
+            <div x-data="{ open: false }" class="sm:hidden flex items-center">
+                <button type="button" @click="open = ! open" :aria-expanded="open.toString()" aria-controls="mobile-nav"
+                        class="inline-flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink">
+                    <span class="sr-only">Menu</span>
+                    <x-ui.icon name="menu" />
+                </button>
+                {{-- Mobile nav panel --}}
+                <div id="mobile-nav" x-show="open" x-cloak x-transition.origin.top.left @click.outside="open = false"
+                     class="absolute left-0 right-0 top-14 z-30 border-b border-line bg-surface-raised p-3 shadow-md">
+                    <form method="GET" action="{{ route('search.index') }}" role="search" class="mb-2">
+                        <label for="m-q" class="sr-only">Search</label>
+                        <input id="m-q" type="search" name="q" placeholder="Search…"
+                               class="w-full min-h-11 px-3 rounded-md bg-surface border border-line text-ink placeholder:text-ink-subtle">
+                    </form>
+                    <nav class="flex flex-col" aria-label="Mobile">
+                        <a href="{{ route('forums.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Forums</a>
+                        @auth
+                            <a href="{{ route('whats-new') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">What's new</a>
+                            <a href="{{ route('notifications.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Notifications</a>
+                            <a href="{{ route('settings.profile') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Profile &amp; settings</a>
+                        @endauth
+                    </nav>
+                </div>
+            </div>
+
+            {{-- Wordmark (text, per the brief) --}}
+            <a href="{{ route('forums.index') }}" class="font-bold text-lg tracking-tight text-ink hover:text-accent">{{ config('app.name', 'Hearth') }}</a>
+
+            {{-- Desktop primary nav --}}
+            <nav class="hidden sm:flex items-center gap-0.5" aria-label="Primary">
+                <a href="{{ route('forums.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Forums</a>
+                @auth
+                    <a href="{{ route('whats-new') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">What's new</a>
+                @endauth
+            </nav>
+
+            {{-- Desktop search --}}
+            <form method="GET" action="{{ route('search.index') }}" role="search" class="hidden sm:flex ml-auto w-full max-w-xs">
                 <label for="nav-q" class="sr-only">Search</label>
-                <input id="nav-q" type="search" name="q" placeholder="Search…"
-                       style="width:100%;box-sizing:border-box;padding:.35rem .6rem;border:1px solid #cfcfd6;border-radius:6px">
+                <div class="relative w-full">
+                    <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-ink-subtle"><x-ui.icon name="search" class="h-4 w-4" /></span>
+                    <input id="nav-q" type="search" name="q" value="{{ request('q') }}" placeholder="Search…"
+                           class="w-full min-h-11 pl-9 pr-3 rounded-md bg-surface border border-line text-ink placeholder:text-ink-subtle focus:border-accent">
+                </div>
             </form>
-            @auth
-                <a href="{{ route('whats-new') }}" style="color:inherit;text-decoration:none">What's new</a>
-                <livewire:notification-bell />
-                <a href="{{ route('settings.profile') }}" style="color:inherit;text-decoration:none">{{ auth()->user()->username }}</a>
-            @else
-                <a href="{{ route('login') }}" style="color:inherit;text-decoration:none">Sign in</a>
-            @endauth
-        </nav>
+
+            {{-- Right cluster --}}
+            <div class="flex items-center gap-1 ml-auto sm:ml-1">
+                {{-- Mobile search shortcut --}}
+                <a href="{{ route('search.index') }}" class="sm:hidden inline-flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink">
+                    <span class="sr-only">Search</span><x-ui.icon name="search" />
+                </a>
+
+                {{-- Colour-mode toggle (auto → light → dark). Works for everyone; persists server-side when signed in. --}}
+                <button type="button"
+                        x-data="{ mode: document.documentElement.getAttribute('data-color-mode') || 'auto' }"
+                        x-on:hearth:color-mode.window="mode = $event.detail"
+                        @click="window.Hearth.cycleColorMode()"
+                        :aria-label="'Theme: ' + mode + ' (click to change)'" :title="'Theme: ' + mode"
+                        class="inline-flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink">
+                    <span x-show="mode === 'auto'" @if ($colorMode !== 'auto') x-cloak @endif><x-ui.icon name="monitor" /></span>
+                    <span x-show="mode === 'light'" @if ($colorMode !== 'light') x-cloak @endif><x-ui.icon name="sun" /></span>
+                    <span x-show="mode === 'dark'" @if ($colorMode !== 'dark') x-cloak @endif><x-ui.icon name="moon" /></span>
+                </button>
+
+                @auth
+                    <livewire:notification-bell />
+
+                    <x-ui.dropdown align="right" width="w-60">
+                        <x-slot:trigger>
+                            <button type="button" class="inline-flex items-center gap-1.5 min-h-11 pl-1 pr-2 rounded-md hover:bg-surface-sunken">
+                                <x-ui.avatar :user="auth()->user()" size="sm" />
+                                <span class="hidden sm:block max-w-[8rem] truncate text-sm font-medium text-ink">{{ auth()->user()->display_name ?? auth()->user()->username }}</span>
+                                <x-ui.icon name="chevron-down" class="h-4 w-4 text-ink-subtle" />
+                            </button>
+                        </x-slot:trigger>
+
+                        <div class="px-3 py-2 border-b border-line mb-1">
+                            <p class="text-sm font-medium text-ink truncate">{{ auth()->user()->display_name ?? auth()->user()->username }}</p>
+                            <p class="text-xs text-ink-muted truncate">{{ '@'.auth()->user()->username }}</p>
+                        </div>
+                        <x-ui.dropdown-item :href="route('profiles.show', auth()->user())"><x-ui.icon name="user" class="h-4 w-4 text-ink-subtle" /> Profile</x-ui.dropdown-item>
+                        <x-ui.dropdown-item :href="route('settings.profile')"><x-ui.icon name="cog" class="h-4 w-4 text-ink-subtle" /> Edit profile</x-ui.dropdown-item>
+                        <x-ui.dropdown-item :href="route('settings.appearance')"><x-ui.icon name="sun" class="h-4 w-4 text-ink-subtle" /> Appearance</x-ui.dropdown-item>
+                        <x-ui.dropdown-item :href="route('settings.notifications')"><x-ui.icon name="bell" class="h-4 w-4 text-ink-subtle" /> Notifications</x-ui.dropdown-item>
+                        <x-ui.dropdown-item :href="route('settings.two-factor')"><x-ui.icon name="shield" class="h-4 w-4 text-ink-subtle" /> Security</x-ui.dropdown-item>
+                        @if (auth()->user()->canDo('admin.access', \App\Permissions\Scope::global()))
+                            <x-ui.dropdown-item :href="route('admin.system.tier')"><x-ui.icon name="cog" class="h-4 w-4 text-ink-subtle" /> Admin</x-ui.dropdown-item>
+                        @endif
+                        @if (auth()->user()->isStaff())
+                            <x-ui.dropdown-item :href="route('moderation.dashboard')"><x-ui.icon name="shield" class="h-4 w-4 text-ink-subtle" /> Moderation</x-ui.dropdown-item>
+                        @endif
+                        <div class="border-t border-line mt-1 pt-1">
+                            <form method="POST" action="{{ route('logout') }}">
+                                @csrf
+                                <x-ui.dropdown-item type="submit"><x-ui.icon name="logout" class="h-4 w-4 text-ink-subtle" /> Log out</x-ui.dropdown-item>
+                            </form>
+                        </div>
+                    </x-ui.dropdown>
+                @else
+                    <x-ui.button :href="route('login')" size="sm" variant="ghost" class="hidden sm:inline-flex">Sign in</x-ui.button>
+                    @if (Route::has('register'))
+                        <x-ui.button :href="route('register')" size="sm">Sign up</x-ui.button>
+                    @else
+                        <x-ui.button :href="route('login')" size="sm" class="sm:hidden">Sign in</x-ui.button>
+                    @endif
+                @endauth
+            </div>
+        </x-ui.container>
     </header>
 
-    <div id="main">@yield('content')</div>
-    {{-- Livewire 4 auto-injects its scripts into a full-page response. --}}
+    {{-- Optional breadcrumb bar: a page provides @section('breadcrumbs') with <x-ui.breadcrumbs>. --}}
+    @hasSection('breadcrumbs')
+        <div class="border-b border-line bg-surface-raised">
+            <x-ui.container size="xl" class="py-2.5">@yield('breadcrumbs')</x-ui.container>
+        </div>
+    @endif
+
+    {{-- Global flash (session messages). Validation errors are shown inline by forms. --}}
+    @if (session('status') || session('success') || session('error'))
+        <div class="mx-auto w-full max-w-2xl px-4 sm:px-6 pt-4">
+            @if (session('error'))
+                <x-ui.alert variant="danger">{{ session('error') }}</x-ui.alert>
+            @else
+                <x-ui.alert variant="success">{{ session('status') ?? session('success') }}</x-ui.alert>
+            @endif
+        </div>
+    @endif
+
+    <main id="main" class="flex-1 py-6 sm:py-8">@yield('content')</main>
+
+    <footer class="border-t border-line bg-surface-raised">
+        <x-ui.container size="xl" class="flex flex-col sm:flex-row items-center justify-between gap-3 py-6 text-sm text-ink-muted">
+            <p>{{ config('app.name', 'Hearth') }} — open-source community platform.</p>
+            {{-- Density quick-switch (available to everyone; persists server-side when signed in). --}}
+            <div x-data="{ d: document.documentElement.getAttribute('data-density') || 'comfortable' }"
+                 x-on:hearth:density.window="d = $event.detail"
+                 class="inline-flex items-center rounded-md border border-line p-0.5" role="group" aria-label="Display density">
+                <button type="button" @click="window.Hearth.setDensity('comfortable')"
+                        :class="d === 'comfortable' ? 'bg-accent text-accent-ink' : 'text-ink-muted hover:text-ink'"
+                        class="px-3 min-h-9 rounded text-xs font-medium">Comfortable</button>
+                <button type="button" @click="window.Hearth.setDensity('compact')"
+                        :class="d === 'compact' ? 'bg-accent text-accent-ink' : 'text-ink-muted hover:text-ink'"
+                        class="px-3 min-h-9 rounded text-xs font-medium">Compact</button>
+            </div>
+        </x-ui.container>
+    </footer>
+
+    @livewireScripts
 </body>
 </html>
