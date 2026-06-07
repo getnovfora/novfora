@@ -241,6 +241,8 @@ Run through these on **each** host and record pass/fail:
 - [ ] A **backup runs**: with SSH `php artisan hearth:backup` produces a `.zip` under `storage/backups`; or
       wait for the daily cron and confirm the file appears. (Bonus: `hearth:restore <zip> --force` on a
       throwaway DB.)
+- [ ] A **no-SSH restore works** (RH-11) — the full round-trip from §6b below: post a marker, restore an
+      earlier backup from *Admin → System → Backups*, confirm the marker is gone and the site is healthy.
 - [ ] **Private forum** attachments are **not** reachable by a logged-out user (IDOR fix H‑1) — set a forum's
       `forum.view` to NEVER for guests and confirm `/attachments/{id}` returns 403.
 
@@ -290,6 +292,54 @@ does **not** retry in a loop. To recover without SSH, **re-upload the previous r
 matches the rolled-back schema and the site returns on its own within a cron tick. The maintenance page names
 the pre-upgrade backup; with shell access you can `php artisan hearth:restore storage/backups/hearth-…zip`
 instead. Capture the `upgrade.failed` audit entry and `storage/logs/laravel.log` for the report (§7).
+
+---
+
+## 6b. Restoring a backup from the panel (RH-11)
+
+The companion to §6a: recovering — or rolling back — **without a shell**. The *Admin → System → Backups*
+panel can now restore, behind the same backup-first, maintenance-safe machinery the auto-upgrade uses
+(ADR-0022). Run this once you have a working install.
+
+**Do the restore (no SSH).**
+1. *Admin → System → Backups* → **Create backup** (call this the *restore point*), and **Download** it — get
+   into the habit of keeping an off-host copy.
+2. Make a **marker change** you'll recognise — post one throwaway topic.
+3. Click **Restore** on the restore point. Confirm by **typing the backup's exact name** (admin + 2FA).
+
+**Watch it happen (no login needed).**
+- The site shows a branded **"Just a moment…"** maintenance page (it auto-refreshes). The restore runs from
+  the cron line, so the window is ≤~2 minutes on a 1-minute cron — and it never times out a web request.
+- Poll the health endpoint:
+
+  ```bash
+  curl -s https://your-site.example/health | python3 -m json.tool
+  # restore.requested: true → queued   restore.running: true → restoring now
+  # …then restore.running: false → done; the site is back, the marker post is gone
+  ```
+
+**Acceptance checklist (record pass/fail on each host):**
+- [ ] During the window, an end-user page returns a **branded 503 maintenance page**, not a 500 / SQL error.
+- [ ] `/health` `restore.running` flips **true → false** within ~2 minutes; `/health` itself stays reachable.
+- [ ] After it's back, the **marker post is gone** (the earlier state was restored) and the site is healthy
+      (`/health` `status: ok`, `/forums` renders).
+- [ ] A **pre-restore safety snapshot** (`hearth-<timestamp>.zip`, dated to the restore) appears in the
+      Backups list — restoring *it* returns you to the marker state (proves the restore is reversible).
+- [ ] You were **signed out** during the restore (the session table was replaced) and can sign back in.
+- [ ] The **audit log** has a `restore.completed` entry (actor + which backup).
+
+**Restoring an older-schema backup (the RH-11 → RH-10 hand-off).** If the backup predates a schema change in
+the running code, the restore brings back the older schema and then the **auto-upgrade migrates it forward
+automatically** on the next cron tick (you'll see the maintenance page persist briefly as `schema.pending`
+flips, per §6a). No action needed in automatic mode.
+
+**If a restore gets stuck.** A restore is single-attempt and fail-safe: if it can't finish it holds the site
+in maintenance (`/health` → `restore.stuck: true`) rather than serving a half-restored database — it is never
+auto-retried. The maintenance page shows the recovery steps. **No-SSH recovery** (the panel is gated while
+held): delete `storage/hearth-restore.json` via FTP / the file manager to lift the hold, then sign in and
+restore a known-good backup — or the pre-restore safety snapshot it names — from *Admin → System → Backups*.
+With shell access, `php artisan hearth:restore storage/backups/hearth-…zip` instead. Capture the
+`restore.failed` audit entry and `storage/logs/laravel.log` for the report (§7).
 
 ---
 

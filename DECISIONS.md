@@ -184,6 +184,50 @@ directly (detection on/off · lock · backup→migrate ordering & backup-abort �
 schema · 503-not-SQL during the window · auto-off + manual apply). See
 [real-host-findings RH-10](docs/product/real-host-findings.md).
 
+### ADR-0022 — No-SSH panel restore (RH-11)
+**Context:** `hearth:restore` existed only as a CLI command; *Admin → System → Backups* could create/download
+but **not restore**, so a no-SSH operator had no recovery path — the same documented-but-unimplemented class as
+RH-10. The kickoff: add a safe, no-SSH restore to the panel, reusing the RH-10 machinery (maintenance gate,
+audit, health surfacing).
+
+**Decision:** a **cron-driven, file-coordinated** restore in `App\Backup`, wrapping the existing
+`RestoreService` in the RH-10 choreography (`RestoreRunner`, the sibling of `UpgradeRunner`).
+- **Why not synchronous-in-the-request or a DB queue job.** A restore OVERWRITES the live DB — and on the
+  baseline tier the cache, session, AND queue all live in it. So a synchronous web restore would wipe the
+  session/cache backing the request mid-flight (and is bounded by the request-time limit on large archives),
+  and a DB-queue job would erase its own `jobs` row mid-restore. The maintenance/coordination state is
+  therefore a **file** (`RestoreState` → outside `storage/app`, so it survives the DB swap), and the run is
+  drained by the **single cron line** (`RestoreRunner::runPending`) in CLI context. The flock lock — not a
+  cache lock, which the restore would wipe — is the real double-run guard. `runNow()` is the synchronous CLI
+  path; CLI (`hearth:restore`) and panel share one `execute()`.
+- **Choreography:** validate the archive (manifest + streamed dump SHA-256 — **refuse before touching
+  anything**) → take a **pre-restore safety snapshot** (so the restore is itself reversible) → restore DB +
+  storage from a private temp copy of the target → flush caches + `SchemaState::refresh()` → exit maintenance
+  → audit-log (actor, archive, duration). The maintenance gate (`PreventRequestsDuringUpgrade`) checks the
+  file-based restore state **first**, then the RH-10 cache state; `GET /health` gains a non-secret `restore`
+  block; a stuck restore reads as `degraded`.
+- **The RH-11 → RH-10 hand-off.** A restored **older schema** is detected by the post-restore
+  `SchemaState::refresh()`; the RH-10 gate holds the site and the auto-upgrade tick migrates it forward.
+  `UpgradeRunner` stands down while a restore is in progress, so the two never race the DB.
+- **Panel guard:** `admin.access` + **staff-2FA** (self-guarded in the SFC, like the Upgrade panel) + a
+  **typed confirmation** (the backup's exact name). The action only records the request, then redirects to the
+  self-refreshing maintenance page.
+- **Failure policy (single-attempt, fail-safe).** A restore is destructive, so it is never auto-retried. A
+  validation failure (nothing touched) lifts the gate. A restore-step failure — or a crash mid-restore,
+  detected next tick because the file lock is free yet the state still says `running` — HOLDS the site
+  (`restore.stuck`); the scheduler also skips every DB-touching job during the window. No-SSH recovery: delete
+  the restore-state file via the host file manager, then re-restore from the panel / the named pre-restore
+  safety snapshot (or `php artisan hearth:restore` with a shell). This is the one operability state that needs
+  a deliberate operator action — the fail-safe choice for a destructive op.
+
+**Consequences:** a no-SSH operator finally has a recovery path, on the baseline tier, with zero new
+dependencies; the RH-10 recovery references ("restore the pre-upgrade backup from the Backups panel") become
+true. **Deferred (scope fence):** restore from an UPLOADED off-host archive (needs a guarded untrusted-zip
+upload) — flagged in [real-host-findings RH-11](docs/product/real-host-findings.md). Tested at the feature
+level driving the runner directly (round-trip · the restored-older-schema → auto-upgrade hand-off · validation
+refusal · maintenance entered/exited · audit · /health during the window · panel authz + typed-confirm). See
+[real-host-findings RH-11](docs/product/real-host-findings.md).
+
 *(ADRs 0003, 0004, 0008, 0009, 0010, 0013, 0014, 0016, 0017, 0018 are summarized in the table above; full
 detail in their linked docs.)*
 

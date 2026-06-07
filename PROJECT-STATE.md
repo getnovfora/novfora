@@ -588,6 +588,45 @@ clean-room**.
 > deploy it. Deploying it IS RH-10's first real-world validation: extract the zip over the live install and,
 > within ~2 min, `GET /health` `schema.pending` flips true→false and Appearance settings start working — the
 > appearance migration applies itself via cron, no SSH (live script in the kickoff + REAL-HOST-VALIDATION §6a).**
+>
+> **Update 2026-06-07 (RH-11 — no-SSH panel restore: the Backups panel can now RESTORE → the last beta gate —
+> Code):** built on a branch from **main**, per [`rh11-panel-restore-kickoff.md`](docs/product/rh11-panel-restore-kickoff.md).
+> **The gap:** `hearth:restore` existed only as a CLI command; *Admin → System → Backups* could create/download
+> but not restore, so a no-SSH operator had **no recovery path** (same documented-but-unimplemented class as
+> RH-10). **Fix (ADR-0022, `App\Backup`):** a **cron-driven, file-coordinated** restore wrapping the existing
+> `RestoreService` in the RH-10 choreography (`RestoreRunner`, sibling of `UpgradeRunner`). **The load-bearing
+> design call:** a restore overwrites the live DB — and on the baseline tier the cache, session, AND queue all
+> live in it — so the maintenance state is a **file** (`RestoreState`, outside `storage/app`, surviving the DB
+> swap) and the run is drained by the **single cron line** in CLI context (no web timeout, no self-wiping
+> DB-queue job, no mid-request session/cache churn). (1) **Choreography:** validate (manifest + streamed
+> SHA-256 + **restorable into THIS engine** — refuse before touching anything) → **pre-restore safety
+> snapshot** (the restore is itself reversible) → restore DB+storage from a private temp copy of the target →
+> flush caches + `SchemaState::refresh()` → audit. (2) **RH-11 → RH-10 hand-off (tested):** a restored OLDER
+> schema is re-detected, the RH-10 gate holds the site, and the auto-upgrade tick migrates it forward;
+> `UpgradeRunner` + every DB-touching cron job stand down during the restore window. (3) **Gate + health:**
+> `PreventRequestsDuringUpgrade` serves the branded 503 (restore variant) from the file state first; `/health`
+> gains a non-secret `restore` block (a stuck restore → degraded). (4) **Panel:** each row gains **Restore** —
+> admin.access + **staff-2FA** (self-guarded) + a **typed confirmation** (the backup's exact name); it records
+> the request then redirects to the self-refreshing maintenance page. (5) **Failure (single-attempt,
+> fail-safe):** never auto-retried — a validation failure lifts the gate; a restore-step failure or a crash
+> mid-restore (detected via the free file lock + a stale `running`) HOLDS the site (`restore.stuck`); no-SSH
+> recovery = delete `storage/hearth-restore.json` via the file manager, then re-restore. CLI `hearth:restore`
+> routes through the same runner. **No new dependencies. No theme/installer/upgrade scope creep.** **FLAGGED
+> follow-up (not built):** restore from an UPLOADED off-host archive (guarded untrusted-zip upload) — noted in
+> the findings. **Adversarial review of the diff was run** (22 agents, 6 lenses + per-finding verification): a
+> **HIGH** (a CLI mid-restore failure below the old retry cap lifted the gate over a half-restored DB) + 5
+> MEDIUM (queue:work not stood down; an unbounded hard-kill resume loop; a safety snapshot taken of a
+> half-restored DB on resume; no no-SSH stuck recovery) + LOW/NIT — **all fixed** by the single-attempt
+> redesign + the cron stand-down + the file-delete recovery + early engine-mismatch refusal + test isolation
+> (2 findings refuted). Docs updated: getting-started §5, REAL-HOST-VALIDATION §6/§6b, real-host-findings
+> RH-11 → FIXED, ADR-0022, `.gitignore` + `.env.example`. **Could NOT run here** (this env has no
+> PHP/Composer/Docker/MySQL — confirmed): the Pest suite, Pint, Larastan, `composer audit`, and the release
+> rebuild (`build-release.sh`/`verify-release.sh` → size + sha256) are the **Docker `php:8.3` / human step**,
+> as in every prior RH-* pass. Change is server-rendered + PHP only (no asset rebuild). Small conventional DCO
+> commits on **`claude/rh11-panel-restore`**. **NEXT (human): run the suite + rebuild the bundle in Docker;
+> push the branch + open the PR (no `gh` here); merge; deploy; then the live rehearsal in the kickoff §"Live
+> rehearsal" (create → download → marker post → restore from the panel → marker gone, `/health` green, audit
+> shows the restore) closes the last beta gate.**
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
