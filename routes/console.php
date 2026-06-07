@@ -2,6 +2,8 @@
 
 // SPDX-License-Identifier: Apache-2.0
 
+use App\Backup\RestoreRunner;
+use App\Backup\RestoreState;
 use App\Http\Controllers\HealthController;
 use App\Install\PublicStorageLinker;
 use App\Upgrade\UpgradeRunner;
@@ -24,24 +26,36 @@ Artisan::command('inspire', function () {
 | bounded drain with no code change (progressive enhancement).
 */
 
+// While a no-SSH restore is requested/running/stuck, the DB is being (or was) overwritten — and on the
+// baseline tier the cache/session/queue tables live in it. So stand the DB-touching scheduled work DOWN for
+// the restore window (RH-11): a `->skip()` predicate that mirrors the HTTP maintenance gate. This is the
+// scheduler-side analogue of PreventRequestsDuringUpgrade — the auto-upgrade tick already self-guards, and
+// the restore drain itself + the cache-only heartbeat are intentionally NOT skipped.
+$duringRestore = fn () => app(RestoreState::class)->shouldGateRequests();
+
 // Drain the database queue in bounded, overlap-locked batches — queued email, search indexing, and
 // notifications. `--stop-when-empty` + `--max-time` keep each run short on a coarse interval; on the
-// enhanced tier this same command drains Redis. (ADR-0011 / ADR-0014.)
+// enhanced tier this same command drains Redis. (ADR-0011 / ADR-0014.) Skipped during a restore so a worker
+// never reserves/executes a job against the `jobs` table the restore is replacing.
 Schedule::command('queue:work --stop-when-empty --tries=3 --max-time=50')
     ->everyMinute()
-    ->withoutOverlapping();
+    ->withoutOverlapping()
+    ->skip($duringRestore);
 
 // Liveness heartbeat for GET /health: records that the scheduler fired. A stale value means the cron
-// line has stopped — the single most common silent failure on a shared host.
+// line has stopped — the single most common silent failure on a shared host. (Cache-only; not DB schema —
+// left running so liveness keeps ticking; harmless if the DB-backed cache is mid-restore.)
 Schedule::call(fn () => Cache::put(HealthController::QUEUE_HEARTBEAT, now()->timestamp, now()->addDay()))
     ->everyMinute()
     ->name('hearth-queue-heartbeat');
 
 // On hosts without symlinks, public/storage is a COPIED mirror of uploaded avatars/covers (the installer's
 // copy fallback). Refresh it each tick so new uploads appear; a fast no-op where a real symlink is in place.
+// Skipped during a restore — storage/app is being overwritten too.
 Schedule::call(fn () => app(PublicStorageLinker::class)->refresh())
     ->everyMinute()
-    ->name('hearth-storage-mirror');
+    ->name('hearth-storage-mirror')
+    ->skip($duringRestore);
 
 // No-SSH automatic upgrade (RH-10 / ADR-0021): when deployed code has pending migrations, apply them behind
 // a backup-first maintenance window — so extracting a new release over a live install "just migrates", no
@@ -61,20 +75,34 @@ Schedule::call(fn () => app(UpgradeRunner::class)->runAutomatic())
     ->name('hearth-auto-upgrade')
     ->withoutOverlapping($upgradeMutexMinutes);
 
+// No-SSH panel restore (RH-11 / ADR-0022): the Admin → System → Backups "Restore" action records a request
+// in a FILE (App\Backup\RestoreState — not the cache/DB, which the restore overwrites), and this tick drains
+// it — taking a pre-restore safety snapshot, restoring DB + storage, then refreshing the schema state so the
+// RH-10 auto-upgrade can apply any now-pending migrations from a restored older schema. A cheap no-op when
+// nothing is requested. The runner holds its own FILE lock (a cache lock would be wiped mid-restore); the
+// short overlap mutex (like the auto-upgrade's) is the belt. The auto-upgrade task above skips while a
+// restore is in progress, so the two never race over the database.
+$restoreMutexMinutes = $upgradeMutexMinutes;
+Schedule::call(fn () => app(RestoreRunner::class)->runPending())
+    ->everyMinute()
+    ->name('hearth-panel-restore')
+    ->withoutOverlapping($restoreMutexMinutes);
+
 // Anti-spam trust automation (ADR-0007 §2.3): auto promotion/demotion. Idempotent + overlap-guarded so a
-// long run on a large board never doubles up on a coarse interval.
-Schedule::command('hearth:trust:recompute')->hourly()->withoutOverlapping();
+// long run on a large board never doubles up on a coarse interval. Skipped during a restore (writes users).
+Schedule::command('hearth:trust:recompute')->hourly()->withoutOverlapping()->skip($duringRestore);
 
 // Privacy/GDPR retention (ADR-0007 §2.6): purge aged registration checks + expired blocklist cache.
-Schedule::command('hearth:antispam:purge')->daily();
+Schedule::command('hearth:antispam:purge')->daily()->skip($duringRestore);
 
 // Keep the crowdsourced blocklist warm (phase-1.5 F-C) so the registration screener has an offline signal
 // when the live API is down — never cold. Degrades to a no-op on any network failure.
-Schedule::command('hearth:antispam:warm')->daily();
+Schedule::command('hearth:antispam:warm')->daily()->skip($duringRestore);
 
 // Automated backups (M5): DB + storage + manifest, pruned to the retention count. Honours the configured
-// cadence (daily | weekly | off — config hearth.backup.schedule).
+// cadence (daily | weekly | off — config hearth.backup.schedule). Skipped during a restore so it never
+// snapshots a half-restored database.
 if (($backupCadence = (string) config('hearth.backup.schedule', 'daily')) !== 'off') {
-    $backup = Schedule::command('hearth:backup')->withoutOverlapping();
+    $backup = Schedule::command('hearth:backup')->withoutOverlapping()->skip($duringRestore);
     $backupCadence === 'weekly' ? $backup->weekly() : $backup->daily();
 }

@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Backup\RestoreState;
 use App\Install\Installer;
 use App\Services\Tier\ServiceTier;
 use App\Upgrade\SchemaState;
@@ -28,18 +29,21 @@ class HealthController extends Controller
     /** A heartbeat the queue-drain schedule refreshes each run; staleness => the cron may have stopped. */
     public const QUEUE_HEARTBEAT = 'hearth:health:queue_drained_at';
 
-    public function __invoke(ServiceTier $tier, Installer $installer, SchemaState $schema): JsonResponse
+    public function __invoke(ServiceTier $tier, Installer $installer, SchemaState $schema, RestoreState $restore): JsonResponse
     {
         $db = $this->checkDatabase();
         $cache = $this->checkCache();
         $queue = $this->checkQueue($db['ok']);
         $schemaBlock = $this->schemaBlock($schema);
+        $restoreBlock = $this->restoreBlock($restore);
 
         $down = ! $db['ok'];
-        // A stuck auto-upgrade is a real, operator-actionable problem, so it shows as degraded; a merely
-        // pending/in-progress upgrade is transient and self-healing, so it does not (it's visible in the
-        // schema block, which is how the owner/Cowork watch a live no-SSH upgrade — RH-10).
-        $degraded = ! $cache['ok'] || ($queue['ok'] === false) || ($schemaBlock['stuck'] ?? false);
+        // A stuck auto-upgrade OR a stuck restore is a real, operator-actionable problem, so it shows as
+        // degraded; a merely pending/in-progress upgrade or restore is transient and self-healing, so it
+        // does not (it's visible in the schema/restore blocks — how the owner/Cowork watch a live no-SSH
+        // upgrade (RH-10) or restore (RH-11) without logging in).
+        $degraded = ! $cache['ok'] || ($queue['ok'] === false)
+            || $schemaBlock['stuck'] || $restoreBlock['stuck'];
 
         $status = $down ? 'down' : ($degraded ? 'degraded' : 'ok');
 
@@ -55,8 +59,24 @@ class HealthController extends Controller
                 'queue' => $queue,
             ],
             'schema' => $schemaBlock,
+            'restore' => $restoreBlock,
             'time' => now()->toIso8601String(),
         ], $down ? 503 : 200);
+    }
+
+    /**
+     * The no-SSH restore state (RH-11): is a restore requested, running, or held for the operator. Never
+     * throws and never leaks secrets — booleans + a non-secret last-run summary only.
+     *
+     * @return array{requested:bool, running:bool, stuck:bool, last:array|null}
+     */
+    private function restoreBlock(RestoreState $restore): array
+    {
+        try {
+            return $restore->healthBlock();
+        } catch (Throwable) {
+            return ['requested' => false, 'running' => false, 'stuck' => false, 'last' => null];
+        }
     }
 
     /**

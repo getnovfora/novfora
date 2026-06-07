@@ -203,6 +203,27 @@ return [
         // external tools. hearth:doctor reports which one your host will use. (SQLite always copies the file;
         // PostgreSQL uses pg_dump/psql and is an enhanced-tier database.)
         'db_method' => env('HEARTH_BACKUP_DB_METHOD', 'auto'),        // auto | php | shell
+
+        // ── No-SSH panel restore (RH-11 / ADR-0022) ───────────────────────────────────────────────
+        // A restore OVERWRITES the live DB — and on the baseline tier the cache, session, AND queue all
+        // live in that DB. So the restore's maintenance state CANNOT live in the cache (it'd be wiped
+        // mid-restore) and the restore CANNOT be a DB queue job (its own jobs row would vanish). The state
+        // is a small JSON file + an flock lock, BOTH outside storage/app (the restore target) so they
+        // survive the DB swap; the run is drained by the single cron line (App\Backup\RestoreRunner).
+        'restore_state_path' => env('HEARTH_RESTORE_STATE_PATH', storage_path('hearth-restore.json')),
+        'restore_lock_path' => env('HEARTH_RESTORE_LOCK_PATH', storage_path('hearth-restore.lock')),
+
+        // Take a pre-restore SAFETY snapshot of the CURRENT state before overwriting it, so a panel restore
+        // is itself reversible (created with keep=0 so it can never prune the archive being restored).
+        'pre_restore_safety' => (bool) env('HEARTH_RESTORE_SAFETY_BACKUP', true),
+
+        // A restore is destructive, so it is SINGLE-ATTEMPT and fail-safe: it either succeeds, or it HOLDS
+        // the site in maintenance (stuck) — it is never auto-retried (re-running a destructive op that just
+        // failed, or that was killed mid-apply, could make things worse). A run killed mid-restore is
+        // detected on the next cron tick (the file lock is free yet the state still says "running") and held.
+        // Recovery from a held restore: re-restore from the panel once reachable, or — the no-SSH escape —
+        // delete the restore-state file (hearth.backup.restore_state_path) via the host file manager, then
+        // restore a known-good backup / the named pre-restore safety snapshot.
     ],
 
     // ── Operability — no-SSH automatic upgrade (RH-10 / ADR-0021) ──────────────────────────────────

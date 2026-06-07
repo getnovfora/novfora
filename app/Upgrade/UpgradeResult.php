@@ -8,8 +8,9 @@ namespace App\Upgrade;
 
 /**
  * The outcome of an upgrade run (RH-10). `status` is 'success' | 'failed' | 'skipped'. For 'skipped',
- * {@see $reason} is a machine token (not-installed | manual-mode | up-to-date | stuck | locked). For
- * 'failed', {@see $stage} is 'backup' | 'migrate'. No secrets — safe to log / surface to an admin.
+ * {@see $reason} is a machine token (not-installed | manual-mode | up-to-date | stuck | locked |
+ * restore-in-progress). For 'failed', {@see $stage} is 'backup' | 'migrate'. No secrets — safe to log /
+ * surface to an admin.
  */
 final readonly class UpgradeResult
 {

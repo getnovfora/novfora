@@ -96,12 +96,32 @@ Backups run automatically from the cron line (daily by default — configurable 
 copy of your uploaded files, and an integrity manifest. They're kept to the newest `HEARTH_BACKUP_KEEP`
 (default 7).
 
-- **Create one now / download:** *Admin → System → Backups*, or `php artisan hearth:backup`.
-- **Restore** (destructive — overwrites the current DB + files; validates the archive first):
+- **Create one now / download:** *Admin → System → Backups*, or `php artisan hearth:backup`. Download a copy
+  off-host every so often — that's your insurance if the whole server is lost.
+- **Restore — no SSH needed.** In *Admin → System → Backups*, click **Restore** on a backup. Because this
+  overwrites the current database and uploaded files, it asks you to **type the backup's name** to confirm
+  (admin + 2FA), then:
+  1. A **pre-restore safety snapshot** of the *current* state is taken first, so the restore is itself
+     reversible (it appears in the backups list).
+  2. The site shows a brief, branded **maintenance page** while the restore runs from the cron line (within
+     ~1 minute — the restore never runs inside your web request, so it isn't bound by PHP's time limit, and a
+     restore can't half-serve the site). The archive's integrity (a SHA-256 in its manifest) is verified
+     **before** anything is touched — a corrupt or foreign archive is refused without changing your data.
+  3. You'll be **signed out** (the restore replaces the session table); sign back in when it's done. Watch
+     progress without logging in at **`GET /health`** → the `restore` block (`requested`/`running`/`stuck`).
+- **Restore from the command line** (if you have shell access) — the same safety pipeline:
 
   ```bash
   php artisan hearth:restore storage/backups/hearth-YYYYmmdd-HHMMSS.zip
   ```
+
+  A restore is **single-attempt and fail-safe**: if it can't finish, the site stays in maintenance
+  (`/health` → `restore.stuck: true`) rather than serving a half-restored database — it is never
+  auto-retried. **To recover without a shell** (the panel is gated while held): delete
+  `storage/hearth-restore.json` via FTP / your host file manager (the same kind of deliberate filesystem
+  action that resets the installer), then sign in and restore a known-good backup — or the pre-restore safety
+  snapshot named on the maintenance page — from *Admin → System → Backups*. With a shell, `php artisan
+  hearth:restore <archive>` does it directly and clears the hold.
 
 ### Upgrading (no SSH needed)
 
@@ -131,17 +151,21 @@ there and apply. Leave automatic mode on unless you specifically want manual con
 **If an upgrade gets stuck.** A failed migration holds the site in maintenance (it does **not** retry in a
 loop) — `GET /health` shows `schema.stuck: true` and the maintenance page names the pre-upgrade backup. To
 recover, no SSH required: **re-upload the previous release zip** (the code then matches the rolled-back
-schema and the site comes back on its own within a cron tick). If you have shell access you can instead
-restore the pre-upgrade backup with `php artisan hearth:restore storage/backups/hearth-…zip`. Because
-migrations are **reversible**, neither path requires manual database surgery.
+schema and the site comes back on its own within a cron tick). Once it's back, you can **restore the
+pre-upgrade snapshot from *Admin → System → Backups*** (no SSH) — or, with shell access, restore it directly
+with `php artisan hearth:restore storage/backups/hearth-…zip`. Because migrations are **reversible**, none of
+these paths requires manual database surgery. *(The whole-site maintenance gate also covers a backup restore
+in progress; the two never collide — and a restored older schema is migrated forward automatically by the
+same auto-upgrade above.)*
 
 ---
 
 ## 6. Health checks
 
-`GET /health` returns a compact JSON status (database, cache, queue freshness, tier, install state, and a
-`schema` upgrade block — see §5) for uptime monitoring — `200` when healthy, `503` when the database is
-unreachable, `degraded` when an auto-upgrade is stuck. It exposes no secrets.
+`GET /health` returns a compact JSON status (database, cache, queue freshness, tier, install state, a
+`schema` upgrade block, and a `restore` block — see §5) for uptime monitoring — `200` when healthy, `503`
+when the database is unreachable, `degraded` when an auto-upgrade **or** a restore is stuck. It exposes no
+secrets.
 
 ---
 

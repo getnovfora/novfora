@@ -15,7 +15,10 @@ shared host with every system check green (PHP 8.4, all extensions, all paths wr
 after RH-7 the **no-SSH install completes through the browser** on the subdomain layout — wizard → demo
 community → topics render (validated on `hearth.adorablespider.com`). The post-install smoke then surfaced two
 real post-install bugs — **RH-8** (root served Laravel's scaffold page) and **RH-9** (a poisoned fragment cache
-500'd `/forums`) — both now **FIXED** (below). The **subdirectory** layout remains blocked by RH-4.
+500'd `/forums`) — both now **FIXED** (below). The two no-SSH operability gaps the doc-vs-reality audit then
+surfaced are also closed: **RH-10** (auto-upgrade — "it migrates automatically" is now true) and **RH-11**
+(the Backups panel can now **restore**, not just create) — so a no-SSH operator has a real upgrade *and*
+recovery path. The **subdirectory** layout remains blocked by RH-4.
 
 ## Findings
 
@@ -343,6 +346,72 @@ committed bundle. Bundle rebuilt + cold-boot-verified (`RELEASE_VERIFY=PASS`, `G
 `451def6a40c3aed76ff3c3dfc235bc221a0c0ae39d2db5d101f3368ea2c30b5d`. **This is the mechanism that makes the
 themed live deploy safe** — deploying that bundle onto the live site is RH-10's first real-world validation
 (the appearance migration applies itself via cron).
+
+### ⭐ RH-11 — the Backups panel could create but not RESTORE (no-SSH recovery was impossible) — FIXED (ADR-0022)
+**Found (doc-vs-reality audit, same class as RH-10):** `hearth:restore` existed only as a **CLI** command;
+*Admin → System → Backups* could create/download/delete but **not restore**. A no-SSH operator therefore had
+**no recovery path at all** — and the RH-10 recovery guidance pointed them at "restore the pre-upgrade backup
+via the admin Backups panel," which did not exist. Documented-but-unimplemented; a beta gate (invites waited
+on it).
+
+**Fix (this pass) — a no-SSH restore behind the RH-10 machinery (`App\Backup`, ADR-0022):**
+- **Why cron-driven, not synchronous or a DB queue job.** A restore OVERWRITES the live DB — and on the
+  baseline tier the cache, session, AND queue all live in that DB (`.env.example`:
+  CACHE_STORE/SESSION_DRIVER/QUEUE_CONNECTION=database). So a synchronous web restore would wipe the very
+  session/cache backing the request mid-flight (and is bounded by PHP's request-time limit on large
+  archives), and a DB-queue job would erase its own `jobs` row mid-restore. The restore state is therefore a
+  **file** (`RestoreState` → `storage/hearth-restore.json`, outside the `storage/app` restore target, so it
+  survives the DB swap and keeps the maintenance gate up across it), and the run is drained by the **single
+  cron line** (`RestoreRunner::runPending`) in CLI context with no web timeout. `RestoreRunner::runNow` is the
+  synchronous path the CLI uses; both reach one `execute()` — CLI and panel share ONE pipeline.
+- **Choreography (mirrors RH-10):** validate the archive (manifest + streamed dump SHA-256 — **refuse before
+  touching anything**) → take a **pre-restore safety snapshot** of the current state (so the restore is itself
+  reversible) → restore DB + storage → flush caches + `SchemaState::refresh()` → exit → audit-log. The target
+  is staged to a private temp copy first, so the safety snapshot / a prune / a delete can't change the bytes
+  restored.
+- **The RH-11 → RH-10 hand-off (got right + tested):** a restored DB may carry an **older schema**. After the
+  restore, the schema state is re-derived, so the RH-10 maintenance gate keeps the site held and the
+  auto-upgrade tick **migrates it forward** on the next tick (auto mode). `UpgradeRunner` stands down while a
+  restore is in progress, so the two never race the database.
+- **The window:** `PreventRequestsDuringUpgrade` now serves the branded maintenance 503 for a restore too
+  (restore variant), deciding from the **file** state first (survives the DB/cache wipe) then the RH-10 cache
+  state. `GET /health` gains a non-secret `restore` block (`requested`/`running`/`stuck`/`last`); a stuck
+  restore reads as `degraded`.
+- **The panel action:** each backup row gains **Restore** — `admin.access` + **staff-2FA** (self-guarded in
+  the SFC, like the RH-10 Upgrade panel) + a **typed confirmation** (the backup's exact name) + an explicit
+  "this overwrites the database and files" warning showing the backup's date/size. It only **records** the
+  request (after re-validating), then sends the operator to the self-refreshing maintenance page.
+- **Failure policy (single-attempt, fail-safe):** a restore is destructive, so it is **never auto-retried**.
+  A validation failure (nothing touched) refuses and lifts the gate. A failure during the restore step — or a
+  process killed mid-restore, detected on the next cron tick because the file lock is free yet the state still
+  says `running` — **HOLDS** the site in maintenance (`restore.stuck`) rather than serving a possibly
+  half-restored DB. **No-SSH recovery from a held restore:** the maintenance page tells the operator to delete
+  `storage/hearth-restore.json` via the host file manager (the same deliberate filesystem action that resets
+  the install marker), then restore a known-good backup / the named pre-restore safety snapshot from the panel;
+  with a shell, `php artisan hearth:restore` does it directly (and clears the hold on success).
+- **Cron-side stand-down:** while a restore is requested/running/stuck, the scheduler skips every DB-touching
+  job (queue drain, backups, trust/anti-spam) so nothing reads or writes the database being replaced; the
+  auto-upgrade tick already self-guards. The HTTP maintenance gate + this scheduler `->skip()` are the two
+  sides of the same window.
+
+**Coverage** — `tests/Feature/Operability/{RestoreRunnerTest,RestoreMaintenanceTest,PanelRestoreTest}.php` +
+extended `HealthCheckTest`/`SchedulerTest`: panel authz (non-admin / non-2FA refused) · typed-confirm
+required · happy-path round-trip in a sandbox (create → mutate → restore → mutation gone) · the
+restore→pending-migrations hand-off (restore an older-schema backup → RH-10 detects + upgrades cleanly) ·
+validation refusal on a corrupt archive (gate not left up, data intact) · maintenance entered/exited · audit
+entry · `/health` during the window · the auto-upgrade standing down during a restore.
+
+**FLAGGED follow-up (not built — scope fence):** **restore from an UPLOADED archive** (the operator's
+off-host copy, when no on-host backup survives) — needs a guarded upload of an untrusted zip (size/zip-bomb/
+path-traversal limits, the same integrity gate) into the restore pipeline. Tracked for a later pass; until
+then, an off-host copy is restored by placing it under `storage/backups` (FTP / cPanel File Manager) so it
+lists in the panel, or via the CLI.
+
+**Verification status (this env):** code + tests written on `claude/rh11-panel-restore`. This delivery
+environment has **no PHP/Composer/Docker/MySQL**, so the Pest suite, Pint, Larastan, `composer audit`, and the
+release rebuild (`scripts/build-release.sh` + `verify-release.sh` → size + sha256) are the **Docker `php:8.3`
+/ human step** — same as every prior RH-* pass (see PROJECT-STATE). The change is server-rendered + PHP only
+(no asset rebuild; `assets-fresh` should reproduce the committed bundle unchanged).
 
 ## Next
 

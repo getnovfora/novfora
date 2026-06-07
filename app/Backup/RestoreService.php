@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Backup;
 
+use App\Upgrade\UpgradeRunner;
 use FilesystemIterator;
 use Illuminate\Support\Facades\DB;
 use RecursiveDirectoryIterator;
@@ -22,8 +23,12 @@ use ZipArchive;
  *
  * This is the documented upgrade safety net: take a backup, attempt the upgrade, and if it goes wrong,
  * restore to exactly the prior state (proven by the backup→restore round-trip test).
+ *
+ * (Not `final` — like {@see RestoreRunner} and {@see UpgradeRunner} — so it can be swapped for a
+ * test double when a caller's failure handling is unit-tested in isolation, e.g. forcing a restore-stage
+ * failure to prove the maintenance gate stays up.)
  */
-final class RestoreService
+class RestoreService
 {
     /** @return array{db_driver:string, storage_restored:bool} */
     public function restore(string $archivePath): array
@@ -52,6 +57,142 @@ final class RestoreService
         } finally {
             $this->rmrf($work);
         }
+    }
+
+    /**
+     * Read a backup's manifest metadata WITHOUT extracting it (RH-11) — cheap, so it backs both the CLI
+     * restore confirmation (date, size, database kind) and the panel's request pre-check (the no-SSH path
+     * inspects + checks engine compatibility in-request, then defers the heavier dump-hash verification to
+     * the cron run). Refuses an archive that is not a recognised Hearth backup. Does NOT verify the dump hash
+     * — {@see validate()} does that, with {@see assertRestorable()}, before a restore touches the database.
+     *
+     * @return array{created_at:?string, version:?string, db_kind:string, db_driver:string, storage_included:bool, size_bytes:int}
+     */
+    public function inspect(string $archivePath): array
+    {
+        if (! is_file($archivePath)) {
+            throw new BackupException('Backup archive not found: '.$archivePath);
+        }
+
+        $zip = new ZipArchive;
+        if ($zip->open($archivePath) !== true) {
+            throw new BackupException('Could not open the backup archive.');
+        }
+
+        try {
+            $manifest = $this->manifestFromZip($zip);
+        } finally {
+            $zip->close();
+        }
+
+        return [
+            'created_at' => isset($manifest['created_at']) && is_string($manifest['created_at']) ? $manifest['created_at'] : null,
+            'version' => isset($manifest['version']) && is_string($manifest['version']) ? $manifest['version'] : null,
+            'db_kind' => (string) $manifest['db']['kind'],
+            'db_driver' => (string) $manifest['db']['driver'],
+            'storage_included' => (bool) ($manifest['storage_included'] ?? false),
+            'size_bytes' => (int) (@filesize($archivePath) ?: 0),
+        ];
+    }
+
+    /**
+     * Fully validate an archive before anything is touched (RH-11, the "refuse before touching" guard):
+     * the manifest is well-formed AND the database dump's SHA-256 matches the manifest. Streams the dump
+     * straight out of the zip (no disk extraction, chunked hashing) so it stays baseline-memory-safe for
+     * large archives. Throws {@see BackupException} on any failure. @return array<string,mixed> the manifest.
+     */
+    public function validate(string $archivePath): array
+    {
+        if (! is_file($archivePath)) {
+            throw new BackupException('Backup archive not found: '.$archivePath);
+        }
+
+        $zip = new ZipArchive;
+        if ($zip->open($archivePath) !== true) {
+            throw new BackupException('Could not open the backup archive.');
+        }
+
+        try {
+            $manifest = $this->manifestFromZip($zip);
+
+            // Refuse a cross-engine archive up front — before the (heavier) hash and before any restore — so a
+            // mismatched backup never enters the maintenance window (RH-11).
+            $this->assertRestorable((string) $manifest['db']['driver']);
+
+            $dumpName = (string) $manifest['db']['file'];
+            $stream = $zip->getStream($dumpName);
+            if ($stream === false) {
+                throw new BackupException('The backup is missing its database dump.');
+            }
+
+            $ctx = hash_init('sha256');
+            while (! feof($stream)) {
+                $chunk = fread($stream, 1 << 20); // 1 MiB
+                if ($chunk === false) {
+                    break;
+                }
+                hash_update($ctx, $chunk);
+            }
+            fclose($stream);
+
+            if (hash_final($ctx) !== $manifest['db']['sha256']) {
+                throw new BackupException('Backup integrity check failed — the database dump is corrupted.');
+            }
+        } finally {
+            $zip->close();
+        }
+
+        return $manifest;
+    }
+
+    /**
+     * Assert a backup made for `$manifestDriver` can be restored into the site's configured database engine
+     * (RH-11). Cross-engine restores (SQLite ↔ SQL, MySQL ↔ PostgreSQL) cannot work, so refuse them at the
+     * "before touching anything" stage rather than discovering it mid-restore. MySQL and MariaDB are
+     * interchangeable. Throws {@see BackupException} on a mismatch.
+     */
+    public function assertRestorable(string $manifestDriver): void
+    {
+        $conn = (string) config('database.default');
+        $configured = (string) config("database.connections.{$conn}.driver", $conn);
+
+        if ($this->engineFamily($manifestDriver) !== $this->engineFamily($configured)) {
+            throw new BackupException(
+                "This backup was made for a [{$manifestDriver}] database and cannot be restored into the configured [{$configured}] database."
+            );
+        }
+    }
+
+    private function engineFamily(string $driver): string
+    {
+        return match (true) {
+            $driver === 'sqlite' => 'sqlite',
+            in_array($driver, ['mysql', 'mariadb'], true) => 'mysql',
+            $driver === 'pgsql' => 'pgsql',
+            default => 'other:'.$driver,
+        };
+    }
+
+    /**
+     * Read + format-check manifest.json directly from an open zip (no extraction). Shared by inspect()
+     * and validate(). @return array<string,mixed>
+     */
+    private function manifestFromZip(ZipArchive $zip): array
+    {
+        $raw = $zip->getFromName('manifest.json');
+        if ($raw === false) {
+            throw new BackupException('This archive has no manifest — it is not a Hearth backup.');
+        }
+
+        $manifest = json_decode($raw, true);
+        if (! is_array($manifest) || ($manifest['format'] ?? null) !== BackupService::FORMAT) {
+            throw new BackupException('Unsupported or unrecognised backup format.');
+        }
+        if (! isset($manifest['db']['file'], $manifest['db']['kind'], $manifest['db']['sha256'], $manifest['db']['driver'])) {
+            throw new BackupException('The backup manifest is incomplete.');
+        }
+
+        return $manifest;
     }
 
     /** @return array<string,mixed> */
