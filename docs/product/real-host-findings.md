@@ -70,10 +70,9 @@ the RH-4 diagnosis and would ship outdated CSS to a git-based deploy.
 
 **Root cause (confirmed):** the committed `app-QDMk9TCF.css` carried Tailwind utilities (`--tw-translate-*`,
 `--tw-rotate-*`, `--tw-skew-*`, `space-x-reverse`) emitted for templates that were since changed/removed (e.g.
-RH-8 deleted `welcome.blade.php`). A fresh `npm run build` produces `app-Bw3eeB5s.css` — same content as the
-JS/font assets stay byte-identical (verified), only `app.css` shrinks (42,977 → 18,291 bytes). app.css has zero
-`@font-face` rules (the fonts ship as a separate `fonts-DkuEHybc.css`), so it is fully independent of the remote
-font fetch.
+RH-8 deleted `welcome.blade.php`). A fresh `npm run build` produces `app-BzzAoEro.css` — the JS/font assets stay
+byte-identical (verified), only `app.css` shrinks (42,977 → 18,200 bytes). app.css has zero `@font-face` rules
+(the fonts ship as a separate `fonts-DkuEHybc.css`), so it is fully independent of the remote font fetch.
 
 **Fix (this pass):**
 - **Rebuilt + committed** `public/build` (the fresh `app.css` + its `manifest.json` entry; all other hashed
@@ -86,12 +85,21 @@ font fetch.
   in the same PR; CI enforces it.
 - **Sanity net in-app** — `tests/Feature/Assets/ViteManifestTest.php` renders the `@vite([...])` head and
   asserts every referenced hash exists on disk (plus a full manifest→disk consistency check), so a rendered
-  page can never point at a missing asset. (Verified to fail on a stale/missing hash.)
+  page can never point at a missing asset. (Verified to fail on a stale/missing hash; forces manifest mode so a
+  stray `public/hot` from `npm run dev` can't fool it.)
 
-*(Sandbox note: the asset rebuild for this pass was done where `fonts.bunny.net` is unreachable. Because the
-font assets and JS are deterministic and already committed — the offline toolchain reproduced the committed JS
-byte-for-byte — only the freshly-compiled `app.css` changed; a network-enabled CI build reproduces the same
-tree and the `assets-fresh` guard validates it.)*
+**Determinism (the guard must build like a real build).** The first PR-CI run of the guard surfaced that
+`npm run build` was non-deterministic: `resources/css/app.css` `@source`s the framework's **Pagination Blade in
+`vendor/`** and compiled Blade in **`storage/framework/views`**. The Node-only `assets` job (no `composer
+install`) therefore built a smaller, *pagination-less* CSS that could never match the committed (vendor-present)
+assets. Fix: the `assets` job now installs **composer/vendor** and **clears compiled views** before building, so
+its `npm run build` reproduces the canonical committed assets exactly. (Confirmed by reproducing CI's vendor-less
+hash byte-for-byte locally with `vendor/` moved aside.)
+
+*(Sandbox note: the rebuild was done where `fonts.bunny.net` is unreachable. The font assets and JS are
+deterministic and already committed — the offline toolchain reproduced the committed JS byte-for-byte — and a
+local `fetch` shim served the committed font bytes so the REAL config built offline; the resulting `app.css`
+hash (`app-BzzAoEro`) matches what CI's vendor-present build produces, fonts unchanged.)*
 
 ### ⭐ RH-6 — Installer wizard front-end is dead — MISDIAGNOSED → real cause is RH-7
 > **Correction (2026-06-05, live-host inspection via the browser):** the RH-6 root cause below
@@ -311,8 +319,9 @@ alternating. `laravel.log` (15 identical entries, authed AND anonymous):
    serve passes (installer enforce-ON, then editor) in `docker/dusk/run.sh` + the CI Dusk job (see the RH-7
    entry). Suite **Pest 333 passed / 1 skipped (1128 assertions)**; Pint + Larastan + `composer audit` clean.
    Bundle rebuilt + cold-boot-verified (`RELEASE_VERIFY=PASS`, `GET / → 302 → /install`): `hearth-release.zip`
-   **12,918,542 bytes**, sha256 `3600e782e4c12b1f526604051dcc3b8a9141b618e7859a9e30ba5de8c173d12e`
-   (`/hearth-release.zip` stays gitignored). *(Dusk not executed in this sandbox — no Chrome/MySQL.)*
+   **12,918,488 bytes**, sha256 `3844efebfd8a5dbc378e7f33595ac924a45b596feb171a5427107f9c5bb22d56`
+   (`/hearth-release.zip` stays gitignored). *(Dusk not executed in this sandbox — no Chrome/MySQL; landed via
+   PR #2, where the assets-fresh + Dusk jobs are the live check.)*
 3. **RH-4 — subdirectory install (design-first):** spike → ADR → implement + add a subdirectory case to the
    install test matrix. Still the owner-flagged priority. RH-1/RH-2 landed; RH-6 was a misdiagnosis (superseded
    by RH-7). **The next phase is the default theme / UI polish pass** (`theme-design-brief.md`); RH-4 follows.

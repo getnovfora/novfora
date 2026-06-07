@@ -436,13 +436,20 @@ clean-room**.
 > (baseline shared hosts have no Node); a P1.5/RH-8 template change (utilities removed; `welcome.blade.php`
 > deleted) was never rebuilt, so the committed `app.css` hash had **drifted from source**. **Confirmed + rebuilt:**
 > the offline toolchain reproduced the committed JS + font assets **byte-for-byte**, so only the freshly-compiled
-> `app.css` changed (`app-QDMk9TCF.css` 42,977 B → `app-Bw3eeB5s.css` 18,291 B; it carried dead
+> `app.css` changed (`app-QDMk9TCF.css` 42,977 B → `app-BzzAoEro.css` 18,200 B; the stale CSS carried dead
 > `--tw-translate/rotate/skew/space-x-reverse` utilities). Committed the `public/build` diff (manifest + the new
 > hashed CSS) as `chore(assets)`. **CI guard:** the `assets` job now runs an **`assets-fresh`** step —
 > `npm run build` then `git diff --exit-code -- public/build` — so any future drift FAILS CI with a clear
 > "rebuild + commit" message (cheap; reuses the budget build). Rule documented in `CONTRIBUTING.md`. **Sanity
 > net:** `tests/Feature/Assets/ViteManifestTest.php` renders the `@vite([...])` head + walks the manifest and
-> asserts every referenced hash exists on disk (verified to fail on a stale/missing hash) — no Node needed to run.
+> asserts every referenced hash exists on disk (verified to fail on a stale/missing hash; hot-mode-immune) — no
+> Node needed to run. **PR-CI hardening (the guard earned its keep on PR #2):** the freshness build is only valid
+> if it builds under the SAME conditions as the committed assets. The first PR run exposed two non-determinisms in
+> `npm run build`: (a) `app.css` `@source`s the framework's **Pagination Blade in `vendor/`**, so the Node-only
+> `assets` job (no `composer install`) produced a smaller, pagination-less CSS that could never match — fixed by
+> installing **composer/vendor** in the `assets` job; and (b) it `@source`s compiled Blade in
+> `storage/framework/views`, so the job now **clears compiled views** for a deterministic source set. The
+> canonical (vendor-present, clean-views) build is what's committed and what CI reproduces.
 > **(2) Dusk enforce-ON harness split (the RH-7 follow-up).** The Dusk harness served ONE app with
 > `HEARTH_INSTALL_ENFORCE=false`, so `InstallerWizardTest` never exercised real pre-install enforcement in a
 > browser. Now **two sequential serve passes** (`docker/dusk/run.sh` + the CI Dusk job): **PASS 1 — INSTALLER**
@@ -451,14 +458,17 @@ clean-room**.
 > enforcement-off for `EditorJourneyTest` (unchanged). Per-pass `.env` + DB + installer sandbox, no shared state;
 > the CI Dusk job gained a MySQL service + `pdo_mysql` (the wizard's install target). The enforcement-ON
 > `InstallerEnforcedLivewireTest` feature tests stay the authoritative RH-7 guard; this adds the real-browser belt.
+> On PR #2 **PASS 2 (editor) passed**; PASS 1 timed out at step 3→4 — the installer test lacked the deferred-
+> `wire:model` settle pauses the editor test uses, so under enforcement timing on the single-threaded
+> `artisan serve` the step-3 fields could serialize stale; **hardened** with settle pauses + generous timeouts.
 > **Suite: Pest 333 passed / 1 skipped (1128 assertions)** (M0–M5 + P1.5 + RH-6→RH-9 stay green); Pint + Larastan
 > + `composer audit` clean. **Could NOT run here (reported, not skipped silently):** the Dusk passes — this
 > sandbox has no Chrome and no MySQL server (and `fonts.bunny.net` is network-blocked, which is why the rebuild
 > reused the deterministic committed fonts); the harness change runs in `docker/dusk/` + the CI Dusk job. Bundle
 > rebuilt + cold-boot-verified (`RELEASE_VERIFY=PASS`, `GET / → 302 → /install`): `hearth-release.zip`
-> **12,918,542 bytes**, sha256 `3600e782e4c12b1f526604051dcc3b8a9141b618e7859a9e30ba5de8c173d12e`
-> (`/hearth-release.zip` gitignored). Small conventional DCO commits on `claude/practical-ritchie-gHg7A`. **NEXT:
-> the hygiene board is clear → the default theme / UI polish pass ([`theme-design-brief.md`](docs/product/theme-design-brief.md));
+> **12,918,488 bytes**, sha256 `3844efebfd8a5dbc378e7f33595ac924a45b596feb171a5427107f9c5bb22d56`
+> (`/hearth-release.zip` gitignored). Small conventional DCO commits on `claude/practical-ritchie-gHg7A` (PR #2).
+> **NEXT:** the hygiene board is clear → the default theme / UI polish pass ([`theme-design-brief.md`](docs/product/theme-design-brief.md));
 > RH-4 (subdirectory, design-first) remains afterward.**
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
