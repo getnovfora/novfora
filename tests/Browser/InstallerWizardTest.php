@@ -43,24 +43,32 @@ it('drives the full installer wizard in a real browser, then locks', function ()
     $dbPass = (string) env('HEARTH_DUSK_INSTALL_DB_PASS', 'secret');
 
     $this->browse(function (Browser $browser) use ($token, $dbHost, $dbName, $dbUser, $dbPass) {
+        // The wizard's inputs are DEFERRED wire:model (sent on the next action, not per keystroke), so a
+        // short pause after the last field lets Livewire's client capture every value before the Continue
+        // serializes them — without it, a fast type→press can submit a stale/empty field and validation
+        // keeps us on the same step (the editor journey settles the same way). Timeouts are generous: under
+        // enforcement-ON every request also flows through RedirectIfNotInstalled on a single-threaded
+        // `artisan serve`, and step 2→3 verifies a live MySQL connection.
         $browser->visit('/install')
-            ->waitForText('System check', 15)
+            ->waitForText('System check', 20)
             ->assertSee('Continue')
 
             // ── STEP 1 — system check + setup token ──────────────────────────────────────────────────
             // Typing exercises wire:model; pressing Continue exercises wire:click -> toStep2. This is the
             // exact interaction that was dead on the real host.
             ->type('#setupToken', $token)
+            ->pause(300)
             ->press('Continue')
-            ->waitForText('Database connection', 15)
+            ->waitForText('Database connection', 25)
 
             // ── STEP 2 — database (a disposable MySQL database) ──────────────────────────────────────
             ->type('#dbHost', $dbHost)
             ->type('#dbDatabase', $dbName)
             ->type('#dbUsername', $dbUser)
             ->type('#dbPassword', $dbPass)
+            ->pause(300)
             ->press('Continue')                         // toStep3 validates + verifies the live connection
-            ->waitForText('Administrator account', 20)
+            ->waitForText('Administrator account', 30)
 
             // ── STEP 3 — site & administrator ────────────────────────────────────────────────────────
             ->type('#siteName', 'Dusk Community')
@@ -68,13 +76,14 @@ it('drives the full installer wizard in a real browser, then locks', function ()
             ->type('#adminEmail', 'dusk-admin@hearth.test')
             ->type('#adminPassword', 'Sup3rSecret!!')
             ->type('#passwordConfirmation', 'Sup3rSecret!!')
+            ->pause(400)
             ->press('Continue')
-            ->waitForText('Review &', 15)               // step 4 heading: "Review & install"
+            ->waitForText('Review &', 30)               // step 4 heading: "Review & install"
 
             // ── STEP 4 — review & install ────────────────────────────────────────────────────────────
             ->assertSee('Dusk Community')               // the review echoes what we typed (wire:model stuck)
             ->press('Install Hearth')
-            ->waitForText('is installed', 45)           // step 5 — the real install ran to completion
+            ->waitForText('is installed', 60)           // step 5 — the real install ran to completion
             ->assertSee('cron');                        // the post-install cron-line guidance
     });
 

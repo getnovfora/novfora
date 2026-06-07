@@ -41,6 +41,15 @@ php artisan serve                  # baseline-tier dev: file/db cache, db queue,
 Prebuilt assets are committed, so **Node is not required to run**. To rebuild assets for UI work:
 `npm install && npm run build` (or `npm run dev`).
 
+> **Committed assets must stay fresh (CI enforces).** `/public/build` is checked into the repo *by design* —
+> the baseline shared host has no Node, so it ships prebuilt. Any change that affects the bundle (CSS,
+> templates that add/drop utility classes, JS in `resources/js/…`, the Vite/Tailwind config) **must be
+> followed by `npm ci && npm run build` and the resulting `public/build` diff committed in the same PR.** The
+> CI **`assets-fresh`** guard runs a fresh build and fails on any drift (`git diff --exit-code -- public/build`),
+> so stale assets can't be merged and can't reach a git-based deploy. Rebuild with **`composer install` done
+> first** (the CSS `@source`s the framework's pagination Blade in `vendor/`) and from a clean tree (no
+> compiled-view leftovers), matching how CI builds — otherwise your local CSS won't match the committed bundle.
+
 ## Coding standards
 
 - **Laravel idioms:** Eloquent (parameterized — no raw SQL except where measured and justified), form requests,
