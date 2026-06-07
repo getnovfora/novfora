@@ -76,42 +76,62 @@
 
         <div class="space-y-4">
             @foreach ($posts as $post)
+                @php($author = $post->author)
+                @php($role = $author?->isAdmin() ? 'Admin' : ($author?->isStaff() ? 'Moderator' : null))
+                {{-- Classic LEFT poster sidebar on desktop; collapses to a top-bar (avatar + name above body)
+                     on mobile. The author + its groups are eager-loaded, so the badge/stats add no query. --}}
                 <x-ui.card id="post-{{ $post->id }}" :class="$post->approved_state === 'pending' ? 'ring-1 ring-warn-soft' : ''">
-                    <header class="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
-                        <div class="flex items-center gap-3 min-w-0">
-                            <x-ui.avatar :user="$post->author" size="md" />
-                            <div class="min-w-0">
-                                <p class="font-semibold text-ink truncate">{{ $post->author?->username ?? 'unknown' }}</p>
-                                <p class="text-xs text-ink-subtle nums">
-                                    {{ $post->created_at?->diffForHumans() }}@if ($post->edited_at) · edited @endif
-                                </p>
+                    <div class="md:flex md:gap-5">
+                        {{-- Poster --}}
+                        <div class="flex items-center gap-3 border-b border-line pb-3 md:w-40 md:shrink-0 md:flex-col md:items-center md:gap-1.5 md:border-b-0 md:border-r md:pb-0 md:pr-5 md:text-center">
+                            <span class="md:hidden"><x-ui.avatar :user="$author" size="md" /></span>
+                            <span class="hidden md:inline-flex"><x-ui.avatar :user="$author" size="xl" /></span>
+                            <div class="min-w-0 md:mt-1">
+                                <p class="font-semibold text-ink truncate">{{ $author?->display_name ?? $author?->username ?? 'unknown' }}</p>
+                                @if ($role)
+                                    <x-ui.badge variant="accent" class="mt-1">{{ $role }}</x-ui.badge>
+                                @endif
+                                {{-- Poster stats from already-loaded columns (desktop sidebar only). --}}
+                                <dl class="mt-2 hidden space-y-0.5 text-xs text-ink-subtle md:block">
+                                    @if ($author?->created_at)
+                                        <div><dt class="sr-only">Joined</dt><dd>Joined {{ $author->created_at->isoFormat('MMM YYYY') }}</dd></div>
+                                    @endif
+                                    <div><dt class="sr-only">Posts</dt><dd class="nums">{{ number_format((int) ($author?->post_count ?? 0)) }} posts</dd></div>
+                                </dl>
                             </div>
                         </div>
-                        @if ($post->approved_state === 'pending')
-                            <x-ui.badge variant="warn">awaiting approval</x-ui.badge>
-                        @endif
-                    </header>
 
-                    <div class="hearth-prose pt-4">{!! $post->body_html_cache !!}</div>
+                        {{-- Body --}}
+                        <div class="min-w-0 flex-1 pt-3 md:pt-0">
+                            <div class="flex flex-wrap items-center gap-2 text-xs text-ink-subtle nums md:border-b md:border-line md:pb-2">
+                                <span>{{ $post->created_at?->diffForHumans() }}@if ($post->edited_at) · edited @endif</span>
+                                @if ($post->approved_state === 'pending')
+                                    <x-ui.badge variant="warn" class="ml-auto">awaiting approval</x-ui.badge>
+                                @endif
+                            </div>
 
-                    <footer class="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
-                        @can('update', $post)
-                            <x-ui.button :href="route('posts.edit', $post)" variant="subtle" size="sm">Edit</x-ui.button>
-                        @endcan
-                        @can('delete', $post)
-                            <form method="POST" action="{{ route('posts.destroy', $post) }}" onsubmit="return confirm('Delete this post?')">@csrf @method('DELETE')
-                                <x-ui.button type="submit" variant="danger-ghost" size="sm">Delete</x-ui.button>
-                            </form>
-                        @endcan
-                        @auth
-                            <form method="POST" action="{{ route('reports.store') }}" class="ml-auto">@csrf
-                                <input type="hidden" name="post_id" value="{{ $post->id }}">
-                                <x-ui.button type="submit" variant="ghost" size="sm">
-                                    <x-ui.icon name="flag" class="h-4 w-4" /> Report
-                                </x-ui.button>
-                            </form>
-                        @endauth
-                    </footer>
+                            <div class="hearth-prose pt-3 md:pt-4">{!! $post->body_html_cache !!}</div>
+
+                            <footer class="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                                @can('update', $post)
+                                    <x-ui.button :href="route('posts.edit', $post)" variant="subtle" size="sm">Edit</x-ui.button>
+                                @endcan
+                                @can('delete', $post)
+                                    <form method="POST" action="{{ route('posts.destroy', $post) }}" onsubmit="return confirm('Delete this post?')">@csrf @method('DELETE')
+                                        <x-ui.button type="submit" variant="danger-ghost" size="sm">Delete</x-ui.button>
+                                    </form>
+                                @endcan
+                                @auth
+                                    <form method="POST" action="{{ route('reports.store') }}" class="ml-auto">@csrf
+                                        <input type="hidden" name="post_id" value="{{ $post->id }}">
+                                        <x-ui.button type="submit" variant="ghost" size="sm">
+                                            <x-ui.icon name="flag" class="h-4 w-4" /> Report
+                                        </x-ui.button>
+                                    </form>
+                                @endauth
+                            </footer>
+                        </div>
+                    </div>
                 </x-ui.card>
             @endforeach
         </div>
