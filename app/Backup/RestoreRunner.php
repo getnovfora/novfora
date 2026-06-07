@@ -9,13 +9,14 @@ namespace App\Backup;
 use App\Install\Installer;
 use App\Support\Audit;
 use App\Upgrade\SchemaState;
+use App\Upgrade\UpgradeRunner;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 /**
  * The no-SSH restore orchestrator (RH-11). Wraps {@see RestoreService} in the same backup-first,
- * maintenance-safe choreography the RH-10 {@see \App\Upgrade\UpgradeRunner} gives the auto-upgrade, so the
+ * maintenance-safe choreography the RH-10 {@see UpgradeRunner} gives the auto-upgrade, so the
  * Admin → System → Backups panel finally has a recovery path that does not require a shell. CLI and panel
  * share THIS one path.
  *
@@ -230,7 +231,9 @@ class RestoreRunner
 
             return RestoreResult::success($name, $durationMs, $safety, $report['db_driver']);
         } finally {
-            if ($src !== null && is_file($src)) {
+            // $src is a string here (the catch above returns on a staging failure), so a null check is dead;
+            // is_file() is the meaningful guard before unlinking the private temp copy.
+            if (is_file($src)) {
                 @unlink($src);
             }
         }

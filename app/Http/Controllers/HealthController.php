@@ -43,7 +43,7 @@ class HealthController extends Controller
         // does not (it's visible in the schema/restore blocks — how the owner/Cowork watch a live no-SSH
         // upgrade (RH-10) or restore (RH-11) without logging in).
         $degraded = ! $cache['ok'] || ($queue['ok'] === false)
-            || ($schemaBlock['stuck'] ?? false) || ($restoreBlock['stuck'] ?? false);
+            || $schemaBlock['stuck'] || $restoreBlock['stuck'];
 
         $status = $down ? 'down' : ($degraded ? 'degraded' : 'ok');
 
