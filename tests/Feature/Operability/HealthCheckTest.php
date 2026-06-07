@@ -5,6 +5,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\HealthController;
+use App\Upgrade\SchemaState;
 use Illuminate\Support\Facades\Cache;
 
 /*
@@ -38,6 +39,26 @@ it('flags a stale queue heartbeat as degraded', function () {
 
     $res->assertOk()->assertJsonPath('status', 'degraded');
     expect($res->json('checks.queue.ok'))->toBeFalse();
+});
+
+it('reports the no-SSH upgrade (schema) block (RH-10)', function () {
+    $res = $this->getJson('/health');
+
+    $res->assertOk()->assertJsonStructure([
+        'schema' => ['pending', 'upgrading', 'stuck', 'auto', 'last'],
+    ]);
+    expect($res->json('schema.pending'))->toBeFalse();
+    expect($res->json('schema.upgrading'))->toBeFalse();
+    expect($res->json('schema.stuck'))->toBeFalse();
+});
+
+it('degrades when an auto-upgrade is stuck (operator-actionable)', function () {
+    app(SchemaState::class)->put(['stuck' => true]);
+
+    $res = $this->getJson('/health');
+
+    $res->assertOk()->assertJsonPath('status', 'degraded');
+    expect($res->json('schema.stuck'))->toBeTrue();
 });
 
 it('never exposes credentials in the payload', function () {

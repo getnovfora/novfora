@@ -205,6 +205,43 @@ return [
         'db_method' => env('HEARTH_BACKUP_DB_METHOD', 'auto'),        // auto | php | shell
     ],
 
+    // ── Operability — no-SSH automatic upgrade (RH-10 / ADR-0021) ──────────────────────────────────
+    // Keeps getting-started §5's promise true on the baseline tier: extract a new release over a live
+    // install and the schema migrates itself via the single cron line — no SSH, behind a backup-first,
+    // maintenance-safe window. The mechanism lives in App\Upgrade (SchemaState + UpgradeRunner).
+    'upgrade' => [
+        // The documented promise. true = the scheduler applies pending migrations automatically (and
+        // gates requests behind a branded maintenance 503 during the ≤~2-minute window, so new code can
+        // never 500 a signed-in page on a column the DB doesn't have yet). false = MANUAL mode: nothing
+        // auto-runs; an admin applies via Admin → System → Upgrade (or `php artisan hearth:upgrade`).
+        // ASYMMETRY (see docs): auto mode is what protects signed-in pages from new-column 500s — manual
+        // mode does not gate the whole site (so the admin can reach the panel), so signed-in pages MAY
+        // error until the operator applies. Auto is the default for exactly this reason.
+        'auto' => (bool) env('HEARTH_AUTO_UPGRADE', true),
+
+        // The upgrade run takes this cache lock so it can never double-run across overlapping cron ticks
+        // (belt-and-braces with the schedule's withoutOverlapping). Long enough that a real migration
+        // finishes within it; if the process is KILLED mid-run the lock auto-expires and the next tick
+        // safely resumes (migrations are idempotent — already-applied ones are skipped).
+        'lock_seconds' => (int) env('HEARTH_UPGRADE_LOCK_SECONDS', 600),
+
+        // Automatic-mode failure policy: attempt at most this many times across cron ticks, then HOLD
+        // for the operator (health → schema.stuck, a branded maintenance page with the recovery hint).
+        // "No retry loop" — 2 = the initial attempt plus one retry. A human (admin panel / CLI) can
+        // always retry past this; the cap only bounds the unattended loop.
+        'max_auto_attempts' => (int) env('HEARTH_UPGRADE_MAX_ATTEMPTS', 2),
+
+        // Retry-After (seconds) on the maintenance 503 — a hint to browsers/monitors to come back after
+        // roughly one cron interval, since the window self-heals on the next tick.
+        'retry_after' => (int) env('HEARTH_UPGRADE_RETRY_AFTER', 30),
+
+        // Migration source paths used BOTH for cheap pending-detection (the code fingerprint) and for the
+        // upgrade run itself, so detection and execution can never disagree. Default: the app's migrations.
+        // Overridable mainly so tests can point at a fixture migration; module/theme paths (Phase 2) extend
+        // this list. Keep these absolute.
+        'migration_paths' => [database_path('migrations')],
+    ],
+
     // ── Public storage publishing (avatars/covers) ───────────────────────────────────────────────
     // `php artisan hearth:storage:publish` (and the installer) make uploaded public files reachable at
     // public/storage. A real symlink is preferred; where the host forbids symlink() the files are COPIED

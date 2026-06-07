@@ -8,6 +8,7 @@ namespace App\Http\Controllers;
 
 use App\Install\Installer;
 use App\Services\Tier\ServiceTier;
+use App\Upgrade\SchemaState;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -27,14 +28,18 @@ class HealthController extends Controller
     /** A heartbeat the queue-drain schedule refreshes each run; staleness => the cron may have stopped. */
     public const QUEUE_HEARTBEAT = 'hearth:health:queue_drained_at';
 
-    public function __invoke(ServiceTier $tier, Installer $installer): JsonResponse
+    public function __invoke(ServiceTier $tier, Installer $installer, SchemaState $schema): JsonResponse
     {
         $db = $this->checkDatabase();
         $cache = $this->checkCache();
         $queue = $this->checkQueue($db['ok']);
+        $schemaBlock = $this->schemaBlock($schema);
 
         $down = ! $db['ok'];
-        $degraded = ! $cache['ok'] || ($queue['ok'] === false);
+        // A stuck auto-upgrade is a real, operator-actionable problem, so it shows as degraded; a merely
+        // pending/in-progress upgrade is transient and self-healing, so it does not (it's visible in the
+        // schema block, which is how the owner/Cowork watch a live no-SSH upgrade — RH-10).
+        $degraded = ! $cache['ok'] || ($queue['ok'] === false) || ($schemaBlock['stuck'] ?? false);
 
         $status = $down ? 'down' : ($degraded ? 'degraded' : 'ok');
 
@@ -49,8 +54,23 @@ class HealthController extends Controller
                 'cache' => $cache,
                 'queue' => $queue,
             ],
+            'schema' => $schemaBlock,
             'time' => now()->toIso8601String(),
         ], $down ? 503 : 200);
+    }
+
+    /**
+     * The no-SSH upgrade state (RH-10): is the schema behind the deployed code, is a run in progress, is a
+     * failed run held for the operator. Never throws and never leaks secrets — booleans + a non-secret
+     * last-run summary only. @return array{pending:bool, upgrading:bool, stuck:bool, auto:bool, last:array|null}
+     */
+    private function schemaBlock(SchemaState $schema): array
+    {
+        try {
+            return $schema->healthBlock();
+        } catch (Throwable) {
+            return ['pending' => false, 'upgrading' => false, 'stuck' => false, 'auto' => true, 'last' => null];
+        }
     }
 
     /** @return array{ok:bool} */

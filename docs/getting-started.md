@@ -103,16 +103,45 @@ copy of your uploaded files, and an integrity manifest. They're kept to the newe
   php artisan hearth:restore storage/backups/hearth-YYYYmmdd-HHMMSS.zip
   ```
 
-Because migrations are **reversible**, upgrading never requires manual database surgery — and a backup is
-your safety net. The recommended upgrade rehearsal: take a backup, deploy the new version (it migrates
-automatically), and if anything looks wrong, `hearth:restore` returns you to the exact prior state.
+### Upgrading (no SSH needed)
+
+To upgrade, **extract the new release zip over your existing install — that's the only step.** Hearth
+notices the new code carries database changes and migrates itself from the same cron line that runs
+everything else. Concretely, with `HEARTH_AUTO_UPGRADE=true` (the default):
+
+1. You upload/extract the new version. For up to ~2 minutes the site may show a brief, branded
+   **"Just a moment…"** maintenance page (it refreshes itself). This window is what stops a half-upgraded
+   site from throwing database errors on a column the schema doesn't have yet.
+2. On its next run (within one cron interval) the scheduler **takes a backup first** — your pre-upgrade
+   restore point — then applies the pending migrations, clears caches, and lifts the maintenance page.
+3. You're back, on the new version. The pre-upgrade snapshot is in *Admin → System → Backups*.
+
+You can watch it happen without logging in: **`GET /health`** has a `schema` block —
+`{"pending": …, "upgrading": …, "stuck": …}` — and `schema.pending` flips `true → false` as the upgrade
+completes (no secrets, so it's safe to poll from a monitor).
+
+**Manual mode.** Set `HEARTH_AUTO_UPGRADE=false` to apply upgrades yourself instead — via
+*Admin → System → Upgrade* (**Apply pending migrations**, admin + 2FA + confirm) or
+`php artisan hearth:upgrade`. **Note the asymmetry:** automatic mode applies the upgrade behind one clean
+maintenance window; manual mode keeps the site live on a **partly-migrated schema**, so actions that touch
+the new schema can error **until** you apply (e.g. saving a setting the new release adds, or — for a release
+that drops/renames a column — pages that read it). The admin panel itself stays reachable so you can get
+there and apply. Leave automatic mode on unless you specifically want manual control.
+
+**If an upgrade gets stuck.** A failed migration holds the site in maintenance (it does **not** retry in a
+loop) — `GET /health` shows `schema.stuck: true` and the maintenance page names the pre-upgrade backup. To
+recover, no SSH required: **re-upload the previous release zip** (the code then matches the rolled-back
+schema and the site comes back on its own within a cron tick). If you have shell access you can instead
+restore the pre-upgrade backup with `php artisan hearth:restore storage/backups/hearth-…zip`. Because
+migrations are **reversible**, neither path requires manual database surgery.
 
 ---
 
 ## 6. Health checks
 
-`GET /health` returns a compact JSON status (database, cache, queue freshness, tier, install state) for
-uptime monitoring — `200` when healthy, `503` when the database is unreachable. It exposes no secrets.
+`GET /health` returns a compact JSON status (database, cache, queue freshness, tier, install state, and a
+`schema` upgrade block — see §5) for uptime monitoring — `200` when healthy, `503` when the database is
+unreachable, `degraded` when an auto-upgrade is stuck. It exposes no secrets.
 
 ---
 

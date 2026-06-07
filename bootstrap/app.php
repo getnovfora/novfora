@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureNotInstalled;
+use App\Http\Middleware\PreventRequestsDuringUpgrade;
 use App\Http\Middleware\RedirectIfNotInstalled;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
@@ -22,6 +23,10 @@ return Application::configure(basePath: dirname(__DIR__))
             // Emit the baseline security headers (CSP, nosniff, frame-ancestors, HSTS-on-TLS) on every
             // web response, before and after install (security §4).
             SecurityHeaders::class,
+            // Serve a branded maintenance 503 — never a raw SQL error — while a no-SSH upgrade applies
+            // pending migrations (RH-10). Appended AFTER SecurityHeaders so the 503 still carries them;
+            // the decision is O(cache-read) — no DB-heavy migrator/schema check on the request path.
+            PreventRequestsDuringUpgrade::class,
         ]);
 
         // The installer lock — applied to the installer routes so they 403 once installed.

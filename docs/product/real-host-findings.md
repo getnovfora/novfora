@@ -301,6 +301,49 @@ alternating. `laravel.log` (15 identical entries, authed AND anonymous):
 - `tests/Feature/Smoke/PublicRoutesSmokeTest.php` — installed + demo seed, every public route returns no 5xx
   **twice** through a serializing store (the cheap net that catches this whole miss-ok / hit-500 class early).
 
+### ⭐ RH-10 — "it migrates automatically" was never implemented — FIXED (ADR-0021)
+**Found (doc-vs-reality audit, pre-deploy):** `docs/getting-started.md` §5 promised "deploy the new version
+(it migrates automatically)", but **nothing implemented it.** The only `migrate` call was in `InstallRunner`
+(install time); the scheduler had no upgrade task. A no-SSH operator who extracts a new release over a live
+install runs **new code against the old schema, with no way to migrate** — concretely, the themed release
+adds `users.color_mode`/`density`; until they're applied, **saving Appearance settings errors** (a write to a
+column that isn't there yet), and any future release that drops/renames/retypes a column the request path
+reads would break pages site-wide — with the operator stranded on a half-deployed site and no no-SSH recourse.
+(Additive reads degrade gracefully — `$user->color_mode` is `null` pre-migration, strict mode off — so it
+isn't "every page 500s"; the gap is the *missing migrate path itself*, which any non-trivial schema change
+turns into a real outage.) A beta gate that blocked the themed live deploy.
+
+**Fix (this pass) — a cron-driven, backup-first, maintenance-safe automatic migration (`App\Upgrade`):**
+- **Detection** — `SchemaState`: an O(cache-read) request-path check (cached flag + a release-**fingerprint**
+  = sha256 of the deployed migration filenames; a glob, no DB) that gates the moment new code lands, refreshed
+  by the scheduler tick's real `migrator` check. `GET /health` gains a non-secret `schema` block
+  (`pending`/`upgrading`/`stuck`/`auto`/`last`) — how the owner & Cowork watch a live upgrade without SSH.
+- **The run** — `UpgradeRunner` (every minute, `withoutOverlapping` + a cache lock): enter maintenance →
+  **backup first** (failure aborts) → `migrate --force` in-process → refresh caches → exit maintenance →
+  audit-log. A coarse-cron kill resumes idempotently on the next tick.
+- **The window** — `PreventRequestsDuringUpgrade` serves a branded **503** (Retry-After, self-refreshing)
+  instead of a SQL error, except `/health` + assets.
+- **Failure** — best-effort roll back **this run's** batch only; stay in maintenance; **hold**
+  (`schema.stuck`, no retry loop) after ≤`max_auto_attempts`; the maintenance page names the pre-upgrade
+  backup; the hold self-clears when the operator re-uploads the previous release.
+- **Controls** — `HEARTH_AUTO_UPGRADE=true` by default; `false` = manual (*Admin → System → Upgrade* /
+  `php artisan hearth:upgrade`). Documented asymmetry: auto mode protects signed-in pages; manual mode keeps
+  the site reachable so the admin can apply.
+
+**Coverage** — `tests/Feature/Operability/{AutoUpgradeTest,SchemaStateTest,UpgradeMaintenanceTest,AdminUpgradePanelTest}.php`
++ extended `SchedulerTest`/`HealthCheckTest`: detection on/off · lock prevents concurrent · backup→migrate
+ordering & backup-abort · failure→rollback + maintenance retained + health `stuck` · `AUTO_UPGRADE=false` →
+no auto-run + admin/CLI apply works · `/health` schema block · requests during the window get 503-maintenance,
+not SQL errors. An **adversarial multi-lens review** of the diff then found + fixed two HIGH hard-kill
+failure modes (a 24h scheduler overlap-mutex that could strand the auto-upgrade for a day; a `upgrading` flag
+left by a process killed mid-run that wedged the site at 503) plus 4 nits. Suite **Pest 381 passed / 1
+skipped (1295 assertions)**; Pint + Larastan + `composer audit` clean; `assets-fresh` reproduces the
+committed bundle. Bundle rebuilt + cold-boot-verified (`RELEASE_VERIFY=PASS`, `GET / → 302 /install`):
+`hearth-release.zip` **12,813,544 bytes**, sha256
+`451def6a40c3aed76ff3c3dfc235bc221a0c0ae39d2db5d101f3368ea2c30b5d`. **This is the mechanism that makes the
+themed live deploy safe** — deploying that bundle onto the live site is RH-10's first real-world validation
+(the appearance migration applies itself via cron).
+
 ## Next
 
 1. **RH-7 / RH-8 / RH-9 — all FIXED + the bundle rebuilt (this pass).** The live-host install completed
