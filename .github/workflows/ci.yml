@@ -118,10 +118,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Composer/vendor is REQUIRED for a faithful asset build: resources/css/app.css @source's the
+      # framework's Pagination Blade (vendor/laravel/framework/...), so a vendor-LESS build silently drops
+      # those utility classes and the committed assets (always built WITH vendor) could never match — the
+      # assets-fresh guard would false-fail (RH-5).
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          coverage: none
+      - run: composer install --no-interaction --no-progress --prefer-dist
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
       - run: npm ci
+      # Deterministic Tailwind sources: app.css also @source's compiled Blade (storage/framework/views).
+      # A fresh checkout has none; clear defensively so the build can't ingest stray compiled views.
+      - run: find storage/framework/views -type f -name '*.php' -delete 2>/dev/null || true
       - run: npm run build
       - name: assets-fresh (committed public/build matches a fresh build — RH-5)
         # /public/build is committed BY DESIGN (baseline shared hosts have no Node). This guard fails the
