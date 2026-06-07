@@ -88,32 +88,34 @@ new class extends Component
 };
 ?>
 
-<form wire:submit="save" style="display:flex;flex-direction:column;gap:.6rem">
-    <label style="font-weight:600">Title</label>
-    {{-- .blur syncs on blur (not deferred-until-submit): a value typed after a validation-error morph then
-         reliably reaches the server on resubmit. No autofocus — it re-fires on every morph and fights the
-         editor below for focus. --}}
-    <input type="text" wire:model.blur="title" maxlength="160" dusk="topic-title"
-           style="padding:.55rem;border:1px solid #bbb;border-radius:6px;font-size:1.05rem">
-    @error('title') <p style="color:#b00020;margin:0">{{ $message }}</p> @enderror
+<form wire:submit="save" class="space-y-4">
+    <div class="space-y-1.5">
+        <label for="ct-title" class="block text-sm font-medium text-ink">Title</label>
+        {{-- .blur syncs on blur (not deferred-until-submit): a value typed after a validation-error morph then
+             reliably reaches the server on resubmit. No autofocus — it re-fires on every morph and fights the
+             editor below for focus. --}}
+        <input id="ct-title" type="text" wire:model.blur="title" maxlength="160" dusk="topic-title"
+               class="w-full min-h-11 px-3 rounded-md bg-surface-raised text-ink border border-line focus:border-accent text-lg">
+        @error('title') <p class="text-xs text-danger">{{ $message }}</p> @enderror
+    </div>
 
-    <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="color:#777;font-size:.85rem">Body</span>
-        <button type="button" wire:click="toggleFormat" style="padding:.3rem .6rem;border:1px solid #bbb;border-radius:6px;background:#fff;cursor:pointer;font-size:.8rem">
+    <div class="flex items-center justify-between gap-2">
+        <span class="text-sm text-ink-muted">Body</span>
+        <x-ui.button type="button" variant="ghost" size="sm" wire:click="toggleFormat">
             {{ $format === 'markdown' ? 'Switch to rich text' : 'Switch to Markdown' }}
-        </button>
+        </x-ui.button>
     </div>
 
     @if ($format === 'markdown')
         <textarea wire:model="markdownSource" rows="12" placeholder="Write Markdown…"
-                  style="padding:.6rem;border:1px solid #cfcfd6;border-radius:8px;font-family:ui-monospace,monospace"></textarea>
+                  class="w-full px-3 py-2 rounded-md bg-surface-raised text-ink border border-line focus:border-accent font-mono text-sm"></textarea>
     @else
         <x-content-editor model="canonicalJson" :initial="$canonicalJson"
                           :upload-url="route('attachments.store')" :mention-url="route('mentions')" />
     @endif
-    @error('body') <p style="color:#b00020;margin:0">{{ $message }}</p> @enderror
+    @error('body') <p class="text-xs text-danger">{{ $message }}</p> @enderror
 
     <div>
-        <button type="submit" style="padding:.6rem 1.2rem;border:0;border-radius:6px;background:#2d2a6b;color:#fff;font-size:1rem;cursor:pointer">Post topic</button>
+        <x-ui.button type="submit" size="lg">Post topic</x-ui.button>
     </div>
 </form>

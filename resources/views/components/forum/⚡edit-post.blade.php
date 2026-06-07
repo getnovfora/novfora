@@ -59,22 +59,25 @@ new class extends Component
 };
 ?>
 
-<form wire:submit="save" style="display:flex;flex-direction:column;gap:.6rem">
-    <h1 style="margin:0">Edit post</h1>
+<form wire:submit="save" class="space-y-4">
+    <h1 class="text-2xl font-semibold tracking-tight text-ink">Edit post</h1>
 
     @if ($format === 'markdown')
         <textarea wire:model="markdownSource" rows="12"
-                  style="padding:.6rem;border:1px solid #cfcfd6;border-radius:8px;font-family:ui-monospace,monospace"></textarea>
+                  class="w-full px-3 py-2 rounded-md bg-surface-raised text-ink border border-line focus:border-accent font-mono text-sm"></textarea>
     @else
         <x-content-editor model="canonicalJson" :initial="$canonicalJson"
                           :upload-url="route('attachments.store')" :mention-url="route('mentions')" />
     @endif
+    @error('body') <p class="text-xs text-danger">{{ $message }}</p> @enderror
 
-    <label style="font-size:.85rem;color:#555">Reason for edit (optional)</label>
-    <input type="text" wire:model="reason" maxlength="200"
-           style="padding:.5rem;border:1px solid #bbb;border-radius:6px">
+    <div class="space-y-1.5">
+        <label for="ep-reason" class="block text-sm text-ink-muted">Reason for edit (optional)</label>
+        <input id="ep-reason" type="text" wire:model="reason" maxlength="200"
+               class="w-full min-h-11 px-3 rounded-md bg-surface-raised text-ink border border-line focus:border-accent">
+    </div>
 
     <div>
-        <button type="submit" style="padding:.6rem 1.2rem;border:0;border-radius:6px;background:#2d2a6b;color:#fff;cursor:pointer">Save changes</button>
+        <x-ui.button type="submit">Save changes</x-ui.button>
     </div>
 </form>

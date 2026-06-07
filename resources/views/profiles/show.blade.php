@@ -1,39 +1,68 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 @extends('layouts.app', ['title' => ($user->display_name ?? $user->username).' · '.config('app.name', 'Hearth')])
 
+@section('breadcrumbs')
+    <x-ui.breadcrumbs :items="[
+        ['label' => 'Forums', 'url' => route('forums.index')],
+        ['label' => $user->display_name ?? $user->username],
+    ]" />
+@endsection
+
 @section('content')
-    <main style="max-width:42rem;margin:2rem auto;padding:0 1rem;font-family:system-ui,sans-serif">
-        @if ($user->cover_path)
-            <img src="{{ Storage::disk('public')->url($user->cover_path) }}" alt="" style="width:100%;height:140px;object-fit:cover;border-radius:10px">
-        @endif
-
-        <div style="display:flex;gap:1rem;align-items:center;margin-top:1rem">
-            @if ($user->avatar_path)
-                <img src="{{ Storage::disk('public')->url($user->avatar_path) }}" alt="{{ $user->username }}'s avatar"
-                     style="width:64px;height:64px;border-radius:50%;object-fit:cover">
+    <x-ui.container size="md" class="space-y-5">
+        <x-ui.card flush class="overflow-hidden">
+            @if ($user->cover_path)
+                <img src="{{ Storage::disk('public')->url($user->cover_path) }}" alt=""
+                     class="h-32 w-full object-cover sm:h-44">
+            @else
+                <div class="h-20 w-full bg-surface-sunken sm:h-28" aria-hidden="true"></div>
             @endif
-            <div>
-                <h1 style="margin:0">{{ $user->display_name ?? $user->username }}</h1>
-                <span style="color:#777">&commat;{{ $user->username }} · Trust level {{ (int) $user->trust_level }}</span>
+
+            <div class="px-4 pb-5 sm:px-6">
+                <div class="-mt-10 flex flex-col gap-3 sm:-mt-12 sm:flex-row sm:items-end">
+                    <x-ui.avatar :user="$user" size="xl" class="ring-4 ring-surface-raised" />
+                    <div class="min-w-0 sm:pb-1">
+                        <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ $user->display_name ?? $user->username }}</h1>
+                        <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
+                            <span>{{ '@'.$user->username }}</span>
+                            <span class="text-ink-subtle" aria-hidden="true">·</span>
+                            <x-ui.badge variant="accent">Trust level <span class="nums">{{ (int) $user->trust_level }}</span></x-ui.badge>
+                        </p>
+                    </div>
+                </div>
             </div>
-        </div>
+        </x-ui.card>
 
-        @foreach ($fields as $field)
-            @php($value = $values->get($field->id)?->value)
-            @if ($value)
-                <p style="margin:.4rem 0"><strong>{{ $field->label }}:</strong>
-                    @if ($field->type === 'url' && \Illuminate\Support\Str::startsWith($value, ['http://', 'https://']))
-                        <a href="{{ $value }}" rel="nofollow noopener noreferrer">{{ $value }}</a>
-                    @else
-                        {{ $value }}
-                    @endif
-                </p>
-            @endif
-        @endforeach
+        @php($hasFields = $fields->contains(fn ($field) => filled($values->get($field->id)?->value)))
+        @if ($hasFields)
+            <x-ui.card class="space-y-3">
+                <h2 class="text-sm font-semibold text-ink">About</h2>
+                <dl class="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+                    @foreach ($fields as $field)
+                        @php($value = $values->get($field->id)?->value)
+                        @if ($value)
+                            <div class="space-y-0.5">
+                                <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">{{ $field->label }}</dt>
+                                <dd class="text-sm text-ink">
+                                    @if ($field->type === 'url' && \Illuminate\Support\Str::startsWith($value, ['http://', 'https://']))
+                                        <a href="{{ $value }}" rel="nofollow noopener noreferrer"
+                                           class="text-accent hover:text-accent-hover break-words">{{ $value }}</a>
+                                    @else
+                                        {{ $value }}
+                                    @endif
+                                </dd>
+                            </div>
+                        @endif
+                    @endforeach
+                </dl>
+            </x-ui.card>
+        @endif
 
         @if ($user->signature_html)
-            <hr style="margin:1.2rem 0;border:0;border-top:1px solid var(--hearth-border, #e3e3ea)">
-            <div class="hearth-prose" style="color:#555">{!! $user->signature_html !!}</div>
+            <x-ui.card class="space-y-2">
+                <h2 class="text-sm font-semibold text-ink">Signature</h2>
+                <div class="hearth-prose text-ink-muted">{!! $user->signature_html !!}</div>
+            </x-ui.card>
         @endif
-    </main>
+    </x-ui.container>
 @endsection

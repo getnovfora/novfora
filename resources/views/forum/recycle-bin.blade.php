@@ -1,31 +1,52 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 @extends('layouts.app', ['title' => 'Recycle bin · '.config('app.name', 'Hearth')])
 
+@section('breadcrumbs')
+    <x-ui.breadcrumbs :items="[
+        ['label' => 'Moderation', 'url' => route('moderation.dashboard')],
+        ['label' => 'Recycle bin'],
+    ]" />
+@endsection
+
 @section('content')
-    <main style="max-width:48rem;margin:2rem auto;padding:0 1rem;font-family:system-ui,sans-serif">
-        <h1>Recycle bin</h1>
-        <p style="color:#777">Soft-deleted content you can restore. Hard purge is a separate, audited maintenance job.</p>
+    <x-ui.container size="md" class="space-y-6">
+        <div>
+            <h1 class="text-2xl font-semibold tracking-tight text-ink">Recycle bin</h1>
+            <p class="mt-1 text-sm text-ink-muted">Soft-deleted content you can restore. Hard purge is a separate, audited maintenance job.</p>
+        </div>
 
-        <h2 style="font-size:1.1rem;margin-top:1.5rem">Deleted topics</h2>
-        @forelse ($topics as $topic)
-            <div style="display:flex;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid #f0f0f3">
-                <span>{{ $topic->title }} <span style="color:#999">in {{ $topic->forum?->title }}</span></span>
-                <form method="POST" action="{{ route('topics.restore', $topic->id) }}">@csrf
-                    <button style="padding:.25rem .6rem;border:1px solid #7cc47c;border-radius:6px;background:#fff;color:#1a7a1a;cursor:pointer;font-size:.8rem">Restore</button></form>
-            </div>
-        @empty
-            <p style="color:#999">No deleted topics.</p>
-        @endforelse
+        <section class="space-y-2">
+            <h2 class="text-sm font-semibold text-ink">Deleted topics</h2>
+            <x-ui.card flush>
+                @forelse ($topics as $topic)
+                    <div class="flex items-center justify-between gap-3 px-4 py-3 @if (! $loop->first) border-t border-line @endif">
+                        <span class="text-sm text-ink">{{ $topic->title }}
+                            <span class="text-ink-subtle">in {{ $topic->forum?->title }}</span></span>
+                        <form method="POST" action="{{ route('topics.restore', $topic->id) }}">@csrf
+                            <x-ui.button type="submit" variant="ghost" size="sm">Restore</x-ui.button>
+                        </form>
+                    </div>
+                @empty
+                    <x-ui.empty title="No deleted topics">Topics you remove will rest here until restored or purged.</x-ui.empty>
+                @endforelse
+            </x-ui.card>
+        </section>
 
-        <h2 style="font-size:1.1rem;margin-top:1.5rem">Deleted posts</h2>
-        @forelse ($posts as $post)
-            <div style="display:flex;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid #f0f0f3">
-                <span>Post #{{ $post->id }} <span style="color:#999">in {{ $post->topic?->title }}</span></span>
-                <form method="POST" action="{{ route('posts.restore', $post->id) }}">@csrf
-                    <button style="padding:.25rem .6rem;border:1px solid #7cc47c;border-radius:6px;background:#fff;color:#1a7a1a;cursor:pointer;font-size:.8rem">Restore</button></form>
-            </div>
-        @empty
-            <p style="color:#999">No deleted posts.</p>
-        @endforelse
-    </main>
+        <section class="space-y-2">
+            <h2 class="text-sm font-semibold text-ink">Deleted posts</h2>
+            <x-ui.card flush>
+                @forelse ($posts as $post)
+                    <div class="flex items-center justify-between gap-3 px-4 py-3 @if (! $loop->first) border-t border-line @endif">
+                        <span class="text-sm text-ink">Post #{{ $post->id }}
+                            <span class="text-ink-subtle">in {{ $post->topic?->title }}</span></span>
+                        <form method="POST" action="{{ route('posts.restore', $post->id) }}">@csrf
+                            <x-ui.button type="submit" variant="ghost" size="sm">Restore</x-ui.button>
+                        </form>
+                    </div>
+                @empty
+                    <x-ui.empty title="No deleted posts">Removed posts can be restored from here.</x-ui.empty>
+                @endforelse
+            </x-ui.card>
+        </section>
+    </x-ui.container>
 @endsection
