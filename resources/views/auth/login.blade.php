@@ -2,26 +2,27 @@
 @extends('layouts.auth', ['authTitle' => 'Sign in'])
 
 @section('auth')
-    <form method="POST" action="{{ route('login') }}">
+    <form method="POST" action="{{ route('login') }}" class="space-y-4">
         @csrf
 
-        <label for="email" style="display:block;margin:.6rem 0 .2rem;font-size:.85rem;color:#444">Email</label>
-        <input id="email" name="email" type="email" value="{{ old('email') }}" required autofocus autocomplete="username"
-               style="width:100%;box-sizing:border-box;padding:.5rem;border:1px solid #bbb;border-radius:6px">
+        <x-ui.input label="Email" name="email" type="email" :value="old('email')" required autofocus autocomplete="username" />
 
-        <label for="password" style="display:block;margin:.6rem 0 .2rem;font-size:.85rem;color:#444">Password</label>
-        <input id="password" name="password" type="password" required autocomplete="current-password"
-               style="width:100%;box-sizing:border-box;padding:.5rem;border:1px solid #bbb;border-radius:6px">
+        <x-ui.input label="Password" name="password" type="password" required autocomplete="current-password" />
 
-        <label style="display:flex;align-items:center;gap:.4rem;margin-top:.7rem;font-size:.9rem;color:#444">
-            <input type="checkbox" name="remember"> Remember me
+        <label class="flex items-center gap-2.5 text-sm text-ink">
+            <input type="checkbox" name="remember"
+                   class="h-4 w-4 rounded-sm border-line text-accent focus:ring-accent">
+            Remember me
         </label>
 
-        <button type="submit" style="margin-top:1rem;width:100%;padding:.6rem;border:0;border-radius:6px;background:#2d2a6b;color:#fff;font-size:1rem;cursor:pointer">Sign in</button>
+        <x-ui.button type="submit" size="lg" class="w-full">Sign in</x-ui.button>
     </form>
 
-    <p style="margin-top:1rem;font-size:.9rem;color:#555">
-        <a href="{{ route('password.request') }}">Forgot your password?</a>
-        @if (Route::has('register')) &middot; <a href="{{ route('register') }}">Create an account</a> @endif
+    <p class="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
+        <a href="{{ route('password.request') }}" class="text-accent hover:underline">Forgot your password?</a>
+        @if (Route::has('register'))
+            <span class="text-ink-subtle" aria-hidden="true">&middot;</span>
+            <a href="{{ route('register') }}" class="text-accent hover:underline">Create an account</a>
+        @endif
     </p>
 @endsection

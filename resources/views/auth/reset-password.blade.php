@@ -2,22 +2,16 @@
 @extends('layouts.auth', ['authTitle' => 'Choose a new password'])
 
 @section('auth')
-    <form method="POST" action="{{ route('password.update') }}">
+    <form method="POST" action="{{ route('password.update') }}" class="space-y-4">
         @csrf
         <input type="hidden" name="token" value="{{ $request->route('token') }}">
 
-        <label for="email" style="display:block;margin:.6rem 0 .2rem;font-size:.85rem;color:#444">Email</label>
-        <input id="email" name="email" type="email" value="{{ old('email', $request->input('email')) }}" required autofocus autocomplete="email"
-               style="width:100%;box-sizing:border-box;padding:.5rem;border:1px solid #bbb;border-radius:6px">
+        <x-ui.input label="Email" name="email" type="email" :value="old('email', $request->input('email'))" required autofocus autocomplete="email" />
 
-        <label for="password" style="display:block;margin:.6rem 0 .2rem;font-size:.85rem;color:#444">New password</label>
-        <input id="password" name="password" type="password" required autocomplete="new-password"
-               style="width:100%;box-sizing:border-box;padding:.5rem;border:1px solid #bbb;border-radius:6px">
+        <x-ui.input label="New password" name="password" type="password" required autocomplete="new-password" />
 
-        <label for="password_confirmation" style="display:block;margin:.6rem 0 .2rem;font-size:.85rem;color:#444">Confirm new password</label>
-        <input id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password"
-               style="width:100%;box-sizing:border-box;padding:.5rem;border:1px solid #bbb;border-radius:6px">
+        <x-ui.input label="Confirm new password" name="password_confirmation" type="password" required autocomplete="new-password" />
 
-        <button type="submit" style="margin-top:1rem;width:100%;padding:.6rem;border:0;border-radius:6px;background:#2d2a6b;color:#fff;font-size:1rem;cursor:pointer">Reset password</button>
+        <x-ui.button type="submit" size="lg" class="w-full">Reset password</x-ui.button>
     </form>
 @endsection
