@@ -92,12 +92,15 @@ class UpgradeRunner
         }
 
         $this->schema->refresh();
-        $this->schema->clearStuck();
 
         if (! $this->schema->isPending()) {
+            $this->schema->clearStuck(); // operator confirmed nothing is pending → clear any stale hold
+
             return UpgradeResult::skipped('up-to-date');
         }
 
+        // NB: the stuck hold is cleared inside execute() (under the lock), not here — so a run that loses
+        // the lock race ('locked') never resets the operator hold / the unattended retry cap.
         return $this->runLocked(auto: false);
     }
 
@@ -113,6 +116,12 @@ class UpgradeRunner
 
     private function execute(bool $auto): UpgradeResult
     {
+        // A human-initiated run resets the unattended retry cap — but only now that we hold the lock, so a
+        // run that lost the lock race never clears the operator's stuck hold.
+        if (! $auto) {
+            $this->schema->clearStuck();
+        }
+
         // TOCTOU re-check under the lock with the authoritative DB read.
         $pending = $this->schema->pendingMigrationNames();
         if ($pending === []) {

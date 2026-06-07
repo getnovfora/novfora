@@ -73,6 +73,10 @@ new class extends Component
     {
         $user = auth()->user();
         abort_unless($user instanceof User && $user->canDo('admin.access', Scope::global()), 403);
+        // Defense in depth: re-assert the staff-2FA gate here too. The route group enforces it at page load,
+        // but Livewire actions reach the component via livewire/update (no route middleware), so — like the
+        // admin.access check above — the destructive apply() action self-guards rather than trusting the route.
+        abort_if($user->isStaff() && $user->two_factor_confirmed_at === null, 403);
     }
 };
 ?>

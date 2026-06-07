@@ -63,6 +63,21 @@ it('does not gate a merely-pending state in manual mode (the documented asymmetr
     expect($schema->shouldGateRequests())->toBeFalse(); // operator manages it; the panel stays reachable
 });
 
+it('self-expires a stale upgrading flag (hard-kill resilience)', function () {
+    $schema = app(SchemaState::class);
+    $window = (int) config('hearth.upgrade.lock_seconds', 600);
+
+    $schema->refresh();  // nothing pending: pending=false, fingerprint stamped (isolates the upgrading check)
+    $schema->beginRun(); // stamps upgrading_at = now
+    expect($schema->isUpgrading())->toBeTrue();
+    expect($schema->shouldGateRequests())->toBeTrue();
+
+    // Simulate a process killed mid-run long ago: the flag is still set but past the lock window.
+    $schema->put(['upgrading_at' => now()->subSeconds($window + 60)->timestamp]);
+    expect($schema->isUpgrading())->toBeFalse();
+    expect($schema->shouldGateRequests())->toBeFalse();
+});
+
 it('never gates a fresh, never-checked install', function () {
     $schema = app(SchemaState::class);
     $schema->forget(); // no state recorded yet

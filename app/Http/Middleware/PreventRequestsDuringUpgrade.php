@@ -14,7 +14,8 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Serve a branded maintenance 503 — never a raw SQL error — while the schema is behind the deployed code
  * (RH-10 / ADR-0021, kickoff §3). The decision is O(cache-read): {@see SchemaState::shouldGateRequests()}
- * reads a cached flag + a glob fingerprint, never the database, so the request path stays cheap.
+ * reads a cached flag + a glob fingerprint — no DB-heavy migrator/schema check — so the request path stays
+ * cheap (a one-time bootstrap on a never-checked, installed site is the only exception, and it self-caches).
  *
  * The gate engages in AUTOMATIC mode (the default) for the ≤~2-minute window from a no-SSH deploy until
  * the cron-driven upgrade completes, and whenever a run is in progress or a failed run is held for the

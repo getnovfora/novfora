@@ -15,9 +15,10 @@ use Throwable;
  *
  * Two read budgets, deliberately split:
  *  • The REQUEST path ({@see shouldGateRequests()}, {@see isPending()}) must stay cheap — a cache read
- *    plus a glob+sha1 of the migration filenames (the "code fingerprint"). It NEVER instantiates the
- *    migrator or queries the migrations table. This is what lets every page decide "is the schema behind
- *    the deployed code?" without a per-request DB-heavy check (perf budget, kickoff §1).
+ *    plus a glob+sha1 of the migration filenames (the "code fingerprint"). It does NOT run the migrator's
+ *    DB-heavy schema check or query the migrations table (it only resolves the migrator singleton to read
+ *    its in-memory path list — no DB). This is what lets every page decide "is the schema behind the
+ *    deployed code?" without a per-request DB-heavy check (perf budget, kickoff §1).
  *  • The SCHEDULER path ({@see refresh()}, {@see hasPendingMigrations()}) may do the real, DB-heavy check
  *    (it runs once a minute from the single cron line, not on a request).
  *
@@ -45,6 +46,9 @@ final class SchemaState
     /** One cache key holds the whole state (one O(1) read on the request path). */
     public const KEY = 'hearth:schema:state';
 
+    /** Non-blocking lock so only one request performs the empty-state bootstrap check (no stampede). */
+    private const BOOTSTRAP_LOCK = 'hearth:schema:bootstrap';
+
     /** @var array<string,string> memoised fingerprints, keyed by the joined migration paths */
     private static array $fingerprintMemo = [];
 
@@ -71,13 +75,15 @@ final class SchemaState
                 if (! app(Installer::class)->isInstalled()) {
                     return false;
                 }
-                $this->refresh();
+                // One request does the authoritative check; concurrent first-requests fall open for that
+                // instant (reads are null-safe, so an ungated page can't 500 on a missing column anyway).
+                Cache::lock(self::BOOTSTRAP_LOCK, 10)->get(fn () => $this->refresh());
                 $s = $this->state();
                 if ($s === []) {
                     return false; // refresh couldn't write (DB/cache down) → don't 503 the whole site
                 }
             }
-            if (($s['upgrading'] ?? false) === true) {
+            if ($this->upgradingActive($s)) {
                 return true;  // mid-migration — never serve the app
             }
             if (($s['stuck'] ?? false) === true) {
@@ -101,7 +107,27 @@ final class SchemaState
 
     public function isUpgrading(): bool
     {
-        return ($this->state()['upgrading'] ?? false) === true;
+        return $this->upgradingActive($this->state());
+    }
+
+    /**
+     * Whether a run is GENUINELY in progress — not a stale flag from a hard-killed process. {@see beginRun()}
+     * stamps `upgrading_at`; once that is older than the lock window (the longest a run could hold the upgrade
+     * lock), the flag is treated as expired and ignored. This is what stops a process killed (SIGKILL / OOM /
+     * fatal) between beginRun() and the success/failure record from wedging the whole site at 503 forever —
+     * in automatic mode the next tick re-runs and clears it; in manual mode it self-clears at the window.
+     *
+     * @param  array<string,mixed>  $s
+     */
+    private function upgradingActive(array $s): bool
+    {
+        if (($s['upgrading'] ?? false) !== true) {
+            return false;
+        }
+        $startedAt = (int) ($s['upgrading_at'] ?? 0);
+        $window = max(60, (int) config('hearth.upgrade.lock_seconds', 600));
+
+        return $startedAt > 0 && (now()->timestamp - $startedAt) < $window;
     }
 
     public function isStuck(): bool
@@ -223,10 +249,11 @@ final class SchemaState
 
     // ── State mutation (only the runner calls these, under the upgrade lock) ─────────────────────────
 
-    /** Enter the maintenance window for an in-progress run. */
+    /** Enter the maintenance window for an in-progress run. The timestamp lets the flag self-expire if the
+     * process is hard-killed before it can record success/failure (see {@see upgradingActive()}). */
     public function beginRun(): void
     {
-        $this->put(['upgrading' => true]);
+        $this->put(['upgrading' => true, 'upgrading_at' => now()->timestamp]);
     }
 
     /** A clean run: clear pending/stuck, reset attempts, stamp the fingerprint, record a non-secret summary. */
@@ -293,7 +320,7 @@ final class SchemaState
 
         return [
             'pending' => $this->isPending(),
-            'upgrading' => (bool) ($s['upgrading'] ?? false),
+            'upgrading' => $this->upgradingActive($s),
             'stuck' => (bool) ($s['stuck'] ?? false),
             'auto' => (bool) config('hearth.upgrade.auto', true),
             'last' => is_array($last) ? [

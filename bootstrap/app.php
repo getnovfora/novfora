@@ -25,7 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
             SecurityHeaders::class,
             // Serve a branded maintenance 503 — never a raw SQL error — while a no-SSH upgrade applies
             // pending migrations (RH-10). Appended AFTER SecurityHeaders so the 503 still carries them;
-            // the decision is O(cache-read) and never touches the DB on the request path.
+            // the decision is O(cache-read) — no DB-heavy migrator/schema check on the request path.
             PreventRequestsDuringUpgrade::class,
         ]);
 

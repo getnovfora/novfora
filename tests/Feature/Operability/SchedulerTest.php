@@ -39,4 +39,7 @@ it('registers the no-SSH auto-upgrade tick (RH-10), overlap-guarded', function (
     expect($event)->not->toBeNull();
     // withoutOverlapping() so a long migration on a coarse, overlapping cron can never double-run.
     expect($event->withoutOverlapping)->toBeTrue();
+    // …but with a SHORT, bounded expiry — NOT Laravel's 24h default — so a hard-killed run (which releases
+    // no signal handler) can't strand the auto-upgrade (and the maintenance gate) for up to a day.
+    expect($event->expiresAt)->toBeLessThan(60);
 });

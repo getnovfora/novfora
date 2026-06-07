@@ -22,7 +22,7 @@ beforeEach(function () {
 });
 
 it('serves a branded 503 maintenance page (not a SQL error) while a run is in progress', function () {
-    app(SchemaState::class)->put(['upgrading' => true]);
+    app(SchemaState::class)->beginRun();
 
     $res = $this->get('/forums');
 
@@ -32,13 +32,13 @@ it('serves a branded 503 maintenance page (not a SQL error) while a run is in pr
 });
 
 it('keeps /health reachable during the window so the upgrade can be watched without SSH', function () {
-    app(SchemaState::class)->put(['upgrading' => true]);
+    app(SchemaState::class)->beginRun();
 
     $this->getJson('/health')->assertOk()->assertJsonPath('schema.upgrading', true);
 });
 
 it('returns a 503 JSON body for AJAX/JSON requests during the window', function () {
-    app(SchemaState::class)->put(['upgrading' => true]);
+    app(SchemaState::class)->beginRun();
 
     $res = $this->getJson('/forums');
 
@@ -72,6 +72,18 @@ it('does not gate in manual mode for a merely-pending state (admin can reach the
 
 it('does not gate a normal, up-to-date site', function () {
     app(SchemaState::class)->refresh(); // nothing pending
+
+    $this->get('/forums')->assertOk();
+});
+
+it('treats a stale upgrading flag from a hard-killed run as expired, so the site is never wedged forever', function () {
+    // A process killed between beginRun() and the success/failure record leaves upgrading=true. The
+    // timestamped flag self-expires past the lock window so the site recovers on its own — not a permanent
+    // 503 — even in automatic mode (refresh() first so a missing fingerprint doesn't independently gate).
+    $schema = app(SchemaState::class);
+    $schema->refresh(); // nothing pending: pending=false, fingerprint stamped
+    $window = (int) config('hearth.upgrade.lock_seconds', 600);
+    $schema->put(['upgrading' => true, 'upgrading_at' => now()->subSeconds($window + 60)->timestamp]);
 
     $this->get('/forums')->assertOk();
 });

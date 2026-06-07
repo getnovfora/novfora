@@ -50,10 +50,16 @@ Schedule::call(fn () => app(PublicStorageLinker::class)->refresh())
 // on. withoutOverlapping + the runner's own cache lock mean it can never double-run on a coarse, overlapping
 // cron; a run killed mid-migration is resumed idempotently on the next tick (migrations are per-migration
 // transactional, already-applied ones skipped). Separate from the heartbeat above, which keeps firing.
+//
+// The overlap mutex gets a SHORT, bounded expiry (just over the runner's lock window) — NOT Laravel's 24h
+// default: a process hard-killed mid-run (SIGKILL / OOM / fatal) releases no signal handler, so a 24h mutex
+// would strand the auto-upgrade — and the maintenance gate — for up to a day. The runner's own cache lock is
+// the real double-run guard, so a ~lock-window expiry is enough to let the next tick resume.
+$upgradeMutexMinutes = max(2, (int) ceil(((int) config('hearth.upgrade.lock_seconds', 600)) / 60) + 2);
 Schedule::call(fn () => app(UpgradeRunner::class)->runAutomatic())
     ->everyMinute()
     ->name('hearth-auto-upgrade')
-    ->withoutOverlapping();
+    ->withoutOverlapping($upgradeMutexMinutes);
 
 // Anti-spam trust automation (ADR-0007 §2.3): auto promotion/demotion. Idempotent + overlap-guarded so a
 // long run on a large board never doubles up on a coarse interval.

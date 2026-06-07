@@ -53,10 +53,10 @@
                     <p style="margin:0">
                         A pre-upgrade backup was taken first: <code>{{ $backup }}</code>. With shell access you can
                         restore it with <code>php artisan hearth:restore {{ $backup }}</code>. See
-                        <strong>getting-started §5</strong> for the full recovery steps.
+                        <strong><code>docs/getting-started.md</code> §5</strong> for the full recovery steps.
                     </p>
                 @else
-                    <p style="margin:0">See <strong>getting-started §5</strong> for the full recovery steps.</p>
+                    <p style="margin:0">See <strong><code>docs/getting-started.md</code> §5</strong> for the full recovery steps.</p>
                 @endif
             </div>
         @else
