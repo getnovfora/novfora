@@ -6,12 +6,14 @@ declare(strict_types=1);
 
 namespace App\Backup;
 
+use App\Upgrade\UpgradeResult;
+
 /**
  * The outcome of a restore run (RH-11). `status` is 'success' | 'failed' | 'skipped'. For 'skipped',
  * {@see $reason} is a machine token (not-installed | nothing-pending | locked | stuck). For 'failed',
  * {@see $stage} is 'validate' | 'restore'. No secrets — safe to log / surface to an admin.
  *
- * Mirrors {@see \App\Upgrade\UpgradeResult} so the restore choreography reads like the RH-10 upgrade one.
+ * Mirrors {@see UpgradeResult} so the restore choreography reads like the RH-10 upgrade one.
  */
 final readonly class RestoreResult
 {

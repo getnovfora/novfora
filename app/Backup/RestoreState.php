@@ -6,10 +6,11 @@ declare(strict_types=1);
 
 namespace App\Backup;
 
+use App\Upgrade\SchemaState;
 use Throwable;
 
 /**
- * The state authority for the no-SSH panel restore (RH-11). The sibling of {@see \App\Upgrade\SchemaState},
+ * The state authority for the no-SSH panel restore (RH-11). The sibling of {@see SchemaState},
  * but **file-backed, not cache-backed** — and that is the whole point.
  *
  * WHY A FILE, NOT THE CACHE. A restore OVERWRITES the live database. On the baseline tier the cache,

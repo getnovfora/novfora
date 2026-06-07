@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Backup;
 
+use App\Upgrade\UpgradeRunner;
 use FilesystemIterator;
 use Illuminate\Support\Facades\DB;
 use RecursiveDirectoryIterator;
@@ -23,7 +24,7 @@ use ZipArchive;
  * This is the documented upgrade safety net: take a backup, attempt the upgrade, and if it goes wrong,
  * restore to exactly the prior state (proven by the backup→restore round-trip test).
  *
- * (Not `final` — like {@see RestoreRunner} and {@see \App\Upgrade\UpgradeRunner} — so it can be swapped for a
+ * (Not `final` — like {@see RestoreRunner} and {@see UpgradeRunner} — so it can be swapped for a
  * test double when a caller's failure handling is unit-tested in isolation, e.g. forcing a restore-stage
  * failure to prove the maintenance gate stays up.)
  */

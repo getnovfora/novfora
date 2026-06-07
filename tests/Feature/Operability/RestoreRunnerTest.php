@@ -4,8 +4,10 @@
 
 declare(strict_types=1);
 
+use App\Backup\BackupException;
 use App\Backup\BackupService;
 use App\Backup\RestoreRunner;
+use App\Backup\RestoreService;
 use App\Backup\RestoreState;
 use App\Models\AuditLog;
 use App\Models\User;
@@ -213,9 +215,9 @@ it('holds the site after ANY mid-restore failure — even with default config (t
     $path = $backupDir.DIRECTORY_SEPARATOR.'hearth-20990101-000000.zip';
     @mkdir($backupDir, 0775, true);
     file_put_contents($path, 'staged-bytes');
-    $this->mock(\App\Backup\RestoreService::class, function ($m) {
+    $this->mock(RestoreService::class, function ($m) {
         $m->shouldReceive('validate')->andReturn([]);                       // passes validation
-        $m->shouldReceive('restore')->andThrow(new \App\Backup\BackupException('disk full mid-restore'));
+        $m->shouldReceive('restore')->andThrow(new BackupException('disk full mid-restore'));
     });
 
     $result = app(RestoreRunner::class)->runNow($path);
@@ -284,7 +286,7 @@ it('request() refuses a foreign (non-Hearth) archive up front, without recording
     $zip->close();
 
     expect(fn () => app(RestoreRunner::class)->request('hearth-20300101-000000.zip', null, 'Admin'))
-        ->toThrow(\App\Backup\BackupException::class);
+        ->toThrow(BackupException::class);
     expect(app(RestoreState::class)->isRequested())->toBeFalse(); // nothing queued → gate stays open
 });
 
@@ -293,6 +295,6 @@ it('request() refuses a cross-engine archive up front, without recording a reque
     $crossEngine = basename(unapplicableSqlBackup($backupDir)); // a kind=sql / driver=mysql backup
 
     expect(fn () => app(RestoreRunner::class)->request($crossEngine, null, 'Admin'))
-        ->toThrow(\App\Backup\BackupException::class);
+        ->toThrow(BackupException::class);
     expect(app(RestoreState::class)->isRequested())->toBeFalse();
 });
