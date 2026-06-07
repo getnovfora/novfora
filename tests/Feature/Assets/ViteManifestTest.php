@@ -17,6 +17,11 @@ use Illuminate\Foundation\Vite;
 */
 
 it('renders the app entrypoints to asset URLs that all exist on disk', function () {
+    // Force manifest (production) resolution regardless of a stray gitignored `public/hot` left by
+    // `npm run dev` — otherwise Vite would emit dev-server URLs instead of /build/ hashes and this guard,
+    // which is about the COMMITTED build artifacts, would resolve nothing.
+    app(Vite::class)->useHotFile(storage_path('framework/testing/vite-no-hot-'.uniqid()));
+
     // Exactly what every page's <head> emits via @vite([...]) — resolved through the committed manifest.
     $html = (string) app(Vite::class)(['resources/css/app.css', 'resources/js/app.js']);
 
