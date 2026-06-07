@@ -146,9 +146,12 @@ so the M0–M4 suite is untouched.
 ### ADR-0021 — No-SSH automatic upgrade (RH-10)
 **Context:** `getting-started.md` §5 promised "deploy the new version (it migrates automatically)", but
 nothing implemented it — the only `migrate` call lived in `InstallRunner` (install time). A no-SSH operator
-who extracts a new release over a live install runs **new code against the old schema**: the very next
-themed release adds `users.color_mode`/`density`, which the global layout reads, so **every signed-in page
-would 500** until someone migrated — and there is no way to migrate without SSH. A beta gate.
+who extracts a new release over a live install runs **new code against the old schema, with no way to
+migrate**: the very next themed release adds `users.color_mode`/`density`, so until they're applied, saving
+Appearance settings errors (a write to a missing column) and any future destructive migration (a dropped/
+renamed/retyped read-path column) breaks pages site-wide — with no no-SSH recourse. (Additive *reads*
+degrade to `null` with strict mode off, so it is the missing migrate path, not a guaranteed every-page 500,
+that is the gate.) A beta gate.
 
 **Decision:** a cron-driven, **backup-first, maintenance-safe** automatic migration, in `App\Upgrade`.
 - **Detection (cheap).** `SchemaState` keeps one cache key. The **request path** is O(cache-read): it reads

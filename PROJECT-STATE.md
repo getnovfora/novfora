@@ -552,9 +552,11 @@ clean-room**.
 > **Update 2026-06-07 (RH-10 — no-SSH auto-upgrade: "it migrates automatically" is now TRUE — Code):** built on
 > a branch from **main** (theme PR #3 already merged), per [`rh10-auto-upgrade-kickoff.md`](docs/product/rh10-auto-upgrade-kickoff.md).
 > **The gap:** getting-started §5 promised auto-migration on deploy, but nothing implemented it — the only
-> `migrate` was at install time. Extracting the themed release over a live install would run new code (the
-> appearance migration reads `users.color_mode`/`density` in the global layout) against the old schema →
-> **every signed-in page 500s**, with no no-SSH way to migrate. **Fix (ADR-0021, `App\Upgrade`):** (1)
+> `migrate` was at install time. Extracting the themed release over a live install runs new code against the
+> old schema **with no way to migrate** — saving Appearance settings errors (a write to the not-yet-existing
+> `users.color_mode`/`density`), and any future destructive migration breaks pages site-wide (additive *reads*
+> degrade to `null`, strict mode off — so it's the missing migrate path, not a guaranteed every-page 500,
+> that's the gap). **Fix (ADR-0021, `App\Upgrade`):** (1)
 > **`SchemaState`** — O(cache-read) request-path detection via a cached flag + a release **fingerprint**
 > (sha256 of the deployed migration filenames; a glob, no DB) that gates the instant new code lands (closing
 > the deploy→first-tick window), refreshed by the scheduler tick's real `migrator` check; `GET /health` gains a

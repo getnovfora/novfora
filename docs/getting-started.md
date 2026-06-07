@@ -122,10 +122,11 @@ completes (no secrets, so it's safe to poll from a monitor).
 
 **Manual mode.** Set `HEARTH_AUTO_UPGRADE=false` to apply upgrades yourself instead — via
 *Admin → System → Upgrade* (**Apply pending migrations**, admin + 2FA + confirm) or
-`php artisan hearth:upgrade`. **Note the asymmetry:** automatic mode is what shields signed-in pages
-during the window; in manual mode those pages may error on new columns **until** you apply, because the
-site stays reachable so you can get to the panel. Leave automatic mode on unless you specifically want
-manual control.
+`php artisan hearth:upgrade`. **Note the asymmetry:** automatic mode applies the upgrade behind one clean
+maintenance window; manual mode keeps the site live on a **partly-migrated schema**, so actions that touch
+the new schema can error **until** you apply (e.g. saving a setting the new release adds, or — for a release
+that drops/renames a column — pages that read it). The admin panel itself stays reachable so you can get
+there and apply. Leave automatic mode on unless you specifically want manual control.
 
 **If an upgrade gets stuck.** A failed migration holds the site in maintenance (it does **not** retry in a
 loop) — `GET /health` shows `schema.stuck: true` and the maintenance page names the pre-upgrade backup. To

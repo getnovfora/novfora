@@ -305,9 +305,13 @@ alternating. `laravel.log` (15 identical entries, authed AND anonymous):
 **Found (doc-vs-reality audit, pre-deploy):** `docs/getting-started.md` §5 promised "deploy the new version
 (it migrates automatically)", but **nothing implemented it.** The only `migrate` call was in `InstallRunner`
 (install time); the scheduler had no upgrade task. A no-SSH operator who extracts a new release over a live
-install runs **new code against the old schema** — concretely, the themed release adds
-`users.color_mode`/`density`, which `layouts/app.blade.php` reads, so **every signed-in page would 500** until
-someone migrated, and there was no way to migrate without SSH. A beta gate that blocked the themed live deploy.
+install runs **new code against the old schema, with no way to migrate** — concretely, the themed release
+adds `users.color_mode`/`density`; until they're applied, **saving Appearance settings errors** (a write to a
+column that isn't there yet), and any future release that drops/renames/retypes a column the request path
+reads would break pages site-wide — with the operator stranded on a half-deployed site and no no-SSH recourse.
+(Additive reads degrade gracefully — `$user->color_mode` is `null` pre-migration, strict mode off — so it
+isn't "every page 500s"; the gap is the *missing migrate path itself*, which any non-trivial schema change
+turns into a real outage.) A beta gate that blocked the themed live deploy.
 
 **Fix (this pass) — a cron-driven, backup-first, maintenance-safe automatic migration (`App\Upgrade`):**
 - **Detection** — `SchemaState`: an O(cache-read) request-path check (cached flag + a release-**fingerprint**
