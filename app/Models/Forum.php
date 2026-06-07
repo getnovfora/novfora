@@ -71,6 +71,17 @@ class Forum extends Model
         return $this->hasMany(Topic::class);
     }
 
+    /**
+     * The forum's most-recent topic (read-only; backs the index row's "latest activity" link). The
+     * `last_topic_id` column is already maintained by PostService — this only exposes it for display.
+     *
+     * @return BelongsTo<Topic, $this>
+     */
+    public function lastTopic(): BelongsTo
+    {
+        return $this->belongsTo(Topic::class, 'last_topic_id');
+    }
+
     public function isCategory(): bool
     {
         return $this->type === 'category';

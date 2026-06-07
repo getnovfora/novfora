@@ -1,35 +1,66 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 @extends('layouts.app', ['title' => 'Custom profile fields · '.config('app.name', 'Hearth')])
 
+@section('breadcrumbs')
+    <x-ui.breadcrumbs :items="[
+        ['label' => 'Admin'],
+        ['label' => 'System'],
+        ['label' => 'Custom profile fields'],
+    ]" />
+@endsection
+
 @section('content')
-    <main style="max-width:40rem;margin:2rem auto;padding:0 1rem;font-family:system-ui,sans-serif">
-        <h1>Custom profile fields</h1>
-        @if (session('status'))
-            <p style="color:#1a7a1a">{{ session('status') }}</p>
-        @endif
+    <x-ui.container size="md" class="space-y-6">
+        <div class="space-y-1.5">
+            <h1 class="text-2xl font-semibold tracking-tight text-ink">Custom profile fields</h1>
+            <p class="text-sm text-ink-muted">
+                Extra fields members can fill in on their profile. Add, review, or remove them here.
+            </p>
+        </div>
 
-        @forelse ($fields as $field)
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-bottom:1px solid #f0f0f3">
-                <span><strong>{{ $field->label }}</strong> <span style="color:#999">({{ $field->key }} · {{ $field->type }})</span></span>
-                <form method="POST" action="{{ route('admin.system.profile-fields.destroy', $field) }}">@csrf @method('DELETE')
-                    <button style="padding:.25rem .6rem;border:1px solid #d99;border-radius:6px;background:#fff;color:#b00020;cursor:pointer;font-size:.8rem">Delete</button></form>
+        {{-- Existing fields: a flush card whose rows reflow to stacked at mobile. --}}
+        <x-ui.card flush>
+            <div class="divide-y divide-line">
+                @forelse ($fields as $field)
+                    <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
+                        <div class="min-w-0">
+                            <p class="font-medium text-ink truncate">{{ $field->label }}</p>
+                            <p class="text-xs text-ink-subtle">
+                                <code class="font-mono">{{ $field->key }}</code>
+                                <span aria-hidden="true">·</span>
+                                {{ $field->type }}
+                            </p>
+                        </div>
+                        <form method="POST" action="{{ route('admin.system.profile-fields.destroy', $field) }}">
+                            @csrf
+                            @method('DELETE')
+                            <x-ui.button type="submit" variant="danger-ghost" size="sm">Delete</x-ui.button>
+                        </form>
+                    </div>
+                @empty
+                    <x-ui.empty title="No custom fields yet" :icon="'<svg viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.75\' stroke-linecap=\'round\' stroke-linejoin=\'round\' class=\'h-6 w-6\'><circle cx=\'12\' cy=\'8\' r=\'4\'/><path d=\'M4 21a8 8 0 0 1 16 0\'/></svg>'">
+                        Add a field below to collect extra details on member profiles.
+                    </x-ui.empty>
+                @endforelse
             </div>
-        @empty
-            <p style="color:#999">No custom fields yet.</p>
-        @endforelse
+        </x-ui.card>
 
-        <form method="POST" action="{{ route('admin.system.profile-fields.store') }}" style="margin-top:1.5rem;display:flex;flex-direction:column;gap:.5rem">
-            @csrf
-            <h2 style="font-size:1.05rem">Add a field</h2>
-            @error('key') <span style="color:#b00020">{{ $message }}</span> @enderror
-            <input type="text" name="label" placeholder="Label (e.g. Location)" required style="padding:.5rem;border:1px solid #bbb;border-radius:6px">
-            <input type="text" name="key" placeholder="key (e.g. location)" required style="padding:.5rem;border:1px solid #bbb;border-radius:6px">
-            <select name="type" style="padding:.5rem;border:1px solid #bbb;border-radius:6px">
-                <option value="text">Text</option>
-                <option value="url">URL</option>
-                <option value="textarea">Text area</option>
-            </select>
-            <button type="submit" style="padding:.5rem 1rem;border:0;border-radius:6px;background:#2d2a6b;color:#fff;cursor:pointer;align-self:flex-start">Add field</button>
-        </form>
-    </main>
+        {{-- Add a field --}}
+        <x-ui.card>
+            <form method="POST" action="{{ route('admin.system.profile-fields.store') }}" class="space-y-4">
+                @csrf
+                <h2 class="text-lg font-semibold text-ink">Add a field</h2>
+
+                <x-ui.input name="label" label="Label" placeholder="e.g. Location" required />
+                <x-ui.input name="key" label="Key" placeholder="e.g. location" hint="Lowercase identifier used in the database." required />
+                <x-ui.select name="type" label="Type">
+                    <option value="text">Text</option>
+                    <option value="url">URL</option>
+                    <option value="textarea">Text area</option>
+                </x-ui.select>
+
+                <x-ui.button type="submit">Add field</x-ui.button>
+            </form>
+        </x-ui.card>
+    </x-ui.container>
 @endsection

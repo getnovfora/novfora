@@ -85,25 +85,25 @@ new class extends Component
 };
 ?>
 
-<form wire:submit="save" style="display:flex;flex-direction:column;gap:.5rem;margin-top:1rem">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-        <strong>Reply</strong>
-        <button type="button" wire:click="toggleFormat" style="padding:.3rem .6rem;border:1px solid #bbb;border-radius:6px;background:#fff;cursor:pointer;font-size:.8rem">
+<form wire:submit="save" class="mt-6 space-y-3">
+    <div class="flex items-center justify-between gap-2">
+        <h2 class="text-base font-semibold text-ink">Reply</h2>
+        <x-ui.button type="button" variant="ghost" size="sm" wire:click="toggleFormat">
             {{ $format === 'markdown' ? 'Switch to rich text' : 'Switch to Markdown' }}
-        </button>
+        </x-ui.button>
     </div>
 
     @if ($format === 'markdown')
         <textarea wire:model="markdownSource" rows="6" placeholder="Write Markdown…"
-                  style="padding:.6rem;border:1px solid #cfcfd6;border-radius:8px;font-family:ui-monospace,monospace"></textarea>
+                  class="w-full px-3 py-2 rounded-md bg-surface-raised text-ink border border-line focus:border-accent font-mono text-sm"></textarea>
     @else
         <x-content-editor model="canonicalJson" :initial="$canonicalJson"
                           :upload-url="route('attachments.store')" :mention-url="route('mentions')"
                           placeholder="Write a reply…" />
     @endif
-    @error('body') <p style="color:#b00020;margin:0">{{ $message }}</p> @enderror
+    @error('body') <p class="text-xs text-danger">{{ $message }}</p> @enderror
 
     <div>
-        <button type="submit" style="padding:.55rem 1.1rem;border:0;border-radius:6px;background:#2d2a6b;color:#fff;cursor:pointer">Post reply</button>
+        <x-ui.button type="submit">Post reply</x-ui.button>
     </div>
 </form>

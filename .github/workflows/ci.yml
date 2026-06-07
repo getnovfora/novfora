@@ -118,23 +118,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Composer/vendor is REQUIRED for a faithful asset build: resources/css/app.css @source's the
-      # framework's Pagination Blade (vendor/laravel/framework/...), so a vendor-LESS build silently drops
-      # those utility classes and the committed assets (always built WITH vendor) could never match — the
-      # assets-fresh guard would false-fail (RH-5).
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          tools: composer:v2
-          coverage: none
-      - run: composer install --no-interaction --no-progress --prefer-dist
+      # Fully deterministic, Composer-free build: resources/css/app.css uses `source(none)` and @source's
+      # ONLY the app's own tracked sources (resources/views — incl. our published pagination views — and
+      # resources/js). No vendor/ Blade, no storage/framework/views compiled Blade, no external fonts. So a
+      # Node-only checkout reproduces the committed bundle byte-for-byte (the RH-5 determinism fix, hardened).
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
       - run: npm ci
-      # Deterministic Tailwind sources: app.css also @source's compiled Blade (storage/framework/views).
-      # A fresh checkout has none; clear defensively so the build can't ingest stray compiled views.
-      - run: find storage/framework/views -type f -name '*.php' -delete 2>/dev/null || true
       - run: npm run build
       - name: assets-fresh (committed public/build matches a fresh build — RH-5)
         # /public/build is committed BY DESIGN (baseline shared hosts have no Node). This guard fails the
@@ -262,7 +253,7 @@ jobs:
           : > "$WS/database/dusk.sqlite"
           php artisan migrate:fresh --force
           start_serve
-          set +e; php artisan dusk --without-tty tests/Browser/EditorJourneyTest.php; EDITOR_CODE=$?; set -e
+          set +e; php artisan dusk --without-tty tests/Browser/EditorJourneyTest.php tests/Browser/ThemeScreenshotTest.php; EDITOR_CODE=$?; set -e
           stop_serve
 
           echo "dusk passes — installer(enforce ON)=$INSTALLER_CODE  editor(enforce OFF)=$EDITOR_CODE"
@@ -270,8 +261,8 @@ jobs:
             echo "--- serve.log (tail) ---"; tail -n 30 /tmp/serve.log || true
             exit 1
           fi
-      - name: Upload failure screenshots
-        if: failure()
+      - name: Upload Dusk screenshots (theme gate + any failure shots)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dusk-screenshots

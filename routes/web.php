@@ -2,6 +2,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 
+use App\Http\Controllers\AppearanceController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\BanController;
 use App\Http\Controllers\ForumController;
@@ -109,6 +110,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('/home', 'home')->name('home');
     Route::view('/settings/two-factor', 'settings.two-factor')->name('settings.two-factor');
+
+    // Appearance: colour mode (auto/light/dark) + density (comfortable/compact). The form POST works with
+    // no JS; the header quick-toggle posts a single field via fetch (default-theme phase, PART 2).
+    Route::get('/settings/appearance', [AppearanceController::class, 'edit'])->name('settings.appearance');
+    Route::post('/settings/appearance', [AppearanceController::class, 'update'])->name('settings.appearance.save');
 
     // In-app notifications (data-model §7): list, mark read, and per-event×channel preferences.
     Route::get('/whats-new', [WhatsNewController::class, 'index'])->name('whats-new');

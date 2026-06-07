@@ -46,9 +46,13 @@ Prebuilt assets are committed, so **Node is not required to run**. To rebuild as
 > templates that add/drop utility classes, JS in `resources/js/…`, the Vite/Tailwind config) **must be
 > followed by `npm ci && npm run build` and the resulting `public/build` diff committed in the same PR.** The
 > CI **`assets-fresh`** guard runs a fresh build and fails on any drift (`git diff --exit-code -- public/build`),
-> so stale assets can't be merged and can't reach a git-based deploy. Rebuild with **`composer install` done
-> first** (the CSS `@source`s the framework's pagination Blade in `vendor/`) and from a clean tree (no
-> compiled-view leftovers), matching how CI builds — otherwise your local CSS won't match the committed bundle.
+> so stale assets can't be merged and can't reach a git-based deploy. The build is **offline-deterministic**:
+> `resources/css/app.css` uses Tailwind's `source(none)` and `@source`s **only** the app's own tracked sources
+> (`resources/views` — including our published pagination views under `resources/views/vendor/pagination` — and
+> `resources/js`). It does **not** scan `vendor/` or `storage/framework/views`, and the theme uses the
+> **system-ui** font stack (no external fonts/CDN). So `npm ci && npm run build` reproduces the committed bundle
+> byte-for-byte with **no Composer, no compiled-view state, and no network** — exactly how the Node-only CI
+> `assets` job builds it.
 
 ## Coding standards
 

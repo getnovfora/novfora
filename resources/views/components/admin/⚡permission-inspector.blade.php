@@ -46,65 +46,97 @@ new class extends Component
 };
 ?>
 
-<div style="font-family:system-ui,sans-serif">
-    <form wire:submit="inspect" style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1.25rem">
-        <label style="display:flex;flex-direction:column;font-size:.85rem;color:#444">User (id or email)
-            <input wire:model="userRef" required style="padding:.4rem;border:1px solid #bbb;border-radius:4px;min-width:14rem">
-        </label>
-        <label style="display:flex;flex-direction:column;font-size:.85rem;color:#444">Permission key
-            <input wire:model="permission" required placeholder="forum.post.create" style="padding:.4rem;border:1px solid #bbb;border-radius:4px;min-width:14rem">
-        </label>
-        <label style="display:flex;flex-direction:column;font-size:.85rem;color:#444">Scope
-            <input wire:model="scopeRef" placeholder="global | forum:2 | thread:1" style="padding:.4rem;border:1px solid #bbb;border-radius:4px;min-width:12rem">
-        </label>
-        <button type="submit" wire:loading.attr="disabled" style="padding:.5rem 1rem;cursor:pointer">Explain</button>
-        <span wire:loading style="color:#777">resolving…</span>
-    </form>
+<div class="space-y-5">
+    <x-ui.card>
+        <form wire:submit="inspect" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+            <div class="space-y-1.5">
+                <label for="pi-user" class="block text-sm font-medium text-ink">User (id or email)</label>
+                <input id="pi-user" wire:model="userRef" required
+                       class="w-full min-h-11 px-3 rounded-md bg-surface-raised text-ink placeholder:text-ink-subtle border border-line transition-colors focus:border-accent">
+            </div>
+            <div class="space-y-1.5">
+                <label for="pi-permission" class="block text-sm font-medium text-ink">Permission key</label>
+                <input id="pi-permission" wire:model="permission" required placeholder="forum.post.create"
+                       class="w-full min-h-11 px-3 rounded-md bg-surface-raised text-ink placeholder:text-ink-subtle border border-line transition-colors focus:border-accent">
+            </div>
+            <div class="space-y-1.5">
+                <label for="pi-scope" class="block text-sm font-medium text-ink">Scope</label>
+                <input id="pi-scope" wire:model="scopeRef" placeholder="global | forum:2 | thread:1"
+                       class="w-full min-h-11 px-3 rounded-md bg-surface-raised text-ink placeholder:text-ink-subtle border border-line transition-colors focus:border-accent">
+            </div>
+            <div class="flex items-center gap-3">
+                <x-ui.button type="submit" wire:loading.attr="disabled">Explain</x-ui.button>
+                <span wire:loading class="text-xs text-ink-subtle">resolving…</span>
+            </div>
+        </form>
+    </x-ui.card>
 
     @if ($error)
-        <p style="color:#b00020;background:#fde;border:1px solid #f9c;padding:.6rem .8rem;border-radius:4px">{{ $error }}</p>
+        <x-ui.alert variant="danger">{{ $error }}</x-ui.alert>
     @endif
 
     @if ($report)
         @php($granted = $report['granted'])
-        <div style="padding:.8rem 1rem;border-radius:6px;margin-bottom:1rem;border:1px solid {{ $granted ? '#7cc47c' : '#e08a8a' }};background:{{ $granted ? '#eefaee' : '#fdeeee' }}">
-            <strong style="font-size:1.1rem;color:{{ $granted ? '#1a7a1a' : '#a11' }}">{{ $granted ? 'ALLOWED' : 'DENIED' }}</strong>
-            <span style="color:#555">— {{ $report['summary'] }}</span>
-        </div>
+        <x-ui.alert :variant="$granted ? 'success' : 'danger'" :title="$granted ? 'ALLOWED' : 'DENIED'">
+            {{ $report['summary'] }}
+        </x-ui.alert>
 
-        <table cellpadding="6" cellspacing="0" style="border-collapse:collapse;margin-bottom:1.25rem">
-            <tbody>
-                <tr><td style="color:#777">User</td><td><strong>{{ $report['user']['label'] }}</strong> (#{{ $report['user']['id'] }}, {{ $report['user']['status'] }})</td></tr>
-                <tr><td style="color:#777">Permission</td><td><code>{{ $report['permission'] }}</code></td></tr>
-                <tr><td style="color:#777">Scope</td><td><code>{{ $report['scope'] }}</code></td></tr>
-                <tr><td style="color:#777">Decisive rule</td><td><code>{{ $report['reason'] }}</code>@if ($report['decided_by']) <span style="color:#777">by {{ $report['decided_by'] }} @ {{ $report['decided_at_scope'] ?? '—' }}</span>@endif</td></tr>
-                <tr><td style="color:#777">Scope chain</td><td><code>{{ implode('  →  ', $report['scope_chain']) }}</code></td></tr>
-                <tr><td style="color:#777">Holders</td><td>{{ implode(', ', $report['holders']) }}</td></tr>
-            </tbody>
-        </table>
+        {{-- Resolution detail: label/value rows that reflow to stacked on mobile. --}}
+        <x-ui.card flush>
+            <dl class="divide-y divide-line text-sm">
+                <div class="grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[10rem_1fr] sm:gap-3 sm:px-5">
+                    <dt class="text-ink-subtle">User</dt>
+                    <dd class="text-ink"><strong class="font-semibold">{{ $report['user']['label'] }}</strong> (#{{ $report['user']['id'] }}, {{ $report['user']['status'] }})</dd>
+                </div>
+                <div class="grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[10rem_1fr] sm:gap-3 sm:px-5">
+                    <dt class="text-ink-subtle">Permission</dt>
+                    <dd class="text-ink"><code class="font-mono">{{ $report['permission'] }}</code></dd>
+                </div>
+                <div class="grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[10rem_1fr] sm:gap-3 sm:px-5">
+                    <dt class="text-ink-subtle">Scope</dt>
+                    <dd class="text-ink"><code class="font-mono">{{ $report['scope'] }}</code></dd>
+                </div>
+                <div class="grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[10rem_1fr] sm:gap-3 sm:px-5">
+                    <dt class="text-ink-subtle">Decisive rule</dt>
+                    <dd class="text-ink">
+                        <code class="font-mono">{{ $report['reason'] }}</code>@if ($report['decided_by']) <span class="text-ink-subtle">by {{ $report['decided_by'] }} @ {{ $report['decided_at_scope'] ?? '—' }}</span>@endif
+                    </dd>
+                </div>
+                <div class="grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[10rem_1fr] sm:gap-3 sm:px-5">
+                    <dt class="text-ink-subtle">Scope chain</dt>
+                    <dd class="text-ink"><code class="font-mono break-words">{{ implode('  →  ', $report['scope_chain']) }}</code></dd>
+                </div>
+                <div class="grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[10rem_1fr] sm:gap-3 sm:px-5">
+                    <dt class="text-ink-subtle">Holders</dt>
+                    <dd class="text-ink">{{ implode(', ', $report['holders']) }}</dd>
+                </div>
+            </dl>
+        </x-ui.card>
 
-        <h3 style="margin-bottom:.4rem">Candidate ACL entries</h3>
-        @if ($report['entries'] === [])
-            <p style="color:#777">No entries matched these holders for this permission in this chain — deny-by-default.</p>
-        @else
-            <table cellpadding="7" cellspacing="0" style="border-collapse:collapse;width:100%">
-                <thead>
-                    <tr style="background:#f4f4f5;text-align:left">
-                        <th style="border:1px solid #ddd">Holder</th>
-                        <th style="border:1px solid #ddd">Scope</th>
-                        <th style="border:1px solid #ddd">Value</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($report['entries'] as $entry)
-                        <tr>
-                            <td style="border:1px solid #ddd"><code>{{ $entry['holder'] }}</code></td>
-                            <td style="border:1px solid #ddd"><code>{{ $entry['scope'] }}</code></td>
-                            <td style="border:1px solid #ddd">{{ $entry['value'] }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        @endif
+        <section class="space-y-2">
+            <h3 class="text-sm font-semibold text-ink">Candidate ACL entries</h3>
+            @if ($report['entries'] === [])
+                <x-ui.card>
+                    <p class="text-sm text-ink-muted">No entries matched these holders for this permission in this chain — deny-by-default.</p>
+                </x-ui.card>
+            @else
+                <x-ui.card flush>
+                    <div class="hidden sm:grid grid-cols-3 gap-3 px-4 py-2.5 sm:px-5 border-b border-line bg-surface-sunken text-xs font-semibold uppercase tracking-wide text-ink-subtle">
+                        <span>Holder</span>
+                        <span>Scope</span>
+                        <span>Value</span>
+                    </div>
+                    <div class="divide-y divide-line">
+                        @foreach ($report['entries'] as $entry)
+                            <div class="grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-3 sm:items-center sm:gap-3 sm:px-5 text-sm">
+                                <span class="text-ink"><code class="font-mono">{{ $entry['holder'] }}</code></span>
+                                <span class="text-ink"><code class="font-mono">{{ $entry['scope'] }}</code></span>
+                                <span class="text-ink-muted">{{ $entry['value'] }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                </x-ui.card>
+            @endif
+        </section>
     @endif
 </div>

@@ -2,17 +2,19 @@
 @extends('layouts.auth', ['authTitle' => 'Reset your password'])
 
 @section('auth')
-    <p style="color:#555;font-size:.95rem;margin-top:0">Enter your email and we’ll send you a password-reset link.</p>
+    <p class="text-sm text-ink-muted">Enter your email and we’ll send you a password-reset link.</p>
 
-    <form method="POST" action="{{ route('password.email') }}">
+    <form method="POST" action="{{ route('password.email') }}" class="mt-4 space-y-4">
         @csrf
 
-        <label for="email" style="display:block;margin:.6rem 0 .2rem;font-size:.85rem;color:#444">Email</label>
-        <input id="email" name="email" type="email" value="{{ old('email') }}" required autofocus autocomplete="email"
-               style="width:100%;box-sizing:border-box;padding:.5rem;border:1px solid #bbb;border-radius:6px">
+        <x-ui.input label="Email" name="email" type="email" :value="old('email')" required autofocus autocomplete="email" />
 
-        <button type="submit" style="margin-top:1rem;width:100%;padding:.6rem;border:0;border-radius:6px;background:#2d2a6b;color:#fff;font-size:1rem;cursor:pointer">Email reset link</button>
+        <x-ui.button type="submit" size="lg" class="w-full">Email reset link</x-ui.button>
     </form>
 
-    <p style="margin-top:1rem;font-size:.9rem;color:#555"><a href="{{ route('login') }}">← Back to sign in</a></p>
+    <p class="mt-5 text-sm">
+        <a href="{{ route('login') }}" class="inline-flex items-center gap-1.5 text-accent hover:underline">
+            <x-ui.icon name="arrow-left" class="h-4 w-4" /> Back to sign in
+        </a>
+    </p>
 @endsection

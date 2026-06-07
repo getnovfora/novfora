@@ -1,14 +1,19 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 @extends('layouts.app', ['title' => 'New topic · '.config('app.name', 'Hearth')])
 
-@section('content')
-    <main style="max-width:52rem;margin:2rem auto;padding:0 1rem;font-family:system-ui,sans-serif">
-        <nav style="color:#888;font-size:.85rem">
-            <a href="{{ route('forums.index') }}">Forums</a> →
-            <a href="{{ route('forums.show', $forum) }}">{{ $forum->title }}</a> → New topic
-        </nav>
-        <h1>New topic in {{ $forum->title }}</h1>
+@section('breadcrumbs')
+    <x-ui.breadcrumbs :items="[
+        ['label' => 'Forums', 'url' => route('forums.index')],
+        ['label' => $forum->title, 'url' => route('forums.show', $forum)],
+        ['label' => 'New topic'],
+    ]" />
+@endsection
 
-        <livewire:forum.create-topic :forum-id="$forum->id" />
-    </main>
+@section('content')
+    <x-ui.container size="md" class="space-y-5">
+        <h1 class="text-2xl font-semibold tracking-tight text-ink">New topic in {{ $forum->title }}</h1>
+        <x-ui.card>
+            <livewire:forum.create-topic :forum-id="$forum->id" />
+        </x-ui.card>
+    </x-ui.container>
 @endsection

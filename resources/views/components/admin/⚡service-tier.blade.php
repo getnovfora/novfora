@@ -10,54 +10,72 @@ new class extends Component
 ?>
 
 @php($snapshot = app(\App\Services\Tier\ServiceTier::class)->snapshot(fresh: true))
-<div style="font-family:system-ui,sans-serif">
-    <p style="display:flex;align-items:center;gap:.75rem">
-        <strong>Overall tier:</strong>
-        <span style="padding:.15rem .5rem;border:1px solid #999;border-radius:4px">{{ $snapshot->overall->label() }}</span>
-        <button type="button" wire:click="redetect" wire:loading.attr="disabled" style="padding:.3rem .7rem;cursor:pointer">Re-detect</button>
-        <span wire:loading style="color:#777">probing…</span>
-    </p>
+<div class="space-y-6">
+    <div class="flex flex-wrap items-center gap-3">
+        <span class="text-sm font-medium text-ink">Overall tier</span>
+        <x-ui.badge variant="accent">{{ $snapshot->overall->label() }}</x-ui.badge>
+        <x-ui.button type="button" variant="ghost" size="sm" wire:click="redetect" wire:loading.attr="disabled">Re-detect</x-ui.button>
+        <span wire:loading class="text-xs text-ink-subtle">probing…</span>
+    </div>
 
-    <table cellpadding="7" cellspacing="0" style="border-collapse:collapse;width:100%;margin-bottom:1.5rem">
-        <thead>
-            <tr style="background:#f4f4f5;text-align:left">
-                <th style="border:1px solid #ddd">Capability</th>
-                <th style="border:1px solid #ddd">Active driver</th>
-                <th style="border:1px solid #ddd">Tier</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach ($snapshot->capabilities as $c)
-                <tr>
-                    <td style="border:1px solid #ddd">{{ $c->capability->label() }}</td>
-                    <td style="border:1px solid #ddd"><code>{{ $c->driver }}</code></td>
-                    <td style="border:1px solid #ddd">{{ $c->tier->label() }}</td>
-                </tr>
-            @endforeach
-        </tbody>
-    </table>
+    {{-- Capabilities --}}
+    <section class="space-y-2">
+        <h3 class="text-sm font-semibold text-ink">Capabilities</h3>
+        <x-ui.card flush>
+            {{-- Column header (desktop only); rows reflow to stacked cards on mobile. --}}
+            <div class="hidden sm:grid grid-cols-[1fr_1fr_auto] gap-3 px-4 py-2.5 sm:px-5 border-b border-line bg-surface-sunken text-xs font-semibold uppercase tracking-wide text-ink-subtle">
+                <span>Capability</span>
+                <span>Active driver</span>
+                <span>Tier</span>
+            </div>
+            <div class="divide-y divide-line">
+                @foreach ($snapshot->capabilities as $c)
+                    <div class="grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[1fr_1fr_auto] sm:items-center sm:gap-3 sm:px-5">
+                        <span class="font-medium text-ink">{{ $c->capability->label() }}</span>
+                        <span class="text-sm text-ink-muted"><code class="font-mono">{{ $c->driver }}</code></span>
+                        <span class="text-sm text-ink-muted">{{ $c->tier->label() }}</span>
+                    </div>
+                @endforeach
+            </div>
+        </x-ui.card>
+    </section>
 
-    <h3>Optional enhanced services</h3>
-    <table cellpadding="7" cellspacing="0" style="border-collapse:collapse;width:100%">
-        <thead>
-            <tr style="background:#f4f4f5;text-align:left">
-                <th style="border:1px solid #ddd">Service</th>
-                <th style="border:1px solid #ddd">Configured</th>
-                <th style="border:1px solid #ddd">Reachable</th>
-                <th style="border:1px solid #ddd">Latency</th>
-                <th style="border:1px solid #ddd">Enabling it unlocks…</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach ($snapshot->services as $s)
-                <tr>
-                    <td style="border:1px solid #ddd">{{ $s->label }}</td>
-                    <td style="border:1px solid #ddd">{{ $s->configured ? 'yes' : 'no' }}</td>
-                    <td style="border:1px solid #ddd">{{ $s->configured ? ($s->reachable ? 'reachable' : 'unreachable') : '—' }}</td>
-                    <td style="border:1px solid #ddd">{{ $s->latencyMs !== null ? $s->latencyMs.' ms' : '—' }}</td>
-                    <td style="border:1px solid #ddd;color:#555">{{ $s->unlocks }}</td>
-                </tr>
-            @endforeach
-        </tbody>
-    </table>
+    {{-- Optional enhanced services --}}
+    <section class="space-y-2">
+        <h3 class="text-sm font-semibold text-ink">Optional enhanced services</h3>
+        <x-ui.card flush>
+            <div class="hidden md:grid grid-cols-[1.4fr_auto_auto_auto_2fr] gap-3 px-4 py-2.5 sm:px-5 border-b border-line bg-surface-sunken text-xs font-semibold uppercase tracking-wide text-ink-subtle">
+                <span>Service</span>
+                <span>Configured</span>
+                <span>Reachable</span>
+                <span>Latency</span>
+                <span>Enabling it unlocks…</span>
+            </div>
+            <div class="divide-y divide-line">
+                @foreach ($snapshot->services as $s)
+                    <div class="grid grid-cols-1 gap-1.5 px-4 py-3 md:grid-cols-[1.4fr_auto_auto_auto_2fr] md:items-center md:gap-3 sm:px-5">
+                        <span class="font-medium text-ink">{{ $s->label }}</span>
+                        <span class="text-sm">
+                            @if ($s->configured)
+                                <x-ui.badge variant="success">Configured</x-ui.badge>
+                            @else
+                                <x-ui.badge>Not configured</x-ui.badge>
+                            @endif
+                        </span>
+                        <span class="text-sm">
+                            @if (! $s->configured)
+                                <span class="text-ink-subtle">—</span>
+                            @elseif ($s->reachable)
+                                <x-ui.badge variant="success">Reachable</x-ui.badge>
+                            @else
+                                <x-ui.badge variant="danger">Unreachable</x-ui.badge>
+                            @endif
+                        </span>
+                        <span class="text-sm text-ink-muted nums">{{ $s->latencyMs !== null ? $s->latencyMs.' ms' : '—' }}</span>
+                        <span class="text-sm text-ink-muted">{{ $s->unlocks }}</span>
+                    </div>
+                @endforeach
+            </div>
+        </x-ui.card>
+    </section>
 </div>

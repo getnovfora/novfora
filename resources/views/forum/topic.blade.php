@@ -30,55 +30,111 @@
     </script>
 @endpush
 
-@section('content')
-    <main style="max-width:52rem;margin:2rem auto;padding:0 1rem;font-family:system-ui,sans-serif">
-        <nav style="color:#888;font-size:.85rem">
-            <a href="{{ route('forums.index') }}">Forums</a> →
-            <a href="{{ route('forums.show', $topic->forum) }}">{{ $topic->forum->title }}</a> → {{ $topic->title }}
-        </nav>
+@section('breadcrumbs')
+    <x-ui.breadcrumbs :items="[
+        ['label' => 'Forums', 'url' => route('forums.index')],
+        ['label' => $topic->forum->title, 'url' => route('forums.show', $topic->forum)],
+        ['label' => $topic->title],
+    ]" />
+@endsection
 
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem">
-            <h1 style="margin:.3rem 0">
-                @if ($topic->is_pinned)📌 @endif
-                @if ($topic->status === 'locked')🔒 @endif
-                {{ $topic->title }}
-            </h1>
+@section('content')
+    <x-ui.container size="md" class="space-y-5">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0 space-y-2">
+                @if ($topic->is_pinned || $topic->status === 'locked')
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        @if ($topic->is_pinned)
+                            <x-ui.badge variant="accent"><x-ui.icon name="pin" class="h-3.5 w-3.5" /> Pinned</x-ui.badge>
+                        @endif
+                        @if ($topic->status === 'locked')
+                            <x-ui.badge variant="warn"><x-ui.icon name="lock" class="h-3.5 w-3.5" /> Locked</x-ui.badge>
+                        @endif
+                    </div>
+                @endif
+                <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ $topic->title }}</h1>
+            </div>
+
             @if ($canModerate)
-                <div style="display:flex;gap:.35rem;flex-wrap:wrap">
+                <div class="flex flex-wrap items-center gap-2">
                     <form method="POST" action="{{ route('topics.pin', $topic) }}">@csrf
-                        <button style="padding:.3rem .6rem;border:1px solid #bbb;border-radius:6px;background:#fff;cursor:pointer;font-size:.8rem">{{ $topic->is_pinned ? 'Unpin' : 'Pin' }}</button></form>
+                        <x-ui.button type="submit" variant="ghost" size="sm">
+                            <x-ui.icon name="pin" class="h-4 w-4" /> {{ $topic->is_pinned ? 'Unpin' : 'Pin' }}
+                        </x-ui.button>
+                    </form>
                     <form method="POST" action="{{ route('topics.lock', $topic) }}">@csrf
-                        <button style="padding:.3rem .6rem;border:1px solid #bbb;border-radius:6px;background:#fff;cursor:pointer;font-size:.8rem">{{ $topic->status === 'locked' ? 'Unlock' : 'Lock' }}</button></form>
+                        <x-ui.button type="submit" variant="ghost" size="sm">
+                            <x-ui.icon name="lock" class="h-4 w-4" /> {{ $topic->status === 'locked' ? 'Unlock' : 'Lock' }}
+                        </x-ui.button>
+                    </form>
                     <form method="POST" action="{{ route('topics.destroy', $topic) }}" onsubmit="return confirm('Move this topic to the recycle bin?')">@csrf @method('DELETE')
-                        <button style="padding:.3rem .6rem;border:1px solid #d99;border-radius:6px;background:#fff;color:#a11;cursor:pointer;font-size:.8rem">Delete</button></form>
+                        <x-ui.button type="submit" variant="danger-ghost" size="sm">Delete</x-ui.button>
+                    </form>
                 </div>
             @endif
         </div>
 
-        @foreach ($posts as $post)
-            <article id="post-{{ $post->id }}" style="border:1px solid #ececf1;border-radius:8px;padding:1rem;margin:1rem 0;background:#fff">
-                <header style="display:flex;justify-content:space-between;color:#888;font-size:.85rem;margin-bottom:.5rem">
-                    <strong style="color:#333">{{ $post->author?->username ?? 'unknown' }}</strong>
-                    <span>
-                        @if ($post->approved_state === 'pending')<span style="color:#b8860b">⏳ awaiting approval</span> · @endif
-                        {{ $post->created_at?->diffForHumans() }}@if ($post->edited_at) · edited @endif
-                    </span>
-                </header>
-                <div class="hearth-prose">{!! $post->body_html_cache !!}</div>
-                <footer style="margin-top:.6rem;display:flex;gap:.6rem;font-size:.85rem">
-                    @can('update', $post)<a href="{{ route('posts.edit', $post) }}">Edit</a>@endcan
-                    @can('delete', $post)
-                        <form method="POST" action="{{ route('posts.destroy', $post) }}" style="display:inline" onsubmit="return confirm('Delete this post?')">@csrf @method('DELETE')
-                            <button style="border:0;background:none;color:#a11;cursor:pointer;padding:0;font-size:.85rem">Delete</button></form>
-                    @endcan
-                    @auth
-                        <form method="POST" action="{{ route('reports.store') }}" style="display:inline">@csrf
-                            <input type="hidden" name="post_id" value="{{ $post->id }}">
-                            <button style="border:0;background:none;color:#888;cursor:pointer;padding:0;font-size:.85rem">Report</button></form>
-                    @endauth
-                </footer>
-            </article>
-        @endforeach
+        <div class="space-y-4">
+            @foreach ($posts as $post)
+                @php($author = $post->author)
+                @php($role = $author?->isAdmin() ? 'Admin' : ($author?->isStaff() ? 'Moderator' : null))
+                {{-- Classic LEFT poster sidebar on desktop; collapses to a top-bar (avatar + name above body)
+                     on mobile. The author + its groups are eager-loaded, so the badge/stats add no query. --}}
+                <x-ui.card id="post-{{ $post->id }}" :class="$post->approved_state === 'pending' ? 'ring-1 ring-warn-soft' : ''">
+                    <div class="md:flex md:gap-5">
+                        {{-- Poster --}}
+                        <div class="flex items-center gap-3 border-b border-line pb-3 md:w-40 md:shrink-0 md:flex-col md:items-center md:gap-1.5 md:border-b-0 md:border-r md:pb-0 md:pr-5 md:text-center">
+                            <span class="md:hidden"><x-ui.avatar :user="$author" size="md" /></span>
+                            <span class="hidden md:inline-flex"><x-ui.avatar :user="$author" size="xl" /></span>
+                            <div class="min-w-0 md:mt-1">
+                                <p class="font-semibold text-ink truncate">{{ $author?->display_name ?? $author?->username ?? 'unknown' }}</p>
+                                @if ($role)
+                                    <x-ui.badge variant="accent" class="mt-1">{{ $role }}</x-ui.badge>
+                                @endif
+                                {{-- Poster stats from already-loaded columns (desktop sidebar only). --}}
+                                <dl class="mt-2 hidden space-y-0.5 text-xs text-ink-subtle md:block">
+                                    @if ($author?->created_at)
+                                        <div><dt class="sr-only">Joined</dt><dd>Joined {{ $author->created_at->isoFormat('MMM YYYY') }}</dd></div>
+                                    @endif
+                                    <div><dt class="sr-only">Posts</dt><dd class="nums">{{ number_format((int) ($author?->post_count ?? 0)) }} posts</dd></div>
+                                </dl>
+                            </div>
+                        </div>
+
+                        {{-- Body --}}
+                        <div class="min-w-0 flex-1 pt-3 md:pt-0">
+                            <div class="flex flex-wrap items-center gap-2 text-xs text-ink-subtle nums md:border-b md:border-line md:pb-2">
+                                <span>{{ $post->created_at?->diffForHumans() }}@if ($post->edited_at) · edited @endif</span>
+                                @if ($post->approved_state === 'pending')
+                                    <x-ui.badge variant="warn" class="ml-auto">awaiting approval</x-ui.badge>
+                                @endif
+                            </div>
+
+                            <div class="hearth-prose pt-3 md:pt-4">{!! $post->body_html_cache !!}</div>
+
+                            <footer class="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                                @can('update', $post)
+                                    <x-ui.button :href="route('posts.edit', $post)" variant="subtle" size="sm">Edit</x-ui.button>
+                                @endcan
+                                @can('delete', $post)
+                                    <form method="POST" action="{{ route('posts.destroy', $post) }}" onsubmit="return confirm('Delete this post?')">@csrf @method('DELETE')
+                                        <x-ui.button type="submit" variant="danger-ghost" size="sm">Delete</x-ui.button>
+                                    </form>
+                                @endcan
+                                @auth
+                                    <form method="POST" action="{{ route('reports.store') }}" class="ml-auto">@csrf
+                                        <input type="hidden" name="post_id" value="{{ $post->id }}">
+                                        <x-ui.button type="submit" variant="ghost" size="sm">
+                                            <x-ui.icon name="flag" class="h-4 w-4" /> Report
+                                        </x-ui.button>
+                                    </form>
+                                @endauth
+                            </footer>
+                        </div>
+                    </div>
+                </x-ui.card>
+            @endforeach
+        </div>
 
         <div>{{ $posts->links() }}</div>
 
@@ -86,10 +142,16 @@
             @if ($canReply)
                 <livewire:forum.reply-composer :topic-id="$topic->id" />
             @elseif ($topic->status === 'locked')
-                <p style="color:#888">🔒 This topic is locked.</p>
+                <x-ui.card class="flex items-center gap-3 text-ink-muted">
+                    <x-ui.icon name="lock" class="h-5 w-5 shrink-0 text-ink-subtle" />
+                    <p class="text-sm">This topic is locked — no new replies can be posted.</p>
+                </x-ui.card>
             @endif
         @else
-            <p style="color:#888"><a href="{{ route('login') }}">Sign in</a> to reply.</p>
+            <x-ui.card class="flex flex-wrap items-center justify-between gap-3">
+                <p class="text-sm text-ink-muted">Join the conversation to leave a reply.</p>
+                <x-ui.button :href="route('login')" size="sm">Sign in to reply</x-ui.button>
+            </x-ui.card>
         @endauth
-    </main>
+    </x-ui.container>
 @endsection

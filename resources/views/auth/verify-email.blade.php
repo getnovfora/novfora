@@ -2,25 +2,25 @@
 @extends('layouts.auth', ['authTitle' => 'Verify your email'])
 
 @section('auth')
-    <p style="color:#555;font-size:.95rem;margin-top:0">
+    <p class="text-sm text-ink-muted">
         Thanks for registering! Please click the link in the email we just sent to finish setting up your
         account. If you didn’t receive it, request another below.
     </p>
 
     @if (session('status') === 'verification-link-sent')
-        <p style="background:#eef7ee;border:1px solid #bcdcbc;color:#1a6b1a;padding:.55rem .8rem;border-radius:6px">
+        <x-ui.alert variant="success" class="mt-4">
             A fresh verification link has been sent to your email address.
-        </p>
+        </x-ui.alert>
     @endif
 
-    <div style="display:flex;gap:.6rem;margin-top:.5rem">
+    <div class="mt-5 flex flex-col gap-3 sm:flex-row">
         <form method="POST" action="{{ route('verification.send') }}">
             @csrf
-            <button type="submit" style="padding:.55rem .9rem;border:0;border-radius:6px;background:#2d2a6b;color:#fff;cursor:pointer">Resend verification email</button>
+            <x-ui.button type="submit" class="w-full sm:w-auto">Resend verification email</x-ui.button>
         </form>
         <form method="POST" action="{{ route('logout') }}">
             @csrf
-            <button type="submit" style="padding:.55rem .9rem;border:1px solid #bbb;border-radius:6px;background:#fff;cursor:pointer">Log out</button>
+            <x-ui.button type="submit" variant="ghost" class="w-full sm:w-auto">Log out</x-ui.button>
         </form>
     </div>
 @endsection

@@ -2,24 +2,43 @@
 @extends('layouts.app', ['title' => 'Forums · '.config('app.name', 'Hearth')])
 
 @section('content')
-    <main style="max-width:60rem;margin:2rem auto;padding:0 1rem;font-family:system-ui,sans-serif">
-        <h1>Forums</h1>
+    <x-ui.container size="lg" class="space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <h1 class="text-2xl font-semibold tracking-tight text-ink">Forums</h1>
+        </div>
 
         @forelse ($tree as $node)
             @if ($node->isCategory())
-                <section style="margin-top:1.5rem">
-                    <h2 style="border-bottom:2px solid #ececf1;padding-bottom:.3rem;font-size:1.1rem">{{ $node->title }}</h2>
-                    @foreach ($node->children as $forum)
-                        @if ($viewer->canDo('forum.view', $forum->permissionScope()))
-                            @include('forum.partials.forum-row', ['forum' => $forum])
-                        @endif
-                    @endforeach
+                <section class="space-y-2">
+                    <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ $node->title }}</h2>
+                    @php
+                        $visibleForums = collect($node->children)
+                            ->filter(fn ($forum) => $viewer->canDo('forum.view', $forum->permissionScope()));
+                    @endphp
+                    @if ($visibleForums->isNotEmpty())
+                        <x-ui.card flush>
+                            <div class="divide-y divide-line">
+                                @foreach ($visibleForums as $forum)
+                                    @include('forum.partials.forum-row', ['forum' => $forum])
+                                @endforeach
+                            </div>
+                        </x-ui.card>
+                    @endif
                 </section>
             @elseif ($viewer->canDo('forum.view', $node->permissionScope()))
-                @include('forum.partials.forum-row', ['forum' => $node])
+                <x-ui.card flush>
+                    <div class="divide-y divide-line">
+                        @include('forum.partials.forum-row', ['forum' => $node])
+                    </div>
+                </x-ui.card>
             @endif
         @empty
-            <p style="color:#777">No forums have been created yet.</p>
+            <x-ui.card flush>
+                <x-ui.empty title="No forums yet">
+                    <x-slot:icon><x-ui.icon name="message" class="h-6 w-6" /></x-slot:icon>
+                    Once forums are created, they’ll show up here for everyone to browse.
+                </x-ui.empty>
+            </x-ui.card>
         @endforelse
-    </main>
+    </x-ui.container>
 @endsection

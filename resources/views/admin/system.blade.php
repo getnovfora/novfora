@@ -1,15 +1,25 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 @extends('layouts.app', ['title' => 'System · Service Tier'])
 
+@section('breadcrumbs')
+    <x-ui.breadcrumbs :items="[
+        ['label' => 'Admin'],
+        ['label' => 'System'],
+        ['label' => 'Service Tier'],
+    ]" />
+@endsection
+
 @section('content')
-    <main style="max-width:980px;margin:2rem auto;padding:0 1rem;font-family:system-ui,sans-serif">
-        <nav style="color:#666;font-size:.9rem">Admin → System → Service Tier</nav>
-        <h1>Service Tier</h1>
-        <p style="color:#555">
-            Which deployment tier each capability is running on, and which optional services are reachable.
-            The app runs <strong>identically</strong> on both tiers — enhanced services are detected, never
-            required (ADR-0003).
-        </p>
+    <x-ui.container size="lg" class="space-y-5">
+        <div class="space-y-1.5">
+            <h1 class="text-2xl font-semibold tracking-tight text-ink">Service Tier</h1>
+            <p class="text-sm text-ink-muted max-w-2xl">
+                Which deployment tier each capability is running on, and which optional services are reachable.
+                The app runs <strong class="font-semibold text-ink">identically</strong> on both tiers — enhanced
+                services are detected, never required (ADR-0003).
+            </p>
+        </div>
+
         <livewire:admin.service-tier />
-    </main>
+    </x-ui.container>
 @endsection
