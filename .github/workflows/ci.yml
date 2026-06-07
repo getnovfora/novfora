@@ -253,7 +253,7 @@ jobs:
           : > "$WS/database/dusk.sqlite"
           php artisan migrate:fresh --force
           start_serve
-          set +e; php artisan dusk --without-tty tests/Browser/EditorJourneyTest.php; EDITOR_CODE=$?; set -e
+          set +e; php artisan dusk --without-tty tests/Browser/EditorJourneyTest.php tests/Browser/ThemeScreenshotTest.php; EDITOR_CODE=$?; set -e
           stop_serve
 
           echo "dusk passes — installer(enforce ON)=$INSTALLER_CODE  editor(enforce OFF)=$EDITOR_CODE"
@@ -261,8 +261,8 @@ jobs:
             echo "--- serve.log (tail) ---"; tail -n 30 /tmp/serve.log || true
             exit 1
           fi
-      - name: Upload failure screenshots
-        if: failure()
+      - name: Upload Dusk screenshots (theme gate + any failure shots)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dusk-screenshots
