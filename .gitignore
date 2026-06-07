@@ -36,6 +36,8 @@ hearth-spike/playwright-report/
 /storage/*.key
 /storage/installed
 /storage/install-token.txt
+/storage/hearth-restore.json
+/storage/hearth-restore.lock
 /storage/backups
 /storage/dusk-install
 /storage/pail

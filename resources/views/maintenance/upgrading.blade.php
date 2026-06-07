@@ -1,9 +1,13 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-{{-- The no-SSH upgrade maintenance page (RH-10). Fully self-contained — no @vite, no layout, no DB/auth,
+{{-- The no-SSH operability maintenance page. Covers a no-SSH UPGRADE (RH-10) and a no-SSH panel RESTORE
+     (RH-11) via $mode ('upgrade' | 'restore'). Fully self-contained — no @vite, no layout, no DB/auth,
      inline critical CSS on the theme palette with a prefers-color-scheme dark block — so it renders while
-     the schema is mid-migration and never leaks an exception. Auto-refreshes so the browser lands on the
-     live site the moment the window closes. When the run is held for the operator (stuck), it shows the
-     pre-upgrade backup name + recovery steps instead of the "back shortly" copy. --}}
+     the database is mid-migration OR mid-restore and never leaks an exception. Auto-refreshes so the
+     browser lands on the live site the moment the window closes. When a run is held for the operator
+     (stuck), it shows recovery steps + the relevant backup name instead of the "back shortly" copy. --}}
+@php($mode = ($mode ?? 'upgrade') === 'restore' ? 'restore' : 'upgrade')
+@php($name = $appName ?? config('app.name', 'Hearth'))
+@php($title = ($stuck ?? false) ? ($mode === 'restore' ? 'Restore paused' : 'Upgrade paused') : ($mode === 'restore' ? 'Restoring' : 'Upgrading'))
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
@@ -11,7 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
     <meta http-equiv="refresh" content="{{ (int) ($retryAfter ?? 30) }}">
-    <title>{{ ($stuck ?? false) ? 'Upgrade paused' : 'Upgrading' }} · {{ $appName ?? config('app.name', 'Hearth') }}</title>
+    <title>{{ $title }} · {{ $name }}</title>
     <style>
         :root { --bg:#f6f8fc; --raised:#fff; --ink:#141a2b; --muted:#555d72; --line:#e3e7f0; --accent:#4f46e5; --accent-ink:#fff; --warn:#b45309; }
         @media (prefers-color-scheme: dark) { :root { --bg:#0d111a; --raised:#161c28; --ink:#e8eaf2; --muted:#9aa3b8; --line:#28303f; --accent:#818cf8; --accent-ink:#131826; --warn:#fbbf24; } }
@@ -38,33 +42,63 @@
 <body>
     <main class="card" role="main">
         @if ($stuck ?? false)
-            <h1>Upgrade paused</h1>
-            <p class="msg">
-                <span class="warn">{{ $appName ?? config('app.name', 'Hearth') }} started an upgrade that needs a quick hand.</span>
-                The site is safely held in maintenance — no data was lost.
-            </p>
-            <div class="hint">
-                <p style="margin:0 0 .6rem"><strong>To recover (no SSH needed):</strong></p>
-                <p style="margin:0 0 .6rem">
-                    Re-upload the <strong>previous</strong> release over this install. The code will match the
-                    database again and the site comes back on its own within a minute.
+            @if ($mode === 'restore')
+                <h1>Restore paused</h1>
+                <p class="msg">
+                    <span class="warn">{{ $name }} could not finish restoring a backup.</span>
+                    The site is safely held in maintenance so a partly-restored database is never served.
                 </p>
-                @if (! empty($backup))
+                <div class="hint">
+                    <p style="margin:0 0 .6rem"><strong>To recover without SSH:</strong></p>
+                    <p style="margin:0 0 .6rem">
+                        Over FTP / your host file manager, delete <code>storage/hearth-restore.json</code> to
+                        lift this hold, then sign in and restore a known-good backup again from
+                        <strong>Admin → System → Backups</strong>
+                        @if (! empty($backup))
+                            — including the pre-restore safety snapshot <code>{{ $backup }}</code> taken just
+                            before this attempt, which returns you to where you were.
+                        @else
+                            .
+                        @endif
+                    </p>
                     <p style="margin:0">
-                        A pre-upgrade backup was taken first: <code>{{ $backup }}</code>. With shell access you can
-                        restore it with <code>php artisan hearth:restore {{ $backup }}</code>. See
+                        With shell access you can instead restore directly:
+                        <code>php artisan hearth:restore &lt;archive&gt;</code>. See
                         <strong><code>docs/getting-started.md</code> §5</strong> for the full recovery steps.
                     </p>
-                @else
-                    <p style="margin:0">See <strong><code>docs/getting-started.md</code> §5</strong> for the full recovery steps.</p>
-                @endif
-            </div>
+                </div>
+            @else
+                <h1>Upgrade paused</h1>
+                <p class="msg">
+                    <span class="warn">{{ $name }} started an upgrade that needs a quick hand.</span>
+                    The site is safely held in maintenance — no data was lost.
+                </p>
+                <div class="hint">
+                    <p style="margin:0 0 .6rem"><strong>To recover (no SSH needed):</strong></p>
+                    <p style="margin:0 0 .6rem">
+                        Re-upload the <strong>previous</strong> release over this install. The code will match the
+                        database again and the site comes back on its own within a minute.
+                    </p>
+                    @if (! empty($backup))
+                        <p style="margin:0">
+                            A pre-upgrade backup was taken first: <code>{{ $backup }}</code>. With shell access you can
+                            restore it with <code>php artisan hearth:restore {{ $backup }}</code>. See
+                            <strong><code>docs/getting-started.md</code> §5</strong> for the full recovery steps.
+                        </p>
+                    @else
+                        <p style="margin:0">See <strong><code>docs/getting-started.md</code> §5</strong> for the full recovery steps.</p>
+                    @endif
+                </div>
+            @endif
         @else
             <div class="spinner" aria-hidden="true"></div>
             <h1>Just a moment…</h1>
             <p class="msg">
-                {{ $appName ?? config('app.name', 'Hearth') }} is applying a quick update. This page refreshes
-                itself — you’ll be back in under a minute.
+                @if ($mode === 'restore')
+                    {{ $name }} is restoring a backup. This page refreshes itself — you’ll be back in under a minute.
+                @else
+                    {{ $name }} is applying a quick update. This page refreshes itself — you’ll be back in under a minute.
+                @endif
             </p>
         @endif
     </main>

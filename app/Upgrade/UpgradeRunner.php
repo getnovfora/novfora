@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Upgrade;
 
 use App\Backup\BackupService;
+use App\Backup\RestoreState;
 use App\Install\Installer;
 use App\Support\Audit;
 use Illuminate\Support\Facades\Artisan;
@@ -44,6 +45,7 @@ class UpgradeRunner
         private readonly Installer $installer,
         private readonly SchemaState $schema,
         private readonly BackupService $backups,
+        private readonly RestoreState $restoreState,
     ) {}
 
     /**
@@ -55,6 +57,13 @@ class UpgradeRunner
     {
         if (! $this->installer->isInstalled()) {
             return UpgradeResult::skipped('not-installed');
+        }
+
+        // Never migrate against a database that is mid-restore (RH-11). A panel restore overwrites the whole
+        // DB; let it finish (and re-derive the schema state) before we touch migrations. The restore runner's
+        // post-restore SchemaState::refresh() then lets the NEXT tick pick up any now-pending migrations.
+        if ($this->restoreState->shouldGateRequests()) {
+            return UpgradeResult::skipped('restore-in-progress');
         }
 
         $this->schema->refresh();
@@ -89,6 +98,12 @@ class UpgradeRunner
     {
         if (! $this->installer->isInstalled()) {
             return UpgradeResult::skipped('not-installed');
+        }
+
+        // Defense in depth: the upgrade panel is itself gated during a restore window, but never migrate
+        // against a mid-restore DB even if reached some other way (RH-11).
+        if ($this->restoreState->shouldGateRequests()) {
+            return UpgradeResult::skipped('restore-in-progress');
         }
 
         $this->schema->refresh();
