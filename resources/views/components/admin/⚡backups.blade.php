@@ -253,7 +253,7 @@ new class extends Component
                                 <x-ui.button type="button" variant="danger"
                                              wire:click="confirmRestore"
                                              wire:loading.attr="disabled" wire:target="confirmRestore"
-                                             @disabled(trim($typedName) !== $item['name'])>
+                                             :disabled="trim($typedName) !== $item['name']">
                                     <span wire:loading.remove wire:target="confirmRestore">Restore this backup</span>
                                     <span wire:loading wire:target="confirmRestore">Starting…</span>
                                 </x-ui.button>
