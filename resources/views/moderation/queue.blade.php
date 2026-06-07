@@ -1,39 +1,93 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 @extends('layouts.app', ['title' => 'Moderation queue · '.config('app.name', 'Hearth')])
 
+@section('breadcrumbs')
+    <x-ui.breadcrumbs :items="[
+        ['label' => 'Forums', 'url' => route('forums.index')],
+        ['label' => 'Moderation', 'url' => route('moderation.dashboard')],
+        ['label' => 'Queue'],
+    ]" />
+@endsection
+
 @section('content')
-    <main style="max-width:48rem;margin:2rem auto;padding:0 1rem;font-family:system-ui,sans-serif">
-        <h1>Moderation queue</h1>
-        <p style="color:#777">Content held by the anti-spam layer — new-user posts, flagged words, and suspicious content awaiting review.</p>
+    <x-ui.container size="md" class="space-y-5">
+        <div class="space-y-1">
+            <h1 class="text-2xl font-semibold tracking-tight text-ink">Moderation queue</h1>
+            <p class="text-sm text-ink-muted">
+                Content held by the anti-spam layer — new-user posts, flagged words, and suspicious content awaiting review.
+            </p>
+        </div>
 
-        <h2 style="font-size:1.1rem;margin-top:1.5rem">Pending topics</h2>
-        @forelse ($topics as $topic)
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-bottom:1px solid #f0f0f3">
-                <span>{{ $topic->title }} <span style="color:#999">by {{ $topic->author?->username }} in {{ $topic->forum?->title }}</span></span>
-                <span style="display:flex;gap:.4rem">
-                    <form method="POST" action="{{ route('topics.approve', $topic->id) }}">@csrf
-                        <button style="padding:.25rem .6rem;border:1px solid #7cc47c;border-radius:6px;background:#fff;color:#1a7a1a;cursor:pointer;font-size:.8rem">Approve</button></form>
-                    <form method="POST" action="{{ route('topics.reject', $topic->id) }}">@csrf
-                        <button style="padding:.25rem .6rem;border:1px solid #d99;border-radius:6px;background:#fff;color:#b00020;cursor:pointer;font-size:.8rem">Reject</button></form>
-                </span>
-            </div>
-        @empty
-            <p style="color:#999">No topics awaiting review.</p>
-        @endforelse
+        <x-ui.tabs :items="[
+            ['label' => 'Dashboard', 'url' => route('moderation.dashboard')],
+            ['label' => 'Queue', 'url' => route('moderation.queue'), 'active' => true, 'count' => $topics->count() + $posts->count()],
+            ['label' => 'Reports', 'url' => route('moderation.reports')],
+        ]" />
 
-        <h2 style="font-size:1.1rem;margin-top:1.5rem">Pending posts</h2>
-        @forelse ($posts as $post)
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-bottom:1px solid #f0f0f3">
-                <span>Reply by {{ $post->author?->username }} <span style="color:#999">in {{ $post->topic?->title }}</span></span>
-                <span style="display:flex;gap:.4rem">
-                    <form method="POST" action="{{ route('posts.approve', $post->id) }}">@csrf
-                        <button style="padding:.25rem .6rem;border:1px solid #7cc47c;border-radius:6px;background:#fff;color:#1a7a1a;cursor:pointer;font-size:.8rem">Approve</button></form>
-                    <form method="POST" action="{{ route('posts.reject', $post->id) }}">@csrf
-                        <button style="padding:.25rem .6rem;border:1px solid #d99;border-radius:6px;background:#fff;color:#b00020;cursor:pointer;font-size:.8rem">Reject</button></form>
-                </span>
-            </div>
-        @empty
-            <p style="color:#999">No posts awaiting review.</p>
-        @endforelse
-    </main>
+        {{-- Pending topics --}}
+        <section class="space-y-2.5">
+            <h2 class="text-lg font-semibold text-ink">Pending topics</h2>
+            @forelse ($topics as $topic)
+                <x-ui.card class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="min-w-0">
+                        <p class="font-medium text-ink">{{ $topic->title }}</p>
+                        <p class="mt-0.5 text-sm text-ink-muted">
+                            by {{ $topic->author?->username }} in {{ $topic->forum?->title }}
+                        </p>
+                    </div>
+                    <div class="flex shrink-0 items-center gap-2">
+                        <form method="POST" action="{{ route('topics.approve', $topic->id) }}">
+                            @csrf
+                            <x-ui.button type="submit" size="sm">
+                                <x-ui.icon name="check" class="h-4 w-4" /> Approve
+                            </x-ui.button>
+                        </form>
+                        <form method="POST" action="{{ route('topics.reject', $topic->id) }}">
+                            @csrf
+                            <x-ui.button type="submit" size="sm" variant="danger-ghost">Reject</x-ui.button>
+                        </form>
+                    </div>
+                </x-ui.card>
+            @empty
+                <x-ui.card>
+                    <x-ui.empty title="No topics awaiting review">
+                        <x-slot:icon><x-ui.icon name="check" class="h-6 w-6" /></x-slot:icon>
+                        New topics held for moderation will appear here.
+                    </x-ui.empty>
+                </x-ui.card>
+            @endforelse
+        </section>
+
+        {{-- Pending posts --}}
+        <section class="space-y-2.5">
+            <h2 class="text-lg font-semibold text-ink">Pending posts</h2>
+            @forelse ($posts as $post)
+                <x-ui.card class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="min-w-0">
+                        <p class="font-medium text-ink">Reply by {{ $post->author?->username }}</p>
+                        <p class="mt-0.5 text-sm text-ink-muted">in {{ $post->topic?->title }}</p>
+                    </div>
+                    <div class="flex shrink-0 items-center gap-2">
+                        <form method="POST" action="{{ route('posts.approve', $post->id) }}">
+                            @csrf
+                            <x-ui.button type="submit" size="sm">
+                                <x-ui.icon name="check" class="h-4 w-4" /> Approve
+                            </x-ui.button>
+                        </form>
+                        <form method="POST" action="{{ route('posts.reject', $post->id) }}">
+                            @csrf
+                            <x-ui.button type="submit" size="sm" variant="danger-ghost">Reject</x-ui.button>
+                        </form>
+                    </div>
+                </x-ui.card>
+            @empty
+                <x-ui.card>
+                    <x-ui.empty title="No posts awaiting review">
+                        <x-slot:icon><x-ui.icon name="message" class="h-6 w-6" /></x-slot:icon>
+                        Replies held for moderation will appear here.
+                    </x-ui.empty>
+                </x-ui.card>
+            @endforelse
+        </section>
+    </x-ui.container>
 @endsection

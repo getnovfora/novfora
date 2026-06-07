@@ -83,46 +83,46 @@ new class extends Component
 };
 ?>
 
-<div style="font-family:system-ui,sans-serif">
-    <p>
-        <button type="button" wire:click="runBackup" wire:loading.attr="disabled" wire:target="runBackup"
-                style="padding:.5rem 1rem;border:1px solid #2d2a6b;background:#2d2a6b;color:#fff;border-radius:8px;cursor:pointer">
+<div class="space-y-5">
+    <div>
+        <x-ui.button type="button" wire:click="runBackup" wire:loading.attr="disabled" wire:target="runBackup">
             <span wire:loading.remove wire:target="runBackup">Create backup now</span>
             <span wire:loading wire:target="runBackup">Backing up…</span>
-        </button>
-    </p>
+        </x-ui.button>
+    </div>
 
     @if ($message)
-        <p style="background:#f0f4ff;border:1px solid #d6e0ff;border-radius:8px;padding:.6rem .8rem">{{ $message }}</p>
+        <x-ui.alert variant="info">{{ $message }}</x-ui.alert>
     @endif
 
     @php($items = app(BackupService::class)->list())
     @if (empty($items))
-        <p style="color:#777">No backups yet. Create one above, or wait for the scheduled run.</p>
+        <x-ui.empty title="No backups yet" :icon="'<svg viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.75\' stroke-linecap=\'round\' stroke-linejoin=\'round\' class=\'h-6 w-6\'><path d=\'M3 13h5l1.5 3h5L16 13h5\'/><path d=\'M5 5h14l2 8v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5z\'/></svg>'">
+            Create one above, or wait for the scheduled run.
+        </x-ui.empty>
     @else
-        <table cellpadding="7" cellspacing="0" style="border-collapse:collapse;width:100%">
-            <thead>
-                <tr style="background:#f4f4f5;text-align:left">
-                    <th style="border:1px solid #ddd">Archive</th>
-                    <th style="border:1px solid #ddd">Size</th>
-                    <th style="border:1px solid #ddd">Created</th>
-                    <th style="border:1px solid #ddd">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
+        <x-ui.card flush>
+            <div class="hidden sm:grid grid-cols-[2fr_auto_2fr_auto] gap-3 px-4 py-2.5 sm:px-5 border-b border-line bg-surface-sunken text-xs font-semibold uppercase tracking-wide text-ink-subtle">
+                <span>Archive</span>
+                <span>Size</span>
+                <span>Created</span>
+                <span class="text-right">Actions</span>
+            </div>
+            <div class="divide-y divide-line">
                 @foreach ($items as $item)
-                    <tr>
-                        <td style="border:1px solid #ddd"><code>{{ $item['name'] }}</code></td>
-                        <td style="border:1px solid #ddd">{{ $this->human($item['size']) }}</td>
-                        <td style="border:1px solid #ddd">{{ \Illuminate\Support\Carbon::createFromTimestamp($item['created'])->toDayDateTimeString() }}</td>
-                        <td style="border:1px solid #ddd">
-                            <button type="button" wire:click="download('{{ $item['name'] }}')" style="cursor:pointer">Download</button>
-                            <button type="button" wire:click="delete('{{ $item['name'] }}')"
-                                    wire:confirm="Delete {{ $item['name'] }}?" style="cursor:pointer;color:#b3261e">Delete</button>
-                        </td>
-                    </tr>
+                    <div class="grid grid-cols-1 gap-2 px-4 py-3 sm:grid-cols-[2fr_auto_2fr_auto] sm:items-center sm:gap-3 sm:px-5">
+                        <span class="text-ink break-all"><code class="font-mono text-sm">{{ $item['name'] }}</code></span>
+                        <span class="text-sm text-ink-muted nums">{{ $this->human($item['size']) }}</span>
+                        <span class="text-sm text-ink-muted">{{ \Illuminate\Support\Carbon::createFromTimestamp($item['created'])->toDayDateTimeString() }}</span>
+                        <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+                            <x-ui.button type="button" variant="ghost" size="sm" wire:click="download('{{ $item['name'] }}')">Download</x-ui.button>
+                            <x-ui.button type="button" variant="danger-ghost" size="sm"
+                                         wire:click="delete('{{ $item['name'] }}')"
+                                         wire:confirm="Delete {{ $item['name'] }}?">Delete</x-ui.button>
+                        </div>
+                    </div>
                 @endforeach
-            </tbody>
-        </table>
+            </div>
+        </x-ui.card>
     @endif
 </div>

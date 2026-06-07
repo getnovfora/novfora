@@ -1,29 +1,63 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 @extends('layouts.app', ['title' => 'Reports · '.config('app.name', 'Hearth')])
 
+@section('breadcrumbs')
+    <x-ui.breadcrumbs :items="[
+        ['label' => 'Forums', 'url' => route('forums.index')],
+        ['label' => 'Moderation', 'url' => route('moderation.dashboard')],
+        ['label' => 'Reports'],
+    ]" />
+@endsection
+
 @section('content')
-    <main style="max-width:48rem;margin:2rem auto;padding:0 1rem;font-family:system-ui,sans-serif">
-        <h1>Reports</h1>
-        <p style="color:#777">Open reports from the community, awaiting a moderator.</p>
+    <x-ui.container size="md" class="space-y-5">
+        <div class="space-y-1">
+            <h1 class="text-2xl font-semibold tracking-tight text-ink">Reports</h1>
+            <p class="text-sm text-ink-muted">Open reports from the community, awaiting a moderator.</p>
+        </div>
 
-        @forelse ($reports as $report)
-            <div style="padding:.6rem 0;border-bottom:1px solid #f0f0f3">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                    <span>{{ class_basename($report->reportable_type) }} #{{ $report->reportable_id }}
-                        <span style="color:#999">reported by {{ $report->reporter?->username ?? 'system' }}</span></span>
-                    <form method="POST" action="{{ route('reports.resolve', $report->id) }}">@csrf
-                        <button name="action" value="resolved" style="padding:.25rem .6rem;border:1px solid #7cc47c;border-radius:6px;background:#fff;color:#1a7a1a;cursor:pointer;font-size:.8rem">Resolve</button>
-                        <button name="action" value="dismissed" style="padding:.25rem .6rem;border:1px solid #bbb;border-radius:6px;background:#fff;color:#555;cursor:pointer;font-size:.8rem">Dismiss</button>
-                    </form>
-                </div>
-                @if ($report->reason)
-                    <p style="margin:.3rem 0 0;color:#555;font-size:.9rem">{{ $report->reason }}</p>
-                @endif
-            </div>
-        @empty
-            <p style="color:#999">No open reports. 🎉</p>
-        @endforelse
+        <x-ui.tabs :items="[
+            ['label' => 'Dashboard', 'url' => route('moderation.dashboard')],
+            ['label' => 'Queue', 'url' => route('moderation.queue')],
+            ['label' => 'Reports', 'url' => route('moderation.reports'), 'active' => true],
+        ]" />
 
-        <div style="margin-top:1rem">{{ $reports->links() }}</div>
-    </main>
+        <div class="space-y-2.5">
+            @forelse ($reports as $report)
+                <x-ui.card class="space-y-2">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="min-w-0">
+                            <p class="font-medium text-ink">
+                                {{ class_basename($report->reportable_type) }}
+                                <span class="text-ink-muted nums">#{{ $report->reportable_id }}</span>
+                            </p>
+                            <p class="mt-0.5 text-sm text-ink-muted">
+                                reported by {{ $report->reporter?->username ?? 'system' }}
+                            </p>
+                        </div>
+                        <form method="POST" action="{{ route('reports.resolve', $report->id) }}"
+                              class="flex shrink-0 items-center gap-2">
+                            @csrf
+                            <x-ui.button type="submit" name="action" value="resolved" size="sm">
+                                <x-ui.icon name="check" class="h-4 w-4" /> Resolve
+                            </x-ui.button>
+                            <x-ui.button type="submit" name="action" value="dismissed" size="sm" variant="ghost">Dismiss</x-ui.button>
+                        </form>
+                    </div>
+                    @if ($report->reason)
+                        <p class="rounded-md bg-surface-sunken px-3 py-2 text-sm text-ink-muted">{{ $report->reason }}</p>
+                    @endif
+                </x-ui.card>
+            @empty
+                <x-ui.card>
+                    <x-ui.empty title="No open reports">
+                        <x-slot:icon><x-ui.icon name="flag" class="h-6 w-6" /></x-slot:icon>
+                        Everything is clear — new reports from the community will show up here.
+                    </x-ui.empty>
+                </x-ui.card>
+            @endforelse
+        </div>
+
+        <div>{{ $reports->links() }}</div>
+    </x-ui.container>
 @endsection
