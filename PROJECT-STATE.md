@@ -470,6 +470,50 @@ clean-room**.
 > (`/hearth-release.zip` gitignored). Small conventional DCO commits on `claude/practical-ritchie-gHg7A` (PR #2).
 > **NEXT:** the hygiene board is clear → the default theme / UI polish pass ([`theme-design-brief.md`](docs/product/theme-design-brief.md));
 > RH-4 (subdirectory, design-first) remains afterward.**
+>
+> **Update 2026-06-06 (DEFAULT THEME / UI POLISH — built, on a branch + PR — Code):** Hearth now *looks* like
+> the product the brief promised. Appearance + the two named settings only — no route/data/behaviour changes,
+> no theme-API breaks. Per [`theme-design-brief.md`](docs/product/theme-design-brief.md) (the taste contract)
+> and the kickoff. **(PART 1 — tokens):** one CSS file (`resources/css/app.css`) of design tokens — a
+> slate-neutral + indigo-accent scale and a semantic set (`--surface/--surface-raised/--ink/--ink-muted/
+> --line/--accent/--accent-ink/success/warn/danger` + a `--danger-strong` button fill) with **light + dark**
+> values from ONE set; Tailwind 4 utilities generated **from** the tokens (`@theme`), so child themes override
+> the custom properties without touching templates (THEME-API contract intact). system-ui type scale
+> (13/14/16/18/22/28) with tabular-numeral counts, radii 6/10/16, two shadows. Dark resolves on BOTH
+> `prefers-color-scheme` (auto) and a manual `[data-theme]`; **density** is a `[data-density=compact]` root
+> modifier scaling the `--spacing` unit (not parallel templates). a11y floor preserved (skip-link,
+> `:focus-visible`, `--hearth-*` aliases) + reduced-motion. **(PART 2 — appearance settings, the only
+> behaviour additions):** per-user **colour mode** (auto/light/dark) + **density** (comfortable/compact) on
+> the users table (reversible); `settings/appearance` form works with **NO JavaScript** (server-rendered
+> `<html>` attributes), a header toggle + footer switch persist via fetch, guests via an inline no-flash boot
+> snippet + localStorage; covered by `tests/Feature/Settings/AppearanceTest` (persistence + rendering effect +
+> guest defaults + validation). **(PART 3 — pages/components):** a token-driven Blade component library
+> (`resources/views/components/ui/*` — button/input/badge/alert/card/avatar+initials/breadcrumbs/tabs/
+> dropdown/modal/toggle/empty/container/icon) + a restyled global shell (header with wordmark/search/colour
+> toggle/notification bell/user menu, mobile nav, breadcrumb bar, flash, footer); ALL core + staff pages
+> restyled (forum index/view/topic + composers, auth, search, profiles, notifications, settings, moderation,
+> admin) via a 7-group parallel agent fan-out, each adversarially reviewed; friendly **error pages**
+> (404/403/500/503/419/429, self-contained so they render even on a 500); the standalone **installer**
+> recoloured to the new palette and **decoupled from the app CSS bundle**. **(PART 4 — gates):** mobile-first,
+> verified good at **360px** (the guest header overflow was found in a screenshot and fixed); WCAG AA token
+> contrast in both modes; ≥44px touch targets; styling never needs JS; **CSS bundle 7.8 KB gz** (budget 50).
+> **(PART 5 — build determinism):** dropped the bunny.net font plugin (system-ui only → fully offline build);
+> `app.css` uses `source(none)` + `@source`s only the app's own tracked sources (no `vendor/`, no
+> `storage/framework/views`); published + restyled our **own pagination views** (so the vendor `@source`
+> could go); deleted the committed font assets/manifest; the CI `assets` job is now Composer-free; rebuild
+> rule documented in `CONTRIBUTING.md`. **Evidence:** **Pest 342 passed / 1 skipped (1143 assertions)**
+> (M0–M5 + P1.5 + RH-6→RH-9 all stay green); Pint + Larastan + `composer audit` clean; **Dusk 3 passed**
+> (editor journey under the restyled composer + the **screenshot gate**); `assets-fresh` reproduces the
+> committed bundle byte-for-byte. **Screenshots** (light/dark × mobile/desktop of the four core pages) at
+> [`docs/product/theme-screenshots/`](docs/product/theme-screenshots/README.md) — *font caveat: headless
+> Debian Chromium falls back from system-ui, so judge layout/colour/contrast, not the font face.* Bundle
+> rebuilt + cold-boot-verified (`RELEASE_VERIFY=PASS`, `GET / → 302 /install`): `hearth-release.zip`
+> **12,788,269 bytes**, sha256 `5a3a22fefb1e7038ea6e6f3e1f5c4cc5d39da509cbe740050e1a94828724d953`. Small
+> conventional DCO commits on branch **`claude/default-theme`** (PR opened). *(An unrelated, additive
+> `docs/product/status-review-2026-06-06.md` commit from a parallel Cowork session landed on the branch — no
+> overlap with the theme work.)* **NEXT: owner reviews the PR screenshots against the brief → iterate/merge →
+> deploy the themed bundle to the live host (the first deploy that *looks* like Hearth) → then RH-4
+> (subdirectory install, design-first + ADR) and Phase 2 (Community).**
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
