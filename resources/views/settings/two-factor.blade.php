@@ -1,76 +1,102 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 @extends('layouts.app', ['title' => 'Two-factor · '.config('app.name', 'Hearth')])
 
+@section('breadcrumbs')
+    <x-ui.breadcrumbs :items="[
+        ['label' => 'Home', 'url' => route('home')],
+        ['label' => 'Settings', 'url' => route('settings.profile')],
+        ['label' => 'Security'],
+    ]" />
+@endsection
+
 @section('content')
     @php($user = auth()->user())
     @php($codes = $user->two_factor_recovery_codes ? json_decode(decrypt($user->two_factor_recovery_codes), true) : [])
-    <main style="max-width:40rem;margin:2.5rem auto;padding:0 1.25rem;font-family:system-ui,sans-serif">
-        <nav style="color:#888;font-size:.85rem"><a href="{{ route('home') }}">Home</a> → Security</nav>
-        <h1>Two-factor authentication</h1>
 
+    <x-settings.shell title="Two-factor authentication">
         @if (session('status') === 'two-factor-required')
-            <p style="background:#fff6e5;border:1px solid #f0d089;color:#7a5300;padding:.7rem .9rem;border-radius:6px">
+            <x-ui.alert variant="warn">
                 Two-factor authentication is required for staff accounts. Enable it below to continue.
-            </p>
+            </x-ui.alert>
         @endif
         @if (session('status') === 'two-factor-authentication-enabled')
-            <p style="background:#eef7ee;border:1px solid #bcdcbc;color:#1a6b1a;padding:.6rem .85rem;border-radius:6px">
+            <x-ui.alert variant="success">
                 Two-factor enabled — scan the QR code and confirm with a code to finish.
-            </p>
+            </x-ui.alert>
         @endif
         @if (session('status') === 'two-factor-authentication-confirmed')
-            <p style="background:#eef7ee;border:1px solid #bcdcbc;color:#1a6b1a;padding:.6rem .85rem;border-radius:6px">
+            <x-ui.alert variant="success">
                 Two-factor authentication is now active.
-            </p>
+            </x-ui.alert>
         @endif
         @if ($errors->any())
-            <ul style="background:#fdeeee;border:1px solid #e9b3b3;color:#a11;padding:.55rem .8rem .55rem 1.7rem;border-radius:6px">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
+            <x-ui.alert variant="danger" title="Please fix the following">
+                <ul class="list-disc pl-5 space-y-0.5">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </x-ui.alert>
         @endif
 
         @if (is_null($user->two_factor_secret))
-            <p style="color:#555">
-                Add a second step at sign-in using an authenticator app (TOTP — e.g. 1Password, Aegis, Google Authenticator).
-                @if ($user->isStaff()) <strong>Required for staff.</strong> @endif
-            </p>
-            <form method="POST" action="{{ route('two-factor.enable') }}">
-                @csrf
-                <button type="submit" style="padding:.6rem 1rem;border:0;border-radius:6px;background:#2d2a6b;color:#fff;font-size:1rem;cursor:pointer">Enable two-factor authentication</button>
-            </form>
+            <x-ui.card class="space-y-4">
+                <p class="text-sm text-ink-muted">
+                    Add a second step at sign-in using an authenticator app (TOTP — e.g. 1Password, Aegis, Google Authenticator).
+                    @if ($user->isStaff()) <strong class="text-ink">Required for staff.</strong> @endif
+                </p>
+                <form method="POST" action="{{ route('two-factor.enable') }}">
+                    @csrf
+                    <x-ui.button type="submit">
+                        <x-ui.icon name="shield" class="h-4 w-4" /> Enable two-factor authentication
+                    </x-ui.button>
+                </form>
+            </x-ui.card>
         @else
             @if (is_null($user->two_factor_confirmed_at))
-                <h2 style="font-size:1.05rem;margin-bottom:.3rem">1 · Scan this QR code</h2>
-                <div style="background:#fff;display:inline-block;padding:.5rem;border:1px solid #eee;border-radius:8px">{!! $user->twoFactorQrCodeSvg() !!}</div>
+                <x-ui.card class="space-y-5">
+                    <div class="space-y-3">
+                        <h3 class="text-sm font-semibold text-ink">1 · Scan this QR code</h3>
+                        <div class="inline-block rounded-lg border border-line bg-white p-2">{!! $user->twoFactorQrCodeSvg() !!}</div>
+                    </div>
 
-                <h2 style="font-size:1.05rem;margin-bottom:.3rem">2 · Confirm a generated code</h2>
-                <form method="POST" action="{{ route('two-factor.confirm') }}" style="display:flex;gap:.5rem;align-items:center">
-                    @csrf
-                    <input name="code" inputmode="numeric" autocomplete="one-time-code" autofocus
-                           style="padding:.5rem;border:1px solid #bbb;border-radius:6px">
-                    <button type="submit" style="padding:.55rem .9rem;border:0;border-radius:6px;background:#2d2a6b;color:#fff;cursor:pointer">Confirm</button>
-                </form>
+                    <div class="space-y-3">
+                        <h3 class="text-sm font-semibold text-ink">2 · Confirm a generated code</h3>
+                        <form method="POST" action="{{ route('two-factor.confirm') }}" class="flex flex-col gap-2 sm:flex-row sm:items-start">
+                            @csrf
+                            <div class="sm:w-48">
+                                <label for="code" class="sr-only">Authentication code</label>
+                                <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" autofocus
+                                       class="w-full min-h-11 px-3 rounded-md bg-surface-raised text-ink placeholder:text-ink-subtle border border-line transition-colors focus:border-accent">
+                            </div>
+                            <x-ui.button type="submit">Confirm</x-ui.button>
+                        </form>
+                    </div>
+                </x-ui.card>
             @else
-                <p style="background:#eef7ee;border:1px solid #bcdcbc;color:#1a6b1a;padding:.6rem .85rem;border-radius:6px">
-                    ✅ Two-factor authentication is active on your account.
-                </p>
+                <x-ui.alert variant="success">
+                    <span class="inline-flex items-center gap-2">
+                        <x-ui.icon name="check" class="h-4 w-4" />
+                        Two-factor authentication is active on your account.
+                    </span>
+                </x-ui.alert>
             @endif
 
-            <h2 style="font-size:1.05rem;margin-top:1.5rem">Recovery codes</h2>
-            <p style="color:#555">Keep these somewhere safe. Each can be used once if you lose your authenticator.</p>
-            <ul style="font-family:ui-monospace,monospace;background:#f7f7f8;border:1px solid #eee;border-radius:6px;padding:.8rem 1.6rem;display:inline-block">
-                @foreach ($codes as $code)
-                    <li>{{ $code }}</li>
-                @endforeach
-            </ul>
+            <x-ui.card class="space-y-3">
+                <h3 class="text-sm font-semibold text-ink">Recovery codes</h3>
+                <p class="text-sm text-ink-muted">Keep these somewhere safe. Each can be used once if you lose your authenticator.</p>
+                <ul class="rounded-lg border border-line bg-surface-sunken p-4 font-mono text-sm text-ink grid grid-cols-1 gap-1 sm:grid-cols-2 nums">
+                    @foreach ($codes as $code)
+                        <li>{{ $code }}</li>
+                    @endforeach
+                </ul>
+            </x-ui.card>
 
-            <form method="POST" action="{{ route('two-factor.disable') }}" style="margin-top:1rem">
+            <form method="POST" action="{{ route('two-factor.disable') }}">
                 @csrf
                 @method('DELETE')
-                <button type="submit" style="padding:.5rem .9rem;border:1px solid #d99;border-radius:6px;background:#fff;color:#a11;cursor:pointer">Disable two-factor authentication</button>
+                <x-ui.button type="submit" variant="danger-ghost">Disable two-factor authentication</x-ui.button>
             </form>
         @endif
-    </main>
+    </x-settings.shell>
 @endsection

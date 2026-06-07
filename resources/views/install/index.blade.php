@@ -9,7 +9,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="robots" content="noindex">
     <title>Install {{ config('app.name', 'Hearth') }}</title>
-    @vite(['resources/css/app.css'])
+    {{-- Fully self-contained: the installer must NEVER depend on the app CSS bundle (a fresh upload may not
+         have built assets, and the bundle's hashes change with the theme). All styling is the inline <style>
+         below, on the same indigo/slate palette as the theme. --}}
     {{-- This is a STANDALONE pre-install layout: it can't use layouts/app (which assumes a DB + auth), so
          it must declare Livewire's runtime itself. Emit @livewireStyles/@livewireScripts EXPLICITLY instead
          of leaning on Livewire's response-rewrite auto-injection — on real shared hosts (cPanel/LiteSpeed/
@@ -18,10 +20,10 @@
          keep auto-injection from double-injecting these. --}}
     @livewireStyles
     <style>
-        :root { --ink:#1f2430; --muted:#5b6472; --line:#e3e3ea; --accent:#2d2a6b; --ok:#1a7f4b; --warn:#9a6b00; --bad:#b3261e; }
-        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: var(--ink); background:#f6f6f9; margin:0; }
+        :root { --ink:#141a2b; --muted:#555d72; --line:#e3e7f0; --accent:#4f46e5; --ok:#15803d; --warn:#b45309; --bad:#dc2626; }
+        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: var(--ink); background:#f6f8fc; margin:0; }
         .wrap { max-width: 44rem; margin: 0 auto; padding: 2rem 1rem 4rem; }
-        .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:1.5rem; }
+        .card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:1.5rem; }
         h1 { margin:.2rem 0 .25rem; font-size:1.5rem; }
         a { color: var(--accent); }
         .muted { color: var(--muted); }
@@ -30,7 +32,8 @@
         .steps li[aria-current=step] { border-color:var(--accent); color:var(--accent); font-weight:600; }
         label { display:block; font-weight:600; margin:.9rem 0 .25rem; }
         input[type=text], input[type=url], input[type=email], input[type=password], input[type=number], select {
-            width:100%; box-sizing:border-box; padding:.5rem .6rem; border:1px solid #c8c8d2; border-radius:8px; font-size:1rem; }
+            width:100%; box-sizing:border-box; padding:.5rem .6rem; border:1px solid #cdd3e1; border-radius:8px; font-size:1rem; }
+        input:focus, select:focus { outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent); }
         .row { display:flex; gap:.8rem; flex-wrap:wrap; }
         .row > div { flex:1; min-width:9rem; }
         .btn { display:inline-block; padding:.55rem 1.1rem; border-radius:8px; border:1px solid var(--accent); background:var(--accent); color:#fff; font-size:1rem; cursor:pointer; }
@@ -41,10 +44,10 @@
         .badge { flex:none; width:1.3rem; text-align:center; font-weight:700; }
         .pass { color:var(--ok); } .warn { color:var(--warn); } .fail { color:var(--bad); }
         .err { color:var(--bad); font-size:.85rem; margin-top:.25rem; }
-        .note { background:#f0f4ff; border:1px solid #d6e0ff; border-radius:8px; padding:.6rem .8rem; margin:.6rem 0; font-size:.9rem; }
+        .note { background:#eef2ff; border:1px solid #e0e7ff; border-radius:8px; padding:.6rem .8rem; margin:.6rem 0; font-size:.9rem; }
         table.kv { width:100%; border-collapse:collapse; font-size:.9rem; }
         table.kv td { padding:.3rem .5rem; border-bottom:1px solid var(--line); }
-        code { background:#f1f1f4; padding:.1rem .35rem; border-radius:4px; }
+        code { background:#eef1f7; padding:.1rem .35rem; border-radius:4px; }
     </style>
 </head>
 <body>
