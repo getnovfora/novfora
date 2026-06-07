@@ -548,6 +548,36 @@ clean-room**.
 > `claude/default-theme`. **NEXT: owner re-reviews the refreshed PR #3 screenshots → iterate or merge → deploy;
 > Part B (community-feel pack: info center, group colours, view-count incrementing, poster-position option) is
 > triaged for Phase 2.**
+>
+> **Update 2026-06-07 (RH-10 — no-SSH auto-upgrade: "it migrates automatically" is now TRUE — Code):** built on
+> a branch from **main** (theme PR #3 already merged), per [`rh10-auto-upgrade-kickoff.md`](docs/product/rh10-auto-upgrade-kickoff.md).
+> **The gap:** getting-started §5 promised auto-migration on deploy, but nothing implemented it — the only
+> `migrate` was at install time. Extracting the themed release over a live install would run new code (the
+> appearance migration reads `users.color_mode`/`density` in the global layout) against the old schema →
+> **every signed-in page 500s**, with no no-SSH way to migrate. **Fix (ADR-0021, `App\Upgrade`):** (1)
+> **`SchemaState`** — O(cache-read) request-path detection via a cached flag + a release **fingerprint**
+> (sha256 of the deployed migration filenames; a glob, no DB) that gates the instant new code lands (closing
+> the deploy→first-tick window), refreshed by the scheduler tick's real `migrator` check; `GET /health` gains a
+> non-secret `schema` block (`pending`/`upgrading`/`stuck`/`auto`/`last`). (2) **`UpgradeRunner`** — an
+> every-minute `Schedule::call` (`withoutOverlapping` + a cache lock) that, when pending: enter maintenance →
+> **backup first** (failure aborts) → `migrate --force` in-process → refresh caches → exit maintenance →
+> audit-log; killed mid-run, it resumes idempotently next tick. (3) **`PreventRequestsDuringUpgrade`** — a
+> branded **503** (Retry-After, self-refreshing) for every request except `/health`+assets; never a SQL error.
+> (4) **Failure** — roll back only this run's batch, hold (`schema.stuck`, no retry loop) after
+> `max_auto_attempts` (default 2), self-clearing when the operator re-uploads the previous release. (5)
+> **Controls** — `HEARTH_AUTO_UPGRADE=true` default; `false` = manual via *Admin → System → Upgrade* (new SFC,
+> admin+2FA+confirm) or `php artisan hearth:upgrade`; documented asymmetry (auto protects signed-in pages,
+> manual keeps the panel reachable). **No new dependencies. No theme/installer/Phase-2 changes (scope fence
+> held).** **Evidence (Docker `php:8.3`):** **Pest 378 passed / 1 skipped (1286 assertions)** — +36 RH-10 tests
+> (detection on/off · lock · backup→migrate ordering & abort · failure→rollback+stuck+maintenance · health
+> schema · 503-not-SQL in-window · auto-off+manual apply), all prior suites stay green; Pint + Larastan +
+> `composer audit` clean; `assets-fresh` reproduces the committed bundle (Blade-only changes, no asset drift);
+> Dusk unaffected (the gate is dormant without schema drift). Docs updated: getting-started §5 (window/toggle/
+> recovery) + §6, REAL-HOST-VALIDATION §6a (live upgrade runbook), real-host-findings RH-10 → FIXED, ADR-0021.
+> Small conventional DCO commits on **`claude/rh10-auto-upgrade`**. **NEXT: push the branch + open the PR
+> (this env has no `gh`); after it merges on top of the theme, rebuild + cold-verify the release bundle — that
+> artifact (theme + polish + RH-10) is the next live deploy, and deploying it IS RH-10's first real-world
+> validation (the appearance migration applies itself via cron).**
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,

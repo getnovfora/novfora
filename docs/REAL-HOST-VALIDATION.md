@@ -246,6 +246,53 @@ Run through these on **each** host and record pass/fail:
 
 ---
 
+## 6a. Upgrading a live no-SSH install (RH-10)
+
+The whole point of the baseline tier is that **upgrading is the same gesture as the first upload**: extract
+the new release zip over the existing install and walk away. The cron line takes a backup, migrates, and
+brings the site back — no SSH, no manual SQL. This section is the live validation for that mechanism
+(ADR-0021); run it once you have a working install from §6.
+
+**Do the upgrade.**
+- Re-build the bundle from the new code (§2) and **extract it over your existing install** (overwrite
+  `app/`, `public/build`, `vendor/`, etc.). Do **not** touch `.env`, `storage/installed`, or `storage/`.
+  Nothing else — no installer, no commands.
+
+**Watch it happen (no login needed).**
+- Within ~2 minutes the site may briefly show a branded **"Just a moment…"** maintenance page (it
+  auto-refreshes). On a 1-minute cron the window is ≤~2 minutes.
+- Poll the health endpoint and watch the upgrade flip:
+
+  ```bash
+  curl -s https://your-site.example/health | python3 -m json.tool
+  # schema.pending: true   → migrations are outstanding (you'll see the maintenance page)
+  # schema.upgrading: true → the run is applying them right now
+  # …then schema.pending: false → done; the site is back on the new version
+  ```
+
+**Acceptance checklist (record pass/fail on each host):**
+- [ ] During the window, an end-user page returns a **branded 503 maintenance page**, not a 500 / SQL error.
+- [ ] `/health` `schema.pending` flips **true → false** within ~2 minutes (and `schema.upgrading` is briefly
+      true). `/health` itself stays reachable throughout.
+- [ ] *Admin → System → Backups* shows a **pre-upgrade snapshot** (`hearth-<timestamp>.zip`) dated to the run.
+- [ ] Sign in → **Settings → Appearance** works and dark/compact toggles persist (proves the new columns
+      exist — i.e. the migration actually applied).
+- [ ] *Admin → System → Upgrade* shows **"Last upgrade: Succeeded"** with the migration count; the **audit
+      log** has an `upgrade.completed` entry.
+
+**Manual mode (optional).** Set `HEARTH_AUTO_UPGRADE=false` in `.env` first, then upload. The site does **not**
+auto-migrate; apply from *Admin → System → Upgrade* ("Apply pending migrations") or `php artisan hearth:upgrade`.
+Note the asymmetry (§5 of getting-started): in manual mode signed-in pages may error on new columns until you
+apply — auto mode is what shields them.
+
+**If it gets stuck.** A failed migration holds the site in maintenance (`/health` → `schema.stuck: true`); it
+does **not** retry in a loop. To recover without SSH, **re-upload the previous release zip** — the code then
+matches the rolled-back schema and the site returns on its own within a cron tick. The maintenance page names
+the pre-upgrade backup; with shell access you can `php artisan hearth:restore storage/backups/hearth-…zip`
+instead. Capture the `upgrade.failed` audit entry and `storage/logs/laravel.log` for the report (§7).
+
+---
+
 ## 7. Capturing & reporting failures
 
 For any failure, capture:

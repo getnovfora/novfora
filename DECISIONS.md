@@ -35,6 +35,7 @@ process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed
 | 0018 | **Strict clean-room** vs all reference forums; copy *data* (importers), never *program* | Accepted (brief) | [CONTRIBUTING](CONTRIBUTING.md) |
 | 0019 | **Auth = Laravel Fortify (headless) + our own Blade views**; **argon2id**; **2FA/TOTP mandatory for staff**, opt-in for users; passkeys deferred | Accepted | [security §1](docs/architecture/security-and-permissions.md) |
 | 0020 | **No-SSH web installer** with a **post-install file-marker lock** (no re-trigger / admin-reset vector); one shared `InstallRunner` for web + CLI; pre-install boot hardening; **portable backup/restore** (manifest + SHA-256 integrity) | Accepted | [getting-started](docs/getting-started.md) |
+| 0021 | **No-SSH automatic upgrade** — cron-driven, backup-first, maintenance-safe migration; cheap cached schema-state detection (release-fingerprint, O(cache-read) request path); `HEARTH_AUTO_UPGRADE` default-on with a manual admin/CLI path; held-not-looping failure policy | Accepted | [getting-started §5](docs/getting-started.md) · [RH-10](docs/product/real-host-findings.md) |
 
 ---
 
@@ -141,6 +142,44 @@ the hash before overwriting. **Consequences:** input validated server-side; secr
 logged; the lock has no re-trigger/admin-reset vector; the upgrade safety net (reversible migrations +
 backup→restore) is proven by a round-trip test. Tests opt out of enforcement (`HEARTH_INSTALL_ENFORCE=false`)
 so the M0–M4 suite is untouched.
+
+### ADR-0021 — No-SSH automatic upgrade (RH-10)
+**Context:** `getting-started.md` §5 promised "deploy the new version (it migrates automatically)", but
+nothing implemented it — the only `migrate` call lived in `InstallRunner` (install time). A no-SSH operator
+who extracts a new release over a live install runs **new code against the old schema**: the very next
+themed release adds `users.color_mode`/`density`, which the global layout reads, so **every signed-in page
+would 500** until someone migrated — and there is no way to migrate without SSH. A beta gate.
+
+**Decision:** a cron-driven, **backup-first, maintenance-safe** automatic migration, in `App\Upgrade`.
+- **Detection (cheap).** `SchemaState` keeps one cache key. The **request path** is O(cache-read): it reads
+  the cached flag and compares a **release fingerprint** (a sha256 of the deployed migration filenames —
+  a glob, no DB) against the recorded one. A mismatch ⇒ "new code, schema behind" ⇒ gate — which closes the
+  deploy→first-tick window the scheduler alone would leave open. The **scheduler tick** does the real,
+  DB-heavy `migrator` check and refreshes the flag. `GET /health` gains a non-secret `schema` block
+  (`pending`/`upgrading`/`stuck`/`auto`/`last`) so the owner/Cowork verify a live upgrade remotely.
+- **The run** (`UpgradeRunner`, every minute, `withoutOverlapping` **+** a cache lock so it can never
+  double-run): enter maintenance → **take a backup** (failure ABORTS — stay pending, surface loudly) →
+  `migrate --force` in-process → refresh caches → exit maintenance → audit-log (count, duration, backup).
+  A run killed mid-migration is **resumed idempotently** next tick (already-applied migrations are skipped).
+- **The window.** `PreventRequestsDuringUpgrade` serves a branded **503** (Retry-After, self-refreshing) for
+  every request except the health endpoints (so the upgrade is watchable) and assets — never a raw SQL error.
+- **Failure policy.** On a migrate failure, best-effort roll back **this run's** batch only (never the prior
+  good batch — a single migration that recorded nothing leaves the **backup** as the recovery path, since
+  MySQL DDL is not transactional); stay in maintenance; **hold** (`schema.stuck`) after at most
+  `max_auto_attempts` (default 2) — **no retry loop**. The hold self-clears when the operator re-uploads the
+  previous release (drift resolved).
+- **Operator controls.** `HEARTH_AUTO_UPGRADE=true` by default (the promise). `false` = manual: nothing
+  auto-runs and *Admin → System → Upgrade* / `php artisan hearth:upgrade` apply on demand. **Asymmetry
+  (documented):** auto mode is what shields signed-in pages during the window; manual mode keeps the site
+  reachable so the admin can apply, so those pages may error on new columns until they do.
+
+**Consequences:** the documented promise is true on the baseline tier with zero new dependencies; the
+≤~2-minute window on a 1-minute cron protects signed-in pages from new-column 500s; reversible migrations +
+the pre-upgrade backup are the recovery net; the cached state is scalars-only so it survives a serializing
+store under the RH-9 anti-object-injection hardening. Tested at the feature level driving the runner
+directly (detection on/off · lock · backup→migrate ordering & backup-abort · failure→rollback+stuck · health
+schema · 503-not-SQL during the window · auto-off + manual apply). See
+[real-host-findings RH-10](docs/product/real-host-findings.md).
 
 *(ADRs 0003, 0004, 0008, 0009, 0010, 0013, 0014, 0016, 0017, 0018 are summarized in the table above; full
 detail in their linked docs.)*
