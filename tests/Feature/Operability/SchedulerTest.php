@@ -43,3 +43,14 @@ it('registers the no-SSH auto-upgrade tick (RH-10), overlap-guarded', function (
     // no signal handler) can't strand the auto-upgrade (and the maintenance gate) for up to a day.
     expect($event->expiresAt)->toBeLessThan(60);
 });
+
+it('registers the no-SSH panel-restore drain (RH-11), overlap-guarded', function () {
+    $event = collect(app(Schedule::class)->events())
+        ->first(fn ($event) => $event->description === 'hearth-panel-restore');
+
+    expect($event)->not->toBeNull();
+    // Same belt as the auto-upgrade: a short, bounded overlap window (the runner's own FILE lock is the real
+    // double-run guard, since a cache lock would be wiped by the very restore it is meant to protect).
+    expect($event->withoutOverlapping)->toBeTrue();
+    expect($event->expiresAt)->toBeLessThan(60);
+});

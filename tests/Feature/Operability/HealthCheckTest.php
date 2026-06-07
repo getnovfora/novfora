@@ -4,9 +4,22 @@
 
 declare(strict_types=1);
 
+use App\Backup\RestoreState;
 use App\Http\Controllers\HealthController;
 use App\Upgrade\SchemaState;
 use Illuminate\Support\Facades\Cache;
+
+/** Point the file-based restore state at a throwaway path so a test never touches the real storage file. */
+function isolateRestoreState(): void
+{
+    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-rh11-health-'.bin2hex(random_bytes(6));
+    @mkdir($dir, 0775, true);
+    config([
+        'hearth.backup.restore_state_path' => $dir.DIRECTORY_SEPARATOR.'hearth-restore.json',
+        'hearth.backup.restore_lock_path' => $dir.DIRECTORY_SEPARATOR.'hearth-restore.lock',
+    ]);
+    app(RestoreState::class)->forget();
+}
 
 /*
 | The /health endpoint (M5): a machine-readable status probe for uptime monitoring. Never throws, never
@@ -59,6 +72,31 @@ it('degrades when an auto-upgrade is stuck (operator-actionable)', function () {
 
     $res->assertOk()->assertJsonPath('status', 'degraded');
     expect($res->json('schema.stuck'))->toBeTrue();
+});
+
+it('reports the no-SSH restore block (RH-11)', function () {
+    isolateRestoreState();
+
+    $res = $this->getJson('/health');
+
+    $res->assertOk()->assertJsonStructure([
+        'restore' => ['requested', 'running', 'stuck', 'last'],
+    ]);
+    expect($res->json('restore.requested'))->toBeFalse();
+    expect($res->json('restore.running'))->toBeFalse();
+    expect($res->json('restore.stuck'))->toBeFalse();
+});
+
+it('degrades when a restore is stuck (operator-actionable)', function () {
+    isolateRestoreState();
+    app(RestoreState::class)->put(['stuck' => true]);
+
+    $res = $this->getJson('/health');
+
+    $res->assertOk()->assertJsonPath('status', 'degraded');
+    expect($res->json('restore.stuck'))->toBeTrue();
+
+    app(RestoreState::class)->forget();
 });
 
 it('never exposes credentials in the payload', function () {
