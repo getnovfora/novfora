@@ -514,6 +514,40 @@ clean-room**.
 > overlap with the theme work.)* **NEXT: owner reviews the PR screenshots against the brief → iterate/merge →
 > deploy the themed bundle to the live host (the first deploy that *looks* like Hearth) → then RH-4
 > (subdirectory install, design-first + ADR) and Phase 2 (Community).**
+>
+> **Update 2026-06-07 (THEME POLISH ROUND 1 — owner visual feedback, on PR #3 — Code):** executed Part A of
+> [`theme-polish-round-1.md`](docs/product/theme-polish-round-1.md) on `claude/default-theme` (PR #3 stays
+> open — not merged). Presentation only; every theme gate still holds; no new columns/behavior (the data
+> model already carried it). Benchmarked to the ProBoards reference the owner supplied. **(1) Topic view —
+> classic LEFT poster sidebar** (owner default): desktop posts get a left column (larger avatar, display name,
+> a staff/role badge derived from the eager-loaded `author.groups`, joined date + post count from loaded
+> columns), body to the right; collapses to the top-bar layout on mobile. `.hearth-prose`, `id=post-*`, the
+> SEO `@push('head')`, moderation controls, and the reply-composer island all preserved (the admin-switchable
+> top/left/right option is Part B). **(2) Board view (forum/show) — info-dense topic table:** a real desktop
+> table (Subject + “by starter” · Replies · Views · Last post → links to the topic's latest page) reflowing to
+> stacked rows on mobile (no horizontal scroll); tabular numerals; pinned/locked badges on the subject cell;
+> `view_count` rendered as stored. **(3) Sub-boards block:** a ProBoards-style card above the table when the
+> forum has children (permission-filtered with the same `forum.view` check the index uses, reusing
+> `forum-row`). **(4) Forum index rows:** right-aligned “latest activity” (`last_posted_at` + a link via
+> `last_topic_id`), collapsing on mobile. **(5) Breadcrumbs:** a nav-tree (home icon + chevrons) in the
+> prominent under-header bar on board + topic pages. **Plumbing (read-only):** `Topic::lastPostUser` +
+> `Forum::lastTopic` belongsTo on existing columns (maintained by `Post::syncAggregates`); `ForumNode` carries
+> `last_posted_at`/`last_topic_id` as cache-safe primitives (Carbon rehydrated after the boundary — RH-9);
+> bounded eager-loads only (`lastPostUser`, `author.groups`, `children`, topic `forum`+`author`), all within
+> the **≤30 thread / ≤15 index** query budgets. **Adversarial review:** a 6-lens parallel audit (tokens, AA,
+> 360px, contracts, N+1/correctness, completeness) — tokens/responsive/contracts clean; fixed the two WCAG
+> 1.4.1 (use-of-colour) in-row link affordances, the un-eager-loaded topic forum/author, the mobile board
+> last-post parity, and a dt/dd nit. **Evidence:** **Pest 347 passed / 1 skipped (1162 assertions)** (+5 new
+> board-table tests; all prior suites stay green); Pint + Larastan + `composer audit` clean; **Dusk 3 passed**
+> (editor journey under the restyled composer + the refreshed screenshot gate); `assets-fresh` reproduces the
+> committed bundle (CSS **8.0 KB gz**, budget 50). **Screenshots refreshed** (board table + sub-boards + left
+> sidebar + index + auth + settings, light/dark × mobile/desktop) at
+> [`docs/product/theme-screenshots/`](docs/product/theme-screenshots/README.md). Bundle rebuilt +
+> cold-boot-verified (`RELEASE_VERIFY=PASS`, `GET / → 302 /install`): `hearth-release.zip` **12,791,419 bytes**,
+> sha256 `d8b177ab0d76fd96bef3ed0ee38ecd492507738c7e91d948048ca68c98ce1681`. Small conventional DCO commits on
+> `claude/default-theme`. **NEXT: owner re-reviews the refreshed PR #3 screenshots → iterate or merge → deploy;
+> Part B (community-feel pack: info center, group colours, view-count incrementing, poster-position option) is
+> triaged for Phase 2.**
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
