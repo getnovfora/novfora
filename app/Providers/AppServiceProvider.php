@@ -15,6 +15,7 @@ use App\Services\Tier\Probes\RedisProbe;
 use App\Services\Tier\Probes\ReverbProbe;
 use App\Services\Tier\Probes\S3Probe;
 use App\Services\Tier\ServiceTier;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -50,6 +51,12 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->prepareForInstaller();
+
+        // Use Hearth's own token-styled pagination views (resources/views/vendor/pagination). Owning these
+        // lets resources/css/app.css drop its @source on the framework's pagination Blade in vendor/, so the
+        // asset build needs no Composer and stays deterministic (PART 5 / CONTRIBUTING.md).
+        Paginator::defaultView('pagination::hearth');
+        Paginator::defaultSimpleView('pagination::simple-hearth');
 
         // Audit-log authentication events (phase-1.5 F-I): login / logout / failed / lockout / reset / 2FA.
         Event::subscribe(AuditAuthEvents::class);
