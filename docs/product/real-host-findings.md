@@ -334,10 +334,15 @@ turns into a real outage.) A beta gate that blocked the themed live deploy.
 + extended `SchedulerTest`/`HealthCheckTest`: detection on/off · lock prevents concurrent · backup→migrate
 ordering & backup-abort · failure→rollback + maintenance retained + health `stuck` · `AUTO_UPGRADE=false` →
 no auto-run + admin/CLI apply works · `/health` schema block · requests during the window get 503-maintenance,
-not SQL errors. Suite **Pest 378 passed / 1 skipped (1286 assertions)**; Pint + Larastan + `composer audit`
-clean; `assets-fresh` reproduces the committed bundle. **This is the mechanism that makes the themed live
-deploy safe** — deploying the next bundle onto the live site is RH-10's first real-world validation (the
-appearance migration applies itself via cron).
+not SQL errors. An **adversarial multi-lens review** of the diff then found + fixed two HIGH hard-kill
+failure modes (a 24h scheduler overlap-mutex that could strand the auto-upgrade for a day; a `upgrading` flag
+left by a process killed mid-run that wedged the site at 503) plus 4 nits. Suite **Pest 381 passed / 1
+skipped (1295 assertions)**; Pint + Larastan + `composer audit` clean; `assets-fresh` reproduces the
+committed bundle. Bundle rebuilt + cold-boot-verified (`RELEASE_VERIFY=PASS`, `GET / → 302 /install`):
+`hearth-release.zip` **12,813,544 bytes**, sha256
+`451def6a40c3aed76ff3c3dfc235bc221a0c0ae39d2db5d101f3368ea2c30b5d`. **This is the mechanism that makes the
+themed live deploy safe** — deploying that bundle onto the live site is RH-10's first real-world validation
+(the appearance migration applies itself via cron).
 
 ## Next
 

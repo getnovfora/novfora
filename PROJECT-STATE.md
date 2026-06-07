@@ -576,10 +576,18 @@ clean-room**.
 > `composer audit` clean; `assets-fresh` reproduces the committed bundle (Blade-only changes, no asset drift);
 > Dusk unaffected (the gate is dormant without schema drift). Docs updated: getting-started §5 (window/toggle/
 > recovery) + §6, REAL-HOST-VALIDATION §6a (live upgrade runbook), real-host-findings RH-10 → FIXED, ADR-0021.
-> Small conventional DCO commits on **`claude/rh10-auto-upgrade`**. **NEXT: push the branch + open the PR
-> (this env has no `gh`); after it merges on top of the theme, rebuild + cold-verify the release bundle — that
-> artifact (theme + polish + RH-10) is the next live deploy, and deploying it IS RH-10's first real-world
-> validation (the appearance migration applies itself via cron).**
+> Small conventional DCO commits on **`claude/rh10-auto-upgrade`**. **An adversarial multi-lens review of the
+> diff was run** (34 agents): 2 HIGH hard-kill failure modes found + fixed (a 24h overlap-mutex strand, and a
+> killed-mid-run `upgrading` flag wedging the site) + 4 nits; 6 findings verified-and-refuted. **Release bundle
+> rebuilt + cold-boot-verified** (`RELEASE_VERIFY=PASS`, `GET / → 302 /install`) from the branch (= main +
+> RH-10, linear): `hearth-release.zip` **12,813,544 bytes**, sha256
+> `451def6a40c3aed76ff3c3dfc235bc221a0c0ae39d2db5d101f3368ea2c30b5d` (ships `bootstrap/cache/packages.php`;
+> `/hearth-release.zip` stays gitignored). **NEXT (human): push `claude/rh10-auto-upgrade` + open the PR
+> (this env has no `gh`); merge on top of the theme; re-run `scripts/build-release.sh` post-merge for the
+> canonical artifact (identical to the above unless main moved — docs are excluded from the bundle), then
+> deploy it. Deploying it IS RH-10's first real-world validation: extract the zip over the live install and,
+> within ~2 min, `GET /health` `schema.pending` flips true→false and Appearance settings start working — the
+> appearance migration applies itself via cron, no SSH (live script in the kickoff + REAL-HOST-VALIDATION §6a).**
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
