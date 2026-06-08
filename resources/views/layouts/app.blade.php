@@ -137,7 +137,7 @@
                         <x-ui.dropdown-item :href="route('settings.notifications')"><x-ui.icon name="bell" class="h-4 w-4 text-ink-subtle" /> Notifications</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('settings.two-factor')"><x-ui.icon name="shield" class="h-4 w-4 text-ink-subtle" /> Security</x-ui.dropdown-item>
                         @if (auth()->user()->canDo('admin.access', \App\Permissions\Scope::global()))
-                            <x-ui.dropdown-item :href="route('admin.system.tier')"><x-ui.icon name="cog" class="h-4 w-4 text-ink-subtle" /> Admin</x-ui.dropdown-item>
+                            <x-ui.dropdown-item :href="route('admin.dashboard')"><x-ui.icon name="cog" class="h-4 w-4 text-ink-subtle" /> Admin</x-ui.dropdown-item>
                         @endif
                         @if (auth()->user()->isStaff())
                             <x-ui.dropdown-item :href="route('moderation.dashboard')"><x-ui.icon name="shield" class="h-4 w-4 text-ink-subtle" /> Moderation</x-ui.dropdown-item>

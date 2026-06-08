@@ -2,6 +2,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\AppearanceController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\BanController;
@@ -145,4 +146,16 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::get('/profile-fields', [ProfileFieldController::class, 'index'])->name('profile-fields');
         Route::post('/profile-fields', [ProfileFieldController::class, 'store'])->name('profile-fields.store');
         Route::delete('/profile-fields/{field}', [ProfileFieldController::class, 'destroy'])->name('profile-fields.destroy');
+    });
+
+// ── Admin Control Panel (ACP v1) ───────────────────────────────────────────────────────────────────────
+// The ACP shell: dashboard, settings pages, and the forum structure manager. Same gate as the System
+// panels — an authenticated admin (admin.access via the permission engine) with 2FA (the brief's "Must").
+// Every page renders inside <x-admin.shell>; Livewire SFCs additionally self-guard (their actions reach
+// the component via livewire/update, which carries no route middleware). ADR-0006 / security §1.4.
+Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTwoFactorForStaff::class])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/', DashboardController::class)->name('dashboard');
     });
