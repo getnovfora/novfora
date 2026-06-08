@@ -158,4 +158,7 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
     ->name('admin.')
     ->group(function () {
         Route::get('/', DashboardController::class)->name('dashboard');
+
+        // Forum structure manager (PART 2) — the <livewire:admin.structure /> tree.
+        Route::view('/structure', 'admin.structure')->name('structure');
     });
