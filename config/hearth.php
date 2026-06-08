@@ -333,4 +333,68 @@ return [
             ])),
         ],
     ],
+
+    // ── Deliverability — digest + bounce/suppression (Spike P2, Phase-2 plan §4) ────────────────────
+    // REFERENCE PIPELINE, DORMANT BY DEFAULT. This is the de-risk spike for P2-M2's digest/bounce work:
+    // a cron-only digest batcher + a daemon-free, tri-path bounce/complaint → suppression pipeline that
+    // never burns the host's sending reputation. NOTHING here touches the live immediate notification
+    // path (App\Notifications\Notifier) — every consumer is gated on `enabled` below and ships OFF, so a
+    // deploy changes no behaviour until P2-M2 (or an operator) flips the flag. See docs/product/spike-p2-memo.md.
+    'deliverability' => [
+        // Master switch. While false: the digest + bounce-poll cron lines do not even register, the
+        // webhook + unsubscribe routes are inert, and the assembler is a no-op. P2-M2 turns this on.
+        'enabled' => (bool) env('HEARTH_DELIVERABILITY', false),
+
+        // (a) CRON-BATCHED DIGEST. Coalesces a user's pending notifications into ONE email per cadence,
+        // idempotent across coarse/overlapping/killed cron ticks (the M5 queue-drain discipline). The
+        // guarantee rests on a committed UNIQUE(user_id,cadence,period_key) row, NOT on the lock.
+        'digest' => [
+            'enabled' => (bool) env('HEARTH_DIGEST', false),
+            // Per-tick send cap (volume hygiene): at most this many users' digests are assembled per tick,
+            // so a large backlog drains over later ticks instead of bursting the host's mail quota.
+            'max_users_per_tick' => (int) env('HEARTH_DIGEST_USERS_PER_TICK', 50),
+            // Per-user item cap: one digest carries at most this many items; the overflow rolls into the
+            // next period. Bounds a single email and the per-user send rate.
+            'per_user_item_rate' => (int) env('HEARTH_DIGEST_ITEM_RATE', 100),
+            // Overlap mutex (minutes) for the assembler tick. SHORT and bounded (NOT Laravel's 24h default)
+            // so a SIGKILLed run — which releases no handler — can't strand the digest for a day; the DB
+            // UNIQUE row is the real double-run guard (RH-10 discipline). Kept < 60 (see SchedulerTest).
+            'mutex_minutes' => max(2, (int) env('HEARTH_DIGEST_MUTEX_MIN', 2)),
+        ],
+
+        // (b) DAEMON-FREE BOUNCE/COMPLAINT INGESTION — detect + degrade across three paths. A hard bounce
+        // (SMTP 5.x.x) or a complaint auto-suppresses the address (into email_suppressions); transient
+        // 4.x.x is NEVER suppressed. With nothing configured the manual-ACP + VERP/Return-Path floor still
+        // works — ingestion never throws (forced-absence). The recommended OUTSIDER-email path is a
+        // transactional provider (Postmark/SES/Mailgun) with an on-domain From + SPF/DKIM/DMARC.
+        'webhook' => [
+            // Provider webhook endpoint (POST /webhooks/mail/{provider}). Registered only when enabled AND
+            // a secret is set. Trust is cryptographic (HMAC over the RAW body), never reachability.
+            'enabled' => (bool) env('HEARTH_MAIL_WEBHOOK', false),
+            'secret' => (string) env('HEARTH_MAIL_WEBHOOK_SECRET', ''),
+            'tolerance_seconds' => (int) env('HEARTH_MAIL_WEBHOOK_TOLERANCE', 300), // replay window
+            'max_body_bytes' => (int) env('HEARTH_MAIL_WEBHOOK_MAX_BYTES', 262144), // 256 KB hard cap
+        ],
+        // VERP / signed Return-Path: the recipient is embedded in the envelope sender so a bounce identifies
+        // the address with no body parsing. The local-part carries an HMAC so a FORGED bounce can't suppress
+        // a victim. Distinct from the on-domain From (which must stay on-domain for SPF/DKIM alignment).
+        'verp' => [
+            'enabled' => (bool) env('HEARTH_VERP', false),
+            'domain' => (string) env('HEARTH_VERP_DOMAIN', ''),      // e.g. bounce.example.com
+            'key' => (string) env('HEARTH_VERP_KEY', ''),            // HMAC key; empty → VERP disabled
+        ],
+        // Cron-polled IMAP bounce mailbox. Registered only when enabled; the reader is guarded by
+        // extension_loaded('imap') and degrades to a no-op (NullBounceMailbox) when the ext is absent.
+        'imap' => [
+            'enabled' => (bool) env('HEARTH_BOUNCE_IMAP', false),
+            'host' => (string) env('HEARTH_BOUNCE_IMAP_HOST', ''),
+            'port' => (int) env('HEARTH_BOUNCE_IMAP_PORT', 993),
+            'encryption' => (string) env('HEARTH_BOUNCE_IMAP_ENCRYPTION', 'ssl'), // ssl | tls | none
+            'username' => (string) env('HEARTH_BOUNCE_IMAP_USER', ''),
+            'password' => (string) env('HEARTH_BOUNCE_IMAP_PASS', ''),
+            'mailbox' => (string) env('HEARTH_BOUNCE_IMAP_MAILBOX', 'INBOX'),
+            'per_tick_cap' => (int) env('HEARTH_BOUNCE_BATCH', 100), // bounded fetch per cron tick
+            'delete_processed' => (bool) env('HEARTH_BOUNCE_IMAP_DELETE', true),
+        ],
+    ],
 ];
