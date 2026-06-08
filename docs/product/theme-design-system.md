@@ -89,3 +89,12 @@ trail there. Empty states use `<x-ui.empty>` with friendly copy. Lists/tables: a
 
 Already wired globally by `layouts.app` + `app.css`. You do nothing per-page except use semantic tokens.
 Don't add a second toggle. Don't set `data-theme`/`data-density` yourself.
+
+## Blade gotchas (learned the hard way)
+
+- **Never use the `@disabled` / `@checked` / `@selected` / `@readonly` / `@required` directives on a
+  Blade component tag (`<x-*>`).** They compile for plain HTML elements; on a component tag the
+  component-tag compiler emits their output out of source order, producing an unbalanced `endif` and a
+  fatal `ViewException` (found on PR #5's first CI run). On components, **bind the attribute instead**:
+  `:disabled="$condition"` — `ComponentAttributeBag` drops `false`/`null` and renders `true` as
+  `disabled="disabled"`, preserving the exact semantics.

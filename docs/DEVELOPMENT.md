@@ -168,3 +168,11 @@ merge, then `git pull` locally.
 - **Assets look stale after pulling** — `npm run build` (committed prebuilt assets are for *hosts*, not a
   substitute for rebuilding while developing — see RH-5 in
   [product/real-host-findings.md](product/real-host-findings.md)).
+- **Windows/WSL: `Permission denied` on unlink/create that survives reboots and `icacls /reset`** — the
+  "Docker-on-`/mnt/d` curse": files **created by a Docker container bind-mounted to the Windows drive**
+  can be left with alien ownership/attributes that WSL cannot clear. Remedy ladder, in order:
+  (1) stop all containers / quit Docker Desktop (open handles); (2) PowerShell as Admin:
+  `takeown /F <path> /R /D Y` + `icacls <path> /reset /T /C`; (3) if a path *still* refuses,
+  `Remove-Item -Recurse -Force` the affected **directory** (e.g. `public\build\assets` — all tracked;
+  git recreates it) and `git reset --hard`. Prevention: run build tooling with the worktree on
+  WSL-native disk (`~/`), never bind-mount `/mnt/d` into containers.
