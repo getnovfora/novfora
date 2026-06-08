@@ -46,8 +46,10 @@ return [
 
         // New-user moderation queue: a TL0 author's first N APPROVED posts are held (approved_state=pending)
         // for staff approval (security §2.4). Keyed on TL0 group membership, so it never catches trusted users.
+        // HEARTH_NEW_USER_HOLD_POSTS is the owner's live env preference; the ACP "Moderation defaults" page
+        // overrides it via the Settings store (DB → this env → default 2; ADR-0023). 0 = auto-post.
         'new_user_moderation' => [
-            'posts' => 2,
+            'posts' => (int) env('HEARTH_NEW_USER_HOLD_POSTS', 2),
         ],
 
         // Auto promotion/demotion (data-model §4). Numeric promotion thresholds live on each TL group's
