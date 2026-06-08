@@ -39,9 +39,17 @@ new class extends Component
         $this->saved = 'Saved.';
     }
 
-    /** Read-only summary of the anti-spam registration gates (edited on the Anti-spam page). */
-    public function gates(Settings $settings): array
+    /**
+     * Read-only summary of the anti-spam registration gates (edited on the Anti-spam page). Resolves the
+     * Settings store internally — Livewire only container-injects lifecycle hooks (mount/boot) and actions
+     * reached via the update lifecycle, NOT a method called as `$this->gates()` straight from the rendered
+     * view; a typed parameter here would arrive with zero arguments and fatal ("Too few arguments"). This
+     * mirrors the sibling read-only display helper on the Anti-spam page ({@see blocklist()}).
+     */
+    public function gates(): array
     {
+        $settings = app(Settings::class);
+
         return [
             'CAPTCHA' => ($p = $settings->string('antispam.captcha_provider')) !== '' ? strtoupper($p) : 'None',
             'StopForumSpam' => $settings->bool('antispam.sfs_use_api') ? 'Live API + cached blocklist' : 'Cached blocklist only',
