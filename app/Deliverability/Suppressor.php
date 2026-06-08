@@ -19,8 +19,6 @@ final class Suppressor
 {
     private const REASONS = ['bounce', 'complaint', 'manual'];
 
-    public function __construct(private readonly SuppressionGate $gate) {}
-
     /** Suppress an address. Returns true only if it was newly added. Invalid/empty addresses are ignored. */
     public function suppress(string $email, string $reason): bool
     {

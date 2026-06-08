@@ -33,7 +33,7 @@ final class WebhookVerifier
 
         $raw = $request->getContent();
         $maxBytes = (int) config('hearth.deliverability.webhook.max_body_bytes', 262144);
-        if (! is_string($raw) || $raw === '' || strlen($raw) > $maxBytes) {
+        if ($raw === '' || strlen($raw) > $maxBytes) {
             return false;
         }
 

@@ -54,7 +54,7 @@ final class ImapBounceMailbox implements BounceMailbox
                     $messages[] = $header.$body;
                 }
                 if ($delete) {
-                    @imap_delete($connection, $i);
+                    @imap_delete($connection, (string) $i);
                 }
             }
 

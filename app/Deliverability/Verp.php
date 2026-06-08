@@ -52,7 +52,7 @@ final class Verp
             return null;
         }
 
-        $local = strtolower(trim(explode('@', $address, 2)[0] ?? ''));
+        $local = strtolower(trim(explode('@', $address, 2)[0]));
         if (! str_starts_with($local, self::PREFIX)) {
             return null;
         }

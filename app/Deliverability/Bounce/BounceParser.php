@@ -81,7 +81,7 @@ final class BounceParser
             if (preg_match_all('/^'.$header.':\s*(.+)$/mi', $text, $matches) === false) {
                 continue;
             }
-            foreach ($matches[1] ?? [] as $line) {
+            foreach ($matches[1] as $line) {
                 foreach ($this->addressesIn($line) as $candidate) {
                     $decoded = $this->verp->decode($candidate); // null unless the HMAC verifies
                     if ($decoded === null) {
@@ -112,6 +112,6 @@ final class BounceParser
      */
     private function addressesIn(string $line): array
     {
-        return preg_match_all('/[^\s<>,;:]+@[^\s<>,;:]+/', $line, $m) ? array_values($m[0]) : [];
+        return preg_match_all('/[^\s<>,;:]+@[^\s<>,;:]+/', $line, $m) ? $m[0] : [];
     }
 }
