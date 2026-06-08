@@ -1,8 +1,8 @@
-# CLAUDE.md — [YourForum] (open-source forum platform)
+# CLAUDE.md — NevoBB (open-source forum platform)
 
 > Standing instructions for Claude Code on this repo. **Read every session.** This is the distilled
 > operating contract; the full rationale and complete spec live in `@docs/PROJECT-BRIEF.md` — consult
-> it for detail. Place this file at the repo root. Rename `[YourForum]` once the project has a name.
+> it for detail. Place this file at the repo root.
 
 ## Project
 
@@ -10,6 +10,12 @@ Open-source, **self-hosted** forum/community platform on a **modern PHP** stack.
 proven fundamentals of phpBB/MyBB/SMF with the polish of XenForo/Invision/ProBoards, while fixing the
 pain points all of them share (spam, weak search, dated mobile UX, painful upgrades, core-edit
 theming, weak real-time, install friction).
+
+**Name: NevoBB** (decided 2026-06-07 — ADR-0024). Single brand: no separate "NevoForums" identity;
+`nevoforums.com` is parked as a redirect, reserved for a possible future hosted tier. "Hearth" is the
+**retired working codename** — it still appears throughout the code (`config/hearth.php`, `hearth:*`
+commands, `HEARTH_*` env keys, SPDX lines); the rename is a **separate planned task** to be executed as
+one reviewed change. Do not rename ad-hoc; flag stragglers.
 
 **Status: pre-code.** Do not write application code until Phase 0 (Discovery) is approved.
 
