@@ -666,7 +666,11 @@ clean-room**.
 >   (`tests/Browser/AdminJourneyTest.php`: login → dashboard → create a board → see it on the public index;
 >   captures `acp-*.png` dashboard/structure/settings/audit, light/dark × desktop/mobile) and wired into
 >   `docker/dusk/run.sh` PASS 2 + the CI Dusk job — **run in the Docker Dusk harness / CI** (Chrome + MySQL),
->   like the theme screenshots. **Release bundle rebuilt + cold-boot-verified** (`RELEASE_VERIFY=PASS`,
+>   like the theme screenshots. **Could NOT complete the local Dusk run in this sandbox:** `php artisan serve`
+>   was unstable here (port-bind race + broken-pipe), so every page 500'd — which **also failed the
+>   pre-existing `EditorJourneyTest`**, confirming an environment issue, not an ACP defect (all 451 Pest tests
+>   pass). The Dusk passes + the four screenshot sets therefore run in the **CI Dusk job** (clean runner; prior
+>   passes were green there) / a human Docker run. **Release bundle rebuilt + cold-boot-verified** (`RELEASE_VERIFY=PASS`,
 >   `GET / → 302 /install`): `hearth-release.zip` **12,889,984 bytes**, sha256
 >   `5c4472a943f015f81589bb8d37f7a59ebb498248f144c194f5a5541a28b30e24`. **Concurrency note:** a parallel
 >   session is renaming the project **Hearth → NevoBB** (CLAUDE.md +
