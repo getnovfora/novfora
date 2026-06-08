@@ -10,16 +10,13 @@
 @endsection
 
 @section('content')
-    <x-ui.container size="lg" class="space-y-5">
-        <div class="space-y-1.5">
-            <h1 class="text-2xl font-semibold tracking-tight text-ink">Service Tier</h1>
-            <p class="text-sm text-ink-muted max-w-2xl">
-                Which deployment tier each capability is running on, and which optional services are reachable.
-                The app runs <strong class="font-semibold text-ink">identically</strong> on both tiers — enhanced
-                services are detected, never required (ADR-0003).
-            </p>
-        </div>
+    <x-admin.shell title="Service Tier">
+        <p class="text-sm text-ink-muted max-w-2xl">
+            Which deployment tier each capability is running on, and which optional services are reachable.
+            The app runs <strong class="font-semibold text-ink">identically</strong> on both tiers — enhanced
+            services are detected, never required (ADR-0003).
+        </p>
 
         <livewire:admin.service-tier />
-    </x-ui.container>
+    </x-admin.shell>
 @endsection

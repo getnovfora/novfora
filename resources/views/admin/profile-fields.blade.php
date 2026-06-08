@@ -10,14 +10,8 @@
 @endsection
 
 @section('content')
-    <x-ui.container size="md" class="space-y-6">
-        <div class="space-y-1.5">
-            <h1 class="text-2xl font-semibold tracking-tight text-ink">Custom profile fields</h1>
-            <p class="text-sm text-ink-muted">
-                Extra fields members can fill in on their profile. Add, review, or remove them here.
-            </p>
-        </div>
-
+    <x-admin.shell title="Custom profile fields"
+                   description="Extra fields members can fill in on their profile. Add, review, or remove them here.">
         {{-- Existing fields: a flush card whose rows reflow to stacked at mobile. --}}
         <x-ui.card flush>
             <div class="divide-y divide-line">
@@ -62,5 +56,5 @@
                 <x-ui.button type="submit">Add field</x-ui.button>
             </form>
         </x-ui.card>
-    </x-ui.container>
+    </x-admin.shell>
 @endsection

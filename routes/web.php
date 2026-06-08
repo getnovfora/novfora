@@ -142,6 +142,10 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/backups', 'admin.backups')->name('backups');
         Route::view('/upgrade', 'admin.upgrade')->name('upgrade'); // no-SSH auto-upgrade status + manual apply (RH-10)
 
+        // Audit-log viewer (read-only, paginated, filterable) + scheduled-tasks visibility (ACP v1, PART 4).
+        Route::view('/audit', 'admin.audit')->name('audit');
+        Route::get('/tasks', \App\Http\Controllers\Admin\TasksController::class)->name('tasks');
+
         // Admin-defined custom profile fields (data-model §1).
         Route::get('/profile-fields', [ProfileFieldController::class, 'index'])->name('profile-fields');
         Route::post('/profile-fields', [ProfileFieldController::class, 'store'])->name('profile-fields.store');
