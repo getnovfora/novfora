@@ -627,6 +627,53 @@ clean-room**.
 > push the branch + open the PR (no `gh` here); merge; deploy; then the live rehearsal in the kickoff §"Live
 > rehearsal" (create → download → marker post → restore from the panel → marker gone, `/health` green, audit
 > shows the restore) closes the last beta gate.**
+>
+> **Update 2026-06-07 (ACP v1 — admin shell, dashboard, structure manager, settings, system surface — Code):**
+> built the **admin control panel** so the operator is self-sufficient (no more URL-guessing or `.env`
+> hand-edits), per [acp-v1-kickoff.md](docs/product/acp-v1-kickoff.md). Branch **`claude/acp-v1`** off main
+> (includes RH-11), 6 conventional DCO commits. **No new dependencies.**
+> - **PART 0 — settings infrastructure (ADR-0023):** a `settings` table + typed `App\Settings\Settings` on a
+>   code `SettingsRegistry`. Precedence **DB row → config() (folds env→default) → registry default**; defaults
+>   are **not** seeded as rows, so a panel override persists across deploys while an unset key tracks
+>   env/config (the owner's new-user-hold case). Whole bag read once/request, cached as **primitives only**
+>   (RH-9), write-through invalidation, **defensive read** (safe pre-install / during `package:discover`).
+>   Secrets encrypted + **masked in the audit log**, never echoed (placeholder forms). `applyToConfig()` pushes
+>   overrides into live `config()` so the mailer / anti-spam / `app.name` / theme honour them **unchanged**.
+> - **PART 1 — shell + dashboard:** `<x-admin.shell>` = a persistent grouped left nav (Overview · Settings ·
+>   Members · Content · Moderation · System) from one `AdminNavigation` source the **client-side quick-search**
+>   also indexes (pages + settings labels). `/admin` dashboard: pending-actions row → stat cards (cached) →
+>   health strip (reuses the `/health` internals in-process) → recent audit. **Authz:** every admin route/SFC
+>   on `admin.access` + staff-2FA; an **authz-walk test** asserts every GET admin page denies non-admins.
+> - **PART 2 — forum structure manager (the owner's #1 ask):** category→board→sub-board tree with
+>   create/edit/reorder; **binding delete-safety** — a board with topics is deleted only by choosing a
+>   destination (StructureService moves topics + recomputes both counters authoritatively + audits); never
+>   silent. New boards inherit the global role presets (usable immediately, documented). Per-node link to the
+>   permission inspector (`?scope=` pre-fill).
+> - **PART 3 — six settings pages** (general, registration, email + **test-send**, moderation, anti-spam,
+>   appearance) — each a focused Livewire SFC on PART 0. Board-offline 503 + site notice; registration on/off +
+>   email-verification toggle (existing mechanisms); SMTP password encrypted w/ placeholder; appearance
+>   (theme, **AA-safe accent CSS vars**, `--layout-max-width` width, visitor mode/density, poster position,
+>   board-list style, wordmark) read inline by the layout + topic + board views (presentation only — Dusk
+>   selectors + markup contracts preserved). Knobs without a mechanism (post-edit window; approval/invite
+>   modes) are **flagged, not invented** (scope fence).
+> - **PART 4 — system surface:** migrated service-tier/permissions/backups/upgrade/custom-fields into the shell
+>   (behaviour unchanged); **NEW** read-only **audit-log viewer** (paginated, filterable) + **Tasks** page
+>   (the single-cron-line schedule + last-run where knowable).
+> - **Evidence (Docker `php:8.3`; this box has no host PHP):** **Pest 451 passed / 1 skipped (1593
+>   assertions)** — all prior suites stay green; **Pint** clean (315 files); **Larastan** clean; `composer
+>   audit` + `npm audit` clean; **CSS 8.34 KB gz** (budget 50), `assets-fresh` reproducible. ADR-0023 +
+>   getting-started §4 (ACP) updated. **Admin Dusk journey + screenshot gate** added
+>   (`tests/Browser/AdminJourneyTest.php`: login → dashboard → create a board → see it on the public index;
+>   captures `acp-*.png` dashboard/structure/settings/audit, light/dark × desktop/mobile) and wired into
+>   `docker/dusk/run.sh` PASS 2 + the CI Dusk job — **run in the Docker Dusk harness / CI** (Chrome + MySQL),
+>   like the theme screenshots. **Release bundle rebuilt + cold-boot-verified** (`RELEASE_VERIFY=PASS`,
+>   `GET / → 302 /install`): `hearth-release.zip` **12,889,984 bytes**, sha256
+>   `5c4472a943f015f81589bb8d37f7a59ebb498248f144c194f5a5541a28b30e24`. **Concurrency note:** a parallel
+>   session is renaming the project **Hearth → NevoBB** (CLAUDE.md +
+>   ADR-0024) in the same tree — left untouched by this branch; reconcile at merge. **NEXT (human): push
+>   `claude/acp-v1` + open the PR (no `gh` here) with the four screenshot sets; merge; deploy. After deploy,
+>   flip "new-user first-post hold" to 0 from Admin → Settings → Moderation (replaces the temporary config
+>   edit, which the deploy overwrites).**
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
