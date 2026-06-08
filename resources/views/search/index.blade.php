@@ -2,7 +2,9 @@
 @extends('layouts.app', ['title' => ($q !== '' ? "Search: {$q}" : 'Search').' · '.config('app.name', 'Hearth')])
 
 @section('content')
-    <x-ui.container size="md" class="space-y-5">
+    {{-- size="lg" follows the site Appearance "Forum width" (--layout-max-width), like the index/board/topic
+         views — search results are main content, so the width setting governs them too. --}}
+    <x-ui.container size="lg" class="space-y-5">
         <h1 class="text-2xl font-semibold tracking-tight text-ink">Search</h1>
 
         <form method="GET" action="{{ route('search.index') }}" role="search" class="flex flex-col gap-2 sm:flex-row">

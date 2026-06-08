@@ -39,7 +39,9 @@
 @endsection
 
 @section('content')
-    <x-ui.container size="md" class="space-y-5">
+    {{-- size="lg" follows the site Appearance "Forum width" (--layout-max-width) — the same shared
+         container the forum index and board views use, so the width setting governs the topic view too. --}}
+    <x-ui.container size="lg" class="space-y-5">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 space-y-2">
                 @if ($topic->is_pinned || $topic->status === 'locked')
