@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\TasksController;
 use App\Http\Controllers\AppearanceController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\BanController;
@@ -144,7 +145,7 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
 
         // Audit-log viewer (read-only, paginated, filterable) + scheduled-tasks visibility (ACP v1, PART 4).
         Route::view('/audit', 'admin.audit')->name('audit');
-        Route::get('/tasks', \App\Http\Controllers\Admin\TasksController::class)->name('tasks');
+        Route::get('/tasks', TasksController::class)->name('tasks');
 
         // Admin-defined custom profile fields (data-model §1).
         Route::get('/profile-fields', [ProfileFieldController::class, 'index'])->name('profile-fields');

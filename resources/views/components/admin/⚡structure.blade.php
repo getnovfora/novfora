@@ -262,7 +262,7 @@ new class extends Component
                     @endif
                 </div>
 
-                <x-ui.input label="Name" name="title" wire:model="title" required maxlength="100" />
+                <x-ui.input label="Name" name="title" wire:model="title" required maxlength="100" dusk="acp-board-name" />
                 <x-ui.textarea label="Description" name="description" wire:model="description" rows="2"
                                hint="Optional. Shown under the board name." />
 

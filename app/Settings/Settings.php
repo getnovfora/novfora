@@ -60,12 +60,15 @@ class Settings
             return $this->memo;
         }
 
-        $cached = Cache::get(self::CACHE_KEY);
-        if (is_array($cached)) {
-            return $this->memo = $cached;
-        }
-
+        // The whole read is defensive: the cache store itself can be the database (the baseline default),
+        // so even Cache::get() can throw before the DB exists (pre-install, package:discover during a
+        // release build). On any failure, track env/config and don't poison the cache.
         try {
+            $cached = Cache::get(self::CACHE_KEY);
+            if (is_array($cached)) {
+                return $this->memo = $cached;
+            }
+
             $bag = Setting::query()
                 ->get(['key', 'value', 'type', 'is_encrypted'])
                 ->mapWithKeys(fn (Setting $s) => [$s->key => [
@@ -74,13 +77,13 @@ class Settings
                     'encrypted' => (bool) $s->is_encrypted,
                 ]])
                 ->all();
+
+            Cache::forever(self::CACHE_KEY, $bag);
+
+            return $this->memo = $bag;
         } catch (\Throwable) {
-            return []; // table missing / DB unreachable — track env/config, don't poison the cache
+            return [];
         }
-
-        Cache::forever(self::CACHE_KEY, $bag);
-
-        return $this->memo = $bag;
     }
 
     /** Does an explicit panel override row exist for this key? (Distinct from "has an effective value".) */
