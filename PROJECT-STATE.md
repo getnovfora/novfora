@@ -728,6 +728,56 @@ clean-room**.
 >   (human): push `claude/acp-v1.1-patch`; open the PR (no `gh` here); let CI prove the gates; merge after
 >   ACP v1 (or fold both).**
 
+> **Update 2026-06-08 (SPIKE P2 — baseline deliverability → GO — Code):** executed the Phase-2 deliverability
+> de-risk spike per [`spike-p2-deliverability-kickoff.md`](docs/product/spike-p2-deliverability-kickoff.md) /
+> [`phase-2-plan.md`](docs/product/phase-2-plan.md) §4 — the one genuinely uncertain, high-blast-radius Phase-2
+> seam (cron-only digest + daemon-free bounce/suppression on the baseline tier, without burning sending
+> reputation). **Verdict: GO**, no fallback triggered. Output is a **GO memo + a reference pipeline, DORMANT
+> behind `hearth.deliverability.enabled` (default false)** — **NOT** merged feature code, and the live immediate
+> notification path (`App\Notifications\Notifier`) is **untouched** (the spike must not flip it; P2-M2 does).
+> Branch **`claude/spike-p2-deliverability`** off `main` (post-ACP), small conventional DCO commits. **No new
+> dependencies.** Memo: [`docs/product/spike-p2-memo.md`](docs/product/spike-p2-memo.md).
+> - **Method (mirrors the RH-* passes):** a pre-implementation **design panel** (3 independent idempotency
+>   lenses + a bounce/SSRF design → synthesis) settled the GO-blocker mechanism; then an **adversarial 6-lens
+>   review of the diff with per-finding verification** (19 agents; 13 findings → 11 refuted → **2 confirmed +
+>   fixed**). This is the correctness gate because **this box has NO PHP/Composer/MySQL** (confirmed) — Pest /
+>   Pint / Larastan / `composer+npm audit` are the **Docker `php:8.3` / CI step**, owed by CI before merge.
+> - **(a) Cron-batched digest — exactly-once ASSEMBLY:** a transactional claim on a committed
+>   **`UNIQUE(user_id,cadence,period_key)`** row (the guarantee — NOT the schedule lock) + a floored
+>   `period_key` + a two-phase `mailed_at` self-heal + an idempotent `SendDigestJob` (drained by the existing
+>   M5 `queue:work` cron). The honest framing the spike sharpened: **exactly-once assembly + effectively-once
+>   delivery** — the only residual double-*delivery* window is the SMTP-accept→commit gap the immediate path
+>   already accepts. **(b) Daemon-free tri-path bounce ingestion:** HMAC-verified provider **webhook** →
+>   cron-polled **IMAP** mailbox whose identity is authenticated **only** by a signed **VERP** Return-Path
+>   (body headers classify only; no VERP → no auto-suppress) → **manual ACP floor** (always available, "visible
+>   in the ACP"); transient `4.x.x` never suppressed; clean-room RFC 3464/5965 parsing, total/never-throws.
+>   **(c) Volume hygiene:** per-tick send cap + per-user item rate; period-bucketed so capping only delays,
+>   never doubles/drops.
+> - **5 GO criteria → permanent tests** (`tests/Feature/Deliverability/*`): digest idempotency across ≥2 ticks
+>   incl. overlap/kill/self-heal/period-roll (`DigestIdempotencyTest`); bounce→suppress per path + the
+>   suppression-as-DoS defenses (`BounceIngestionTest`, `WebhookSecurityTest`); volume-cap drain + no-starve
+>   (`DigestVolumeCapTest`); forced-absence (`DeliverabilityAbsenceTest`, mirrors `ServiceTierFallbackTest`);
+>   preference + signed 1-click unsubscribe honoured at assembly AND in the send job (`UnsubscribeSendGateTest`);
+>   cron wiring + dormancy (`DeliverabilitySchedulerTest`). Tests target the suite's SQLite `:memory:` + sync
+>   queue + array mail; criterion-1 rollback is also valid on MySQL/InnoDB.
+> - **Review fixes folded in:** **HIGH** — the bounce parser trusted unauthenticated body recipient headers
+>   (arbitrary-victim suppression); now the signed VERP address is the *sole* identity (the mailbox is a
+>   transport, VERP/HMAC the auth). **MEDIUM** — a gated (unsubscribed/suppressed) user with staged items was
+>   re-scanned forever + leaked items; now the period is *retired* (terminal run + items claimed), no mail.
+> - **Cron contract (constraint on P2-M2):** two dormant ticks join the single cron line —
+>   `hearth:deliverability:digest-run` (everyMinute · withoutOverlapping with a SHORT mutex `<60` · skip during
+>   restore) + `hearth:deliverability:poll-bounces` — both no-op until the flag. Idempotency lives in the DB
+>   (UNIQUE row + in-txn claim), not the lock; the send is at-least-once; suppression+cadence re-checked at send.
+> - **Outsider-email recommendation (the live lesson):** for sending to strangers, use a transactional provider
+>   (Postmark validated; SES/Mailgun differ only in the parser map) with an **on-domain From + SPF/DKIM/DMARC**;
+>   baseline sendmail stays the zero-config floor, the provider is the recommended upgrade.
+> - **Schema (reversible, additive):** `digest_runs` (the UNIQUE keystone), `digest_queue_items`,
+>   `mail_webhook_events`, `digest_preferences`; **no change to `email_suppressions` / `notification_preferences`.**
+> **NEXT (human): push `claude/spike-p2-deliverability` + open the PR (no `gh` here); let CI run the suite
+> (incl. the new `tests/Feature/Deliverability/*`) + Pint + Larastan + `composer/npm audit` green; merge.** The
+> GO memo unblocks P2-M2's digest/bounce work (which flips `HEARTH_DELIVERABILITY=true` + wires the notification
+> path through `DigestQueue::enqueue()`); the rest of **P2-M1 proceeds in parallel** and does not wait on this.
+
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
    Akismet phase note). Add a note that Laravel 13's **Reverb database driver (no Redis)** is
