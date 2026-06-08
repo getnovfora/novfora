@@ -5,6 +5,7 @@
 declare(strict_types=1);
 
 use App\Deliverability\Digest\DigestAssembler;
+use App\Deliverability\Digest\PeriodKey;
 use App\Deliverability\SuppressionGate;
 use App\Mail\DigestMail;
 use App\Models\DigestQueueItem;
@@ -83,7 +84,7 @@ it('self-heals a run committed as built but never enqueued, without double-sendi
 
     // Model a crash between COMMIT (built) and dispatch: a built run, items claimed, mailed_at still NULL.
     $run = DigestRun::create([
-        'user_id' => $user->getKey(), 'cadence' => 'daily', 'period_key' => \App\Deliverability\Digest\PeriodKey::for('daily'),
+        'user_id' => $user->getKey(), 'cadence' => 'daily', 'period_key' => PeriodKey::for('daily'),
         'status' => 'built', 'built_at' => now(), 'item_count' => 1, 'mailed_at' => null,
     ]);
     DigestQueueItem::where('user_id', $user->getKey())->update(['digest_run_id' => $run->getKey()]);

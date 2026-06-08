@@ -4,8 +4,8 @@
 
 declare(strict_types=1);
 
-use App\Deliverability\Digest\DigestAssembler;
 use App\Deliverability\DeliverabilityManager;
+use App\Deliverability\Digest\DigestAssembler;
 use App\Deliverability\Suppressor;
 use App\Deliverability\Verp;
 use App\Mail\DigestMail;

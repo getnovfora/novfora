@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Deliverability\Digest;
 
 use App\Deliverability\SuppressionGate;
+use App\Models\DigestPreference;
 use App\Models\DigestQueueItem;
 use App\Models\User;
 
@@ -33,7 +34,7 @@ final class DigestQueue
     public function enqueue(User $recipient, string $event, ?User $actor, array $payload, ?string $notificationId = null): ?DigestQueueItem
     {
         $cadence = $this->gate->cadence($recipient);
-        if (! in_array($cadence, \App\Models\DigestPreference::BATCHED, true)) {
+        if (! in_array($cadence, DigestPreference::BATCHED, true)) {
             return null; // immediate / off — not the digest path
         }
 

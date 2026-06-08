@@ -8,6 +8,7 @@ namespace App\Mail;
 
 use App\Deliverability\Unsubscribe;
 use App\Deliverability\Verp;
+use App\Models\DigestQueueItem;
 use App\Models\User;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -28,7 +29,7 @@ final class DigestMail extends Mailable
 {
     use SerializesModels;
 
-    /** @param  list<\App\Models\DigestQueueItem>  $items */
+    /** @param  list<DigestQueueItem>  $items */
     public function __construct(
         public int $runId,
         public User $user,

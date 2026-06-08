@@ -11,6 +11,7 @@ use App\Http\Controllers\MailWebhookController;
 use App\Models\EmailSuppression;
 use App\Models\MailWebhookEvent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /*
@@ -35,7 +36,7 @@ beforeEach(function () {
     ]);
 });
 
-function webhookCall(string $raw, ?string $sig, ?string $ts, string $provider = 'generic'): Illuminate\Http\JsonResponse
+function webhookCall(string $raw, ?string $sig, ?string $ts, string $provider = 'generic'): JsonResponse
 {
     $request = Request::create("/webhooks/mail/{$provider}", 'POST', [], [], [], [], $raw);
     if ($sig !== null) {

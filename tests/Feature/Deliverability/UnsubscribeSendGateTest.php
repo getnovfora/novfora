@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 use App\Deliverability\Digest\DigestAssembler;
 use App\Deliverability\Digest\DigestQueue;
+use App\Deliverability\Digest\PeriodKey;
 use App\Deliverability\SuppressionGate;
 use App\Jobs\SendDigestJob;
 use App\Mail\DigestMail;
@@ -18,6 +19,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Tests\Support\Deliverability;
 
 /*
@@ -67,7 +69,7 @@ it('re-checks the gate inside the send job — a suppression after enqueue still
 
     // A built run already enqueued (mailed_at set, items claimed) — i.e. between enqueue and the cron drain.
     $run = DigestRun::create([
-        'user_id' => $user->getKey(), 'cadence' => 'daily', 'period_key' => \App\Deliverability\Digest\PeriodKey::for('daily'),
+        'user_id' => $user->getKey(), 'cadence' => 'daily', 'period_key' => PeriodKey::for('daily'),
         'status' => 'built', 'built_at' => now(), 'item_count' => 1, 'mailed_at' => now(),
     ]);
     DigestQueueItem::where('user_id', $user->getKey())->update(['digest_run_id' => $run->getKey()]);
@@ -93,7 +95,7 @@ it('only stages batched-cadence users into the digest path (immediate users keep
 it('does not double-stage the same source notification', function () {
     $user = Deliverability::user('daily');
     $queue = app(DigestQueue::class);
-    $nid = (string) \Illuminate\Support\Str::uuid();
+    $nid = (string) Str::uuid();
 
     $queue->enqueue($user, 'reply', null, ['topic_title' => 'T'], $nid);
     $queue->enqueue($user, 'reply', null, ['topic_title' => 'T'], $nid);

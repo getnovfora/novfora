@@ -26,7 +26,7 @@ final class DeliverabilityServiceProvider extends ServiceProvider
                 && extension_loaded('imap')
                 && (string) config('hearth.deliverability.imap.host', '') !== '';
 
-            return $imap ? new ImapBounceMailbox() : new NullBounceMailbox();
+            return $imap ? new ImapBounceMailbox : new NullBounceMailbox;
         });
     }
 }

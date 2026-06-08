@@ -14,6 +14,7 @@ use App\Models\DigestRun;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -79,8 +80,8 @@ class DigestAssembler
         return $dispatched;
     }
 
-    /** @return \Illuminate\Support\Collection<int,DigestRun> */
-    private function stuckBuiltRuns(int $cap): \Illuminate\Support\Collection
+    /** @return Collection<int,DigestRun> */
+    private function stuckBuiltRuns(int $cap): Collection
     {
         if ($cap <= 0) {
             return collect();
@@ -162,7 +163,7 @@ class DigestAssembler
                     ->pluck('id');
 
                 if ($ids->isEmpty()) {
-                    throw new DigestNothingToSend(); // roll back → period not consumed
+                    throw new DigestNothingToSend; // roll back → period not consumed
                 }
 
                 DigestQueueItem::query()->whereIn('id', $ids)->update(['digest_run_id' => $run->getKey()]);
