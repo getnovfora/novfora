@@ -679,6 +679,55 @@ clean-room**.
 >   flip "new-user first-post hold" to 0 from Admin → Settings → Moderation (replaces the temporary config
 >   edit, which the deploy overwrites).**
 
+> **Update 2026-06-08 (ACP v1.1 — post-deploy bug patch — Code):** first beta-operator feedback after the
+> ACP v1 deploy surfaced two live bugs + one test gap. **Branch `claude/acp-v1.1-patch`, based on
+> `claude/acp-v1`** — the kickoff said "branch from main (includes ACP v1)" but ACP v1 is **not** merged to
+> main yet (main only carries the NevoBB-adoption + this kickoff doc-commits), so the patch sits on the v1
+> branch where the bugs live; the v1.1 branch is a strict superset of v1. Bugs only — group management +
+> layman permissions stay queued (ACP v2 / Phase 2). Scope: the two bugs + the admin-render test + the
+> (optional) deploy-window note. Five changed files, +87/−5.
+> - **BUG 1 — Registration settings page returned 500** (`Too few arguments to …::gates(), 0 passed … 1
+>   expected`). Root cause: the registration Livewire SFC's read-only `gates()` display helper type-hinted
+>   `Settings $settings`, but it is called as `$this->gates()` **straight from the rendered view** —
+>   Livewire only container-injects lifecycle hooks (`mount`/`boot`) and update-lifecycle actions, never a
+>   method invoked from Blade, so the arg arrived empty and fatal'd. **Fix at the root:** `gates()` now
+>   takes no params and resolves `app(Settings::class)` itself — mirroring the proven sibling `blocklist()`
+>   helper on the Anti-spam page. **Swept all 17 admin/settings SFCs** for the same "method-with-required-
+>   args called arg-less from a view" pattern: `gates()` was the **only** instance (`structure`'s
+>   `inspectorUrl(Forum $node)` passes its arg explicitly from the loop — correct).
+> - **BUG 2 — "Forum width" (Appearance) didn't govern the topic view.** The width setting maps to the
+>   `--layout-max-width` token the shared `<x-ui.container size="lg">` consumes; the index + board views used
+>   `size="lg"` but the **topic** view (and **search**) pinned their own `size="md"` (`max-w-3xl`), so width
+>   changes widened the board but not the thread. **Fix:** switched the topic + search main containers to
+>   `size="lg"` — the same token-consuming container, no new utility class (the build is byte-identical),
+>   no nested width pin. The v1 PROJECT-STATE claim that the topic view honoured width is now actually true.
+> - **THE TEST GAP (closed) — why BUG 1 shipped.** The ACP authz-walk asserted non-admins are **denied**
+>   every `/admin` route but never that an authenticated **admin can render** them — so a page that 500s
+>   only for admins sailed through. Added the **mirror**: `AdminAccessWalkTest` now walks every parameterless
+>   GET `/admin*` page **and** every `moderation.*` (MCP) page as a **2FA'd admin** and asserts a clean 200.
+>   This **FAILS on the unpatched registration page and PASSES after the fix** — catching the whole
+>   "guests-denied but admins-500" class. Plus an in-process **width regression guard** (`ForumViewTest`):
+>   `forum_width=wide` → the topic route emits `--layout-max-width:80rem` **and** the topic content container
+>   carries the `lg` token class (absent when it pinned `md`).
+> - **OPTIONAL deploy-window note (RH-10) — flagged as follow-up, NOT actioned.** The live
+>   `Unknown column color_mode/density` 500s trace to `SchemaState::shouldGateRequests()` failing **open**
+>   (cold-cache bootstrap concurrent-loser / cache `Throwable` / — by design — manual mode), where its inline
+>   "reads are null-safe" justification doesn't cover the **write** path: the header quick-toggle auto-POSTs
+>   to `AppearanceController::update()` → `$user->save()` → `UPDATE … color_mode/density` on the un-migrated
+>   column. Auto-mode fail-open only; manual-mode 500s are by design. Details + scoped fix options in
+>   [`docs/product/rh10-maintenance-gate-followup.md`](docs/product/rh10-maintenance-gate-followup.md).
+> - **Evidence (this box has NO host PHP — Pest/Pint/Larastan/Dusk run in CI, the screenshot/Dusk producer).**
+>   Code verified by reading + a **5-agent adversarial review** (render-tracing **all 15 admin + 4 MCP pages**
+>   under `RefreshDatabase`+seed → every page 200 for the 2FA admin post-fix; only registration 500s pre-fix;
+>   both tests confirmed fail-pre/pass-post; Pint/Larastan-clean; no new Tailwind class; no Dusk/markup
+>   contract broken; scope-fenced). **Asset build byte-identical** (`npm run build` → unchanged
+>   `public/build`; CSS **42,030 B / 8.34 KB gz**, `app-B_2DpsPM.css` sha256
+>   `c5e67737b971d2aa61cd3451f74b390429e7bc907b435816db023424089ff42d`). **GATES still owed by CI:** full Pest
+>   (incl. the new admin-render mirror, must go red on `claude/acp-v1`/main and green here), Pint · Larastan ·
+>   `composer audit`/`npm audit` · `assets-fresh` · Dusk + screenshots · bundle rebuild + verify. **NEXT
+>   (human): push `claude/acp-v1.1-patch`; open the PR (no `gh` here); let CI prove the gates; merge after
+>   ACP v1 (or fold both).**
+
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
    Akismet phase note). Add a note that Laravel 13's **Reverb database driver (no Redis)** is
