@@ -9,6 +9,7 @@ use App\Actions\Fortify\ResetUserPassword;
 use App\Actions\Fortify\UpdateUserPassword;
 use App\Actions\Fortify\UpdateUserProfileInformation;
 use App\AntiSpam\Captcha\CaptchaManager;
+use App\Settings\Settings;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -40,9 +41,17 @@ class FortifyServiceProvider extends ServiceProvider
 
         // Our own clean-room, server-rendered auth views (no SPA starter kit).
         Fortify::loginView(fn () => view('auth.login'));
-        Fortify::registerView(fn () => view('auth.register', [
-            'captcha' => app(CaptchaManager::class)->for('register')->challenge(),
-        ]));
+        Fortify::registerView(function () {
+            // Registration on/off is a site setting (ACP v1). When closed, show a notice instead of the
+            // form; CreateNewUser also rejects a POST, so the toggle can't be bypassed by a crafted request.
+            if (! app(Settings::class)->bool('registration.enabled')) {
+                return view('auth.registration-closed');
+            }
+
+            return view('auth.register', [
+                'captcha' => app(CaptchaManager::class)->for('register')->challenge(),
+            ]);
+        });
         Fortify::requestPasswordResetLinkView(fn () => view('auth.forgot-password'));
         Fortify::resetPasswordView(fn (Request $request) => view('auth.reset-password', ['request' => $request]));
         Fortify::verifyEmailView(fn () => view('auth.verify-email'));

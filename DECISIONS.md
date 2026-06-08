@@ -36,6 +36,7 @@ process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed
 | 0019 | **Auth = Laravel Fortify (headless) + our own Blade views**; **argon2id**; **2FA/TOTP mandatory for staff**, opt-in for users; passkeys deferred | Accepted | [security §1](docs/architecture/security-and-permissions.md) |
 | 0020 | **No-SSH web installer** with a **post-install file-marker lock** (no re-trigger / admin-reset vector); one shared `InstallRunner` for web + CLI; pre-install boot hardening; **portable backup/restore** (manifest + SHA-256 integrity) | Accepted | [getting-started](docs/getting-started.md) |
 | 0021 | **No-SSH automatic upgrade** — cron-driven, backup-first, maintenance-safe migration; cheap cached schema-state detection (release-fingerprint, O(cache-read) request path); `HEARTH_AUTO_UPGRADE` default-on with a manual admin/CLI path; held-not-looping failure policy | Accepted | [getting-started §5](docs/getting-started.md) · [RH-10](docs/product/real-host-findings.md) |
+| 0024 | **Project name = NevoBB** — single brand; "Hearth" codename retired; NevoForums parked as redirect/future hosted tier | Accepted | [§ADR-0024](#adr-0024--project-name-nevobb-2026-06-07) |
 
 ---
 
@@ -227,6 +228,70 @@ upload) — flagged in [real-host-findings RH-11](docs/product/real-host-finding
 level driving the runner directly (round-trip · the restored-older-schema → auto-upgrade hand-off · validation
 refusal · maintenance entered/exited · audit · /health during the window · panel authz + typed-confirm). See
 [real-host-findings RH-11](docs/product/real-host-findings.md).
+
+### ADR-0023 — Site-settings store & precedence (ACP v1)
+**Context:** ACP v1 needs a settings infrastructure that lets an operator change site behaviour from the panel
+instead of hand-editing `.env`/`config` on the host. The binding requirement is the owner's live use case:
+after deploy, *flip "new-user first-post hold" to 0 from the Moderation page — replacing the temporary
+config-file edit, which the deploy overwrites.* So a panel override must **persist across deploys**, while an
+**unset** key must keep tracking the host's `env`/`config` (which a deploy legitimately changes). Secrets
+(SMTP password, Turnstile secret) must be stored at rest and never echoed.
+
+**Decision:** a `settings` table (key/value/type, reversible) behind a typed `App\Settings\Settings` service,
+with a code `SettingsRegistry` (one `SettingDefinition` per key: type, secret flag, config path, default,
+group, label) as the single source of truth.
+- **Precedence (per key):** DB override row → the registry's `config()` path → the registry's literal default.
+  Because Laravel config files already fold `env(KEY, default)`, a single `config()` read realises the
+  documented "env fallback → config default" tail in the framework-idiomatic, `config:cache`-safe way.
+- **Defaults are NOT seeded as rows.** Seeding would shadow the env/config fallback and defeat the override's
+  whole point. "Seeded defaults" therefore means the registry's in-code defaults; an unset key tracks
+  env/config until an admin explicitly sets a value, after which the DB row wins and survives the next release.
+  (`HEARTH_NEW_USER_HOLD_POSTS` is wired into `config/hearth.php` so it participates in the chain.)
+- **Caching (RH-9):** the whole bag is read **once per request** and cached as **primitives only** (the raw
+  string column + type + encrypted flag — never an Eloquent model, never a decrypted secret). Decryption and
+  typing happen after the cache boundary, in-process; a failed/empty read (pre-install, table missing) is
+  **not** cached. Writes are write-through: upsert + immediate cache+memo invalidation.
+- **Apply-to-config.** On boot (post-install only), every DB-overridden, config-backed key is pushed into the
+  live `config()`, so existing consumers — the mailer, the anti-spam pipeline, `app.name`, the theme — honour
+  a panel override with **no change to their own code**. The display-only `siteView()` bag (wordmark, notice,
+  accent, width, poster position, board-list style) is resolved **inline** by the few views that need it
+  (memoised: one cache read/request) — deliberately **not** a global view composer, which fired on every
+  partial and pushed the test run past its memory cap.
+- **Security.** Secret settings are `Crypt::encryptString`'d under the app key, decrypted only in-process,
+  **masked** in the audit log, and never pre-filled into forms (placeholder/"leave blank to keep" semantics).
+  Every write is audited (who, key, old→new, secrets masked).
+
+**Consequences:** the operator becomes self-sufficient (settings, email, moderation, appearance from the
+panel) with zero new dependencies; overrides survive deploys; the env/config fallback stays authoritative
+until explicitly overridden. New settings are one registry entry. Tested: precedence, typing, write-through,
+encrypted round-trip + masking, `applyToConfig`, forget, plus each page's real effect (offline 503,
+registration gating, config override, appearance render). **Flagged (not invented, scope fence):** a post-edit
+grace/edit-time window (no engine behind it); approval/invite registration modes (Phase 2).
+
+### ADR-0024 — Project name: NevoBB (2026-06-07)
+**Context:** "Hearth" was only ever a working codename (the name is already used by another GitHub
+project); brainstorming converged on the "Nevo" prefix (from Nova/Novellum), with a dual-brand split on
+the table — NevoBB (engine/developer identity) vs. NevoForums (user-facing brand).
+**Decision:** **single brand — NevoBB** for the engine, repo, site, packages, and docs. No second brand:
+every comparable platform (phpBB, Discourse, Flarum, NodeBB) runs one name; a split costs two sites, split
+SEO, and double upkeep with no payoff until a hosted tier exists. `nevoforums.com` is registered as a
+redirect only, reserved for a possible future hosted tier (multi-tenant SaaS remains out of scope per the
+brief).
+**Availability (verified 2026-06-07):** `nevobb.com` and `nevoforums.com` unregistered (Verisign RDAP);
+Packagist vendor `nevobb` free; no existing software uses the name. **github.com/nevobb is held by an
+unrelated individual** (a personal account) — GitHub org candidates: `nevobb-forum` / `getnevobb`, TBD at
+repo publish. **NodeBB adjacency accepted:** the *BB suffix is generic in this category (phpBB/MyBB/NodeBB
+coexist); bare "Nevo" is crowded (Nevo Technologies at nevo.com, UEI's Nevo smart-home platform), which the
+compound name avoids.
+**Codebase rename = a separate, planned task** (~197 files reference hearth: `config/hearth.php`,
+`hearth:*` artisan commands, `HEARTH_*` env keys, "The Hearth Authors" SPDX lines, docs). Execute as one
+reviewed change with a documented `HEARTH_*` → `NEVOBB_*` env migration, **before any public release** so
+no operator contract is broken.
+**Also recorded:** the "LLM background content seeding / simulated users" concept from the naming
+brainstorm is **exploratory only — not in locked scope.** If ever pursued it needs its own ADR plus
+disclosure/ethics design (it sits in tension with the anti-spam pillar, ADR-0007).
+**Consequences:** one identity to build equity in; register both domains now; claim org + social handles;
+formal trademark search before 1.0.
 
 *(ADRs 0003, 0004, 0008, 0009, 0010, 0013, 0014, 0016, 0017, 0018 are summarized in the table above; full
 detail in their linked docs.)*

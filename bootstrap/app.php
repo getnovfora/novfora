@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureBoardOnline;
 use App\Http\Middleware\EnsureNotInstalled;
 use App\Http\Middleware\PreventRequestsDuringUpgrade;
 use App\Http\Middleware\RedirectIfNotInstalled;
@@ -27,6 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // pending migrations (RH-10). Appended AFTER SecurityHeaders so the 503 still carries them;
             // the decision is O(cache-read) — no DB-heavy migrator/schema check on the request path.
             PreventRequestsDuringUpgrade::class,
+            // The "board offline" switch (ACP v1, General settings): a branded 503 for guests/members,
+            // admins pass. One O(cache-read) settings lookup; never reached pre-install.
+            EnsureBoardOnline::class,
         ]);
 
         // The installer lock — applied to the installer routes so they 403 once installed.

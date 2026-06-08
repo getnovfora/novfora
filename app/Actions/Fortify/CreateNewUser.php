@@ -10,6 +10,7 @@ use App\AntiSpam\Captcha\CaptchaManager;
 use App\AntiSpam\RegistrationGuard;
 use App\Models\Group;
 use App\Models\User;
+use App\Settings\Settings;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
@@ -31,6 +32,12 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): User
     {
+        // Registration on/off (ACP v1, Registration settings): the authoritative server-side gate, so the
+        // toggle holds even against a crafted POST that skips the (already-replaced) register view.
+        if (! app(Settings::class)->bool('registration.enabled')) {
+            throw ValidationException::withMessages(['email' => 'New account registration is currently closed.']);
+        }
+
         // Anti-abuse rate limit FIRST (phase-1.5 F-B): cap registration attempts per IP so a script can't
         // flood the endpoint. Counts every attempt (valid or not). A 429 is the correct, honest signal.
         $this->ensureNotRateLimited();
@@ -88,6 +95,13 @@ class CreateNewUser implements CreatesNewUsers
             if ($group instanceof Group) {
                 $user->groups()->attach($group->id, ['is_primary' => $isPrimary]);
             }
+        }
+
+        // Email-verification requirement is a site setting (ACP v1). When an admin turns it off, mark the
+        // account verified at creation (the existing email_verified_at mechanism), so no verification email
+        // is sent and the `verified` middleware passes. Default on = unchanged (must verify).
+        if (! app(Settings::class)->bool('registration.require_email_verification')) {
+            $user->forceFill(['email_verified_at' => now()])->save();
         }
 
         return $user;

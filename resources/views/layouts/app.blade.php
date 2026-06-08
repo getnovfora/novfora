@@ -7,10 +7,33 @@
     $authUser = auth()->user();
     $serverColorMode = $authUser?->color_mode;
     $serverDensity = $authUser?->density;
-    $colorMode = $serverColorMode ?: 'auto';
-    $density = $serverDensity ?: 'comfortable';
+
+    // Site-level appearance (ACP v1) — resolved inline (memoised: one cache read/request). Guests inherit
+    // the site defaults.
+    $site = app(\App\Settings\Settings::class)->siteView();
+    $siteDefaultMode = in_array($site['default_color_mode'] ?? 'auto', ['auto', 'light', 'dark'], true) ? $site['default_color_mode'] : 'auto';
+    $siteDefaultDensity = ($site['default_density'] ?? 'comfortable') === 'compact' ? 'compact' : 'comfortable';
+
+    $colorMode = $serverColorMode ?: $siteDefaultMode;
+    $density = $serverDensity ?: $siteDefaultDensity;
     $htmlTheme = in_array($colorMode, ['light', 'dark'], true) ? $colorMode : null;
     $nonce = \Illuminate\Support\Facades\Vite::cspNonce();
+    $wordmark = ($site['wordmark'] ?? '') !== '' ? $site['wordmark'] : config('app.name', 'Hearth');
+
+    // Accent + forum-width overrides emitted as CSS variables (AA-safe, light+dark). Width comes from a
+    // fixed map; accent is validated hex (AccentPalette returns null otherwise) — safe to inline.
+    $accent = \App\Support\AccentPalette::for($site['accent_color'] ?? '');
+    $widthCss = ['boxed-narrow' => '48rem', 'standard' => '64rem', 'wide' => '80rem', 'full' => '100%'][$site['forum_width'] ?? 'standard'] ?? '64rem';
+    $appearanceCss = '';
+    if ($widthCss !== '64rem') {
+        $appearanceCss .= ':root{--layout-max-width:'.$widthCss.';}';
+    }
+    if ($accent) {
+        $vars = fn (array $v) => collect($v)->map(fn ($val, $k) => '--'.$k.':'.$val.';')->implode('');
+        $appearanceCss .= ':root{'.$vars($accent['light']).'}';
+        $appearanceCss .= "@media (prefers-color-scheme: dark){:root:not([data-theme='light']){".$vars($accent['dark']).'}}';
+        $appearanceCss .= ":root[data-theme='dark']{".$vars($accent['dark']).'}';
+    }
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
@@ -31,11 +54,13 @@
                 var d = document.documentElement;
                 var sm = @json($serverColorMode); // signed-in authoritative value, else null (guest)
                 var sd = @json($serverDensity);
+                var dm = @json($siteDefaultMode); // site-level visitor default (ACP appearance)
+                var dd = @json($siteDefaultDensity);
                 var mode, den;
                 if (sm) { mode = sm; try { localStorage.setItem('hearth-color-mode', sm); } catch (e) {} }
-                else { try { mode = localStorage.getItem('hearth-color-mode'); } catch (e) {} if (['auto','light','dark'].indexOf(mode) < 0) mode = 'auto'; }
+                else { try { mode = localStorage.getItem('hearth-color-mode'); } catch (e) {} if (['auto','light','dark'].indexOf(mode) < 0) mode = dm; }
                 if (sd) { den = sd; try { localStorage.setItem('hearth-density', sd); } catch (e) {} }
-                else { try { den = localStorage.getItem('hearth-density'); } catch (e) {} if (den !== 'compact' && den !== 'comfortable') den = 'comfortable'; }
+                else { try { den = localStorage.getItem('hearth-density'); } catch (e) {} if (den !== 'compact' && den !== 'comfortable') den = dd; }
                 if (mode === 'light' || mode === 'dark') d.setAttribute('data-theme', mode); else d.removeAttribute('data-theme');
                 d.setAttribute('data-color-mode', mode);
                 d.setAttribute('data-density', den);
@@ -47,6 +72,12 @@
     @stack('head')
     @livewireStyles
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    {{-- Site Appearance overrides (ACP v1): accent palette (light+dark, AA-safe) + forum width. Emitted
+         AFTER the bundle so equal-specificity :root rules win; values are validated hex / a fixed width map. --}}
+    @if ($appearanceCss)
+        <style @if ($nonce) nonce="{{ $nonce }}" @endif>{!! $appearanceCss !!}</style>
+    @endif
 </head>
 <body class="min-h-dvh flex flex-col bg-surface text-ink">
     {{-- a11y floor (ADR-0009 §3.3): skip link + a single main landmark. Themes may restyle, not remove. --}}
@@ -80,8 +111,8 @@
                 </div>
             </div>
 
-            {{-- Wordmark (text, per the brief) --}}
-            <a href="{{ route('forums.index') }}" class="font-bold text-base sm:text-lg tracking-tight text-ink hover:text-accent">{{ config('app.name', 'Hearth') }}</a>
+            {{-- Wordmark (text, per the brief; overridable via the Appearance setting). --}}
+            <a href="{{ route('forums.index') }}" class="font-bold text-base sm:text-lg tracking-tight text-ink hover:text-accent">{{ $wordmark }}</a>
 
             {{-- Desktop primary nav --}}
             <nav class="hidden sm:flex items-center gap-0.5" aria-label="Primary">
@@ -137,7 +168,7 @@
                         <x-ui.dropdown-item :href="route('settings.notifications')"><x-ui.icon name="bell" class="h-4 w-4 text-ink-subtle" /> Notifications</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('settings.two-factor')"><x-ui.icon name="shield" class="h-4 w-4 text-ink-subtle" /> Security</x-ui.dropdown-item>
                         @if (auth()->user()->canDo('admin.access', \App\Permissions\Scope::global()))
-                            <x-ui.dropdown-item :href="route('admin.system.tier')"><x-ui.icon name="cog" class="h-4 w-4 text-ink-subtle" /> Admin</x-ui.dropdown-item>
+                            <x-ui.dropdown-item :href="route('admin.dashboard')"><x-ui.icon name="cog" class="h-4 w-4 text-ink-subtle" /> Admin</x-ui.dropdown-item>
                         @endif
                         @if (auth()->user()->isStaff())
                             <x-ui.dropdown-item :href="route('moderation.dashboard')"><x-ui.icon name="shield" class="h-4 w-4 text-ink-subtle" /> Moderation</x-ui.dropdown-item>
@@ -161,6 +192,16 @@
             </div>
         </x-ui.container>
     </header>
+
+    {{-- Site-wide notice (ACP v1 General settings) — shown on every page when an admin sets one. --}}
+    @if (($site['notice'] ?? '') !== '')
+        <div class="border-b border-line bg-accent-soft text-accent-soft-ink">
+            <x-ui.container size="xl" class="flex items-start gap-2 py-2.5 text-sm">
+                <x-ui.icon name="bell" class="mt-0.5 h-4 w-4 shrink-0" />
+                <p>{{ $site['notice'] }}</p>
+            </x-ui.container>
+        </div>
+    @endif
 
     {{-- Optional breadcrumb bar: a page provides @section('breadcrumbs') with <x-ui.breadcrumbs>. --}}
     @hasSection('breadcrumbs')

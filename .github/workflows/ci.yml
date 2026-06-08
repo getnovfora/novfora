@@ -54,7 +54,9 @@ jobs:
       - run: composer install --no-interaction --no-progress --prefer-dist
       - run: cp .env.example .env && php artisan key:generate
       - name: Pest (unit + feature; incl. the service-tier forced-absence suite)
-        run: ./vendor/bin/pest
+        # Explicit memory_limit (matches the static-analysis step): the single-process run loads every
+        # touched class, and the suite has outgrown a 128M default on a stock php.ini.
+        run: php -d memory_limit=512M ./vendor/bin/pest
       - name: Baseline MySQL migrate (proves the shared-host DB path runs on MySQL)
         env:
           DB_CONNECTION: mysql

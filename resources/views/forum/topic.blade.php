@@ -39,7 +39,9 @@
 @endsection
 
 @section('content')
-    <x-ui.container size="md" class="space-y-5">
+    {{-- size="lg" follows the site Appearance "Forum width" (--layout-max-width) — the same shared
+         container the forum index and board views use, so the width setting governs the topic view too. --}}
+    <x-ui.container size="lg" class="space-y-5">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 space-y-2">
                 @if ($topic->is_pinned || $topic->status === 'locked')
@@ -74,16 +76,29 @@
             @endif
         </div>
 
+        {{-- Poster-info position is a site Appearance setting (ACP v1): left (default) / right / top.
+             Presentation only — the avatar/name/badge/stats markup and #post-* ids are unchanged. --}}
+        @php($posterPosition = (app(\App\Settings\Settings::class)->siteView()['poster_position'] ?? null) ?: 'left')
+        @php($postWrap = match ($posterPosition) {
+            'top' => '',
+            'right' => 'md:flex md:flex-row-reverse md:gap-5',
+            default => 'md:flex md:gap-5',
+        })
+        @php($posterCol = match ($posterPosition) {
+            'top' => 'flex items-center gap-3 border-b border-line pb-3',
+            'right' => 'flex items-center gap-3 border-b border-line pb-3 md:w-40 md:shrink-0 md:flex-col md:items-center md:gap-1.5 md:border-b-0 md:border-l md:pb-0 md:pl-5 md:text-center',
+            default => 'flex items-center gap-3 border-b border-line pb-3 md:w-40 md:shrink-0 md:flex-col md:items-center md:gap-1.5 md:border-b-0 md:border-r md:pb-0 md:pr-5 md:text-center',
+        })
+        @php($bodyCol = $posterPosition === 'top' ? 'min-w-0 pt-3' : 'min-w-0 flex-1 pt-3 md:pt-0')
+
         <div class="space-y-4">
             @foreach ($posts as $post)
                 @php($author = $post->author)
                 @php($role = $author?->isAdmin() ? 'Admin' : ($author?->isStaff() ? 'Moderator' : null))
-                {{-- Classic LEFT poster sidebar on desktop; collapses to a top-bar (avatar + name above body)
-                     on mobile. The author + its groups are eager-loaded, so the badge/stats add no query. --}}
                 <x-ui.card id="post-{{ $post->id }}" :class="$post->approved_state === 'pending' ? 'ring-1 ring-warn-soft' : ''">
-                    <div class="md:flex md:gap-5">
+                    <div class="{{ $postWrap }}">
                         {{-- Poster --}}
-                        <div class="flex items-center gap-3 border-b border-line pb-3 md:w-40 md:shrink-0 md:flex-col md:items-center md:gap-1.5 md:border-b-0 md:border-r md:pb-0 md:pr-5 md:text-center">
+                        <div class="{{ $posterCol }}">
                             <span class="md:hidden"><x-ui.avatar :user="$author" size="md" /></span>
                             <span class="hidden md:inline-flex"><x-ui.avatar :user="$author" size="xl" /></span>
                             <div class="min-w-0 md:mt-1">

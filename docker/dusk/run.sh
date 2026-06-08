@@ -149,8 +149,9 @@ php artisan migrate:fresh --force
 start_serve
 set +e
 # Editor journey (RH-7 regression) + the default-theme screenshot gate (writes tests/Browser/screenshots/
-# theme-*.png for the four core pages in light/dark × mobile/desktop).
-php artisan dusk --without-tty tests/Browser/EditorJourneyTest.php tests/Browser/ThemeScreenshotTest.php
+# theme-*.png) + the ACP v1 admin journey & screenshot gate (acp-*.png: dashboard/structure/settings/audit
+# in light/dark × mobile/desktop).
+php artisan dusk --without-tty tests/Browser/EditorJourneyTest.php tests/Browser/ThemeScreenshotTest.php tests/Browser/AdminJourneyTest.php
 EDITOR_CODE=$?
 set -e
 [ "$EDITOR_CODE" -ne 0 ] && dump_logs

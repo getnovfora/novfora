@@ -627,6 +627,106 @@ clean-room**.
 > push the branch + open the PR (no `gh` here); merge; deploy; then the live rehearsal in the kickoff §"Live
 > rehearsal" (create → download → marker post → restore from the panel → marker gone, `/health` green, audit
 > shows the restore) closes the last beta gate.**
+>
+> **Update 2026-06-07 (ACP v1 — admin shell, dashboard, structure manager, settings, system surface — Code):**
+> built the **admin control panel** so the operator is self-sufficient (no more URL-guessing or `.env`
+> hand-edits), per [acp-v1-kickoff.md](docs/product/acp-v1-kickoff.md). Branch **`claude/acp-v1`** off main
+> (includes RH-11), 6 conventional DCO commits. **No new dependencies.**
+> - **PART 0 — settings infrastructure (ADR-0023):** a `settings` table + typed `App\Settings\Settings` on a
+>   code `SettingsRegistry`. Precedence **DB row → config() (folds env→default) → registry default**; defaults
+>   are **not** seeded as rows, so a panel override persists across deploys while an unset key tracks
+>   env/config (the owner's new-user-hold case). Whole bag read once/request, cached as **primitives only**
+>   (RH-9), write-through invalidation, **defensive read** (safe pre-install / during `package:discover`).
+>   Secrets encrypted + **masked in the audit log**, never echoed (placeholder forms). `applyToConfig()` pushes
+>   overrides into live `config()` so the mailer / anti-spam / `app.name` / theme honour them **unchanged**.
+> - **PART 1 — shell + dashboard:** `<x-admin.shell>` = a persistent grouped left nav (Overview · Settings ·
+>   Members · Content · Moderation · System) from one `AdminNavigation` source the **client-side quick-search**
+>   also indexes (pages + settings labels). `/admin` dashboard: pending-actions row → stat cards (cached) →
+>   health strip (reuses the `/health` internals in-process) → recent audit. **Authz:** every admin route/SFC
+>   on `admin.access` + staff-2FA; an **authz-walk test** asserts every GET admin page denies non-admins.
+> - **PART 2 — forum structure manager (the owner's #1 ask):** category→board→sub-board tree with
+>   create/edit/reorder; **binding delete-safety** — a board with topics is deleted only by choosing a
+>   destination (StructureService moves topics + recomputes both counters authoritatively + audits); never
+>   silent. New boards inherit the global role presets (usable immediately, documented). Per-node link to the
+>   permission inspector (`?scope=` pre-fill).
+> - **PART 3 — six settings pages** (general, registration, email + **test-send**, moderation, anti-spam,
+>   appearance) — each a focused Livewire SFC on PART 0. Board-offline 503 + site notice; registration on/off +
+>   email-verification toggle (existing mechanisms); SMTP password encrypted w/ placeholder; appearance
+>   (theme, **AA-safe accent CSS vars**, `--layout-max-width` width, visitor mode/density, poster position,
+>   board-list style, wordmark) read inline by the layout + topic + board views (presentation only — Dusk
+>   selectors + markup contracts preserved). Knobs without a mechanism (post-edit window; approval/invite
+>   modes) are **flagged, not invented** (scope fence).
+> - **PART 4 — system surface:** migrated service-tier/permissions/backups/upgrade/custom-fields into the shell
+>   (behaviour unchanged); **NEW** read-only **audit-log viewer** (paginated, filterable) + **Tasks** page
+>   (the single-cron-line schedule + last-run where knowable).
+> - **Evidence (Docker `php:8.3`; this box has no host PHP):** **Pest 451 passed / 1 skipped (1593
+>   assertions)** — all prior suites stay green; **Pint** clean (315 files); **Larastan** clean; `composer
+>   audit` + `npm audit` clean; **CSS 8.34 KB gz** (budget 50), `assets-fresh` reproducible. ADR-0023 +
+>   getting-started §4 (ACP) updated. **Admin Dusk journey + screenshot gate** added
+>   (`tests/Browser/AdminJourneyTest.php`: login → dashboard → create a board → see it on the public index;
+>   captures `acp-*.png` dashboard/structure/settings/audit, light/dark × desktop/mobile) and wired into
+>   `docker/dusk/run.sh` PASS 2 + the CI Dusk job — **run in the Docker Dusk harness / CI** (Chrome + MySQL),
+>   like the theme screenshots. **Could NOT complete the local Dusk run in this sandbox:** `php artisan serve`
+>   was unstable here (port-bind race + broken-pipe), so every page 500'd — which **also failed the
+>   pre-existing `EditorJourneyTest`**, confirming an environment issue, not an ACP defect (all 451 Pest tests
+>   pass). The Dusk passes + the four screenshot sets therefore run in the **CI Dusk job** (clean runner; prior
+>   passes were green there) / a human Docker run. **Release bundle rebuilt + cold-boot-verified** (`RELEASE_VERIFY=PASS`,
+>   `GET / → 302 /install`): `hearth-release.zip` **12,889,984 bytes**, sha256
+>   `5c4472a943f015f81589bb8d37f7a59ebb498248f144c194f5a5541a28b30e24`. **Concurrency note:** a parallel
+>   session is renaming the project **Hearth → NevoBB** (CLAUDE.md +
+>   ADR-0024) in the same tree — left untouched by this branch; reconcile at merge. **NEXT (human): push
+>   `claude/acp-v1` + open the PR (no `gh` here) with the four screenshot sets; merge; deploy. After deploy,
+>   flip "new-user first-post hold" to 0 from Admin → Settings → Moderation (replaces the temporary config
+>   edit, which the deploy overwrites).**
+
+> **Update 2026-06-08 (ACP v1.1 — post-deploy bug patch — Code):** first beta-operator feedback after the
+> ACP v1 deploy surfaced two live bugs + one test gap. **Branch `claude/acp-v1.1-patch`, based on
+> `claude/acp-v1`** — the kickoff said "branch from main (includes ACP v1)" but ACP v1 is **not** merged to
+> main yet (main only carries the NevoBB-adoption + this kickoff doc-commits), so the patch sits on the v1
+> branch where the bugs live; the v1.1 branch is a strict superset of v1. Bugs only — group management +
+> layman permissions stay queued (ACP v2 / Phase 2). Scope: the two bugs + the admin-render test + the
+> (optional) deploy-window note. Five changed files, +87/−5.
+> - **BUG 1 — Registration settings page returned 500** (`Too few arguments to …::gates(), 0 passed … 1
+>   expected`). Root cause: the registration Livewire SFC's read-only `gates()` display helper type-hinted
+>   `Settings $settings`, but it is called as `$this->gates()` **straight from the rendered view** —
+>   Livewire only container-injects lifecycle hooks (`mount`/`boot`) and update-lifecycle actions, never a
+>   method invoked from Blade, so the arg arrived empty and fatal'd. **Fix at the root:** `gates()` now
+>   takes no params and resolves `app(Settings::class)` itself — mirroring the proven sibling `blocklist()`
+>   helper on the Anti-spam page. **Swept all 17 admin/settings SFCs** for the same "method-with-required-
+>   args called arg-less from a view" pattern: `gates()` was the **only** instance (`structure`'s
+>   `inspectorUrl(Forum $node)` passes its arg explicitly from the loop — correct).
+> - **BUG 2 — "Forum width" (Appearance) didn't govern the topic view.** The width setting maps to the
+>   `--layout-max-width` token the shared `<x-ui.container size="lg">` consumes; the index + board views used
+>   `size="lg"` but the **topic** view (and **search**) pinned their own `size="md"` (`max-w-3xl`), so width
+>   changes widened the board but not the thread. **Fix:** switched the topic + search main containers to
+>   `size="lg"` — the same token-consuming container, no new utility class (the build is byte-identical),
+>   no nested width pin. The v1 PROJECT-STATE claim that the topic view honoured width is now actually true.
+> - **THE TEST GAP (closed) — why BUG 1 shipped.** The ACP authz-walk asserted non-admins are **denied**
+>   every `/admin` route but never that an authenticated **admin can render** them — so a page that 500s
+>   only for admins sailed through. Added the **mirror**: `AdminAccessWalkTest` now walks every parameterless
+>   GET `/admin*` page **and** every `moderation.*` (MCP) page as a **2FA'd admin** and asserts a clean 200.
+>   This **FAILS on the unpatched registration page and PASSES after the fix** — catching the whole
+>   "guests-denied but admins-500" class. Plus an in-process **width regression guard** (`ForumViewTest`):
+>   `forum_width=wide` → the topic route emits `--layout-max-width:80rem` **and** the topic content container
+>   carries the `lg` token class (absent when it pinned `md`).
+> - **OPTIONAL deploy-window note (RH-10) — flagged as follow-up, NOT actioned.** The live
+>   `Unknown column color_mode/density` 500s trace to `SchemaState::shouldGateRequests()` failing **open**
+>   (cold-cache bootstrap concurrent-loser / cache `Throwable` / — by design — manual mode), where its inline
+>   "reads are null-safe" justification doesn't cover the **write** path: the header quick-toggle auto-POSTs
+>   to `AppearanceController::update()` → `$user->save()` → `UPDATE … color_mode/density` on the un-migrated
+>   column. Auto-mode fail-open only; manual-mode 500s are by design. Details + scoped fix options in
+>   [`docs/product/rh10-maintenance-gate-followup.md`](docs/product/rh10-maintenance-gate-followup.md).
+> - **Evidence (this box has NO host PHP — Pest/Pint/Larastan/Dusk run in CI, the screenshot/Dusk producer).**
+>   Code verified by reading + a **5-agent adversarial review** (render-tracing **all 15 admin + 4 MCP pages**
+>   under `RefreshDatabase`+seed → every page 200 for the 2FA admin post-fix; only registration 500s pre-fix;
+>   both tests confirmed fail-pre/pass-post; Pint/Larastan-clean; no new Tailwind class; no Dusk/markup
+>   contract broken; scope-fenced). **Asset build byte-identical** (`npm run build` → unchanged
+>   `public/build`; CSS **42,030 B / 8.34 KB gz**, `app-B_2DpsPM.css` sha256
+>   `c5e67737b971d2aa61cd3451f74b390429e7bc907b435816db023424089ff42d`). **GATES still owed by CI:** full Pest
+>   (incl. the new admin-render mirror, must go red on `claude/acp-v1`/main and green here), Pint · Larastan ·
+>   `composer audit`/`npm audit` · `assets-fresh` · Dusk + screenshots · bundle rebuild + verify. **NEXT
+>   (human): push `claude/acp-v1.1-patch`; open the PR (no `gh` here); let CI prove the gates; merge after
+>   ACP v1 (or fold both).**
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,

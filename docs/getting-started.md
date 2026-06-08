@@ -87,6 +87,16 @@ Administrator and moderator accounts **must** use two-factor authentication. On 
 be guided to scan a TOTP QR code (any authenticator app) and save recovery codes. Until 2FA is enabled,
 the admin panels stay locked.
 
+Once 2FA is on, everything you need to run the community lives in the **admin control panel at `/admin`**:
+the dashboard, **Settings** (general, registration, email + a test-send, moderation, anti-spam, appearance),
+**Forums & structure** (create/reorder boards; deleting a board with topics asks where to move them), the
+**audit log**, scheduled **tasks**, and the System tools (service tier, backups & restore, upgrade). A panel
+setting persists across deploys, while anything you leave unset keeps following your `.env`/`config`.
+
+> **Tip:** if you set `HEARTH_NEW_USER_HOLD_POSTS` (or any setting) in `.env` to tide you over before a
+> deploy, set it again from **Settings → Moderation** once you're live — the panel value sticks across the
+> next release, where the `.env` edit would be overwritten.
+
 ---
 
 ## 5. Backups & restore

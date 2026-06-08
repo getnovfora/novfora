@@ -10,19 +10,16 @@
 @endsection
 
 @section('content')
-    <x-ui.container size="lg" class="space-y-5">
-        <div class="space-y-1.5">
-            <h1 class="text-2xl font-semibold tracking-tight text-ink">Backups</h1>
-            <p class="text-sm text-ink-muted max-w-2xl">
-                Create a backup (database + uploaded files), download one for off-host safekeeping, or
-                <strong>restore</strong> one — no SSH needed. Backups also run automatically from the cron
-                schedule. Restoring overwrites the current database and files (a pre-restore safety snapshot is
-                taken first); the site shows a brief maintenance page while it runs. With shell access you can
-                also restore from the command line with
-                <code class="rounded-sm bg-surface-sunken px-1 py-0.5 font-mono text-xs text-ink">php artisan hearth:restore &lt;archive&gt;</code>.
-            </p>
-        </div>
+    <x-admin.shell title="Backups">
+        <p class="text-sm text-ink-muted max-w-2xl">
+            Create a backup (database + uploaded files), download one for off-host safekeeping, or
+            <strong>restore</strong> one — no SSH needed. Backups also run automatically from the cron
+            schedule. Restoring overwrites the current database and files (a pre-restore safety snapshot is
+            taken first); the site shows a brief maintenance page while it runs. With shell access you can
+            also restore from the command line with
+            <code class="rounded-sm bg-surface-sunken px-1 py-0.5 font-mono text-xs text-ink">php artisan hearth:restore &lt;archive&gt;</code>.
+        </p>
 
         <livewire:admin.backups />
-    </x-ui.container>
+    </x-admin.shell>
 @endsection

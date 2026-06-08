@@ -10,16 +10,13 @@
 @endsection
 
 @section('content')
-    <x-ui.container size="lg" class="space-y-5">
-        <div class="space-y-1.5">
-            <h1 class="text-2xl font-semibold tracking-tight text-ink">Permission Inspector</h1>
-            <p class="text-sm text-ink-muted max-w-2xl">
-                Explain exactly <em>why</em> a user can or cannot do something at a given scope — the verdict,
-                the decisive rule, the scope chain that was walked, and every ACL entry that fed the decision
-                (security §1.4). This is the same resolution the engine uses at runtime, never a re-implementation.
-            </p>
-        </div>
+    <x-admin.shell title="Permission Inspector">
+        <p class="text-sm text-ink-muted max-w-2xl">
+            Explain exactly <em>why</em> a user can or cannot do something at a given scope — the verdict,
+            the decisive rule, the scope chain that was walked, and every ACL entry that fed the decision
+            (security §1.4). This is the same resolution the engine uses at runtime, never a re-implementation.
+        </p>
 
         <livewire:admin.permission-inspector />
-    </x-ui.container>
+    </x-admin.shell>
 @endsection

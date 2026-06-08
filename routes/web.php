@@ -2,6 +2,8 @@
 
 // SPDX-License-Identifier: Apache-2.0
 
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\TasksController;
 use App\Http\Controllers\AppearanceController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\BanController;
@@ -141,8 +143,35 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/backups', 'admin.backups')->name('backups');
         Route::view('/upgrade', 'admin.upgrade')->name('upgrade'); // no-SSH auto-upgrade status + manual apply (RH-10)
 
+        // Audit-log viewer (read-only, paginated, filterable) + scheduled-tasks visibility (ACP v1, PART 4).
+        Route::view('/audit', 'admin.audit')->name('audit');
+        Route::get('/tasks', TasksController::class)->name('tasks');
+
         // Admin-defined custom profile fields (data-model §1).
         Route::get('/profile-fields', [ProfileFieldController::class, 'index'])->name('profile-fields');
         Route::post('/profile-fields', [ProfileFieldController::class, 'store'])->name('profile-fields.store');
         Route::delete('/profile-fields/{field}', [ProfileFieldController::class, 'destroy'])->name('profile-fields.destroy');
+    });
+
+// ── Admin Control Panel (ACP v1) ───────────────────────────────────────────────────────────────────────
+// The ACP shell: dashboard, settings pages, and the forum structure manager. Same gate as the System
+// panels — an authenticated admin (admin.access via the permission engine) with 2FA (the brief's "Must").
+// Every page renders inside <x-admin.shell>; Livewire SFCs additionally self-guard (their actions reach
+// the component via livewire/update, which carries no route middleware). ADR-0006 / security §1.4.
+Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTwoFactorForStaff::class])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/', DashboardController::class)->name('dashboard');
+
+        // Forum structure manager (PART 2) — the <livewire:admin.structure /> tree.
+        Route::view('/structure', 'admin.structure')->name('structure');
+
+        // Settings pages (PART 3) — each a focused Livewire SFC on the Settings store.
+        Route::view('/settings/general', 'admin.settings.general')->name('settings.general');
+        Route::view('/settings/registration', 'admin.settings.registration')->name('settings.registration');
+        Route::view('/settings/email', 'admin.settings.email')->name('settings.email');
+        Route::view('/settings/moderation', 'admin.settings.moderation')->name('settings.moderation');
+        Route::view('/settings/antispam', 'admin.settings.antispam')->name('settings.antispam');
+        Route::view('/settings/appearance', 'admin.settings.appearance')->name('settings.appearance');
     });

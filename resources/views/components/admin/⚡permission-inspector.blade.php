@@ -18,6 +18,17 @@ new class extends Component
 
     public ?string $error = null;
 
+    /** Pre-fill the scope (and a sensible default permission) from a ?scope= link — e.g. the structure
+     *  manager's per-board "Permissions" action lands here scoped to that node. */
+    public function mount(): void
+    {
+        $scope = request()->query('scope');
+        if (is_string($scope) && $scope !== '') {
+            $this->scopeRef = $scope;
+            $this->permission = 'forum.view';
+        }
+    }
+
     public function inspect(): void
     {
         $this->report = null;
