@@ -38,8 +38,12 @@
             </section>
         @endif
 
+        {{-- Board-list style is a site Appearance setting (ACP v1): info-rich (the table) or minimal
+             (the stacked list at all sizes). Presentation only — same topics, links, and selectors. --}}
+        @php($boardListStyle = (app(\App\Settings\Settings::class)->siteView()['board_list_style'] ?? null) ?: 'info-rich')
         @if ($topics->isNotEmpty())
-            {{-- Desktop: a real, info-dense topic table (Subject · Replies · Views · Last post). --}}
+            {{-- Desktop: an info-dense topic table (Subject · Replies · Views · Last post). --}}
+            @if ($boardListStyle === 'info-rich')
             <x-ui.card flush class="hidden overflow-hidden md:block">
                 <table class="w-full border-collapse text-sm">
                     <thead>
@@ -92,9 +96,11 @@
                     </tbody>
                 </table>
             </x-ui.card>
+            @endif
 
-            {{-- Mobile: the same topics reflow to stacked rows (no horizontal scrolling — brief hard rule). --}}
-            <x-ui.card flush class="md:hidden">
+            {{-- Stacked rows: the mobile reflow for "info-rich", and the whole list for "minimal"
+                 (no horizontal scrolling — brief hard rule). --}}
+            <x-ui.card flush class="{{ $boardListStyle === 'info-rich' ? 'md:hidden' : '' }}">
                 <div class="divide-y divide-line">
                     @foreach ($topics as $topic)
                         @php($lastPage = max(1, (int) ceil(($topic->reply_count + 1) / 15)))

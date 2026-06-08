@@ -60,7 +60,9 @@ final class SettingsRegistry
 
             // ── Registration (PART 3.2) ─────────────────────────────────────────────────────────────
             new SettingDefinition('registration.enabled', 'bool', default: true, group: 'registration', label: 'Allow new registrations'),
-            new SettingDefinition('registration.require_email_verification', 'bool', config: 'fortify.features_email_verification', default: true, group: 'registration', label: 'Require email verification'),
+            // No config backing: the toggle drives email_verified_at at registration (CreateNewUser), the
+            // existing mechanism. Default true = new users must verify (current behaviour).
+            new SettingDefinition('registration.require_email_verification', 'bool', default: true, group: 'registration', label: 'Require email verification'),
 
             // ── Email (PART 3.3) ────────────────────────────────────────────────────────────────────
             new SettingDefinition('mail.mailer', 'string', config: 'mail.default', default: 'log', group: 'email', label: 'Mailer', options: ['log', 'smtp', 'sendmail', 'array']),

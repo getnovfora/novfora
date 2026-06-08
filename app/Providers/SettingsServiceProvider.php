@@ -33,5 +33,10 @@ class SettingsServiceProvider extends ServiceProvider
         }
 
         $this->app->make(Settings::class)->applyToConfig();
+
+        // Note: the display-only siteView() bag is resolved inline by the few views that need it
+        // (layouts.app, forum.topic, forum.show) via `app(Settings::class)->siteView()` — memoised, so it
+        // is one cache read per request. We deliberately do NOT register a global view composer: firing on
+        // every component/partial render is needless work (and pushed the full test run past its memory cap).
     }
 }

@@ -141,6 +141,11 @@
     --danger-strong: #dc2626;
     --focus: #4f46e5;
 
+    /* Forum content width (ACP v1 appearance setting). Default = the "standard" lg width; the site-level
+       Appearance page emits an inline override (boxed-narrow 48rem / wide 80rem / full 100%). The main
+       content containers (x-ui.container size="lg") read this token, so one setting resizes the forum. */
+    --layout-max-width: 64rem;
+
     /* THEME-API public contract + a11y floor (ADR-0009 §3.3 / ADR-0016 / docs/THEME-API.md). These names
        are the documented override points; aliased onto the semantic set so they inherit colour-mode. */
     --hearth-bg: var(--surface);

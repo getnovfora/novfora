@@ -44,6 +44,9 @@ class Settings
      */
     private ?array $memo = null;
 
+    /** Per-request memo of the display-only siteView() bag (the view composer fires it on every render). */
+    private ?array $siteViewMemo = null;
+
     /**
      * The whole bag of overridden keys, as cache-safe primitives. Defensive: if the table doesn't exist
      * yet (pre-install / mid-migration) the empty bag is returned and — crucially — NOT cached, so a real
@@ -228,6 +231,7 @@ class Settings
     public function invalidate(): void
     {
         $this->memo = null;
+        $this->siteViewMemo = null;
         Cache::forget(self::CACHE_KEY);
     }
 
@@ -260,7 +264,7 @@ class Settings
      */
     public function siteView(): array
     {
-        return [
+        return $this->siteViewMemo ??= [
             'site_name' => $this->string('general.site_name'),
             'site_description' => $this->string('general.site_description'),
             'notice' => $this->string('general.site_notice'),

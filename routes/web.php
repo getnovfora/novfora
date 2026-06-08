@@ -161,4 +161,12 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
 
         // Forum structure manager (PART 2) — the <livewire:admin.structure /> tree.
         Route::view('/structure', 'admin.structure')->name('structure');
+
+        // Settings pages (PART 3) — each a focused Livewire SFC on the Settings store.
+        Route::view('/settings/general', 'admin.settings.general')->name('settings.general');
+        Route::view('/settings/registration', 'admin.settings.registration')->name('settings.registration');
+        Route::view('/settings/email', 'admin.settings.email')->name('settings.email');
+        Route::view('/settings/moderation', 'admin.settings.moderation')->name('settings.moderation');
+        Route::view('/settings/antispam', 'admin.settings.antispam')->name('settings.antispam');
+        Route::view('/settings/appearance', 'admin.settings.appearance')->name('settings.appearance');
     });
