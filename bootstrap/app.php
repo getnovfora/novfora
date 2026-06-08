@@ -37,6 +37,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'hearth.not-installed' => EnsureNotInstalled::class,
         ]);
+
+        // Spike P2 (deliverability): the inbound provider bounce/complaint webhook and the RFC 8058
+        // one-click unsubscribe POST are machine-to-machine endpoints with no session/CSRF token — their
+        // auth is an HMAC (webhook) / a Laravel signed URL (unsubscribe), so they are CSRF-exempt. Static
+        // patterns; they simply match nothing while the (dormant-by-default) webhook route is unregistered.
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/mail/*',
+            'unsubscribe/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Render JSON errors for any request that asks for JSON (AJAX/fetch endpoints such as the editor
