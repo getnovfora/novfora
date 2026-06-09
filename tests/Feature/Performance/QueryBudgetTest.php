@@ -4,6 +4,7 @@
 
 declare(strict_types=1);
 
+use App\Forum\PollService;
 use App\Forum\PostService;
 use App\Forum\ReactionService;
 use App\Models\Forum;
@@ -60,6 +61,14 @@ it('renders a busy thread within the query budget (≤30, no N+1)', function () 
         $reactions->toggle($viewer, $p, 'like');
         $reactions->toggle($authors[$i % 3], $p, 'helpful');
     }
+
+    // A poll on the thread too (amendment #6): it renders at the top, adding its RH-9-cached display data
+    // (a warm cache GET, 0 domain queries) + the viewer's picks (1 batched query). The thread must STILL
+    // hold ≤30 with reactions AND a poll present — the integrated worst case.
+    $polls = app(PollService::class);
+    $poll = $polls->createPoll($authors[0], $topic, 'Which is best?', ['A', 'B', 'C']);
+    $polls->vote($viewer, $poll, [$poll->options->first()->id]);
+    $polls->vote($authors[1], $poll, [$poll->options->last()->id]);
 
     // Warm the caches, then measure the steady-state request.
     $this->actingAs($viewer)->get(route('topics.show', $topic))->assertOk();

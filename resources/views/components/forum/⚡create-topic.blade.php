@@ -1,5 +1,8 @@
 <?php
 // SPDX-License-Identifier: Apache-2.0
+use App\AntiSpam\ContentRejectedException;
+use App\AntiSpam\PostRateLimiter;
+use App\Forum\PollService;
 use App\Forum\PostService;
 use App\Models\Forum;
 use App\Models\User;
@@ -19,10 +22,43 @@ new class extends Component
 
     public string $markdownSource = '';
 
+    // Poll composition (P2-M1). The block is only offered to authors who hold poll.create at this forum
+    // (resolved once in mount); $canCreatePoll is #[Locked] so the client cannot toggle the gate on.
+    #[Locked]
+    public bool $canCreatePoll = false;
+
+    public bool $addPoll = false;
+
+    public string $pollQuestion = '';
+
+    /** @var list<string> */
+    public array $pollOptions = ['', ''];
+
+    public bool $pollMultiple = false;
+
+    public ?int $pollMaxChoices = null;
+
     public function mount(int $forumId): void
     {
         $this->forumId = $forumId;
         $this->ensureCanCreate();
+        $this->canCreatePoll = auth()->user()?->canDo('poll.create', $this->forum()->permissionScope()) ?? false;
+    }
+
+    public function addPollOption(): void
+    {
+        if (count($this->pollOptions) < 20) {
+            $this->pollOptions[] = '';
+        }
+    }
+
+    public function removePollOption(int $index): void
+    {
+        unset($this->pollOptions[$index]);
+        $this->pollOptions = array_values($this->pollOptions);
+        if ($this->pollOptions === []) {
+            $this->pollOptions = ['', ''];
+        }
     }
 
     public function toggleFormat(): void
@@ -30,7 +66,7 @@ new class extends Component
         $this->format = $this->format === 'markdown' ? 'tiptap_json' : 'markdown';
     }
 
-    public function save(PostService $service, \App\AntiSpam\PostRateLimiter $limiter)
+    public function save(PostService $service, PostRateLimiter $limiter, PollService $polls)
     {
         $this->ensureCanCreate();
         $this->validate(['title' => ['required', 'string', 'min:3', 'max:160']]);
@@ -39,6 +75,22 @@ new class extends Component
             $this->addError('body', 'Please write something before posting.');
 
             return null;
+        }
+
+        // Validate the poll BEFORE creating the topic so a structural error never leaves a poll-less topic.
+        $pollOptions = [];
+        if ($this->addPoll && $this->canCreatePoll) {
+            $pollOptions = array_values(array_unique(array_filter(array_map('trim', $this->pollOptions), fn ($o) => $o !== '')));
+            if (trim($this->pollQuestion) === '') {
+                $this->addError('poll', 'Give your poll a question, or turn the poll off.');
+
+                return null;
+            }
+            if (count($pollOptions) < 2) {
+                $this->addError('poll', 'A poll needs at least two distinct options.');
+
+                return null;
+            }
         }
 
         if (! $limiter->attempt(auth()->user())) {
@@ -51,10 +103,23 @@ new class extends Component
 
         try {
             $topic = $service->createTopic(auth()->user(), $this->forum(), $this->title, $format, $canonical);
-        } catch (\App\AntiSpam\ContentRejectedException $e) {
+        } catch (ContentRejectedException $e) {
             $this->addError('body', $e->getMessage());
 
             return null;
+        }
+
+        if ($pollOptions !== []) {
+            // Re-assert poll.create server-side at the action (not only via the #[Locked] $canCreatePoll
+            // mount flag) — the caller is where authorisation lives (PollService does no HTTP auth, matching
+            // PostService). A moderator-rejected poll (spam in the option text) is the only residual failure;
+            // the topic is already valid, so we attach what we can and proceed rather than failing the post.
+            abort_unless(auth()->user()?->canDo('poll.create', $this->forum()->permissionScope()) ?? false, 403);
+            try {
+                $polls->createPoll(auth()->user(), $topic, $this->pollQuestion, $pollOptions, $this->pollMultiple, $this->pollMaxChoices);
+            } catch (ContentRejectedException|InvalidArgumentException) {
+                // poll dropped; topic stands
+            }
         }
 
         return $this->redirectRoute('topics.show', $topic, navigate: true);
@@ -114,6 +179,45 @@ new class extends Component
                           :upload-url="route('attachments.store')" :mention-url="route('mentions')" />
     @endif
     @error('body') <p class="text-xs text-danger">{{ $message }}</p> @enderror
+
+    @if ($canCreatePoll)
+        <div class="space-y-3 rounded-md border border-line p-3" dusk="create-poll-block">
+            <label class="flex items-center gap-2 text-sm font-medium text-ink">
+                <input type="checkbox" wire:model.live="addPoll" dusk="create-poll-toggle">
+                Add a poll
+            </label>
+
+            @if ($addPoll)
+                <div class="space-y-3">
+                    <x-ui.input label="Poll question" name="pollQuestion" wire:model="pollQuestion" maxlength="255" dusk="poll-question" />
+                    @error('poll') <p class="text-xs text-danger">{{ $message }}</p> @enderror
+
+                    <div class="space-y-2">
+                        <span class="block text-sm font-medium text-ink">Options</span>
+                        @foreach ($pollOptions as $i => $option)
+                            <div class="flex items-center gap-2">
+                                <input type="text" wire:model="pollOptions.{{ $i }}" maxlength="255" placeholder="Option {{ $i + 1 }}"
+                                       dusk="poll-option-{{ $i }}"
+                                       class="min-h-10 w-full rounded-md border border-line bg-surface-raised px-3 text-sm text-ink focus:border-accent">
+                                @if (count($pollOptions) > 2)
+                                    <x-ui.button type="button" variant="ghost" size="sm" wire:click="removePollOption({{ $i }})" dusk="poll-remove-{{ $i }}">Remove</x-ui.button>
+                                @endif
+                            </div>
+                        @endforeach
+                        <x-ui.button type="button" variant="subtle" size="sm" wire:click="addPollOption" dusk="poll-add-option">Add option</x-ui.button>
+                    </div>
+
+                    <label class="flex items-center gap-2 text-sm text-ink">
+                        <input type="checkbox" wire:model.live="pollMultiple" dusk="poll-multiple">
+                        Allow choosing multiple options
+                    </label>
+                    @if ($pollMultiple)
+                        <x-ui.input type="number" label="Maximum choices (optional)" name="pollMaxChoices" wire:model="pollMaxChoices" min="1" dusk="poll-max-choices" />
+                    @endif
+                </div>
+            @endif
+        </div>
+    @endif
 
     <div>
         <x-ui.button type="submit" size="lg">Post topic</x-ui.button>

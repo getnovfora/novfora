@@ -50,6 +50,17 @@ it('re-asserts react.create at the action — a user without it is forbidden eve
     expect(Reaction::where('post_id', $this->post->id)->count())->toBe(0);
 });
 
+it('rejects a reaction whose post does not belong to the claimed topic (defense-in-depth)', function () {
+    $otherTopic = app(PostService::class)->createTopic($this->member, $this->post->topic->forum, 'Other topic', 'markdown', ['source' => 'x']);
+
+    Livewire::actingAs($this->member)
+        ->test('forum.post-reactions', ['postId' => $this->post->id, 'topicId' => $otherTopic->id, 'canReact' => true])
+        ->call('react', 'like')
+        ->assertStatus(403);
+
+    expect(Reaction::where('post_id', $this->post->id)->count())->toBe(0);
+});
+
 it('rejects an unknown reaction type at the action (422)', function () {
     Livewire::actingAs($this->member)
         ->test('forum.post-reactions', ['postId' => $this->post->id, 'topicId' => $this->post->topic_id, 'canReact' => true])

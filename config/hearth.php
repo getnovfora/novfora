@@ -21,6 +21,7 @@ $trusted = [
     'post.images' => 'allow',
     'pm.send' => 'allow',            // PMs are a Phase 2 feature; this is the gate seam
     'attachment.create' => 'allow',  // soft gate at TL0 (no); granted here
+    'poll.create' => 'allow',        // soft gate at TL0 (no, deny-by-default); granted from TL1 (P2-M1)
 ];
 
 return [
@@ -58,6 +59,11 @@ return [
                 'post.images' => 'never',        // inline images — true spam vector
                 'pm.send' => 'never',            // mass-PM vector (PMs ship in Phase 2)
                 'attachment.create' => 'no',     // soft: members grants it by default; admin-liftable
+                // poll.create: SOFT gate, not NEVER — a poll's blast radius is one topic (already member-gated
+                // + new-user-hold), not a durable site-wide surface, so per the §2.3 doctrine "NEVER only for
+                // true spam vectors". Withheld from the member preset → TL0 denied-by-default here; granted
+                // from TL1 via $trusted; an admin may still lift it for TL0 in a controlled community.
+                'poll.create' => 'no',
             ],
             'tl1' => $trusted,
             'tl2' => $trusted,

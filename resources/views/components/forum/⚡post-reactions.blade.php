@@ -62,6 +62,10 @@ new class extends Component
         }
 
         $post = Post::findOrFail($this->postId);
+        // Defense-in-depth: pin the post to the #[Locked] topic the permission scope was built from, so a
+        // (postId, topicId) mismatch can never react on a post outside the authorised forum.
+        abort_unless((int) $post->topic_id === $this->topicId, 403);
+
         $this->viewerType = $service->toggle($user, $post, $type);
         $this->counts = $service->countsForPost($post);
     }

@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Forum\PollService;
 use App\Forum\ReactionService;
 use App\Models\Post;
 use App\Models\Topic;
@@ -17,7 +18,7 @@ use Illuminate\Support\Str;
 
 class TopicController extends Controller
 {
-    public function show(Request $request, Topic $topic, ReactionService $reactions): View
+    public function show(Request $request, Topic $topic, ReactionService $reactions, PollService $polls): View
     {
         $viewer = $request->user() ?? User::guest();
         abort_unless($viewer->canDo('forum.view', $topic->permissionScope()), 403);
@@ -63,6 +64,14 @@ class TopicController extends Controller
         $viewerReactions = $reactions->viewerReactions($viewer, $postIds);
         $canReact = $user instanceof User && $user->canDo('react.create', $scope);
 
+        // The topic's poll (over the topics.poll_id seam), if any: RH-9-cached display data + the viewer's
+        // own picks, with poll.vote resolved once for the page. Only touch the polls table when a poll exists
+        // — a poll-less topic (the common case) pays zero poll queries.
+        $poll = $topic->poll_id !== null ? $topic->loadMissing('poll')->poll : null;
+        $pollData = $poll ? $polls->displayData($poll) : null;
+        $pollVotes = $poll ? $polls->votedOptionIds($viewer, $poll) : [];
+        $canVote = $poll !== null && $user instanceof User && $user->canDo('poll.vote', $scope);
+
         // SEO description = an excerpt of the opening post's text projection (security-safe; no HTML).
         $description = Str::limit((string) Post::where('topic_id', $topic->getKey())
             ->orderBy('position')->orderBy('id')->value('body_text'), 160);
@@ -70,6 +79,7 @@ class TopicController extends Controller
         return view('forum.topic', compact(
             'topic', 'posts', 'viewer', 'user', 'canReply', 'canModerate', 'description',
             'reactionCounts', 'viewerReactions', 'canReact',
+            'pollData', 'pollVotes', 'canVote',
         ));
     }
 }

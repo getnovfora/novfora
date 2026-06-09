@@ -91,6 +91,11 @@
         })
         @php($bodyCol = $posterPosition === 'top' ? 'min-w-0 pt-3' : 'min-w-0 flex-1 pt-3 md:pt-0')
 
+        @if ($pollData)
+            <livewire:forum.poll :poll-id="$topic->poll_id" :topic-id="$topic->id"
+                :poll="$pollData" :voted="$pollVotes" :can-vote="$canVote" />
+        @endif
+
         <div class="space-y-4">
             @foreach ($posts as $post)
                 @php($author = $post->author)

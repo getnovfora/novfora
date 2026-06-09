@@ -70,6 +70,12 @@ class Topic extends Model
         return $this->hasMany(Post::class);
     }
 
+    /** @return BelongsTo<Poll, $this> the topic's poll via the topics.poll_id seam (null when none) */
+    public function poll(): BelongsTo
+    {
+        return $this->belongsTo(Poll::class);
+    }
+
     public function permissionScope(): Scope
     {
         return Scope::thread((int) $this->id);
