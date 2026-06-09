@@ -51,6 +51,7 @@ final class AdminNavigation
                 ['Appearance', 'admin.settings.appearance', 'palette'],
             ]],
             ['Members', 'users', [
+                ['Groups', 'admin.members.groups', 'users'],
                 ['Permissions', 'admin.system.permissions', 'shield'],
                 ['Custom fields', 'admin.system.profile-fields', 'list'],
             ]],

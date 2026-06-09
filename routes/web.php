@@ -187,6 +187,9 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         // Forum structure manager (PART 2) — the <livewire:admin.structure /> tree.
         Route::view('/structure', 'admin.structure')->name('structure');
 
+        // Member-group manager (ACP v2) — the <livewire:admin.groups /> manager (Admin → Members → Groups).
+        Route::view('/members/groups', 'admin.groups')->name('members.groups');
+
         // Settings pages (PART 3) — each a focused Livewire SFC on the Settings store.
         Route::view('/settings/general', 'admin.settings.general')->name('settings.general');
         Route::view('/settings/registration', 'admin.settings.registration')->name('settings.registration');

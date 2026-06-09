@@ -1,0 +1,522 @@
+<?php
+// SPDX-License-Identifier: Apache-2.0
+use App\Admin\GroupException;
+use App\Admin\GroupManager;
+use App\Models\Group;
+use App\Models\Role;
+use App\Models\RoleAssignment;
+use App\Models\User;
+use App\Permissions\Scope;
+use App\Support\GroupColor;
+use Livewire\Component;
+
+/**
+ * Admin → Members → Groups (ACP v2). The member-group manager: list / create / edit / delete custom groups,
+ * manage membership, and set a group's permission preset — all the binding safety lives in GroupManager
+ * (system-group protection, delete-with-reassign, the membership boundary). Like every admin SFC the
+ * authorization is re-asserted in mount() AND every action, because Livewire actions reach the component via
+ * livewire/update with no route middleware.
+ */
+new class extends Component
+{
+    public bool $showForm = false;
+
+    public ?int $formId = null; // null = creating a custom group
+
+    public string $name = '';
+
+    public string $description = '';
+
+    public string $color = '';
+
+    public int $priority = 50;
+
+    public ?int $roleId = null;
+
+    public bool $editingSystem = false;
+
+    public ?int $deleteId = null;
+
+    public ?int $reassignId = null;
+
+    public ?int $membersId = null;
+
+    public string $memberSearch = '';
+
+    public ?string $message = null;
+
+    public string $messageVariant = 'info';
+
+    public function mount(): void
+    {
+        $this->ensureAdmin();
+    }
+
+    public function newGroup(): void
+    {
+        $this->ensureAdmin();
+        $this->resetForm();
+        $this->showForm = true;
+    }
+
+    public function edit(int $id): void
+    {
+        $this->ensureAdmin();
+        $group = Group::findOrFail($id);
+        $this->formId = $group->id;
+        $this->name = (string) $group->name;
+        $this->description = (string) ($group->description ?? '');
+        $this->color = (string) ($group->color ?? '');
+        $this->priority = (int) $group->priority;
+        $this->roleId = optional(RoleAssignment::where('holder_type', 'group')->where('holder_id', $group->id)->first())->role_id;
+        $this->editingSystem = (bool) $group->is_system;
+        $this->deleteId = null;
+        $this->membersId = null;
+        $this->showForm = true;
+    }
+
+    public function save(GroupManager $manager): void
+    {
+        $this->ensureAdmin();
+        $data = $this->validate([
+            'name' => ['required', 'string', 'max:60'],
+            'description' => ['nullable', 'string', 'max:255'],
+            'color' => ['nullable', 'string', 'max:20'], // GroupManager enforces the palette
+            'priority' => ['nullable', 'integer', 'min:1', 'max:99'],
+            'roleId' => ['nullable', 'integer', 'exists:roles,id'],
+        ]);
+
+        $payload = [
+            'name' => $data['name'],
+            'description' => $data['description'] ?? null,
+            'color' => $data['color'] ?? null,
+            'priority' => $data['priority'] ?? 50,
+            'role_id' => $data['roleId'] ?? null,
+        ];
+
+        try {
+            if ($this->formId === null) {
+                $group = $manager->create($payload);
+                $this->flash("Created group “{$group->name}”.", 'success');
+            } else {
+                $group = $manager->update(Group::findOrFail($this->formId), $payload);
+                $this->flash("Saved group “{$group->name}”.", 'success');
+            }
+            $this->cancelForm();
+        } catch (GroupException $e) {
+            $this->flash($e->getMessage(), 'danger');
+        }
+    }
+
+    public function cancelForm(): void
+    {
+        $this->showForm = false;
+        $this->resetForm();
+    }
+
+    public function askDelete(int $id): void
+    {
+        $this->ensureAdmin();
+        $this->deleteId = $id;
+        $this->reassignId = null;
+        $this->showForm = false;
+        $this->membersId = null;
+        $this->message = null;
+    }
+
+    public function cancelDelete(): void
+    {
+        $this->deleteId = null;
+        $this->reassignId = null;
+    }
+
+    public function delete(GroupManager $manager): void
+    {
+        $this->ensureAdmin();
+        if ($this->deleteId === null) {
+            return;
+        }
+
+        $group = Group::findOrFail($this->deleteId);
+        $reassignTo = $this->reassignId ? Group::find($this->reassignId) : null;
+
+        try {
+            $moved = $manager->delete($group, $reassignTo);
+            $this->flash("Deleted “{$group->name}”.".($moved > 0 ? " Reassigned {$moved} member(s) to “{$reassignTo?->name}”." : ''), 'success');
+            $this->deleteId = null;
+            $this->reassignId = null;
+        } catch (GroupException $e) {
+            $this->flash($e->getMessage(), 'danger');
+        }
+    }
+
+    public function manageMembers(int $id): void
+    {
+        $this->ensureAdmin();
+        $this->membersId = $id;
+        $this->memberSearch = '';
+        $this->showForm = false;
+        $this->deleteId = null;
+        $this->message = null;
+    }
+
+    public function closeMembers(): void
+    {
+        $this->membersId = null;
+        $this->memberSearch = '';
+    }
+
+    // Arg-first, service-second — the proven Livewire action-injection order (cf. structure's moveUp()).
+    public function addMember(int $userId, GroupManager $manager): void
+    {
+        $this->ensureAdmin();
+        if ($this->membersId === null) {
+            return;
+        }
+        try {
+            $added = $manager->addMembers(Group::findOrFail($this->membersId), [$userId]);
+            $this->memberSearch = '';
+            $this->flash($added > 0 ? 'Member added.' : 'Already a member.', $added > 0 ? 'success' : 'info');
+        } catch (GroupException $e) {
+            $this->flash($e->getMessage(), 'danger');
+        }
+    }
+
+    public function removeMember(int $userId, GroupManager $manager): void
+    {
+        $this->ensureAdmin();
+        if ($this->membersId === null) {
+            return;
+        }
+        try {
+            $manager->removeMember(Group::findOrFail($this->membersId), $userId);
+            $this->flash('Member removed.', 'success');
+        } catch (GroupException $e) {
+            $this->flash($e->getMessage(), 'danger');
+        }
+    }
+
+    /** @return list<array{group:Group,members:int,role:?string,membership:bool,system:bool}> */
+    public function rows(): array
+    {
+        $this->ensureAdmin();
+
+        $roleMap = RoleAssignment::query()->where('holder_type', 'group')->with('role')->get()
+            ->groupBy('holder_id')->map(fn ($set) => $set->first()->role?->name)->all();
+        $manager = app(GroupManager::class);
+
+        return Group::query()->withCount('users')->orderByDesc('priority')->orderBy('name')->get()
+            ->map(fn (Group $g): array => [
+                'group' => $g,
+                'members' => (int) $g->users_count,
+                'role' => $roleMap[$g->id] ?? null,
+                'membership' => $manager->manualMembershipAllowed($g),
+                'system' => (bool) $g->is_system,
+            ])->all();
+    }
+
+    /** @return list<array{id:int,name:string}> */
+    public function roleOptions(): array
+    {
+        return Role::query()->orderBy('name')->get(['id', 'name'])
+            ->map(fn (Role $r): array => ['id' => (int) $r->id, 'name' => (string) $r->name])->all();
+    }
+
+    /** Groups a delete can reassign members INTO — excludes the deleted group AND any engine-managed
+     *  (trust) or base (Guests/Members) group, mirroring the membership boundary addMembers() enforces. */
+    public function reassignOptions(): array
+    {
+        $manager = app(GroupManager::class);
+
+        return Group::query()->where('id', '!=', (int) $this->deleteId)
+            ->orderByDesc('priority')->orderBy('name')->get()
+            ->filter(fn (Group $g): bool => $manager->manualMembershipAllowed($g))
+            ->map(fn (Group $g): array => ['id' => (int) $g->id, 'name' => (string) $g->name])->values()->all();
+    }
+
+    /** Current members of the group being managed (bounded; groups eager-loaded for the colour render). @return list<User> */
+    public function memberRows(): array
+    {
+        if ($this->membersId === null) {
+            return [];
+        }
+        $group = Group::find($this->membersId);
+
+        return $group ? $group->users()->with('groups')->orderBy('username')->limit(50)->get()->all() : [];
+    }
+
+    public function managedGroup(): ?Group
+    {
+        return $this->membersId ? Group::find($this->membersId) : null;
+    }
+
+    /** Matching users for the member box — INCLUDING existing members (so any member is locatable by name for
+     *  removal, regardless of the 50-row list cap). The view shows Add vs Remove via memberIdSet(). @return list<User> */
+    public function searchResults(): array
+    {
+        $q = trim($this->memberSearch);
+        if ($this->membersId === null || strlen($q) < 2) {
+            return [];
+        }
+
+        return User::query()
+            ->where(fn ($w) => $w->where('username', 'like', "%{$q}%")->orWhere('email', 'like', "%{$q}%")->orWhere('display_name', 'like', "%{$q}%"))
+            ->with('groups')
+            ->orderBy('username')->limit(10)->get()->all();
+    }
+
+    /** @return list<int> the managed group's current member ids (to pick Add vs Remove in search results). */
+    public function memberIdSet(): array
+    {
+        if ($this->membersId === null) {
+            return [];
+        }
+        $group = Group::find($this->membersId);
+
+        return $group ? $group->users()->pluck('users.id')->map(fn ($id): int => (int) $id)->all() : [];
+    }
+
+    public function colorOptions(): array
+    {
+        return GroupColor::PALETTE;
+    }
+
+    public function inspectorUrl(): string
+    {
+        return route('admin.system.permissions');
+    }
+
+    private function resetForm(): void
+    {
+        $this->reset(['formId', 'name', 'description', 'color', 'priority', 'roleId', 'editingSystem']);
+        $this->priority = 50;
+        $this->resetErrorBag();
+    }
+
+    private function flash(string $message, string $variant = 'info'): void
+    {
+        $this->message = $message;
+        $this->messageVariant = $variant;
+    }
+
+    private function ensureAdmin(): void
+    {
+        $user = auth()->user();
+        abort_unless($user instanceof User && $user->canDo('admin.access', Scope::global()), 403);
+        abort_if($user->isStaff() && $user->two_factor_confirmed_at === null, 403);
+    }
+};
+?>
+
+<div class="space-y-5" dusk="acp-groups">
+    @if ($message)
+        <x-ui.alert :variant="$messageVariant">{{ $message }}</x-ui.alert>
+    @endif
+
+    <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-sm text-ink-muted max-w-2xl">
+            Member groups carry permissions (via a role preset) and a name colour. <strong>System groups</strong>
+            (Guests, Members, the trust levels, and the staff roles) are protected — you can recolour and relabel
+            them, but not delete or re-type them. Trust-level membership is managed automatically.
+        </p>
+        <x-ui.button type="button" size="sm" wire:click="newGroup" dusk="acp-new-group">
+            <x-ui.icon name="plus" class="h-4 w-4" /> New group
+        </x-ui.button>
+    </div>
+
+    {{-- Create / edit form. --}}
+    @if ($showForm)
+        <x-ui.card>
+            <form wire:submit="save" class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-sm font-semibold text-ink">{{ $formId ? 'Edit group' : 'New custom group' }}</h2>
+                    @if ($editingSystem)
+                        <x-ui.badge variant="neutral">System group — label &amp; colour only</x-ui.badge>
+                    @endif
+                </div>
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <x-ui.input label="Name" name="name" wire:model="name" required maxlength="60" dusk="acp-group-name" />
+                    <x-ui.select label="Name colour" name="color" wire:model.live="color" hint="Shown wherever this group's members' names appear.">
+                        <option value="">— No colour —</option>
+                        @foreach ($this->colorOptions() as $key => $meta)
+                            <option value="{{ $key }}">{{ $meta[0] }}</option>
+                        @endforeach
+                    </x-ui.select>
+                </div>
+
+                @php($previewColor = \App\Support\GroupColor::cssVar($color))
+                @if ($previewColor)
+                    <p class="text-sm text-ink-muted">
+                        Preview: <span style="color: {{ $previewColor }};" class="font-semibold">{{ $name !== '' ? $name : 'Sample name' }}</span>
+                    </p>
+                @endif
+
+                <x-ui.textarea label="Description" name="description" wire:model="description" rows="2"
+                               hint="Optional. Shown in the group list." maxlength="255" />
+
+                @unless ($editingSystem)
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <x-ui.select label="Permission preset (role)" name="roleId" wire:model="roleId"
+                                     hint="Grants this group a role's permissions through the engine. Leave blank for none.">
+                            <option value="">— None —</option>
+                            @foreach ($this->roleOptions() as $opt)
+                                <option value="{{ $opt['id'] }}">{{ $opt['name'] }}</option>
+                            @endforeach
+                        </x-ui.select>
+                        <x-ui.input label="Rank priority" name="priority" type="number" min="1" max="99" wire:model="priority"
+                                    hint="1–99. Higher wins when a member is in several coloured groups." />
+                    </div>
+                @endunless
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <x-ui.button type="submit" wire:loading.attr="disabled" wire:target="save" dusk="acp-group-save">
+                        <span wire:loading.remove wire:target="save">{{ $formId ? 'Save changes' : 'Create group' }}</span>
+                        <span wire:loading wire:target="save">Saving…</span>
+                    </x-ui.button>
+                    <x-ui.button type="button" variant="ghost" wire:click="cancelForm">Cancel</x-ui.button>
+                    <a href="{{ $this->inspectorUrl() }}" class="text-sm text-accent hover:underline">Open the permission inspector →</a>
+                </div>
+            </form>
+        </x-ui.card>
+    @endif
+
+    {{-- Group list. --}}
+    <x-ui.card flush>
+        <div class="hidden sm:grid grid-cols-[1fr_8rem_7rem_5rem_9rem] gap-3 px-4 py-2.5 sm:px-5 border-b border-line bg-surface-sunken text-xs font-semibold uppercase tracking-wide text-ink-subtle">
+            <span>Group</span>
+            <span>Type</span>
+            <span>Role</span>
+            <span class="text-right">Members</span>
+            <span class="text-right">Actions</span>
+        </div>
+        <ul class="divide-y divide-line">
+            @foreach ($this->rows() as $row)
+                @php($g = $row['group'])
+                <li>
+                    <div class="grid grid-cols-1 gap-2 px-4 py-3 sm:grid-cols-[1fr_8rem_7rem_5rem_9rem] sm:items-center sm:gap-3 sm:px-5 text-sm">
+                        <div class="min-w-0">
+                            @php($gc = \App\Support\GroupColor::cssVar($g->color))
+                            <div class="flex items-center gap-2">
+                                @if ($gc)
+                                    <span class="inline-block h-3 w-3 shrink-0 rounded-full" style="background: {{ $gc }};" aria-hidden="true"></span>
+                                @endif
+                                <span class="font-medium truncate" @if ($gc) style="color: {{ $gc }};" @endif>{{ $g->name }}</span>
+                            </div>
+                            @if ($g->description)
+                                <p class="mt-0.5 text-xs text-ink-subtle truncate">{{ $g->description }}</p>
+                            @endif
+                        </div>
+                        <div>
+                            <x-ui.badge :variant="$row['system'] ? 'neutral' : 'accent'">{{ ucfirst($g->type) }}</x-ui.badge>
+                        </div>
+                        <div class="text-ink-muted truncate">{{ $row['role'] ?? '—' }}</div>
+                        <div class="text-ink-muted sm:text-right nums">{{ number_format($row['members']) }}</div>
+                        <div class="flex flex-wrap items-center gap-1 sm:justify-end">
+                            @if ($row['membership'])
+                                <x-ui.button type="button" variant="ghost" size="sm" icon wire:click="manageMembers({{ $g->id }})" title="Members">
+                                    <x-ui.icon name="users" class="h-4 w-4" />
+                                </x-ui.button>
+                            @endif
+                            <x-ui.button type="button" variant="ghost" size="sm" icon wire:click="edit({{ $g->id }})" title="Edit" dusk="acp-group-edit-{{ $g->id }}">
+                                <x-ui.icon name="pencil" class="h-4 w-4" />
+                            </x-ui.button>
+                            @unless ($row['system'])
+                                <x-ui.button type="button" variant="danger-ghost" size="sm" icon wire:click="askDelete({{ $g->id }})" title="Delete">
+                                    <x-ui.icon name="trash" class="h-4 w-4" />
+                                </x-ui.button>
+                            @endunless
+                        </div>
+                    </div>
+
+                    {{-- Inline delete-safety panel (custom groups only). --}}
+                    @if ($deleteId === $g->id)
+                        <div class="border-t border-line bg-surface-sunken px-4 py-4 sm:px-5">
+                            <x-ui.alert variant="warn" class="mb-3">
+                                Delete “{{ $g->name }}”?
+                                @if ($row['members'] > 0)
+                                    It has <strong class="nums">{{ number_format($row['members']) }}</strong> member(s) —
+                                    choose a group to reassign them into (no membership is lost).
+                                @else
+                                    It has no members, so this is safe.
+                                @endif
+                            </x-ui.alert>
+
+                            @if ($row['members'] > 0)
+                                <x-ui.select label="Reassign members to" name="reassignId" wire:model="reassignId" class="mb-3 max-w-md">
+                                    <option value="">— Choose a group —</option>
+                                    @foreach ($this->reassignOptions() as $opt)
+                                        <option value="{{ $opt['id'] }}">{{ $opt['name'] }}</option>
+                                    @endforeach
+                                </x-ui.select>
+                            @endif
+
+                            <div class="flex flex-wrap items-center gap-2">
+                                <x-ui.button type="button" variant="danger" wire:click="delete"
+                                             wire:loading.attr="disabled" wire:target="delete"
+                                             :disabled="$row['members'] > 0 && ! $reassignId">
+                                    <span wire:loading.remove wire:target="delete">{{ $row['members'] > 0 ? 'Reassign & delete' : 'Delete' }}</span>
+                                    <span wire:loading wire:target="delete">Working…</span>
+                                </x-ui.button>
+                                <x-ui.button type="button" variant="ghost" wire:click="cancelDelete">Cancel</x-ui.button>
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- Inline membership panel. --}}
+                    @if ($membersId === $g->id)
+                        <div class="border-t border-line bg-surface-sunken px-4 py-4 sm:px-5 space-y-4" dusk="acp-members-panel">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-semibold text-ink">Members of “{{ $g->name }}”</h3>
+                                <x-ui.button type="button" variant="ghost" size="sm" wire:click="closeMembers">Close</x-ui.button>
+                            </div>
+
+                            <div>
+                                <x-ui.input label="Add a member" name="memberSearch" wire:model.live.debounce.300ms="memberSearch"
+                                            placeholder="Search by username or email" dusk="acp-member-search" />
+                                @php($results = $this->searchResults())
+                                @php($memberIds = $this->memberIdSet())
+                                @if (! empty($results))
+                                    <ul class="mt-2 divide-y divide-line rounded-md border border-line bg-surface-raised">
+                                        @foreach ($results as $u)
+                                            @php($isMember = in_array((int) $u->id, $memberIds, true))
+                                            <li class="flex items-center justify-between gap-3 px-3 py-2">
+                                                <span class="min-w-0 truncate text-sm text-ink">
+                                                    <x-ui.user-name :user="$u" /> <span class="text-ink-subtle">@ {{ $u->username }}</span>
+                                                </span>
+                                                @if ($isMember)
+                                                    <x-ui.button type="button" size="sm" variant="danger-ghost" wire:click="removeMember({{ $u->id }})">Remove</x-ui.button>
+                                                @else
+                                                    <x-ui.button type="button" size="sm" variant="subtle" wire:click="addMember({{ $u->id }})">Add</x-ui.button>
+                                                @endif
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @elseif (strlen(trim($memberSearch)) >= 2)
+                                    <p class="mt-2 text-sm text-ink-subtle">No matching users.</p>
+                                @endif
+                            </div>
+
+                            @php($members = $this->memberRows())
+                            @if (empty($members))
+                                <p class="text-sm text-ink-subtle">No members yet.</p>
+                            @else
+                                <ul class="divide-y divide-line rounded-md border border-line bg-surface-raised">
+                                    @foreach ($members as $u)
+                                        <li class="flex items-center justify-between gap-3 px-3 py-2">
+                                            <span class="min-w-0 truncate text-sm">
+                                                <x-ui.user-name :user="$u" /> <span class="text-ink-subtle">@ {{ $u->username }}</span>
+                                            </span>
+                                            <x-ui.button type="button" size="sm" variant="danger-ghost" wire:click="removeMember({{ $u->id }})">Remove</x-ui.button>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                                <p class="text-xs text-ink-subtle">Showing up to 50 members.</p>
+                            @endif
+                        </div>
+                    @endif
+                </li>
+            @endforeach
+        </ul>
+    </x-ui.card>
+</div>
