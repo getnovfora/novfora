@@ -54,7 +54,7 @@ class ForumController extends Controller
         // Eager-load the starter (author) AND the last poster (lastPostUser) so the info-dense board table's
         // "by …" and "Last post" cells render with no per-row query (bounded eager-loads, not N+1).
         $topics = $forum->topics()
-            ->with(['author', 'lastPostUser'])
+            ->with(['author.groups', 'lastPostUser.groups'])
             ->unless($canModerate, fn ($q) => $q->where(function ($q2) use ($user) {
                 $q2->where('approved_state', 'approved');
                 if ($user) {

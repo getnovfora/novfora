@@ -44,7 +44,7 @@ new class extends Component
     {
         $this->ensureAdmin();
 
-        $query = AuditLog::query()->with('actor')->latest('id');
+        $query = AuditLog::query()->with('actor.groups')->latest('id');
 
         if ($this->action !== '') {
             $query->where('action', 'like', $this->action.'%');
@@ -142,7 +142,7 @@ new class extends Component
                             <code class="font-mono text-xs text-ink-subtle break-all">{{ \Illuminate\Support\Str::limit(json_encode($entry->changes), 120) }}</code>
                         @endif
                     </span>
-                    <span class="text-ink-muted truncate">{{ $entry->actor?->username ?? $entry->actor?->display_name ?? 'system' }}</span>
+                    <span class="text-ink-muted truncate"><x-ui.user-name :user="$entry->actor" fallback="system" /></span>
                     <time class="text-ink-subtle sm:text-right" datetime="{{ optional($entry->created_at)->toIso8601String() }}">
                         {{ optional($entry->created_at)->diffForHumans() }}
                     </time>

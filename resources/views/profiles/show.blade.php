@@ -22,7 +22,7 @@
                 <div class="-mt-10 flex flex-col gap-3 sm:-mt-12 sm:flex-row sm:items-end">
                     <x-ui.avatar :user="$user" size="xl" class="ring-4 ring-surface-raised" />
                     <div class="min-w-0 sm:pb-1">
-                        <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ $user->display_name ?? $user->username }}</h1>
+                        <h1 class="text-2xl font-semibold tracking-tight text-ink"><x-ui.user-name :user="$user" /></h1>
                         <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
                             <span>{{ '@'.$user->username }}</span>
                             <span class="text-ink-subtle" aria-hidden="true">·</span>

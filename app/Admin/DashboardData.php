@@ -83,7 +83,7 @@ final class DashboardData
     /** @return Collection<int,AuditLog> */
     public function recentAudit(int $limit = 8): Collection
     {
-        return AuditLog::with('actor')->latest('id')->limit($limit)->get();
+        return AuditLog::with('actor.groups')->latest('id')->limit($limit)->get();
     }
 
     /** @return array{ok:bool} */

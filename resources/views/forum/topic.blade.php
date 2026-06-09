@@ -102,7 +102,7 @@
                             <span class="md:hidden"><x-ui.avatar :user="$author" size="md" /></span>
                             <span class="hidden md:inline-flex"><x-ui.avatar :user="$author" size="xl" /></span>
                             <div class="min-w-0 md:mt-1">
-                                <p class="font-semibold text-ink truncate">{{ $author?->display_name ?? $author?->username ?? 'unknown' }}</p>
+                                <p class="font-semibold text-ink truncate"><x-ui.user-name :user="$author" /></p>
                                 @if ($role)
                                     <x-ui.badge variant="accent" class="mt-1">{{ $role }}</x-ui.badge>
                                 @endif

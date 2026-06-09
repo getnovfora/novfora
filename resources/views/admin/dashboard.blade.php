@@ -112,7 +112,7 @@
                 <div class="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5 last:border-b-0 sm:px-5">
                     <div class="min-w-0">
                         <code class="font-mono text-sm text-ink">{{ $entry->action }}</code>
-                        <span class="text-sm text-ink-muted"> · {{ $entry->actor?->display_name ?? $entry->actor?->username ?? 'system' }}</span>
+                        <span class="text-sm text-ink-muted"> · <x-ui.user-name :user="$entry->actor" fallback="system" /></span>
                     </div>
                     <time class="shrink-0 text-xs text-ink-subtle" datetime="{{ optional($entry->created_at)->toIso8601String() }}">
                         {{ optional($entry->created_at)->diffForHumans() }}

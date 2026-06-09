@@ -32,7 +32,7 @@
                                 <span class="text-ink-muted nums">#{{ $report->reportable_id }}</span>
                             </p>
                             <p class="mt-0.5 text-sm text-ink-muted">
-                                reported by {{ $report->reporter?->username ?? 'system' }}
+                                reported by <x-ui.user-name :user="$report->reporter" fallback="system" />
                             </p>
                         </div>
                         <form method="POST" action="{{ route('reports.resolve', $report->id) }}"

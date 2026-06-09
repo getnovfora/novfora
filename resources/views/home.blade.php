@@ -6,7 +6,7 @@
     <x-ui.container size="md" class="space-y-6">
         <div class="space-y-1">
             <p class="text-xs font-medium uppercase tracking-wide text-ink-subtle">{{ config('app.name', 'Hearth') }}</p>
-            <h1 class="text-2xl font-semibold tracking-tight text-ink">Welcome, {{ $user->display_name ?? $user->username }}</h1>
+            <h1 class="text-2xl font-semibold tracking-tight text-ink">Welcome, <x-ui.user-name :user="$user" /></h1>
             <p class="text-sm text-ink-muted">
                 You’re signed in as <span class="font-medium text-ink">{{ $user->username }}</span> ({{ $user->email }}).
             </p>
