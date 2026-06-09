@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Permissions\PermissionResolver;
 use App\Permissions\Scope;
+use App\Support\GroupColor;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -42,6 +43,7 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
     }
 
+    /** @return BelongsToMany<Group, $this> */
     public function groups(): BelongsToMany
     {
         return $this->belongsToMany(Group::class)->withPivot('is_primary')->withTimestamps();
@@ -88,6 +90,27 @@ class User extends Authenticatable implements MustVerifyEmail
     public function rankPriority(): int
     {
         return (int) ($this->groups->max('priority') ?? 0);
+    }
+
+    /**
+     * The group whose colour styles this user's name (ACP v2). RESOLUTION RULE: among the user's groups that
+     * have a colour, the one with the highest `priority` wins (ties broken by the higher group id, stable);
+     * a group with no colour is ignored. Returns null when no coloured group applies — the name then renders
+     * in the normal --ink. Reads the already-loaded `groups` relation (eager-loaded on list pages to avoid
+     * N+1); lazy-loads once on single-user pages.
+     */
+    public function displayGroup(): ?Group
+    {
+        return $this->groups
+            ->filter(fn (Group $g): bool => GroupColor::isValid($g->color))
+            ->sortByDesc(fn (Group $g): string => sprintf('%04d:%012d', (int) $g->priority, (int) $g->getKey()))
+            ->first();
+    }
+
+    /** The CSS custom-property reference for this user's name colour, or null when no coloured group applies. */
+    public function nameColor(): ?string
+    {
+        return GroupColor::cssVar($this->displayGroup()?->color);
     }
 
     /**

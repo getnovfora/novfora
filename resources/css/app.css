@@ -141,6 +141,18 @@
     --danger-strong: #dc2626;
     --focus: #4f46e5;
 
+    /* ACP v2 — staff/group name colours. A group stores a palette KEY (App\Support\GroupColor); these
+       per-mode tokens keep every choice AA on the surface. Keep in sync with GroupColor::PALETTE. */
+    --group-slate: #475569;
+    --group-red: #b91c1c;
+    --group-amber: #92400e;
+    --group-green: #166534;
+    --group-teal: #0f766e;
+    --group-blue: #2563eb;
+    --group-indigo: #4f46e5;
+    --group-violet: #7c3aed;
+    --group-pink: #be185d;
+
     /* Forum content width (ACP v1 appearance setting). Default = the "standard" lg width; the site-level
        Appearance page emits an inline override (boxed-narrow 48rem / wide 80rem / full 100%). The main
        content containers (x-ui.container size="lg") read this token, so one setting resizes the forum. */
@@ -186,6 +198,15 @@
         --danger-ink: #fca5a5;
         --danger-strong: #dc2626;
         --focus: #a5b4fc;
+        --group-slate: #94a3b8;
+        --group-red: #f87171;
+        --group-amber: #fbbf24;
+        --group-green: #4ade80;
+        --group-teal: #2dd4bf;
+        --group-blue: #60a5fa;
+        --group-indigo: #818cf8;
+        --group-violet: #a78bfa;
+        --group-pink: #f472b6;
         color-scheme: dark;
     }
 }
@@ -215,6 +236,15 @@
     --danger-ink: #fca5a5;
     --danger-strong: #dc2626;
     --focus: #a5b4fc;
+    --group-slate: #94a3b8;
+    --group-red: #f87171;
+    --group-amber: #fbbf24;
+    --group-green: #4ade80;
+    --group-teal: #2dd4bf;
+    --group-blue: #60a5fa;
+    --group-indigo: #818cf8;
+    --group-violet: #a78bfa;
+    --group-pink: #f472b6;
     color-scheme: dark;
 }
 
