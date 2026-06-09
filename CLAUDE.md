@@ -17,7 +17,8 @@ theming, weak real-time, install friction).
 commands, `HEARTH_*` env keys, SPDX lines); the rename is a **separate planned task** to be executed as
 one reviewed change. Do not rename ad-hoc; flag stragglers.
 
-**Status: pre-code.** Do not write application code until Phase 0 (Discovery) is approved.
+**Status: Stage B (active implementation).** Phase 1 / Core MVP complete; Phase 1.5 hardening complete;
+real-host fixes merged; ACP v1 + Spike P2 merged. See `PROJECT-STATE.md` for the current handoff state.
 
 ## Locked decisions (do not relitigate — flag concerns, never silently change)
 
@@ -40,18 +41,48 @@ one reviewed change. Do not rename ad-hoc; flag stragglers.
 - Keep the repo **runnable on the Baseline tier at every milestone** (`.env.example`, seeds,
   getting-started guide stay current).
 
-## Model & effort (this account is on Claude Max)
+## Model routing (this account is on Claude Max)
 
-- **Build with Opus 4.8 at `xhigh` effort** — the documented sweet spot for coding/agentic work. The
-  default is `high`, so set `xhigh` explicitly (`/model` → toggle effort with the arrow keys).
-- **Think hard** (keep xhigh; reason deeply): permission-mask resolution, tenancy-safe data access,
-  the anti-spam subsystem, security-sensitive code, the phpBB/MyBB/SMF importers, and the plugin/theme
-  API. A subtle miss in these is expensive.
-- **Move fast** (Sonnet 4.6 is fine): CRUD, view scaffolding, boilerplate, test stubs, repetitive
-  refactors once the design is settled.
-- Use `max` effort only if evals show real headroom at `xhigh`. Haiku 4.5 for trivial edits.
-- `opusplan` (Opus plans, Sonnet implements) mirrors our plan-then-build flow and saves tokens;
-  optional given Max headroom.
+The dividing line is **correctness load-bearing vs. pattern replication**, not hard vs. easy.
+
+### Opus 4.8 `xhigh` — required for:
+- Permission-mask reasoning: anything touching `acl_entries`, `PermissionResolver`, the ALLOW/NO/NEVER
+  semantics, rank guards, or the inspector.
+- Concurrency / idempotency on the cron-only baseline: the digest transactional claim,
+  `withoutOverlapping` + short-mutex discipline, mid-kill resume reasoning.
+- Untrusted-input / security boundaries: webhook HMAC, VERP forgery, DSN/ARF parsing, installer surface,
+  CSP. Evidence: adversarial reviews caught HIGH/MEDIUM bugs the passing test suite missed.
+- Adversarial review workflows themselves — the per-finding verify-then-refute step.
+- Spike GO/NO-GO calls, clean-room judgment, plugin/theme API design decisions.
+
+**Tells you've crossed into Opus territory:** the word "NEVER" in a permission context; anything
+touching `PermissionResolver/acl_entries`; a DB transaction whose correctness depends on kill-timing;
+an endpoint receiving bytes from the internet.
+
+### Sonnet 4.6 — safe for:
+- CRUD/SFC scaffolding that mirrors an existing pattern once the design is locked.
+- Migrations, models, factories, `.env.example`, config blocks.
+- Applying a component across many sites after the map exists (e.g., 11-site name-component swap).
+- Pint/Larastan fix application from a specific finding list; CSS token edits.
+- Happy-path test scaffolding in the established Pest idiom; conventional commits; PROJECT-STATE prose.
+- "Where is X rendered / which files touch Y" sweeps → delegate to an **Explore sub-agent** (Sonnet).
+
+### Sub-agent pattern for breadth work
+Use `Agent(subagent_type: "Explore", model: "sonnet")` for any "sweep the codebase" question.
+Keep the main Opus context lean: only conclusions come back, not the full file reads.
+Never load 15 files into the main window to answer a "where" question.
+
+### Verification discipline
+Docker gates (Pest/Pint/Larastan/audit) are deterministic and **free** — they are the correctness
+signal, not the model. Always cap output: `Select-Object -Last N` / `tail -n N` for gate results.
+Prefer "write → run gate → read tail → fix" over "reason carefully, then write perfectly."
+Never re-read a file you just edited — the harness tracks state.
+
+### Effort defaults
+- `xhigh`: permission/security/concurrency core + adversarial review synthesis.
+- `high` (default): all other Opus turns.
+- Haiku 4.5: trivial single-file edits with no reasoning required.
+- `opusplan` (Opus plans, Sonnet implements): mirrors plan-then-build; optional given Max headroom.
 
 ## Hard rules (never violate)
 
