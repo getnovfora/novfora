@@ -190,6 +190,9 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         // Member-group manager (ACP v2) — the <livewire:admin.groups /> manager (Admin → Members → Groups).
         Route::view('/members/groups', 'admin.groups')->name('members.groups');
 
+        // Topic-prefix manager (P2-M1) — the <livewire:admin.prefixes /> manager.
+        Route::view('/prefixes', 'admin.prefixes')->name('prefixes');
+
         // Settings pages (PART 3) — each a focused Livewire SFC on the Settings store.
         Route::view('/settings/general', 'admin.settings.general')->name('settings.general');
         Route::view('/settings/registration', 'admin.settings.registration')->name('settings.registration');

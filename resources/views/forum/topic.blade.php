@@ -44,8 +44,9 @@
     <x-ui.container size="lg" class="space-y-5">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 space-y-2">
-                @if ($topic->is_pinned || $topic->status === 'locked')
+                @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix)
                     <div class="flex flex-wrap items-center gap-1.5">
+                        <x-forum.prefix-badge :prefix="$topic->prefix" />
                         @if ($topic->is_pinned)
                             <x-ui.badge variant="accent"><x-ui.icon name="pin" class="h-3.5 w-3.5" /> Pinned</x-ui.badge>
                         @endif

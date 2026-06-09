@@ -71,6 +71,12 @@ class Forum extends Model
         return $this->hasMany(Topic::class);
     }
 
+    /** @return HasMany<Prefix, $this> */
+    public function prefixes(): HasMany
+    {
+        return $this->hasMany(Prefix::class);
+    }
+
     /**
      * The forum's most-recent topic (read-only; backs the index row's "latest activity" link). The
      * `last_topic_id` column is already maintained by PostService — this only exposes it for display.

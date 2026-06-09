@@ -14,6 +14,7 @@ use App\Content\Mentions;
 use App\Models\Forum;
 use App\Models\Post;
 use App\Models\PostRevision;
+use App\Models\Prefix;
 use App\Models\Topic;
 use App\Models\User;
 use App\Notifications\Notifier;
@@ -37,9 +38,18 @@ final class PostService
     ) {}
 
     /** Create a topic and its opening post atomically. */
-    public function createTopic(User $author, Forum $forum, string $title, string $format, array $canonical): Topic
+    public function createTopic(User $author, Forum $forum, string $title, string $format, array $canonical, ?int $prefixId = null): Topic
     {
-        $topic = DB::transaction(function () use ($author, $forum, $title, $format, $canonical) {
+        $topic = DB::transaction(function () use ($author, $forum, $title, $format, $canonical, $prefixId) {
+            // Validate the prefix: it must be global (forum_id = null) or belong to this forum.
+            $resolvedPrefixId = null;
+            if ($prefixId !== null) {
+                $prefix = Prefix::find($prefixId);
+                if ($prefix !== null && ($prefix->forum_id === null || (int) $prefix->forum_id === (int) $forum->id)) {
+                    $resolvedPrefixId = $prefix->id;
+                }
+            }
+
             $topic = Topic::create([
                 'forum_id' => $forum->id,
                 'user_id' => $author->id,
@@ -48,6 +58,7 @@ final class PostService
                 'type' => 'normal',
                 'status' => 'open',
                 'approved_state' => 'approved',
+                'prefix_id' => $resolvedPrefixId,
             ]);
 
             // The topic inherits its opening post's moderation state — a held OP makes the topic pending too.

@@ -5,6 +5,7 @@ use App\AntiSpam\PostRateLimiter;
 use App\Forum\PollService;
 use App\Forum\PostService;
 use App\Models\Forum;
+use App\Models\Prefix;
 use App\Models\User;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -21,6 +22,9 @@ new class extends Component
     public array $canonicalJson = ['type' => 'doc', 'content' => []];
 
     public string $markdownSource = '';
+
+    // Prefix selector (P2-M1). The available prefixes are loaded once in mount; null means no prefix.
+    public ?int $prefixId = null;
 
     // Poll composition (P2-M1). The block is only offered to authors who hold poll.create at this forum
     // (resolved once in mount); $canCreatePoll is #[Locked] so the client cannot toggle the gate on.
@@ -102,7 +106,7 @@ new class extends Component
         [$format, $canonical] = $this->body();
 
         try {
-            $topic = $service->createTopic(auth()->user(), $this->forum(), $this->title, $format, $canonical);
+            $topic = $service->createTopic(auth()->user(), $this->forum(), $this->title, $format, $canonical, $this->prefixId);
         } catch (ContentRejectedException $e) {
             $this->addError('body', $e->getMessage());
 
@@ -123,6 +127,24 @@ new class extends Component
         }
 
         return $this->redirectRoute('topics.show', $topic, navigate: true);
+    }
+
+    /** Available prefixes for this forum: global + forum-specific, ordered by position then label.
+     *  @return list<array{id:int,label:string,color_token:string|null}> */
+    public function prefixOptions(): array
+    {
+        return Prefix::query()
+            ->where(function ($q) {
+                $q->whereNull('forum_id')->orWhere('forum_id', $this->forumId);
+            })
+            ->orderBy('position')
+            ->orderBy('label')
+            ->get()
+            ->map(fn (Prefix $p): array => [
+                'id' => (int) $p->id,
+                'label' => (string) $p->label,
+                'color_token' => $p->color_token,
+            ])->all();
     }
 
     private function ensureCanCreate(): void
@@ -163,6 +185,20 @@ new class extends Component
                class="w-full min-h-11 px-3 rounded-md bg-surface-raised text-ink border border-line focus:border-accent text-lg">
         @error('title') <p class="text-xs text-danger">{{ $message }}</p> @enderror
     </div>
+
+    @php($prefixOptions = $this->prefixOptions())
+    @if (! empty($prefixOptions))
+        <div class="space-y-1.5">
+            <label for="ct-prefix" class="block text-sm font-medium text-ink">Prefix <span class="text-ink-subtle font-normal">(optional)</span></label>
+            <select id="ct-prefix" wire:model="prefixId" dusk="topic-prefix"
+                    class="w-full min-h-11 px-3 rounded-md bg-surface-raised text-ink border border-line focus:border-accent text-sm">
+                <option value="">— No prefix —</option>
+                @foreach ($prefixOptions as $opt)
+                    <option value="{{ $opt['id'] }}">{{ $opt['label'] }}</option>
+                @endforeach
+            </select>
+        </div>
+    @endif
 
     <div class="flex items-center justify-between gap-2">
         <span class="text-sm text-ink-muted">Body</span>

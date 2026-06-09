@@ -8,6 +8,7 @@ namespace App\Http\Controllers;
 
 use App\Forum\ForumNode;
 use App\Models\Forum;
+use App\Models\Prefix;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -51,16 +52,17 @@ class ForumController extends Controller
         $canModerate = $user?->canDo('topic.moderate', $forum->permissionScope()) ?? false;
 
         // Hide pending topics (a held opening post) from everyone but their author and local moderators.
-        // Eager-load the starter (author) AND the last poster (lastPostUser) so the info-dense board table's
-        // "by …" and "Last post" cells render with no per-row query (bounded eager-loads, not N+1).
+        // Eager-load the starter (author), the last poster (lastPostUser), and the prefix so the board table
+        // renders with no per-row queries (bounded eager-loads, not N+1).
         $topics = $forum->topics()
-            ->with(['author.groups', 'lastPostUser.groups'])
+            ->with(['author.groups', 'lastPostUser.groups', 'prefix'])
             ->unless($canModerate, fn ($q) => $q->where(function ($q2) use ($user) {
                 $q2->where('approved_state', 'approved');
                 if ($user) {
                     $q2->orWhere('user_id', $user->getKey());
                 }
             }))
+            ->when(request('prefix'), fn ($q) => $q->where('prefix_id', request('prefix')))
             ->orderByDesc('is_pinned')
             ->orderByRaw('last_posted_at IS NULL') // posted topics before empty ones
             ->orderByDesc('last_posted_at')
@@ -77,6 +79,14 @@ class ForumController extends Controller
             ->filter(fn (Forum $child) => $viewer->canDo('forum.view', $child->permissionScope()))
             ->values();
 
-        return view('forum.show', compact('forum', 'topics', 'viewer', 'canPost', 'children'));
+        // Available prefixes for the filter bar: global + this forum's.
+        $prefixes = Prefix::query()
+            ->where(function ($q) use ($forum) {
+                $q->whereNull('forum_id')->orWhere('forum_id', $forum->id);
+            })
+            ->orderBy('position')->orderBy('label')
+            ->get();
+
+        return view('forum.show', compact('forum', 'topics', 'viewer', 'canPost', 'children', 'prefixes'));
     }
 }

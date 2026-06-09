@@ -76,6 +76,12 @@ class Topic extends Model
         return $this->belongsTo(Poll::class);
     }
 
+    /** @return BelongsTo<Prefix, $this> the topic's prefix via the topics.prefix_id seam (null when none) */
+    public function prefix(): BelongsTo
+    {
+        return $this->belongsTo(Prefix::class);
+    }
+
     public function permissionScope(): Scope
     {
         return Scope::thread((int) $this->id);

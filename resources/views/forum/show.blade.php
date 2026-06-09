@@ -38,6 +38,25 @@
             </section>
         @endif
 
+        {{-- Prefix filter bar — shown only when this forum has at least one prefix. --}}
+        @if ($prefixes->isNotEmpty())
+            <div class="flex flex-wrap items-center gap-2 text-sm">
+                <span class="text-ink-subtle">Filter:</span>
+                <a href="{{ route('forums.show', $forum) }}"
+                   class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border transition-colors {{ request('prefix') === null ? 'border-accent bg-accent-soft text-accent-soft-ink' : 'border-line hover:border-accent text-ink-muted' }}">
+                    All
+                </a>
+                @foreach ($prefixes as $prefix)
+                    @php($pColor = \App\Support\GroupColor::cssVar($prefix->color_token))
+                    <a href="{{ route('forums.show', $forum).'?prefix='.$prefix->id }}"
+                       class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border transition-colors {{ (string) request('prefix') === (string) $prefix->id ? 'border-current' : 'border-line hover:border-current' }}"
+                       @if ($pColor) style="color: {{ $pColor }};" @endif>
+                        {{ $prefix->label }}
+                    </a>
+                @endforeach
+            </div>
+        @endif
+
         {{-- Board-list style is a site Appearance setting (ACP v1): info-rich (the table) or minimal
              (the stacked list at all sizes). Presentation only — same topics, links, and selectors. --}}
         @php($boardListStyle = (app(\App\Settings\Settings::class)->siteView()['board_list_style'] ?? null) ?: 'info-rich')
@@ -62,8 +81,9 @@
                                     <div class="flex items-start gap-2.5">
                                         <x-ui.avatar :user="$topic->author" size="sm" class="mt-0.5 hidden shrink-0 lg:inline-flex" />
                                         <div class="min-w-0">
-                                            @if ($topic->is_pinned || $topic->status === 'locked')
+                                            @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix)
                                                 <div class="mb-0.5 flex flex-wrap items-center gap-1.5">
+                                                    <x-forum.prefix-badge :prefix="$topic->prefix" />
                                                     @if ($topic->is_pinned)
                                                         <x-ui.badge variant="accent"><x-ui.icon name="pin" class="h-3 w-3" /> Pinned</x-ui.badge>
                                                     @endif
@@ -105,8 +125,9 @@
                     @foreach ($topics as $topic)
                         @php($lastPage = max(1, (int) ceil(($topic->reply_count + 1) / 15)))
                         <div class="p-4 hover:bg-surface-sunken">
-                            @if ($topic->is_pinned || $topic->status === 'locked')
+                            @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix)
                                 <div class="mb-0.5 flex flex-wrap items-center gap-1.5">
+                                    <x-forum.prefix-badge :prefix="$topic->prefix" />
                                     @if ($topic->is_pinned)
                                         <x-ui.badge variant="accent"><x-ui.icon name="pin" class="h-3 w-3" /> Pinned</x-ui.badge>
                                     @endif

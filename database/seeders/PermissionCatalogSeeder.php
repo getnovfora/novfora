@@ -26,6 +26,7 @@ class PermissionCatalogSeeder extends Seeder
             'admin.settings' => ['Manage system settings', 'global', 'Administration', 'Change board configuration.'],
             'users.manage' => ['Manage user accounts', 'global', 'Administration', 'Edit, suspend, or delete users.'],
             'groups.manage' => ['Manage groups & memberships', 'global', 'Administration', 'Create groups and assign members.'],
+            'prefix.manage' => ['Manage topic prefixes', 'global', 'Administration', 'Create, edit, reorder and delete topic prefixes.'],
             'permissions.manage' => ['Manage roles & permissions', 'global', 'Administration', 'Edit ACL entries and role presets.'],
             'bans.manage' => ['Issue & lift bans', 'global', 'Moderation', 'Ban or unban users, globally or per scope.'],
 
