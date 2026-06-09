@@ -106,3 +106,25 @@ if (($backupCadence = (string) config('hearth.backup.schedule', 'daily')) !== 'o
     $backup = Schedule::command('hearth:backup')->withoutOverlapping()->skip($duringRestore);
     $backupCadence === 'weekly' ? $backup->weekly() : $backup->daily();
 }
+
+// Deliverability (Spike P2, Phase-2 plan §4) — DORMANT BY DEFAULT. The two ticks below are always wired
+// into the single cron line, but each command early-returns until config('hearth.deliverability.enabled')
+// (and, for the digest, hearth.deliverability.digest.enabled) — so a deploy changes no behaviour; P2-M2
+// flips the flag. Both follow the M5 drain discipline: everyMinute + withoutOverlapping + skip during a
+// restore (they write the DB). The digest tick uses a SHORT, bounded overlap mutex — NOT Laravel's 24h
+// default — because the real double-run guard is the committed UNIQUE(user,cadence,period) row, not the
+// lock; a hard-killed tick (which releases no handler) must not strand the digest for a day (RH-10 lesson).
+$digestMutexMinutes = max(2, (int) config('hearth.deliverability.digest.mutex_minutes', 2));
+Schedule::command('hearth:deliverability:digest-run')
+    ->everyMinute()
+    ->withoutOverlapping($digestMutexMinutes)
+    ->name('hearth-digest-run')
+    ->skip($duringRestore);
+
+// Bounce/complaint poll (the daemon-free IMAP path); no-op when no mailbox is configured / the imap ext is
+// absent (degrades to the VERP + manual-ACP floor). Webhook ingestion is push (a route), not scheduled.
+Schedule::command('hearth:deliverability:poll-bounces')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->name('hearth-poll-bounces')
+    ->skip($duringRestore);

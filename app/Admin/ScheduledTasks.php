@@ -42,11 +42,19 @@ final class ScheduledTasks
             ['name' => 'Public storage mirror', 'detail' => 'Refreshes the public file copy on symlink-less hosts', 'cadence' => 'Every minute', 'last' => null],
             ['name' => 'Auto-upgrade check', 'detail' => 'Applies pending migrations after a deploy (RH-10)', 'cadence' => 'Every minute', 'last' => $this->stateEpoch($this->schema->lastRun())],
             ['name' => 'Panel restore', 'detail' => 'Runs a requested no-SSH restore (RH-11)', 'cadence' => 'Every minute', 'last' => $this->stateEpoch($this->restore->lastRun())],
+            ['name' => 'Digest assembler', 'detail' => $this->deliverabilityDetail('Coalesces pending notifications into one digest email'), 'cadence' => 'Every minute', 'last' => null],
+            ['name' => 'Bounce poll', 'detail' => $this->deliverabilityDetail('Polls the bounce mailbox; suppresses hard bounces / complaints'), 'cadence' => 'Every minute', 'last' => null],
             ['name' => 'Trust recompute', 'detail' => 'Promotes/demotes trust levels', 'cadence' => 'Hourly', 'last' => null],
             ['name' => 'Anti-spam purge', 'detail' => 'GDPR retention purge of registration checks', 'cadence' => 'Daily', 'last' => null],
             ['name' => 'Blocklist warm', 'detail' => 'Refreshes the crowdsourced spam blocklist', 'cadence' => 'Daily', 'last' => null],
             ['name' => 'Automated backups', 'detail' => 'Database + uploads → a portable archive', 'cadence' => $backupCadence === 'off' ? 'Off' : ucfirst($backupCadence), 'last' => $this->newestBackupEpoch()],
         ];
+    }
+
+    /** Append a "(dormant)" hint to a deliverability task's detail while the pipeline is off. */
+    private function deliverabilityDetail(string $detail): string
+    {
+        return (bool) config('hearth.deliverability.enabled') ? $detail : $detail.' — dormant';
     }
 
     private function cacheEpoch(string $key): ?int

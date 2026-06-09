@@ -66,6 +66,7 @@ final class AdminNavigation
                 ['Service tier', 'admin.system.tier', 'database'],
                 ['Backups & restore', 'admin.system.backups', 'inbox'],
                 ['Upgrade', 'admin.system.upgrade', 'arrow-up'],
+                ['Email suppressions', 'admin.system.suppressions', 'mail'],
                 ['Audit log', 'admin.system.audit', 'list'],
                 ['Tasks', 'admin.system.tasks', 'clock'],
             ]],

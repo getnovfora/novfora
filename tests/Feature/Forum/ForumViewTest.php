@@ -9,6 +9,7 @@ use App\Models\AclEntry;
 use App\Models\Forum;
 use App\Models\Group;
 use App\Permissions\PermissionValue;
+use App\Settings\Settings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\Content;
 use Tests\Support\Users;
@@ -38,7 +39,7 @@ it('honours the site Appearance forum width on the topic view (ACP v1.1 regressi
     // The site owner sets "Forum width" → wide. Before ACP v1.1 the topic view pinned its own size="md"
     // container, so the width setting widened the index/board but the TOPIC stayed narrow. It must now flow
     // through the SAME shared, token-consuming container the index and board views use.
-    app(\App\Settings\Settings::class)->set('appearance.forum_width', 'wide');
+    app(Settings::class)->set('appearance.forum_width', 'wide');
 
     $forum = Forum::create(['slug' => 'general', 'title' => 'General', 'type' => 'forum']);
     $author = Users::inGroups(['members']);

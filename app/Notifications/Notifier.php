@@ -111,6 +111,9 @@ final class Notifier
 
     private function suppressed(string $email): bool
     {
-        return EmailSuppression::where('email', $email)->exists();
+        // Case-insensitive: the suppression list is stored lower-cased (App\Deliverability\Suppressor), so a
+        // mixed-case recipient (Alice@Example.com) must still match a suppressed alice@example.com. Mirrors
+        // the LOWER(email) idiom in SuppressionGate / Suppressor.
+        return EmailSuppression::query()->whereRaw('LOWER(email) = ?', [strtolower(trim($email))])->exists();
     }
 }

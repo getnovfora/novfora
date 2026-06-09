@@ -9,6 +9,7 @@ use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\BanController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\MailWebhookController;
 use App\Http\Controllers\MentionController;
 use App\Http\Controllers\ModerationController;
 use App\Http\Controllers\NotificationController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\TopicController;
+use App\Http\Controllers\UnsubscribeController;
 use App\Http\Controllers\WarningController;
 use App\Http\Controllers\WhatsNewController;
 use App\Http\Middleware\EnsureSystemPanelAccess;
@@ -59,6 +61,20 @@ Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap')
 Route::get('/robots.txt', function () {
     return Response::make("User-agent: *\nAllow: /\nSitemap: ".route('sitemap')."\n", 200, ['Content-Type' => 'text/plain']);
 })->name('robots');
+
+// ── Deliverability (Spike P2) ───────────────────────────────────────────────────────────────────────
+// 1-click unsubscribe (RFC 8058). Authenticated by Laravel's signed-URL HMAC (the `signed` middleware), so
+// no login/CSRF token — GET (human) and POST (one-click) both set the user's digest cadence to 'off'. The
+// POST is CSRF-exempt (bootstrap/app.php). Always registered; harmless while the digest path is dormant.
+Route::match(['GET', 'POST'], '/unsubscribe/{user}', UnsubscribeController::class)
+    ->middleware('signed')
+    ->name('deliverability.unsubscribe');
+
+// Provider bounce/complaint webhook — registered ONLY when configured (dormant otherwise → 404). Auth is an
+// HMAC over the raw body (MailWebhookController / WebhookVerifier); CSRF-exempt (bootstrap/app.php).
+if ((bool) config('hearth.deliverability.webhook.enabled') && (string) config('hearth.deliverability.webhook.secret', '') !== '') {
+    Route::post('/webhooks/mail/{provider}', MailWebhookController::class)->name('deliverability.webhook');
+}
 
 // Member profiles (data-model §1) — public read.
 Route::get('/users/{user}', [ProfileController::class, 'show'])->name('profiles.show');
@@ -142,6 +158,10 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/permissions', 'admin.permissions')->name('permissions');
         Route::view('/backups', 'admin.backups')->name('backups');
         Route::view('/upgrade', 'admin.upgrade')->name('upgrade'); // no-SSH auto-upgrade status + manual apply (RH-10)
+
+        // Email suppressions (Spike P2) — the always-available manual floor: view bounced/complained/manual
+        // entries, hand-add, and un-suppress. Works on the baseline tier with no provider configured.
+        Route::view('/suppressions', 'admin.suppressions')->name('suppressions');
 
         // Audit-log viewer (read-only, paginated, filterable) + scheduled-tasks visibility (ACP v1, PART 4).
         Route::view('/audit', 'admin.audit')->name('audit');
