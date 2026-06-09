@@ -34,11 +34,13 @@ PostgreSQL on Docker/VPS. Vite, prebuilt assets (no host Node). Approved — ADR
 
 > **▶ Phase 1 / Core MVP COMPLETE · Phase 1.5 Hardening COMPLETE · RH-6–RH-11 FIXED · Default theme MERGED ·
 > ACP v1 + v1.1 MERGED · Spike P2 deliverability → GO (PR #8 merged) · ACP v2 MERGED (PR #9) ·
-> ▶ P2-M1 ENGAGEMENT & CONTENT DEPTH — BUILT, all gates green, pushed (7 slices, awaiting PR review).**
+> ▶ P2-M1 ENGAGEMENT & CONTENT DEPTH — BUILT, all gates green, DoD-audited; committed on 7 local branches —
+> **push pending** (this sandbox has no interactive git credentials; user to push, then open PRs).**
 
 **`main` carries:** M0–M5, P1.5 hardening, real-host fixes RH-6–RH-11, default theme + theme polish R1,
 ACP v1 + v1.1 patch, Spike P2 deliverability pipeline (dormant), NevoBB rename (ADR-0024), **ACP v2**.
-**Pushed, not yet on main:** P2-M1 (7 stacked feature branches `claude/p2-m1-*`).
+**Committed locally, NOT yet pushed:** P2-M1 (7 stacked feature branches `claude/p2-m1-*`; the in-sandbox
+push is blocked on interactive git credentials — **user to push**, then open the PRs).
 
 **ACP v2 — MERGED to main (PR #9, commit `30bc466`):**
 Pint PASS (361 files) · Larastan level-5 clean · **Pest 518 passed / 1 skipped (1930 assertions)** ·
@@ -55,7 +57,7 @@ audit gap. Dusk journey + coloured-group screenshots wired into `AdminJourneyTes
 - Schema: only `groups.description` new; reused pre-existing `groups.color` M1 seam. Reversible.
 
 **P2-M1 — Engagement & content depth (BUILT 2026-06-09, 7 stacked branches off `main`, awaiting PR review):**
-Pint PASS (417 files) · Larastan L5 clean · **Pest 701 passed / 1 skipped (2309 assertions)** ·
+Pint PASS (418 files) · Larastan L5 clean · **Pest 711 passed / 1 skipped (2324 assertions)** ·
 `composer audit` + `npm audit` clean · CSS 9.08 KB gz (budget 50) · assets-fresh (no drift) · query budgets
 hold (thread ≤30 with reactions **and** a poll; index/board ≤15/≤25). Each slice security/integrity-reviewed
 (reactions, polls, **oEmbed** via dedicated adversarial-review workflows). 7 PR slices, stack order:
@@ -76,15 +78,25 @@ hold (thread ≤30 with reactions **and** a poll; index/board ≤15/≤25). Each
    this PROJECT-STATE update, and a one-line fix to slice 6's modal (FQ `Carbon` — caught by the integrated suite).
 **DECISIONS.md** records the diff source/extraction, the oEmbed allowlist+sandbox policy, and the
 NEVER/trust-gate reasoning per new key (budget held → no ceiling-change ADR needed).
+**Post-build adversarial DoD audit (15 agents · 7 dimensions · per-gap verify):** 5/7 dimensions PASS with zero
+confirmed gaps (permission wiring, RH-9 cache discipline, content-pipeline/SFC, docs/commits, ACP-render/Dusk).
+Five LOW/MEDIUM **test/doc-coverage** gaps — all on already-correct code — were closed on the oembed tip: the
+SSRF empty-DNS + missing/CRLF-`Location` guards and `EmbedPolicy` src/allow/sandbox escaping now carry permanent
+tests (`locationIsUnsafe` extracted so the response-splitting branch is directly asserted); the prefix/tag/
+`tags.show` board budgets (≤25/≤25/≤45) are recorded in `system-architecture.md §7`. No behavioural defects,
+security holes, or permission/cache/commit issues found.
 **Carried forward to M2 (NOT in this packet):** the §6 account-deletion/privacy-cascade ADR (reactions/poll-
 votes/tags hard-delete with their owner; the cascade is owner-confirmable before PMs land) and the Dusk
 browser-journey screenshots for react/poll/prefix/tag/draft (wired into the dusk harness; run in CI).
 
 ## Immediate next actions
 
-1. **P2-M1 — BUILT (2026-06-09), awaiting PR review/merge.** 7 stacked branches `claude/p2-m1-*` (reactions →
-   polls → prefixes → tags → drafts → edit-history → oembed); the oembed tip is the integrated, all-gates-green
-   state. Merge in stack order (each lands runnable + tested). Build source remains
+1. **P2-M1 — BUILT (2026-06-09), DoD-audited; PUSH PENDING (user action), then PR review/merge.** 7 stacked
+   branches `claude/p2-m1-*` (reactions → polls → prefixes → tags → drafts → edit-history → oembed); the oembed
+   tip is the integrated, all-gates-green, audit-hardened state. **The push could not run in-sandbox** (no
+   interactive git credentials); push all 7 with e.g. `for b in reactions polls prefixes tags drafts
+   edit-history oembed; do git push -u origin claude/p2-m1-$b; done`, then merge in stack order (each lands
+   runnable + tested). Build source remains
    [`docs/product/phase-2-implementation-plan.md`](docs/product/phase-2-implementation-plan.md).
 2. **Next in the greenlit kickoff scope (own packets, not yet built):**
    - **Deliverability light-up (M2 Half-A)** — code merged + dormant; wire `Notifier→DigestQueue`,
