@@ -112,7 +112,7 @@ final class SsrfGuard
                     $location = $response->header('Location');
                     // Reject a missing or CRLF-bearing Location (response-splitting / log-injection hygiene)
                     // before it is logged or absolutised.
-                    if ($location === '' || strpbrk($location, "\r\n") !== false) {
+                    if (self::locationIsUnsafe($location)) {
                         return null;
                     }
                     $current = $this->absolutize($location, $current);
@@ -240,6 +240,17 @@ final class SsrfGuard
         }
 
         return $pins;
+    }
+
+    /**
+     * A redirect Location is unsafe to follow when it is empty/missing or carries a CR/LF — the latter is a
+     * response-splitting / header- and log-injection vector, rejected before the value is absolutised or
+     * logged. Belt-and-suspenders over the HTTP client, which also forbids control characters in header
+     * values; extracted as a pure predicate so the CRLF branch is directly regression-tested.
+     */
+    private static function locationIsUnsafe(string $location): bool
+    {
+        return $location === '' || strpbrk($location, "\r\n") !== false;
     }
 
     /** Resolve a relative/absolute Location against the current URL. */

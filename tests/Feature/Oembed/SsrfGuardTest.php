@@ -55,6 +55,10 @@ it('accepts an https host resolving only to public IPs', function () {
     expect((new SsrfGuard(fn () => ['8.8.8.8']))->validate('https://example.com/')['host'])->toBe('example.com');
 });
 
+it('rejects a host whose DNS resolves to no addresses (fails closed, no empty pin list)', function () {
+    (new SsrfGuard(fn () => []))->validate('https://no-records.example/');
+})->throws(SsrfException::class);
+
 // ── safeGet() ───────────────────────────────────────────────────────────────────────────────────
 it('safeGet fails closed for a host resolving to a private IP, sending nothing', function () {
     Http::fake();
@@ -70,6 +74,36 @@ it('safeGet blocks a redirect to an internal address (re-validates each hop)', f
     $guard = new SsrfGuard(fn (string $host): array => $host === 'internal.example' ? ['127.0.0.1'] : ['8.8.8.8']);
 
     expect($guard->safeGet('https://public.example/start'))->toBeNull();
+});
+
+it('safeGet fails closed for a host that does not resolve, sending nothing', function () {
+    Http::fake();
+    expect((new SsrfGuard(fn () => []))->safeGet('https://no-records.example/'))->toBeNull();
+    Http::assertNothingSent();
+});
+
+it('safeGet rejects a redirect carrying a missing/empty Location header', function () {
+    Http::fake(['*' => Http::response('', 302)]); // 3xx with no Location
+
+    expect((new SsrfGuard(fn () => ['8.8.8.8']))->safeGet('https://example.com/'))->toBeNull();
+});
+
+// The HTTP client (and Http::fake) forbids control characters in a header VALUE, so a CRLF Location cannot be
+// delivered through the fake transport — the response-splitting guard is therefore exercised directly on the
+// pure predicate so a deleted strpbrk() check fails CI (the 12 transport-level cases above would not catch it).
+it('rejects a redirect Location with a CR/LF or empty value (response-splitting hygiene)', function (string $location) {
+    $unsafe = new ReflectionMethod(SsrfGuard::class, 'locationIsUnsafe');
+    expect($unsafe->invoke(null, $location))->toBeTrue();
+})->with([
+    "https://ok.example/next\r\nSet-Cookie: pwned=1",
+    "https://ok.example/next\nLocation: https://internal/",
+    "https://ok.example/path\r",
+    '',
+]);
+
+it('accepts a clean redirect Location value', function () {
+    $unsafe = new ReflectionMethod(SsrfGuard::class, 'locationIsUnsafe');
+    expect($unsafe->invoke(null, 'https://ok.example/next'))->toBeFalse();
 });
 
 it('safeGet refuses an oversize response', function () {

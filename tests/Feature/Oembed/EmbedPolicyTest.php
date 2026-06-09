@@ -57,6 +57,28 @@ it('escapes the iframe title (no attribute breakout)', function () {
     expect($html)->not->toContain('<script>')->toContain('&lt;script&gt;');
 });
 
+it('escapes the iframe src (no attribute breakout from a hostile src)', function () {
+    // iframe() is public and takes an arbitrary string; the constructed-src pipeline never feeds it a hostile
+    // value, but the esc($src) call is defence-in-depth and must stay enforced.
+    $html = $this->policy->iframe('https://h/"><script>alert(1)</script>');
+    expect($html)->not->toContain('"><script>')
+        ->toContain('src="https://h/&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;"');
+});
+
+it('escapes the iframe allow + sandbox attributes from a hostile config value', function () {
+    // allow/sandbox come from server config (config/hearth.php). A typo or a compromised config must not be
+    // able to break out of the attribute — esc() is the guard and this pins it.
+    config([
+        'hearth.oembed.allow' => '"><script>a()</script>',
+        'hearth.oembed.sandbox' => '"><img src=x onerror=b()>',
+    ]);
+    $html = (new EmbedPolicy)->iframe('https://www.youtube-nocookie.com/embed/x');
+    expect($html)->not->toContain('"><script>')
+        ->not->toContain('"><img')
+        ->toContain('allow="&quot;&gt;&lt;script&gt;a()&lt;/script&gt;"')
+        ->toContain('sandbox="&quot;&gt;&lt;img src=x onerror=b()&gt;"');
+});
+
 it('builds a safe link-card facade for an arbitrary URL', function () {
     $html = $this->policy->facade('https://random.example/post/42', 'Cool post');
     expect($html)->toContain('hearth-embed-facade')
