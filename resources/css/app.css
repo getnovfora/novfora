@@ -530,3 +530,55 @@ body {
     background: var(--accent-soft);
     color: var(--accent-soft-ink);
 }
+
+/* oEmbed (P2-M1) — responsive embed frame, the link-card facade, and the editor placeholder. */
+.hearth-embed-frame {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    margin: 0.75rem 0;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: var(--surface-sunken);
+}
+.hearth-embed-frame iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+.hearth-embed-facade {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    margin: 0.75rem 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 0.5rem;
+    background: var(--surface-raised);
+    text-decoration: none;
+    transition: border-color 0.15s ease;
+}
+.hearth-embed-facade:hover {
+    border-color: var(--accent);
+}
+.hearth-embed-facade-title {
+    color: var(--ink);
+    font-weight: 600;
+    word-break: break-word;
+}
+.hearth-embed-facade-host {
+    color: var(--ink-subtle);
+    font-size: 0.8125rem;
+}
+.hearth-embed-edit {
+    margin: 0.5rem 0;
+    padding: 0.625rem 0.875rem;
+    border: 1px dashed var(--line);
+    border-radius: 0.5rem;
+    background: var(--surface-sunken);
+    color: var(--ink-muted);
+    font-size: 0.875rem;
+    word-break: break-word;
+}

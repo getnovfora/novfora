@@ -1,6 +1,6 @@
 {
   "resources/css/app.css": {
-    "file": "assets/app-dooX3zvP.css",
+    "file": "assets/app-BT2-kt2x.css",
     "name": "app",
     "names": [
       "app.css"
@@ -9,7 +9,7 @@
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-BJZkGaSv.js",
+    "file": "assets/app-3L9FWSuD.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -18,7 +18,7 @@
     ]
   },
   "resources/js/editor/hearth-editor.js": {
-    "file": "assets/hearth-editor-CXaowZlW.js",
+    "file": "assets/hearth-editor-bSq8-WL7.js",
     "name": "hearth-editor",
     "src": "resources/js/editor/hearth-editor.js",
     "isDynamicEntry": true

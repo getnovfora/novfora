@@ -2,7 +2,7 @@
 // TipTap editor factory (MIT core/extensions only — ADR-0015). Heavy; loaded via dynamic import() so it
 // stays out of the main bundle (Spike-0 criterion #6). Emits CANONICAL JSON only — never HTML; the server
 // renders + sanitizes (App\Content\CanonicalRenderer).
-import { Editor, Extension } from '@tiptap/core'
+import { Editor, Extension, Node } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Mention from '@tiptap/extension-mention'
@@ -75,6 +75,28 @@ function suggestionPopup(label, pick) {
   }
 }
 
+// ── embed node — stores a URL ONLY (canonical: { type:'embed', attrs:{ url } }). The server resolves it to a
+// sandboxed iframe (allowlisted provider) or a link-card facade via App\Content\Oembed; the editor only shows
+// a placeholder card. This renderHTML is editor-display only — it is NEVER stored or trusted (the editor emits
+// canonical JSON; the server re-renders + sanitizes). ─────────────────────────────────────────────────────
+const EmbedNode = Node.create({
+  name: 'embed',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+  addAttributes() {
+    return { url: { default: null } }
+  },
+  parseHTML() {
+    return [{ tag: 'div[data-embed-url]' }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    const url = HTMLAttributes.url || ''
+    return ['div', { 'data-embed-url': url, class: 'hearth-embed-edit' }, `▶ Embed — ${url}`]
+  },
+})
+
 // ── @mentions — server-driven (mentionUrl?q=), graceful when absent ─────────────────────────────────────
 function mentionSuggestion(mentionUrl) {
   return {
@@ -104,6 +126,13 @@ const SLASH_ITEMS = [
   { title: 'Code block', run: (e) => e.chain().focus().toggleCodeBlock().run() },
   { title: 'Table', run: (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
   { title: 'Divider', run: (e) => e.chain().focus().setHorizontalRule().run() },
+  {
+    title: 'Embed (video / link)',
+    run: (e) => {
+      const url = window.prompt('Paste a URL to embed (YouTube, Vimeo, or any link)')
+      if (url && url.trim()) e.chain().focus().insertContent({ type: 'embed', attrs: { url: url.trim() } }).run()
+    },
+  },
 ]
 
 const SlashCommand = Extension.create({
@@ -176,6 +205,7 @@ export function createHearthEditor({ element, content, placeholder, uploadUrl, m
       Image,
       Placeholder.configure({ placeholder: placeholder ?? 'Write something…' }),
       Mention.configure({ HTMLAttributes: { class: 'mention' }, suggestion: mentionSuggestion(mentionUrl) }),
+      EmbedNode,
       SlashCommand,
     ],
     content: content ?? { type: 'doc', content: [] },

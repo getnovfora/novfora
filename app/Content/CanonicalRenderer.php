@@ -6,6 +6,8 @@ declare(strict_types=1);
 
 namespace App\Content;
 
+use App\Content\Oembed\EmbedRenderer;
+
 /**
  * Canonical (TipTap/ProseMirror JSON) → safe HTML. The SECURITY BOUNDARY (ADR-0005, Spike-0 criterion #4),
  * ported from the spike and extended to the M2 node set.
@@ -83,6 +85,7 @@ final class CanonicalRenderer
             'text' => $this->text($node),
             'mention' => $this->mention($node),
             'image' => $this->image($node),
+            'embed' => $this->embed($node),
             // Unknown node types: recurse into children so content is never silently lost, but never emit
             // an unknown tag. The sanitizer is the backstop regardless.
             default => $this->nodesToHtml($children),
@@ -165,6 +168,28 @@ final class CanonicalRenderer
         return '<span class="mention">@'.$this->esc((string) $label).'</span>';
     }
 
+    /**
+     * Embed node → a placeholder that SURVIVES the sanitizer (span[class] is allowed), carrying a URL token in
+     * its class + the URL as a no-JS fallback link. The post sanitizer never sees an iframe (so it keeps
+     * stripping raw ones); App\Content\Oembed\EmbedRenderer replaces this placeholder with the trusted embed
+     * AFTER sanitization (amendment #2). Only http(s) URLs become an embed.
+     *
+     * @param  array<string,mixed>  $node
+     */
+    private function embed(array $node): string
+    {
+        $url = trim((string) ($node['attrs']['url'] ?? ''));
+        $scheme = strtolower((string) (parse_url($url, PHP_URL_SCHEME) ?: ''));
+        if (! in_array($scheme, ['http', 'https'], true) || parse_url($url, PHP_URL_HOST) === null) {
+            return ''; // not a fetchable URL → nothing
+        }
+
+        $token = EmbedRenderer::token($url);
+        $safe = $this->esc($url);
+
+        return '<span class="hearth-embed embed-'.$token.'"><a href="'.$safe.'">'.$safe.'</a></span>';
+    }
+
     /** @param array<string,mixed> $node */
     private function image(array $node): string
     {
@@ -225,6 +250,8 @@ final class CanonicalRenderer
                 $out .= (string) ($n['text'] ?? '');
             } elseif ($type === 'mention') {
                 $out .= '@'.(string) ($n['attrs']['label'] ?? '');
+            } elseif ($type === 'embed') {
+                $out .= (string) ($n['attrs']['url'] ?? '');
             } elseif ($type === 'hardBreak') {
                 $out .= "\n";
             }

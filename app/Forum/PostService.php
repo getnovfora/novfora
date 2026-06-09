@@ -11,6 +11,7 @@ use App\AntiSpam\ContentRejectedException;
 use App\AntiSpam\WordFilterService;
 use App\Content\ContentRenderer;
 use App\Content\Mentions;
+use App\Content\Oembed\EmbedRenderer;
 use App\Models\Forum;
 use App\Models\Post;
 use App\Models\PostRevision;
@@ -35,7 +36,21 @@ final class PostService
         private readonly ContentModerator $moderator,
         private readonly WordFilterService $words,
         private readonly Notifier $notifier,
+        private readonly EmbedRenderer $embeds,
     ) {}
+
+    /**
+     * Build a post's display HTML: render → word-filter → inject trusted oEmbed embeds (P2-M1). The embed
+     * injection runs AFTER the sanitizer (inside ContentRenderer) and the word filter, so iframes are never
+     * seen by the sanitizer (it still strips raw ones) and are never word-filtered. A no-op for content
+     * without embed nodes (e.g. markdown).
+     *
+     * @param  array<string,mixed>  $canonical
+     */
+    private function displayHtml(string $renderedHtml, array $canonical): string
+    {
+        return $this->embeds->inject($this->words->applyReplacements($renderedHtml), $canonical);
+    }
 
     /** Create a topic and its opening post atomically. */
     public function createTopic(User $author, Forum $forum, string $title, string $format, array $canonical, ?int $prefixId = null): Topic
@@ -113,7 +128,7 @@ final class PostService
             $post->forceFill([
                 'body_format' => $format,
                 'body_canonical' => $canonical,
-                'body_html_cache' => $this->words->applyReplacements($rendered['html']),
+                'body_html_cache' => $this->displayHtml($rendered['html'], $canonical),
                 'body_text' => $this->words->applyReplacements($rendered['text']),
                 'approved_state' => $verdict->held() ? 'pending' : $post->approved_state,
                 'edited_at' => now(),
@@ -145,7 +160,7 @@ final class PostService
             'user_id' => $author->id,
             'body_format' => $format,
             'body_canonical' => $canonical,
-            'body_html_cache' => $this->words->applyReplacements($rendered['html']),
+            'body_html_cache' => $this->displayHtml($rendered['html'], $canonical),
             'body_text' => $this->words->applyReplacements($rendered['text']),
             'position' => $position,
             'ip_address' => request()->ip(),
@@ -236,7 +251,7 @@ final class PostService
         );
 
         $post->forceFill([
-            'body_html_cache' => $this->words->applyReplacements($rendered['html']),
+            'body_html_cache' => $this->displayHtml($rendered['html'], (array) $post->body_canonical),
             'body_text' => $this->words->applyReplacements($rendered['text']),
         ])->saveQuietly(); // quiet: suppression changes display only — no counter/search churn
     }

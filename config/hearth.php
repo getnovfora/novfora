@@ -23,8 +23,8 @@ $trusted = [
     'attachment.create' => 'allow',  // soft gate at TL0 (no); granted here
     'poll.create' => 'allow',        // soft gate at TL0 (no, deny-by-default); granted from TL1 (P2-M1)
     'tag.create' => 'allow',         // hard-gated at TL0 (never) — a new tag enters the durable site-wide
-                                     // tag namespace; a spam tag pollutes listings globally, independent of
-                                     // the post. Same class of vector as links/images. Granted from TL1.
+    // tag namespace; a spam tag pollutes listings globally, independent of
+    // the post. Same class of vector as links/images. Granted from TL1.
 ];
 
 return [
@@ -48,6 +48,42 @@ return [
             'tl1' => 30,
             'default' => 60,
         ],
+    ],
+
+    // oEmbed / rich embeds (P2-M1). SECURITY: the canonical post stores ONLY the URL (a client never supplies
+    // embed HTML). An ALLOWLISTED provider renders a SINGLE sandboxed <iframe> built by
+    // App\Content\Oembed\EmbedPolicy from a VALIDATED player URL on an allowlisted embed host — NOT through the
+    // post ContentSanitizer, which forbids iframes (amendment #2). A non-allowlisted URL renders a NevoBB
+    // link-card facade, never a provider iframe. Any server fetch (provider metadata) goes through SsrfGuard.
+    // The CSP `frame-src` above lists the SAME embed hosts (defence in depth) — keep the two in sync.
+    'oembed' => [
+        'enabled' => (bool) env('HEARTH_OEMBED', true),
+        // One bounded fetch budget for provider metadata (SsrfGuard-protected). Tier-graceful: any failure
+        // degrades to a facade, never an error.
+        'timeout' => (int) env('HEARTH_OEMBED_TIMEOUT', 5),
+        'connect_timeout' => 3,
+        'max_redirects' => 3,
+        'max_bytes' => 262144, // 256 KB response cap
+        // Providers rendered as a real (sandboxed) embed. Each: a URL pattern capturing the id → the iframe
+        // src template on an ALLOWLISTED embed host. Adding a provider also requires adding its embed host to
+        // the CSP frame-src above.
+        'providers' => [
+            'youtube' => [
+                'pattern' => '~^https?://(?:www\.|m\.)?(?:youtube\.com/(?:watch\?(?:[^#]*&)?v=|embed/|shorts/|live/)|youtu\.be/)([A-Za-z0-9_-]{11})~',
+                'embed' => 'https://www.youtube-nocookie.com/embed/%s',
+                'host' => 'www.youtube-nocookie.com',
+            ],
+            'vimeo' => [
+                'pattern' => '~^https?://(?:www\.)?vimeo\.com/(\d+)~',
+                'embed' => 'https://player.vimeo.com/video/%s',
+                'host' => 'player.vimeo.com',
+            ],
+        ],
+        // The fixed, minimal sandbox + permission policy applied to EVERY embed iframe (EmbedPolicy). No
+        // allow-top-navigation/-forms/-modals, so a (trusted, allowlisted) provider still cannot reach out to
+        // the parent page.
+        'sandbox' => 'allow-scripts allow-same-origin allow-popups allow-presentation',
+        'allow' => 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen',
     ],
 
     'antispam' => [
@@ -337,6 +373,9 @@ return [
                 "font-src 'self' data:",
                 "connect-src 'self'",
                 "media-src 'self' https:",
+                // oEmbed (P2-M1): the allowlisted embed hosts — the SAME set as config('hearth.oembed.providers')
+                // (defence in depth, so even a stray iframe to another host is blocked by CSP). Keep in sync.
+                "frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com",
                 "object-src 'none'",
                 "base-uri 'self'",
                 "form-action 'self'",
@@ -361,6 +400,9 @@ return [
                 "font-src 'self' data:",
                 "connect-src 'self'",
                 "media-src 'self' https:",
+                // oEmbed (P2-M1): the allowlisted embed hosts — the SAME set as config('hearth.oembed.providers')
+                // (defence in depth, so even a stray iframe to another host is blocked by CSP). Keep in sync.
+                "frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com",
                 "object-src 'none'",
                 "base-uri 'self'",
                 "form-action 'self'",

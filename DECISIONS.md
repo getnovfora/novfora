@@ -398,3 +398,24 @@ preset; the author always sees their own).
 present (RH-9 per-(topic,version) count caches + batched per-viewer lookups + zero poll queries for poll-less
 topics) — no ceiling change, no ADR needed. Prefix/tag listings are eager-loaded (no N+1; a warmed board with
 15 prefixed/tagged topics stays well under budget).
+
+**oEmbed — provider allowlist, the dedicated embed policy & SSRF (amendment #2 + security §3).** A post stores
+the URL ONLY; a client never supplies embed HTML.
+- **Provider allowlist** (`config('hearth.oembed.providers')`): `youtube` and `vimeo`. Each is a host-anchored
+  regex capturing the id → a constructed iframe `src` on an **allowlisted embed host**
+  (`www.youtube-nocookie.com`, `player.vimeo.com`). The provider's own returned HTML is never used.
+- **Dedicated embed policy** (`App\Content\Oembed\EmbedPolicy`, SEPARATE from the post `ContentSanitizer`,
+  which keeps forbidding iframes): an allowlisted match → ONE `<iframe>` with a fixed
+  `sandbox="allow-scripts allow-same-origin allow-popups allow-presentation"` (no allow-top-navigation/-forms/
+  -modals) + a minimal `allow`, `loading=lazy`, `referrerpolicy=strict-origin-when-cross-origin`; the src is
+  escaped and pinned to the allowlisted host. A non-allowlisted (or failed) URL → a **NevoBB link-card facade**
+  (a safe `http(s)` link, never a provider iframe). The CSP `frame-src` lists the SAME embed hosts (defence in
+  depth — keep in sync with the provider allowlist).
+- **Render path**: the canonical `embed` node renders to a sanitizer-surviving placeholder span (class carries
+  `sha256(url)` token); `EmbedRenderer::inject` swaps it for the trusted HTML AFTER sanitization, into
+  `body_html_cache`. The post sanitizer never sees an iframe.
+- **SsrfGuard** (the only server-fetch path — a best-effort provider title): https-only; resolves every A/AAAA
+  and blocks if ANY address is private/loopback/link-local/reserved/CGNAT/IPv4-mapped-private/IPv6-ULA;
+  re-validates EVERY redirect hop; pins host→a validated IP (CURLOPT_RESOLVE) against DNS rebinding; caps
+  redirects, timeout and response size; fails CLOSED (→ facade) on any error. Resolution cached in
+  `oembed_cache` (sha256(url) → trusted HTML, 7-day TTL). New dependency: none.
