@@ -18,6 +18,7 @@ use App\Http\Controllers\ProfileFieldController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\TagController;
 use App\Http\Controllers\TopicController;
 use App\Http\Controllers\UnsubscribeController;
 use App\Http\Controllers\WarningController;
@@ -51,6 +52,10 @@ Route::get('/forums', [ForumController::class, 'index'])->name('forums.index');
 Route::get('/forums/{forum}', [ForumController::class, 'show'])->name('forums.show');
 Route::get('/topics/{topic}', [TopicController::class, 'show'])->name('topics.show');
 Route::get('/attachments/{attachment}', [AttachmentController::class, 'show'])->name('attachments.show');
+
+// Tags (P2-M1) — public: all tags + topics carrying a tag (filtered by forum.view).
+Route::get('/tags', [TagController::class, 'index'])->name('tags.index');
+Route::get('/tags/{tag:slug}', [TagController::class, 'show'])->name('tags.show');
 
 // Search (ADR-0010) — public; results filtered to forums the viewer can see.
 Route::get('/search', [SearchController::class, 'index'])->name('search.index');

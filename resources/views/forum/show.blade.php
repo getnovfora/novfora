@@ -81,9 +81,12 @@
                                     <div class="flex items-start gap-2.5">
                                         <x-ui.avatar :user="$topic->author" size="sm" class="mt-0.5 hidden shrink-0 lg:inline-flex" />
                                         <div class="min-w-0">
-                                            @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix)
+                                            @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix || $topic->tags->isNotEmpty())
                                                 <div class="mb-0.5 flex flex-wrap items-center gap-1.5">
                                                     <x-forum.prefix-badge :prefix="$topic->prefix" />
+                                                    @foreach ($topic->tags as $tag)
+                                                        <x-forum.tag-chip :tag="$tag" />
+                                                    @endforeach
                                                     @if ($topic->is_pinned)
                                                         <x-ui.badge variant="accent"><x-ui.icon name="pin" class="h-3 w-3" /> Pinned</x-ui.badge>
                                                     @endif
@@ -125,9 +128,12 @@
                     @foreach ($topics as $topic)
                         @php($lastPage = max(1, (int) ceil(($topic->reply_count + 1) / 15)))
                         <div class="p-4 hover:bg-surface-sunken">
-                            @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix)
+                            @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix || $topic->tags->isNotEmpty())
                                 <div class="mb-0.5 flex flex-wrap items-center gap-1.5">
                                     <x-forum.prefix-badge :prefix="$topic->prefix" />
+                                    @foreach ($topic->tags as $tag)
+                                        <x-forum.tag-chip :tag="$tag" />
+                                    @endforeach
                                     @if ($topic->is_pinned)
                                         <x-ui.badge variant="accent"><x-ui.icon name="pin" class="h-3 w-3" /> Pinned</x-ui.badge>
                                     @endif

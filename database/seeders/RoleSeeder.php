@@ -31,8 +31,9 @@ class RoleSeeder extends Seeder
             'post.edit.own' => $allow,
             'post.delete.own' => $allow,
             'attachment.create' => $allow,
-            'react.create' => $allow, // reacting is ungated participation; abuse handled by ReactionRateLimiter
-            'poll.vote' => $allow,    // voting is ungated participation
+            'react.create' => $allow,  // reacting is ungated participation; abuse handled by ReactionRateLimiter
+            'poll.vote' => $allow,     // voting is ungated participation
+            'tag.apply' => $allow,     // applying an EXISTING tag is ungated participation; mint is separately gated
         ];
 
         $moderator = $member + [
@@ -49,6 +50,10 @@ class RoleSeeder extends Seeder
             // Staff create polls regardless of trust level (poll.create is withheld from the base member
             // preset and granted progressively from TL1 — see config/hearth.php trust_gates).
             'poll.create' => $allow,
+            // Staff can mint new tags regardless of trust level (tag.create is withheld from the base member
+            // preset and granted progressively from TL1 — see config/hearth.php trust_gates). tag.apply is
+            // already inherited from the member preset.
+            'tag.create' => $allow,
         ];
 
         $administrator = $moderator + [

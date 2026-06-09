@@ -22,6 +22,9 @@ $trusted = [
     'pm.send' => 'allow',            // PMs are a Phase 2 feature; this is the gate seam
     'attachment.create' => 'allow',  // soft gate at TL0 (no); granted here
     'poll.create' => 'allow',        // soft gate at TL0 (no, deny-by-default); granted from TL1 (P2-M1)
+    'tag.create' => 'allow',         // hard-gated at TL0 (never) — a new tag enters the durable site-wide
+                                     // tag namespace; a spam tag pollutes listings globally, independent of
+                                     // the post. Same class of vector as links/images. Granted from TL1.
 ];
 
 return [
@@ -64,6 +67,11 @@ return [
                 // true spam vectors". Withheld from the member preset → TL0 denied-by-default here; granted
                 // from TL1 via $trusted; an admin may still lift it for TL0 in a controlled community.
                 'poll.create' => 'no',
+                // tag.create: HARD NEVER — a brand-new tag enters the durable global tag namespace and appears
+                // on site-wide listing pages (tags/index, tags/{slug}) independently of any single post. A spam
+                // tag therefore pollutes the whole community, not just one topic. Same vector class as links and
+                // images. The hard NEVER means an admin ALLOW grant cannot lift it for TL0 (NEVER is absolute).
+                'tag.create' => 'never',
             ],
             'tl1' => $trusted,
             'tl2' => $trusted,

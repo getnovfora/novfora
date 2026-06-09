@@ -48,6 +48,12 @@ class PermissionCatalogSeeder extends Seeder
             'post.edit.any' => ['Edit any post', 'forum', 'Moderation', 'Edit posts by any author.'],
             'post.delete.any' => ['Delete any post', 'forum', 'Moderation', 'Delete posts by any author.'],
             'topic.moderate' => ['Moderate topics', 'forum', 'Moderation', 'Lock, pin, or move topics.'],
+
+            // Tags (P2-M1, ADR-0007 §2.3)
+            // tag.apply: ungated participation — a member can attach an existing tag to their topic.
+            // tag.create: durable site-wide namespace write — hard-gated at TL0 like links/images.
+            'tag.apply' => ['Apply tags to topics', 'forum', 'Posting', 'Attach an existing tag to a topic. Ungated participation; abuse handled by tag.create gating.'],
+            'tag.create' => ['Create new tags', 'global', 'Posting', 'Mint a brand-new tag. Hard anti-spam gate: a new tag enters the durable site-wide namespace, so TL0 can never mint tags (NEVER); earned at TL1. Admins can lift tag.apply per-forum but cannot lift this NEVER for TL0.'],
         ];
     }
 

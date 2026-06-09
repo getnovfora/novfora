@@ -25,9 +25,9 @@ class TopicController extends Controller
 
         Topic::whereKey($topic->getKey())->increment('view_count'); // quiet: no model events
 
-        // The view reads the topic's parent forum (breadcrumbs), author (JSON-LD), and prefix (badge);
+        // The view reads the topic's parent forum (breadcrumbs), author (JSON-LD), prefix (badge), and tags;
         // load them once here so none lazy-loads at render time.
-        $topic->loadMissing(['forum', 'author', 'prefix']);
+        $topic->loadMissing(['forum', 'author', 'prefix', 'tags']);
 
         $user = $request->user();
 

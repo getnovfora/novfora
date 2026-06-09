@@ -11,6 +11,7 @@ use App\Permissions\Scope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Topic extends Model
@@ -80,6 +81,12 @@ class Topic extends Model
     public function prefix(): BelongsTo
     {
         return $this->belongsTo(Prefix::class);
+    }
+
+    /** @return MorphToMany<Tag, $this> the topic's tags via the polymorphic taggables pivot */
+    public function tags(): MorphToMany
+    {
+        return $this->morphToMany(Tag::class, 'taggable');
     }
 
     public function permissionScope(): Scope

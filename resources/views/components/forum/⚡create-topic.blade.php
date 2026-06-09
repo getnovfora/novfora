@@ -4,9 +4,12 @@ use App\AntiSpam\ContentRejectedException;
 use App\AntiSpam\PostRateLimiter;
 use App\Forum\PollService;
 use App\Forum\PostService;
+use App\Forum\TagService;
 use App\Models\Forum;
 use App\Models\Prefix;
+use App\Models\Tag;
 use App\Models\User;
+use App\Permissions\Scope;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 
@@ -31,6 +34,19 @@ new class extends Component
     #[Locked]
     public bool $canCreatePoll = false;
 
+    // Tag composition (P2-M1). $canApplyTags gates visibility of the tag input; $canCreateTags gates
+    // minting. Both are #[Locked] so the client cannot toggle the permission flags.
+    #[Locked]
+    public bool $canApplyTags = false;
+
+    #[Locked]
+    public bool $canCreateTags = false;
+
+    /** @var list<string> tag names typed/selected by the user */
+    public array $tags = [];
+
+    public string $tagInput = '';
+
     public bool $addPoll = false;
 
     public string $pollQuestion = '';
@@ -47,6 +63,8 @@ new class extends Component
         $this->forumId = $forumId;
         $this->ensureCanCreate();
         $this->canCreatePoll = auth()->user()?->canDo('poll.create', $this->forum()->permissionScope()) ?? false;
+        $this->canApplyTags = auth()->user()?->canDo('tag.apply', $this->forum()->permissionScope()) ?? false;
+        $this->canCreateTags = auth()->user()?->canDo('tag.create', Scope::global()) ?? false;
     }
 
     public function addPollOption(): void
@@ -65,12 +83,48 @@ new class extends Component
         }
     }
 
+    /** Add a tag name from the text input (called on Enter / comma). */
+    public function addTag(): void
+    {
+        $name = trim($this->tagInput);
+        if ($name !== '' && ! in_array($name, $this->tags, true) && count($this->tags) < 10) {
+            $this->tags[] = $name;
+        }
+        $this->tagInput = '';
+    }
+
+    public function removeTag(int $index): void
+    {
+        unset($this->tags[$index]);
+        $this->tags = array_values($this->tags);
+    }
+
+    /**
+     * Autocomplete suggestions: tags whose name contains the query (case-insensitive), up to 8.
+     *
+     * @return list<array{id:int,name:string,slug:string}>
+     */
+    public function tagSuggestions(): array
+    {
+        $q = trim($this->tagInput);
+        if ($q === '' || mb_strlen($q) < 2) {
+            return [];
+        }
+
+        return Tag::where('name', 'like', '%'.addcslashes($q, '%_').'%')
+            ->orderByDesc('usage_count')
+            ->limit(8)
+            ->get(['id', 'name', 'slug'])
+            ->map(fn (Tag $t): array => ['id' => (int) $t->id, 'name' => (string) $t->name, 'slug' => (string) $t->slug])
+            ->all();
+    }
+
     public function toggleFormat(): void
     {
         $this->format = $this->format === 'markdown' ? 'tiptap_json' : 'markdown';
     }
 
-    public function save(PostService $service, PostRateLimiter $limiter, PollService $polls)
+    public function save(PostService $service, PostRateLimiter $limiter, PollService $polls, TagService $tags)
     {
         $this->ensureCanCreate();
         $this->validate(['title' => ['required', 'string', 'min:3', 'max:160']]);
@@ -123,6 +177,36 @@ new class extends Component
                 $polls->createPoll(auth()->user(), $topic, $this->pollQuestion, $pollOptions, $this->pollMultiple, $this->pollMaxChoices);
             } catch (ContentRejectedException|InvalidArgumentException) {
                 // poll dropped; topic stands
+            }
+        }
+
+        // Tags — re-assert both perms server-side (never trust the #[Locked] mount flags alone for a write).
+        // Split submitted names into EXISTING (by slug) vs NEW (not yet in the namespace):
+        //   • EXISTING: applied if the user holds tag.apply at this forum.
+        //   • NEW: minted + applied only if the user ALSO holds tag.create at global scope (hard NEVER for TL0).
+        //   • Unknown names from a user without tag.create are silently dropped — not an error.
+        if ($this->tags !== [] && (auth()->user()?->canDo('tag.apply', $this->forum()->permissionScope()) ?? false)) {
+            $canCreate = auth()->user()?->canDo('tag.create', Scope::global()) ?? false;
+
+            $existingBySlug = $tags->existing($this->tags)->keyBy('slug');
+            $tagIds = [];
+
+            foreach ($this->tags as $name) {
+                $slug = $tags->slugFor($tags->normalizeName($name));
+                if ($existingBySlug->has($slug)) {
+                    $tagIds[] = (int) $existingBySlug->get($slug)->id;
+                } elseif ($canCreate) {
+                    try {
+                        $tagIds[] = (int) $tags->create($name)->id;
+                    } catch (\App\Forum\TagException) {
+                        // malformed name — skip
+                    }
+                }
+                // else: new name + no mint permission → silently dropped
+            }
+
+            if ($tagIds !== []) {
+                $tags->syncTopicTags($topic, array_values(array_unique($tagIds)));
             }
         }
 
@@ -251,6 +335,71 @@ new class extends Component
                         <x-ui.input type="number" label="Maximum choices (optional)" name="pollMaxChoices" wire:model="pollMaxChoices" min="1" dusk="poll-max-choices" />
                     @endif
                 </div>
+            @endif
+        </div>
+    @endif
+
+    @if ($canApplyTags)
+        <div class="space-y-2" dusk="create-tags-block">
+            <label class="block text-sm font-medium text-ink">
+                Tags <span class="text-ink-subtle font-normal">(optional)</span>
+            </label>
+
+            {{-- Current tag chips --}}
+            @if (! empty($tags))
+                <div class="flex flex-wrap gap-1.5">
+                    @foreach ($tags as $i => $tagName)
+                        <span class="inline-flex items-center gap-1 rounded-full border border-line bg-surface-sunken px-2.5 py-0.5 text-xs font-medium text-ink-muted"
+                              dusk="tag-chip-{{ $i }}">
+                            {{ $tagName }}
+                            <button type="button" wire:click="removeTag({{ $i }})"
+                                    class="ml-0.5 rounded-full hover:text-danger focus:outline-none"
+                                    aria-label="Remove tag {{ $tagName }}"
+                                    dusk="remove-tag-{{ $i }}">×</button>
+                        </span>
+                    @endforeach
+                </div>
+            @endif
+
+            {{-- Tag autocomplete input --}}
+            <div class="relative" x-data="{ open: false }">
+                <input type="text"
+                       wire:model.live.debounce.200ms="tagInput"
+                       wire:keydown.enter.prevent="addTag"
+                       wire:keydown.comma.prevent="addTag"
+                       placeholder="Type a tag and press Enter…"
+                       autocomplete="off"
+                       dusk="tag-input"
+                       @focus="open = true"
+                       @blur="setTimeout(() => open = false, 150)"
+                       class="w-full min-h-10 px-3 rounded-md bg-surface-raised text-ink border border-line focus:border-accent text-sm">
+
+                @php($suggestions = $this->tagSuggestions())
+                @if (! empty($suggestions))
+                    <ul x-show="open"
+                        class="absolute z-10 mt-1 w-full rounded-md border border-line bg-surface-raised shadow-md text-sm"
+                        dusk="tag-suggestions">
+                        @foreach ($suggestions as $sug)
+                            <li>
+                                <button type="button"
+                                        wire:click="$set('tagInput', '{{ addslashes($sug['name']) }}')"
+                                        @mousedown.prevent
+                                        @click="$wire.call('addTag'); open = false"
+                                        dusk="tag-suggestion-{{ $loop->index }}"
+                                        class="block w-full px-3 py-2 text-left hover:bg-surface-sunken text-ink">
+                                    {{ $sug['name'] }}
+                                    <span class="ml-1 text-xs text-ink-subtle nums">{{ $sug['name'] !== '' ? '' : '' }}</span>
+                                </button>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </div>
+
+            @if ($canCreateTags)
+                <p class="text-xs text-ink-subtle">Enter existing or new tags. New tags will be created in the global namespace.</p>
+            @else
+                <p class="text-xs text-ink-subtle">You can apply existing tags. Typing an unknown tag name will have no effect.</p>
             @endif
         </div>
     @endif
