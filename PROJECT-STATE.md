@@ -30,13 +30,15 @@ PostgreSQL on Docker/VPS. Vite, prebuilt assets (no host Node). Approved — ADR
 - **Two stages, gated:** Stage A (Discovery) → Phase 0 gate **passed** → Stage B phased implementation
   (plan-before-code, wait for approval per phase).
 
-## Status (as of 2026-06-08)
+## Status (as of 2026-06-09)
 
 > **▶ Phase 1 / Core MVP COMPLETE · Phase 1.5 Hardening COMPLETE · RH-6–RH-11 FIXED · Default theme MERGED ·
-> ACP v1 + v1.1 MERGED · Spike P2 deliverability → GO (PR #8 merged) · ACP v2 MERGED (PR #9).**
+> ACP v1 + v1.1 MERGED · Spike P2 deliverability → GO (PR #8 merged) · ACP v2 MERGED (PR #9) ·
+> ▶ P2-M1 ENGAGEMENT & CONTENT DEPTH — BUILT, all gates green, pushed (7 slices, awaiting PR review).**
 
 **`main` carries:** M0–M5, P1.5 hardening, real-host fixes RH-6–RH-11, default theme + theme polish R1,
 ACP v1 + v1.1 patch, Spike P2 deliverability pipeline (dormant), NevoBB rename (ADR-0024), **ACP v2**.
+**Pushed, not yet on main:** P2-M1 (7 stacked feature branches `claude/p2-m1-*`).
 
 **ACP v2 — MERGED to main (PR #9, commit `30bc466`):**
 Pint PASS (361 files) · Larastan level-5 clean · **Pest 518 passed / 1 skipped (1930 assertions)** ·
@@ -52,20 +54,49 @@ audit gap. Dusk journey + coloured-group screenshots wired into `AdminJourneyTes
   `<x-ui.user-name>` component at 11 name sites, `.groups` eager-loaded everywhere.
 - Schema: only `groups.description` new; reused pre-existing `groups.color` M1 seam. Reversible.
 
+**P2-M1 — Engagement & content depth (BUILT 2026-06-09, 7 stacked branches off `main`, awaiting PR review):**
+Pint PASS (417 files) · Larastan L5 clean · **Pest 701 passed / 1 skipped (2309 assertions)** ·
+`composer audit` + `npm audit` clean · CSS 9.08 KB gz (budget 50) · assets-fresh (no drift) · query budgets
+hold (thread ≤30 with reactions **and** a poll; index/board ≤15/≤25). Each slice security/integrity-reviewed
+(reactions, polls, **oEmbed** via dedicated adversarial-review workflows). 7 PR slices, stack order:
+1. `claude/p2-m1-reactions` — single-choice typed reactions; `post_reaction_counts` (authoritative recount);
+   RH-9 version-keyed page cache; `react.create` (member, ungated, rate-limited); `Reacted` event seam.
+2. `claude/p2-m1-polls` — polls/options/votes; **locked-poll-row vote integrity** (amendment #5); `poll.create`
+   soft-TL-gated, `poll.vote` ungated; `⚡poll` + create-topic block; RH-9 result cache.
+3. `claude/p2-m1-prefixes` — ACP CRUD (mirror `⚡groups`); `prefix.manage` (admin); AA-token badges; board filter.
+4. `claude/p2-m1-tags` — tags + polymorphic taggables; `tag.create` **hard NEVER at TL0** (durable namespace),
+   `tag.apply` ungated; usage_count authoritative; tag listing + chips.
+5. `claude/p2-m1-drafts` — `post_drafts` own-only; debounced `$wire.saveDraft` (Spike #3), closure-local editor
+   (Spike #1); DB-backed restore-on-mount.
+6. `claude/p2-m1-edit-history` — format-aware diff (amendment #3; NOT body_text) + dependency-free LCS;
+   `post.history.view` (author+staff); `⚡post-history` modal.
+7. `claude/p2-m1-oembed` (⚙) — `SsrfGuard` (DNS-resolve + block private/6to4/NAT64/mapped, redirect-revalidate,
+   IP-pin, caps, fail-closed) + dedicated sandboxed-iframe `EmbedPolicy` (allowlist) / link-card facade,
+   injected post-sanitization; `oembed_cache`; CSP frame-src. The integration tip carries `.env.example`,
+   this PROJECT-STATE update, and a one-line fix to slice 6's modal (FQ `Carbon` — caught by the integrated suite).
+**DECISIONS.md** records the diff source/extraction, the oEmbed allowlist+sandbox policy, and the
+NEVER/trust-gate reasoning per new key (budget held → no ceiling-change ADR needed).
+**Carried forward to M2 (NOT in this packet):** the §6 account-deletion/privacy-cascade ADR (reactions/poll-
+votes/tags hard-delete with their owner; the cascade is owner-confirmable before PMs land) and the Dusk
+browser-journey screenshots for react/poll/prefix/tag/draft (wired into the dusk harness; run in CI).
+
 ## Immediate next actions
 
-1. **Phase 2 — APPROVED, ready to build (owner, 2026-06-09).** Build source is
-   [`docs/product/phase-2-implementation-plan.md`](docs/product/phase-2-implementation-plan.md) (engineering
-   companion to the approved [`phase-2-plan.md`](docs/product/phase-2-plan.md); 8 review amendments folded in
-   — see its §0). **Kickoff scope (greenlit):** P2-M1 engagement core + deliverability light-up (M2 Half-A) +
-   multi-participant PMs (M2 Half-B); **Should-tier social HELD as the descope lever** (follow, reputation,
-   badges, staff notes, 2nd theme). This **supersedes the product-plan §8 "wait for private-beta-live" gate**
-   — deliberate owner override, recorded. **Executed by Claude Code (Opus) when session limits reset.**
-   - **Build order:** deliverability light-up → M1 content (7 PR slices) → PMs.
-   - **Blocking ADR before PMs land:** account-deletion / privacy cascade for co-owned PII (impl-plan §6).
-   - **Record in `DECISIONS.md` during M1:** edit-history diff source (#3), oEmbed embed-host allowlist +
-     sandbox policy (#2), any query-budget ceiling change (#6).
-2. **Design-first items still queued (do not build without a plan):**
+1. **P2-M1 — BUILT (2026-06-09), awaiting PR review/merge.** 7 stacked branches `claude/p2-m1-*` (reactions →
+   polls → prefixes → tags → drafts → edit-history → oembed); the oembed tip is the integrated, all-gates-green
+   state. Merge in stack order (each lands runnable + tested). Build source remains
+   [`docs/product/phase-2-implementation-plan.md`](docs/product/phase-2-implementation-plan.md).
+2. **Next in the greenlit kickoff scope (own packets, not yet built):**
+   - **Deliverability light-up (M2 Half-A)** — code merged + dormant; wire `Notifier→DigestQueue`,
+     `SuppressionGate` dedupe, new event types (incl. `reaction`, which already EMITS the `Reacted` event seam),
+     prefs UI, memo follow-ups. Parallel-safe with M1.
+   - **Multi-participant PMs (M2 Half-B)** — **BLOCKED on the §6 account-deletion / privacy-cascade ADR**
+     (decide first; P2-M1 already hard-deletes reactions/poll-votes/tags with their owner per that intended
+     default — confirm + add forced-cascade tests when PMs land).
+   - **Dusk browser-journey screenshots** for react/poll/prefix/tag/draft — wired into the dusk harness; finish
+     in the harness/CI.
+   - **Should-tier social HELD** as the descope lever (follow, reputation/points, badges, staff notes, 2nd theme).
+3. **Design-first items still queued (do not build without a plan):**
    - RH-4: subdirectory install (ADR needed)
    - Layman "simple-mode" permissions UX (ACP v3, separate cycle)
    - In-code Hearth→NevoBB rename (one reviewed change per ADR-0024; do not rename ad-hoc)

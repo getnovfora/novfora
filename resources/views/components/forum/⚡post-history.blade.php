@@ -104,7 +104,7 @@ new class extends Component
                                 <span>by <span class="font-medium text-ink">{{ $edit['editor'] }}</span></span>
                             @endif
                             @if ($edit['at'])
-                                <span>&middot; {{ Carbon::parse($edit['at'])->diffForHumans() }}</span>
+                                <span>&middot; {{ \Illuminate\Support\Carbon::parse($edit['at'])->diffForHumans() }}</span>
                             @endif
                             @if ($edit['reason'])
                                 <span>&middot; <span class="italic">{{ $edit['reason'] }}</span></span>
