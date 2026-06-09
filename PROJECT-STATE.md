@@ -777,6 +777,44 @@ clean-room**.
 > (incl. the new `tests/Feature/Deliverability/*`) + Pint + Larastan + `composer/npm audit` green; merge.** The
 > GO memo unblocks P2-M2's digest/bounce work (which flips `HEARTH_DELIVERABILITY=true` + wires the notification
 > path through `DigestQueue::enqueue()`); the rest of **P2-M1 proceeds in parallel** and does not wait on this.
+>
+> **Update 2026-06-09 (ACP v2 — member-group manager + staff/group colours — Code):** built the two
+> first-beta-operator-flagged gaps per [`acp-v2-groups-kickoff.md`](docs/product/acp-v2-groups-kickoff.md):
+> **no UI to manage member groups/permissions**, and **no staff/group name colours**. Branch
+> **`claude/acp-v2-groups`** off `main` (post-spike-merge). **No new dependencies. No new permission
+> semantics** — permission-adjacent, so reviewed hard. **Self-verified GREEN in Docker `hearth-dev`** (this box
+> has no host PHP toolchain): **Pint `--test` (361 files) · Larastan level-5 clean · Pest 518 passed / 1 skipped
+> (1930 assertions) · `composer audit` + `npm audit` clean · CSS 8.54 KB gz** (budget 50, rebuilt node 20).
+> - **PART 1 — group manager (Admin → Members → Groups):** all domain logic in `App\Admin\GroupManager` (the
+>   `⚡groups` SFC is UI + self-guard, mirroring `⚡structure`). **System-group protection** (Guests/Members/
+>   trust/staff: label+colour+description editable, never delete/re-type/re-slug/re-priority/re-role). **Binding
+>   delete-safety** (a non-empty custom group deletes only by REASSIGNING members first; removes its acl_entries
+>   + role assignments). **Membership boundary** (manual add/remove for custom + staff only; trust groups are
+>   engine-managed, Guests/Members are base — all refuse hand-editing). **Permissions THROUGH the engine** — a
+>   group's permissions come from assigning a Role preset (`RoleExpander` → `acl_entries`, the only thing the
+>   resolver reads); links to the existing inspector. Every change audited + `admin.access`+2FA self-guarded; the
+>   page auto-joins the ACP authz-walk + admin-render mirror.
+> - **PART 2 — staff/group name colours:** a fixed **AA-safe `GroupColor` palette** → `--group-*` CSS tokens
+>   (light + both dark blocks), a contrast test enforcing ≥4.5:1 on every surface in both modes. **Resolution
+>   rule:** the highest-`priority` *coloured* group wins (ties by id), else `--ink` (`User::displayGroup()/
+>   nameColor()`). One `<x-ui.user-name>` component renders the colour at **11 name sites** (posts, board/topic
+>   last-post, user menu, profile, home, moderation, dashboard, audit) with `.groups` eager-loaded to avoid N+1;
+>   uncoloured names are byte-identical to before (no markup/Dusk break). Schema: only `groups.description` is new
+>   (`groups.color` pre-existed as an M1 seam) — reversible.
+> - **Method:** STEP-0 deep read of the permission engine + an Explore-agent map of every name-render site, then
+>   an **18-agent adversarial security review** (5 lenses × per-finding verification): **13 findings → 6 refuted
+>   → 4 distinct fixed** — **HIGH** delete-with-reassign bypassed the membership boundary (could stuff users into
+>   trust/base groups) → guarded + UI-filtered; **MEDIUM** custom priority cap 99 could out-rank Moderators (80)
+>   and defeat the F-F rank guard → capped at **79**; **MEDIUM** four light palette hexes failed AA on the sunken
+>   surface → darkened + a contrast test; **MEDIUM** `setRole()` permission changes weren't audited → now logs
+>   `group.role.assigned` from/to. Each fix has a regression test.
+> - **Dusk + screenshots + release bundle = the CI / Docker-Dusk step** (this box's browser harness is
+>   unreliable, as in every prior pass): the `AdminJourneyTest` Dusk journey + screenshot set is EXTENDED (create
+>   a coloured group; capture the groups page + a coloured post, light/dark × desktop/mobile) so the CI Dusk job
+>   produces them; the `hearth-release.zip` rebuild + sha256 is the post-merge Docker/human step (it is gitignored).
+> **NEXT (human): push `claude/acp-v2-groups` + open the PR (no `gh` here); CI runs the full suite + Pint/Larastan/
+> audit + the Dusk groups journey + screenshots; merge.** The layman "simple-mode" permissions UX stays a separate
+> design-first cycle (kickoff §After).
 
 1. **Reconcile the stack sign-off:** update `CLAUDE.md` and the brief to **13 / 4 / 8.3**; mark
    **ADR-0001/0002 Accepted** (drop "flagged for sign-off"); **apply the two polish items** (2FA row,
