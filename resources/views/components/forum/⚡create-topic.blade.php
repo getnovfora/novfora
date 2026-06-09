@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 use App\AntiSpam\ContentRejectedException;
 use App\AntiSpam\PostRateLimiter;
+use App\Forum\Concerns\ManagesDrafts;
 use App\Forum\PollService;
 use App\Forum\PostService;
+use App\Forum\TagException;
 use App\Forum\TagService;
 use App\Models\Forum;
 use App\Models\Prefix;
@@ -15,6 +17,8 @@ use Livewire\Component;
 
 new class extends Component
 {
+    use ManagesDrafts;
+
     #[Locked]
     public int $forumId;
 
@@ -65,6 +69,13 @@ new class extends Component
         $this->canCreatePoll = auth()->user()?->canDo('poll.create', $this->forum()->permissionScope()) ?? false;
         $this->canApplyTags = auth()->user()?->canDo('tag.apply', $this->forum()->permissionScope()) ?? false;
         $this->canCreateTags = auth()->user()?->canDo('tag.create', Scope::global()) ?? false;
+        $this->restoreDraft(); // restore any autosaved new-topic draft for this forum (own-only)
+    }
+
+    /** @return array{0:string,1:int} */
+    protected function draftContext(): array
+    {
+        return ['topic', $this->forumId];
     }
 
     public function addPollOption(): void
@@ -198,7 +209,7 @@ new class extends Component
                 } elseif ($canCreate) {
                     try {
                         $tagIds[] = (int) $tags->create($name)->id;
-                    } catch (\App\Forum\TagException) {
+                    } catch (TagException) {
                         // malformed name — skip
                     }
                 }
@@ -209,6 +220,8 @@ new class extends Component
                 $tags->syncTopicTags($topic, array_values(array_unique($tagIds)));
             }
         }
+
+        $this->discardDraft(); // published — drop the autosaved draft
 
         return $this->redirectRoute('topics.show', $topic, navigate: true);
     }
@@ -295,7 +308,7 @@ new class extends Component
         <textarea wire:model="markdownSource" rows="12" placeholder="Write Markdown…"
                   class="w-full px-3 py-2 rounded-md bg-surface-raised text-ink border border-line focus:border-accent font-mono text-sm"></textarea>
     @else
-        <x-content-editor model="canonicalJson" :initial="$canonicalJson"
+        <x-content-editor model="canonicalJson" :initial="$canonicalJson" draft
                           :upload-url="route('attachments.store')" :mention-url="route('mentions')" />
     @endif
     @error('body') <p class="text-xs text-danger">{{ $message }}</p> @enderror
@@ -404,7 +417,13 @@ new class extends Component
         </div>
     @endif
 
-    <div>
+    <div class="flex items-center gap-3">
         <x-ui.button type="submit" size="lg">Post topic</x-ui.button>
+        @if ($draftRestored)
+            <span class="text-xs text-ink-subtle" dusk="topic-draft-restored">
+                Draft restored ·
+                <button type="button" wire:click="discardDraft" class="text-accent hover:underline" dusk="topic-draft-discard">Discard</button>
+            </span>
+        @endif
     </div>
 </form>

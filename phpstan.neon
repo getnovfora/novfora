@@ -8,3 +8,10 @@ parameters:
     # Single-process: parallel workers OOM in small CI containers (exit 255). app/ is small, so this is fine.
     parallel:
         maximumNumberOfProcesses: 1
+    ignoreErrors:
+        # ManagesDrafts is used by the Livewire single-file blade components (reply-composer, create-topic),
+        # which phpstan does not analyse (they are .blade.php with a template body, not pure PHP under app/).
+        # The trait IS used — this only silences the can't-see-blade false positive.
+        -
+            identifier: trait.unused
+            path: app/Forum/Concerns/ManagesDrafts.php

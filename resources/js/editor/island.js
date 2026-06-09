@@ -13,6 +13,7 @@ document.addEventListener('alpine:init', () => {
   window.Alpine.data('hearthEditor', (config = {}) => {
     let editor = null
     let api = null
+    let draftTimer = null
     return {
       async init() {
         api = await import('./hearth-editor') // <-- lazy chunk (TipTap + extensions)
@@ -22,9 +23,19 @@ document.addEventListener('alpine:init', () => {
           placeholder: config.placeholder ?? 'Write something…',
           uploadUrl: config.uploadUrl ?? null,
           mentionUrl: config.mentionUrl ?? null,
-          // Deferred set (3rd arg false) is JS-only — no network — so no debounce; the latest value rides
-          // the next real Livewire request (SPIKE FINDING #3).
-          onUpdate: (json) => { this.$wire?.set(config.model ?? 'canonicalJson', json, false) },
+          onUpdate: (json) => {
+            // Deferred set (3rd arg false) is JS-only — no network — so it is NEVER debounced; the latest
+            // value always rides the next real Livewire request (SPIKE FINDING #3). Do not move this.
+            this.$wire?.set(config.model ?? 'canonicalJson', json, false)
+
+            // P2-M1 drafts: ONLY the network autosave is debounced. The deferred set above already keeps the
+            // host property current, so debouncing the save can never lose the doc on publish. Opt-in via
+            // `draft: true` (the host wires a saveDraft action); a no-op otherwise.
+            if (config.draft) {
+              clearTimeout(draftTimer)
+              draftTimer = setTimeout(() => { this.$wire?.saveDraft(json) }, config.draftDebounce ?? 1500)
+            }
+          },
         })
       },
       // Toolbar buttons call this; chained focus keeps the selection (no mismatched-transaction risk
@@ -39,6 +50,7 @@ document.addEventListener('alpine:init', () => {
         if (file && editor) await api?.uploadAndInsert(editor, file, config.uploadUrl)
       },
       destroy() {
+        clearTimeout(draftTimer)
         editor?.destroy()
         editor = null
       },

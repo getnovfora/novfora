@@ -1,5 +1,8 @@
 <?php
 // SPDX-License-Identifier: Apache-2.0
+use App\AntiSpam\ContentRejectedException;
+use App\AntiSpam\PostRateLimiter;
+use App\Forum\Concerns\ManagesDrafts;
 use App\Forum\PostService;
 use App\Models\Topic;
 use App\Models\User;
@@ -8,6 +11,8 @@ use Livewire\Component;
 
 new class extends Component
 {
+    use ManagesDrafts;
+
     #[Locked]
     public int $topicId;
 
@@ -21,6 +26,13 @@ new class extends Component
     {
         $this->topicId = $topicId;
         $this->ensureCanReply();
+        $this->restoreDraft(); // restore any autosaved reply draft for this topic (own-only)
+    }
+
+    /** @return array{0:string,1:int} */
+    protected function draftContext(): array
+    {
+        return ['reply', $this->topicId];
     }
 
     public function toggleFormat(): void
@@ -28,7 +40,7 @@ new class extends Component
         $this->format = $this->format === 'markdown' ? 'tiptap_json' : 'markdown';
     }
 
-    public function save(PostService $service, \App\AntiSpam\PostRateLimiter $limiter)
+    public function save(PostService $service, PostRateLimiter $limiter)
     {
         $this->ensureCanReply();
 
@@ -50,11 +62,13 @@ new class extends Component
 
         try {
             $service->reply(auth()->user(), $this->topic(), $format, $canonical);
-        } catch (\App\AntiSpam\ContentRejectedException $e) {
+        } catch (ContentRejectedException $e) {
             $this->addError('body', $e->getMessage());
 
             return null;
         }
+
+        $this->discardDraft(); // published — drop the autosaved draft
 
         return $this->redirectRoute('topics.show', $this->topicId, navigate: true);
     }
@@ -97,13 +111,19 @@ new class extends Component
         <textarea wire:model="markdownSource" rows="6" placeholder="Write Markdown…"
                   class="w-full px-3 py-2 rounded-md bg-surface-raised text-ink border border-line focus:border-accent font-mono text-sm"></textarea>
     @else
-        <x-content-editor model="canonicalJson" :initial="$canonicalJson"
+        <x-content-editor model="canonicalJson" :initial="$canonicalJson" draft
                           :upload-url="route('attachments.store')" :mention-url="route('mentions')"
                           placeholder="Write a reply…" />
     @endif
     @error('body') <p class="text-xs text-danger">{{ $message }}</p> @enderror
 
-    <div>
+    <div class="flex items-center gap-3">
         <x-ui.button type="submit">Post reply</x-ui.button>
+        @if ($draftRestored)
+            <span class="text-xs text-ink-subtle" dusk="reply-draft-restored">
+                Draft restored ·
+                <button type="button" wire:click="discardDraft" class="text-accent hover:underline" dusk="reply-draft-discard">Discard</button>
+            </span>
+        @endif
     </div>
 </form>

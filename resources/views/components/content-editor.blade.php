@@ -10,6 +10,11 @@
     'uploadUrl' => null,
     'mentionUrl' => null,
     'placeholder' => 'Write something…',
+    // When true, the island debounces a $wire.saveDraft(json) network autosave (P2-M1). The host component
+    // must expose a saveDraft action (e.g. via the ManagesDrafts trait). The immediate deferred sync is
+    // unaffected (Spike #3).
+    'draft' => false,
+    'draftDebounce' => 1500,
 ])
 
 <div
@@ -20,6 +25,8 @@
         uploadUrl: @js($uploadUrl),
         mentionUrl: @js($mentionUrl),
         placeholder: @js($placeholder),
+        draft: @js((bool) $draft),
+        draftDebounce: @js((int) $draftDebounce),
     })"
     class="hearth-editor"
 >
