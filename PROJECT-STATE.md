@@ -54,9 +54,17 @@ audit gap. Dusk journey + coloured-group screenshots wired into `AdminJourneyTes
 
 ## Immediate next actions
 
-1. **Phase 2 planning** — per [`docs/product/phase-2-plan.md`](docs/product/phase-2-plan.md). Community
-   features: digest/notifications via the P2 spike pipeline, reactions, DMs, user tagging, search filters.
-   **Plan-before-code; no Phase 2 app code until the plan is approved.**
+1. **Phase 2 — APPROVED, ready to build (owner, 2026-06-09).** Build source is
+   [`docs/product/phase-2-implementation-plan.md`](docs/product/phase-2-implementation-plan.md) (engineering
+   companion to the approved [`phase-2-plan.md`](docs/product/phase-2-plan.md); 8 review amendments folded in
+   — see its §0). **Kickoff scope (greenlit):** P2-M1 engagement core + deliverability light-up (M2 Half-A) +
+   multi-participant PMs (M2 Half-B); **Should-tier social HELD as the descope lever** (follow, reputation,
+   badges, staff notes, 2nd theme). This **supersedes the product-plan §8 "wait for private-beta-live" gate**
+   — deliberate owner override, recorded. **Executed by Claude Code (Opus) when session limits reset.**
+   - **Build order:** deliverability light-up → M1 content (7 PR slices) → PMs.
+   - **Blocking ADR before PMs land:** account-deletion / privacy cascade for co-owned PII (impl-plan §6).
+   - **Record in `DECISIONS.md` during M1:** edit-history diff source (#3), oEmbed embed-host allowlist +
+     sandbox policy (#2), any query-budget ceiling change (#6).
 2. **Design-first items still queued (do not build without a plan):**
    - RH-4: subdirectory install (ADR needed)
    - Layman "simple-mode" permissions UX (ACP v3, separate cycle)
