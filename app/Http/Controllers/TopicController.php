@@ -72,6 +72,10 @@ class TopicController extends Controller
         $pollVotes = $poll ? $polls->votedOptionIds($viewer, $poll) : [];
         $canVote = $poll !== null && $user instanceof User && $user->canDo('poll.vote', $scope);
 
+        // post.history.view is forum-scoped, so resolve it ONCE for the page; the post footer additionally
+        // lets an author see their OWN post's history (decided per post from already-loaded columns).
+        $canViewHistory = $user instanceof User && $user->canDo('post.history.view', $scope);
+
         // SEO description = an excerpt of the opening post's text projection (security-safe; no HTML).
         $description = Str::limit((string) Post::where('topic_id', $topic->getKey())
             ->orderBy('position')->orderBy('id')->value('body_text'), 160);
@@ -79,7 +83,7 @@ class TopicController extends Controller
         return view('forum.topic', compact(
             'topic', 'posts', 'viewer', 'user', 'canReply', 'canModerate', 'description',
             'reactionCounts', 'viewerReactions', 'canReact',
-            'pollData', 'pollVotes', 'canVote',
+            'pollData', 'pollVotes', 'canVote', 'canViewHistory',
         ));
     }
 }

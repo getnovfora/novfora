@@ -152,6 +152,13 @@
                                         <x-ui.button type="submit" variant="danger-ghost" size="sm">Delete</x-ui.button>
                                     </form>
                                 @endcan
+                                {{-- Edit-history diff: only for EDITED posts the viewer can see (author of the post,
+                                     or staff with post.history.view). open() re-asserts server-side. --}}
+                                @php($ownPost = $post->user_id && $user && (int) $post->user_id === (int) $user->id)
+                                @if ($post->edit_count > 0 && ($ownPost || $canViewHistory))
+                                    <livewire:forum.post-history :key="'history-'.$post->id"
+                                        :post-id="$post->id" :topic-id="$post->topic_id" :edit-count="$post->edit_count" />
+                                @endif
                                 @auth
                                     <form method="POST" action="{{ route('reports.store') }}" class="ml-auto">@csrf
                                         <input type="hidden" name="post_id" value="{{ $post->id }}">

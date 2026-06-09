@@ -39,6 +39,7 @@ class RoleSeeder extends Seeder
         $moderator = $member + [
             'post.edit.any' => $allow,
             'post.delete.any' => $allow,
+            'post.history.view' => $allow, // staff see anyone's history; an author sees their own (component short-circuit)
             'topic.moderate' => $allow,
             'bans.manage' => $allow,
             // Staff are never spam-gated by trust level: grant the progressive capabilities outright so a

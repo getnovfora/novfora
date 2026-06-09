@@ -46,6 +46,7 @@ class PermissionCatalogSeeder extends Seeder
             'post.images' => ['Post inline images', 'forum', 'Posting', 'Embed inline images in a post (hard-gated for new accounts).'],
             'pm.send' => ['Send private messages', 'global', 'Messaging', 'Start or reply to PMs. The TL0 gate is seeded now as an anti-spam seam; PM delivery ships in Phase 2.'],
             'post.edit.any' => ['Edit any post', 'forum', 'Moderation', 'Edit posts by any author.'],
+            'post.history.view' => ['View post edit history', 'forum', 'Moderation', 'See the edit history & diffs of any post. The author can always view their own.'],
             'post.delete.any' => ['Delete any post', 'forum', 'Moderation', 'Delete posts by any author.'],
             'topic.moderate' => ['Moderate topics', 'forum', 'Moderation', 'Lock, pin, or move topics.'],
 

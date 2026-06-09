@@ -366,3 +366,35 @@ noise without value.
 
 *(Spike 0 deps are recorded in [spike-0-memo.md](docs/product/spike-0-memo.md): `@tiptap/*` 3.24 MIT (core
 only, never Pro), `symfony/html-sanitizer` 7.4 MIT, `@playwright/test` 1.60 MIT.)*
+
+---
+
+## Phase 2 / P2-M1 decisions (2026-06-09)
+
+Engagement & content-depth milestone. Recorded per the kickoff's "record in DECISIONS.md" list.
+
+**Edit-history diff — source & extraction (amendment #3).** The diff viewer is **format-aware** so it shows
+real edits, not artefacts of the search projection:
+- **markdown** posts diff the readable canonical source (`body_canonical['source']`).
+- **tiptap_json** posts diff a **normalised, formatting-preserving text extraction** of the document —
+  emphatically **NOT `body_text`**, which is the tags-stripped *search* projection: diffing it would hide a
+  bold-/italic-/link-/image-only edit. The extraction (`App\Content\RevisionDiffService::extract`) walks the
+  canonical doc to a line-per-block text that keeps markdown-like markers (`**bold**`, `[text](href)`,
+  `![alt](src)`, `# heading`, list markers, code fences), so those edits surface in the diff.
+- **Diff library: none.** A small dependency-free **LCS line diff** lives in the same service (the line counts
+  in a post are bounded, so O(n·m) is fine). This avoids promoting `sebastian/diff` from `require-dev` (it is
+  only a PHPUnit transitive) into runtime `require`, and keeps the clean-room/supply-chain surface minimal.
+  The viewer escapes every diff line via Blade; add/del lines use the existing `success`/`danger` tokens.
+
+**Trust-gate reasoning for the new permission keys (ADR-0006/0007 §2.3).** `react.create` (ungated; abuse via
+a per-trust rate limiter), `poll.vote` / `tag.apply` (ungated participation), `poll.create` (**soft** TL gate —
+withheld from the member preset, granted from TL1 via `$trusted`, TL0 `no` deny-by-default and admin-liftable;
+blast radius is one topic), `tag.create` (**hard NEVER** at TL0 — a new tag enters the durable site-wide
+namespace, the same true-spam-vector class as `post.links`/`post.images`, so an admin ALLOW cannot lift it),
+`prefix.manage` (admin-only, global, like `groups.manage`), `post.history.view` (staff via the moderator
+preset; the author always sees their own).
+
+**Query budget (amendment #6).** The thread page holds the **≤30** ceiling with reactions **and** a poll
+present (RH-9 per-(topic,version) count caches + batched per-viewer lookups + zero poll queries for poll-less
+topics) — no ceiling change, no ADR needed. Prefix/tag listings are eager-loaded (no N+1; a warmed board with
+15 prefixed/tagged topics stays well under budget).
