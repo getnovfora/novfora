@@ -33,13 +33,12 @@ PostgreSQL on Docker/VPS. Vite, prebuilt assets (no host Node). Approved — ADR
 ## Status (as of 2026-06-08)
 
 > **▶ Phase 1 / Core MVP COMPLETE · Phase 1.5 Hardening COMPLETE · RH-6–RH-11 FIXED · Default theme MERGED ·
-> ACP v1 + v1.1 MERGED · Spike P2 deliverability → GO (PR #8 merged to main).**
+> ACP v1 + v1.1 MERGED · Spike P2 deliverability → GO (PR #8 merged) · ACP v2 MERGED (PR #9).**
 
 **`main` carries:** M0–M5, P1.5 hardening, real-host fixes RH-6–RH-11, default theme + theme polish R1,
-ACP v1 + v1.1 patch, Spike P2 deliverability pipeline (dormant). NevoBB rename committed (ADR-0024).
+ACP v1 + v1.1 patch, Spike P2 deliverability pipeline (dormant), NevoBB rename (ADR-0024), **ACP v2**.
 
-**ACP v2 — BUILT, branch pushed, PR pending merge:**
-Branch `claude/acp-v2-groups` (6 DCO commits). Self-verified green in Docker `hearth-dev`:
+**ACP v2 — MERGED to main (PR #9, commit `30bc466`):**
 Pint PASS (361 files) · Larastan level-5 clean · **Pest 518 passed / 1 skipped (1930 assertions)** ·
 `composer audit` + `npm audit` clean · CSS 8.54 KB gz (budget 50) · assets rebuilt.
 Adversarial review (18 agents): 4 findings fixed — HIGH membership-boundary bypass on delete-with-reassign,
@@ -55,12 +54,10 @@ audit gap. Dusk journey + coloured-group screenshots wired into `AdminJourneyTes
 
 ## Immediate next actions
 
-1. **Merge ACP v2 PR** (`claude/acp-v2-groups`) — CI must pass all gates (Pest · Pint · Larastan · audits ·
-   Dusk groups journey + screenshots · assets-fresh); merge when green.
-2. **Phase 2 planning** — per [`docs/product/phase-2-plan.md`](docs/product/phase-2-plan.md). Community
+1. **Phase 2 planning** — per [`docs/product/phase-2-plan.md`](docs/product/phase-2-plan.md). Community
    features: digest/notifications via the P2 spike pipeline, reactions, DMs, user tagging, search filters.
    **Plan-before-code; no Phase 2 app code until the plan is approved.**
-3. **Design-first items still queued (do not build without a plan):**
+2. **Design-first items still queued (do not build without a plan):**
    - RH-4: subdirectory install (ADR needed)
    - Layman "simple-mode" permissions UX (ACP v3, separate cycle)
    - In-code Hearth→NevoBB rename (one reviewed change per ADR-0024; do not rename ad-hoc)
