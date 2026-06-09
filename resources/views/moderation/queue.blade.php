@@ -32,7 +32,7 @@
                     <div class="min-w-0">
                         <p class="font-medium text-ink">{{ $topic->title }}</p>
                         <p class="mt-0.5 text-sm text-ink-muted">
-                            by {{ $topic->author?->username }} in {{ $topic->forum?->title }}
+                            by <x-ui.user-name :user="$topic->author" /> in {{ $topic->forum?->title }}
                         </p>
                     </div>
                     <div class="flex shrink-0 items-center gap-2">
@@ -64,7 +64,7 @@
             @forelse ($posts as $post)
                 <x-ui.card class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div class="min-w-0">
-                        <p class="font-medium text-ink">Reply by {{ $post->author?->username }}</p>
+                        <p class="font-medium text-ink">Reply by <x-ui.user-name :user="$post->author" /></p>
                         <p class="mt-0.5 text-sm text-ink-muted">in {{ $post->topic?->title }}</p>
                     </div>
                     <div class="flex shrink-0 items-center gap-2">

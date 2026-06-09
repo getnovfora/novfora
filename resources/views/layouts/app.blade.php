@@ -153,13 +153,13 @@
                         <x-slot:trigger>
                             <button type="button" class="inline-flex items-center gap-1.5 min-h-11 pl-1 pr-2 rounded-md hover:bg-surface-sunken">
                                 <x-ui.avatar :user="auth()->user()" size="sm" />
-                                <span class="hidden sm:block max-w-[8rem] truncate text-sm font-medium text-ink">{{ auth()->user()->display_name ?? auth()->user()->username }}</span>
+                                <span class="hidden sm:block max-w-[8rem] truncate text-sm font-medium text-ink"><x-ui.user-name :user="auth()->user()" /></span>
                                 <x-ui.icon name="chevron-down" class="h-4 w-4 text-ink-subtle" />
                             </button>
                         </x-slot:trigger>
 
                         <div class="px-3 py-2 border-b border-line mb-1">
-                            <p class="text-sm font-medium text-ink truncate">{{ auth()->user()->display_name ?? auth()->user()->username }}</p>
+                            <p class="text-sm font-medium text-ink truncate"><x-ui.user-name :user="auth()->user()" /></p>
                             <p class="text-xs text-ink-muted truncate">{{ '@'.auth()->user()->username }}</p>
                         </div>
                         <x-ui.dropdown-item :href="route('profiles.show', auth()->user())"><x-ui.icon name="user" class="h-4 w-4 text-ink-subtle" /> Profile</x-ui.dropdown-item>

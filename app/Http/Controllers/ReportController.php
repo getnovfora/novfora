@@ -48,7 +48,7 @@ class ReportController extends Controller
     {
         $this->authorizeStaff($request);
 
-        $reports = Report::where('status', 'open')->with(['reporter', 'reportable'])->latest()->paginate(30);
+        $reports = Report::where('status', 'open')->with(['reporter.groups', 'reportable'])->latest()->paginate(30);
 
         return view('moderation.reports', compact('reports'));
     }

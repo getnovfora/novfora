@@ -73,7 +73,7 @@
                                                 </div>
                                             @endif
                                             <a href="{{ route('topics.show', $topic) }}" class="block font-semibold text-ink hover:text-accent">{{ $topic->title }}</a>
-                                            <p class="text-xs text-ink-subtle">by {{ $topic->author?->display_name ?? $topic->author?->username ?? 'unknown' }}</p>
+                                            <p class="text-xs text-ink-subtle">by <x-ui.user-name :user="$topic->author" /></p>
                                         </div>
                                     </div>
                                 </td>
@@ -84,7 +84,7 @@
                                         {{-- The poster name carries the link affordance (accent + hover underline,
                                              always-distinct from the adjacent meta — WCAG 1.4.1). --}}
                                         <a href="{{ route('topics.show', ['topic' => $topic, 'page' => $lastPage]).($topic->last_post_id ? '#post-'.$topic->last_post_id : '') }}" class="group block">
-                                            <span class="block truncate font-medium text-accent group-hover:underline">{{ $topic->lastPostUser?->display_name ?? $topic->lastPostUser?->username ?? 'unknown' }}</span>
+                                            <span class="block truncate font-medium text-accent group-hover:underline"><x-ui.user-name :user="$topic->lastPostUser" /></span>
                                             <span class="block text-xs text-ink-subtle nums">{{ $topic->last_posted_at->diffForHumans() }}</span>
                                         </a>
                                     @else
@@ -116,7 +116,7 @@
                                 </div>
                             @endif
                             <a href="{{ route('topics.show', $topic) }}" class="block font-semibold text-ink hover:text-accent">{{ $topic->title }}</a>
-                            <p class="mt-0.5 text-sm text-ink-muted">by {{ $topic->author?->display_name ?? $topic->author?->username ?? 'unknown' }}</p>
+                            <p class="mt-0.5 text-sm text-ink-muted">by <x-ui.user-name :user="$topic->author" /></p>
                             <dl class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-subtle">
                                 <div class="flex items-center gap-1">
                                     <dt class="sr-only">Replies</dt>
@@ -130,7 +130,7 @@
                                     <div class="flex items-center gap-1">
                                         <dt class="sr-only">Last post</dt>
                                         <dd>
-                                            <a href="{{ route('topics.show', ['topic' => $topic, 'page' => $lastPage]).($topic->last_post_id ? '#post-'.$topic->last_post_id : '') }}" class="text-accent hover:underline">last by {{ $topic->lastPostUser?->display_name ?? $topic->lastPostUser?->username ?? 'unknown' }}</a>
+                                            <a href="{{ route('topics.show', ['topic' => $topic, 'page' => $lastPage]).($topic->last_post_id ? '#post-'.$topic->last_post_id : '') }}" class="text-accent hover:underline">last by <x-ui.user-name :user="$topic->lastPostUser" /></a>
                                             <span class="nums">· {{ $topic->last_posted_at->diffForHumans() }}</span>
                                         </dd>
                                     </div>

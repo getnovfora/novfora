@@ -4,12 +4,15 @@
 
 declare(strict_types=1);
 
+use App\Forum\PostService;
 use App\Forum\StructureService;
+use App\Models\Group;
 use App\Settings\Settings;
 use App\Support\Audit;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Laravel\Dusk\Browser;
+use Tests\Support\Content;
 use Tests\Support\Users;
 
 /*
@@ -51,12 +54,37 @@ it('lets an admin create a board from the ACP and see it on the public index', f
     });
 });
 
+it('lets an admin create a coloured custom group from the ACP', function () {
+    $this->browse(function (Browser $browser) {
+        $browser->loginAs($this->admin)
+            ->visit(route('admin.members.groups'))
+            ->waitForText('Member groups', 12)
+            ->assertSee('Moderators')   // a seeded system group is listed
+            ->press('New group')
+            ->waitFor('@acp-group-name', 10)
+            ->type('@acp-group-name', 'Beta Crew')
+            ->select('color', 'violet')
+            ->pause(300)
+            ->press('Create group')
+            ->waitForText('Created group', 12)
+            ->assertSee('Beta Crew');
+    });
+});
+
 it('captures the ACP pages in light + dark at mobile + desktop', function () {
-    // Populate the panel so the shots aren't empty: a couple of boards + a few audited settings writes.
+    // Populate the panel so the shots aren't empty: boards + a coloured post + a few audited settings writes.
     $structure = app(StructureService::class);
     $cat = $structure->create(['title' => 'Community', 'type' => 'category']);
-    $structure->create(['title' => 'Lobby', 'type' => 'forum', 'parent_id' => $cat->id]);
+    $lobby = $structure->create(['title' => 'Lobby', 'type' => 'forum', 'parent_id' => $cat->id]);
     $structure->create(['title' => 'Off-topic', 'type' => 'forum', 'parent_id' => $cat->id]);
+
+    // ACP v2: colour seeded groups so names render in colour, and create a topic by the (coloured) admin so a
+    // "coloured post" appears in the topic view.
+    Group::where('slug', 'admins')->update(['color' => 'violet']);
+    Group::where('slug', 'moderators')->update(['color' => 'red']);
+    $topic = app(PostService::class)->createTopic(
+        $this->admin->fresh(), $lobby, 'A post in colour', 'tiptap_json', Content::doc('Hello, in colour.'),
+    );
 
     $settings = app(Settings::class);
     $settings->set('general.site_name', 'Campfire');
@@ -68,9 +96,10 @@ it('captures the ACP pages in light + dark at mobile + desktop', function () {
     $modes = ['light', 'dark'];
     $pages = [
         ['dashboard', fn () => route('admin.dashboard')],
+        ['groups', fn () => route('admin.members.groups')],
         ['structure', fn () => route('admin.structure')],
-        ['settings-general', fn () => route('admin.settings.general')],
         ['audit', fn () => route('admin.system.audit')],
+        ['coloured-post', fn () => route('topics.show', $topic)],
     ];
 
     $this->browse(function (Browser $browser) use ($viewports, $modes, $pages) {

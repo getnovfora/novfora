@@ -143,11 +143,11 @@ class ModerationController extends Controller
         $user = $request->user();
         abort_unless($user instanceof User, 403);
 
-        $topics = Topic::where('approved_state', 'pending')->with(['forum', 'author'])->latest()->get()
+        $topics = Topic::where('approved_state', 'pending')->with(['forum', 'author.groups'])->latest()->get()
             ->filter(fn (Topic $t) => $t->forum && $user->canDo('topic.moderate', $t->permissionScope()))
             ->values();
 
-        $posts = Post::where('approved_state', 'pending')->with(['topic.forum', 'author'])->latest()->get()
+        $posts = Post::where('approved_state', 'pending')->with(['topic.forum', 'author.groups'])->latest()->get()
             ->filter(fn (Post $p) => $p->topic && $user->canDo('topic.moderate', Scope::thread((int) $p->topic_id)))
             ->values();
 
