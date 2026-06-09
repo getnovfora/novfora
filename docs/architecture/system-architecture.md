@@ -157,6 +157,9 @@ tests) and verified by profiling. **Targets, not measurements** — they set the
 | Thread page TTFB, p95 | < 800 ms | < 400 ms | profiling |
 | DB queries / thread view | ≤ 30 (no N+1) | ≤ 30 | **CI query-count assertion** |
 | DB queries / forum index | ≤ 15 | ≤ 15 | CI assertion |
+| DB queries / prefix-filtered board (P2-M1) | ≤ 25 | ≤ 25 | CI assertion |
+| DB queries / tag-filtered board (P2-M1) | ≤ 25 | ≤ 25 | CI assertion |
+| DB queries / tag listing (`tags.show`, P2-M1) | ≤ 45 | ≤ 45 | CI assertion |
 | Permission-mask cache hit rate | > 95% | > 99% | metric/event (ADR-0006) |
 | Fragment cache hit (guest thread views) | > 80% | > 90% | metric |
 | Base HTML (gz) | < 80 KB | < 80 KB | asset budget in CI |
