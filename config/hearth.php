@@ -25,6 +25,27 @@ $trusted = [
 
 return [
 
+    // Post reactions (P2-M1). XF-style single-choice typed reactions: a user picks at most one type per post.
+    // Each type carries a `score` weight that is CONFIG-ONLY AND INERT this milestone — the reputation ledger
+    // that would consume it is P2-M3 (held), so reactions accrue no reputation yet (Phase-2 amendment #4).
+    // Reactions are fully functional with zero reputation dependency; tune the type set freely.
+    'reactions' => [
+        'types' => [
+            'like' => ['label' => 'Like', 'emoji' => '👍', 'score' => 1],
+            'love' => ['label' => 'Love', 'emoji' => '❤️', 'score' => 1],
+            'helpful' => ['label' => 'Helpful', 'emoji' => '💡', 'score' => 2],
+            'insightful' => ['label' => 'Insightful', 'emoji' => '🧠', 'score' => 2],
+            'funny' => ['label' => 'Funny', 'emoji' => '😄', 'score' => 0],
+            'disagree' => ['label' => 'Disagree', 'emoji' => '👎', 'score' => -1],
+        ],
+        // Per-trust reactions/minute, enforced via the cache RateLimiter (tier-graceful, like post rates).
+        'rate_limits' => [
+            'tl0' => 10,
+            'tl1' => 30,
+            'default' => 60,
+        ],
+    ],
+
     'antispam' => [
 
         // Seeded as acl_entries on the trust groups (TrustGateSeeder). never = absolute hard gate an admin

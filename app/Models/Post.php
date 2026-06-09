@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Forum\ReactionService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -30,6 +31,11 @@ class Post extends Model
         static::created(fn (Post $post) => $post->syncAggregates(1));
         static::deleted(fn (Post $post) => $post->syncAggregates(-1));
         static::restored(fn (Post $post) => $post->syncAggregates(1));
+
+        // A delete/restore changes which posts (and thus reaction tallies) are in scope for the topic, so
+        // invalidate the RH-9 reaction-count cache (it is version-keyed per topic, not per post).
+        static::deleted(fn (Post $post) => app(ReactionService::class)->invalidateTopic((int) $post->topic_id));
+        static::restored(fn (Post $post) => app(ReactionService::class)->invalidateTopic((int) $post->topic_id));
     }
 
     /**
@@ -65,6 +71,18 @@ class Post extends Model
     public function revisions(): HasMany
     {
         return $this->hasMany(PostRevision::class);
+    }
+
+    /** @return HasMany<Reaction, $this> */
+    public function reactions(): HasMany
+    {
+        return $this->hasMany(Reaction::class);
+    }
+
+    /** @return HasMany<PostReactionCount, $this> denormalised per-type tallies (read side) */
+    public function reactionCounts(): HasMany
+    {
+        return $this->hasMany(PostReactionCount::class);
     }
 
     public function attachments(): HasMany

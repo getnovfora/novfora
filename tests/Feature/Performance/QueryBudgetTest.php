@@ -5,6 +5,7 @@
 declare(strict_types=1);
 
 use App\Forum\PostService;
+use App\Forum\ReactionService;
 use App\Models\Forum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -50,6 +51,15 @@ it('renders a busy thread within the query budget (≤30, no N+1)', function () 
     }
 
     $viewer = Users::inGroups(['members', 'tl2'], ['username' => 'viewer', 'email' => 'viewer@budget.test']);
+
+    // Reactions on the hot path (amendment #6): the viewer's own pick + a second reactor on the first page's
+    // posts, so both the RH-9-cached tally read and the per-viewer highlight query are exercised. The thread
+    // must still hold ≤30 — reactions add the count cache (1 GET, warm) + one batched viewer-pick query.
+    $reactions = app(ReactionService::class);
+    foreach ($topic->posts()->orderBy('position')->orderBy('id')->take(10)->get() as $i => $p) {
+        $reactions->toggle($viewer, $p, 'like');
+        $reactions->toggle($authors[$i % 3], $p, 'helpful');
+    }
 
     // Warm the caches, then measure the steady-state request.
     $this->actingAs($viewer)->get(route('topics.show', $topic))->assertOk();

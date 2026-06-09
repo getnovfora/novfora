@@ -127,6 +127,13 @@
 
                             <div class="hearth-prose pt-3 md:pt-4">{!! $post->body_html_cache !!}</div>
 
+                            <livewire:forum.post-reactions :key="'react-'.$post->id"
+                                :post-id="$post->id"
+                                :topic-id="$post->topic_id"
+                                :counts="$reactionCounts[$post->id] ?? []"
+                                :viewer-type="$viewerReactions[$post->id] ?? null"
+                                :can-react="$canReact" />
+
                             <footer class="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
                                 @can('update', $post)
                                     <x-ui.button :href="route('posts.edit', $post)" variant="subtle" size="sm">Edit</x-ui.button>

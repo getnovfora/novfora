@@ -36,6 +36,7 @@ class PermissionCatalogSeeder extends Seeder
             'post.edit.own' => ['Edit own posts', 'forum', 'Posting', 'Edit posts you authored.'],
             'post.delete.own' => ['Delete own posts', 'forum', 'Posting', 'Delete posts you authored.'],
             'attachment.create' => ['Upload attachments', 'forum', 'Posting', 'Attach files to a post.'],
+            'react.create' => ['React to posts', 'forum', 'Posting', 'Add a reaction (like / helpful / …) to a post. Rate-limited per trust level; not a trust hard-gate.'],
             // Anti-spam trust gates (ADR-0007 §2.3): TL0 = NEVER (hard), TL1+ = ALLOW. Enforced by
             // link/image suppression in the content write path; the inspector explains a TL0 block.
             'post.links' => ['Post links', 'forum', 'Posting', 'Include hyperlinks in a post (hard-gated for new accounts).'],

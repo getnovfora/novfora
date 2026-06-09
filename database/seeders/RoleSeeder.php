@@ -31,6 +31,7 @@ class RoleSeeder extends Seeder
             'post.edit.own' => $allow,
             'post.delete.own' => $allow,
             'attachment.create' => $allow,
+            'react.create' => $allow, // reacting is ungated participation; abuse handled by ReactionRateLimiter
         ];
 
         $moderator = $member + [

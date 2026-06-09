@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Forum\ReactionService;
 use App\Models\Post;
 use App\Models\Topic;
 use App\Models\TopicRead;
@@ -16,7 +17,7 @@ use Illuminate\Support\Str;
 
 class TopicController extends Controller
 {
-    public function show(Request $request, Topic $topic): View
+    public function show(Request $request, Topic $topic, ReactionService $reactions): View
     {
         $viewer = $request->user() ?? User::guest();
         abort_unless($viewer->canDo('forum.view', $topic->permissionScope()), 403);
@@ -55,10 +56,20 @@ class TopicController extends Controller
             ->orderBy('position')->orderBy('id')
             ->paginate(15);
 
+        // Reactions for this page: RH-9-cached per-type tallies + the viewer's own picks. `canReact` is
+        // forum-scoped (shared by every post here) so it resolves ONCE, never per post (N+1 guard).
+        $postIds = $posts->getCollection()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $reactionCounts = $reactions->countsForTopic($topic->getKey(), $postIds);
+        $viewerReactions = $reactions->viewerReactions($viewer, $postIds);
+        $canReact = $user instanceof User && $user->canDo('react.create', $scope);
+
         // SEO description = an excerpt of the opening post's text projection (security-safe; no HTML).
         $description = Str::limit((string) Post::where('topic_id', $topic->getKey())
             ->orderBy('position')->orderBy('id')->value('body_text'), 160);
 
-        return view('forum.topic', compact('topic', 'posts', 'viewer', 'user', 'canReply', 'canModerate', 'description'));
+        return view('forum.topic', compact(
+            'topic', 'posts', 'viewer', 'user', 'canReply', 'canModerate', 'description',
+            'reactionCounts', 'viewerReactions', 'canReact',
+        ));
     }
 }
