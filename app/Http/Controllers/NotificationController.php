@@ -18,7 +18,10 @@ use Illuminate\Http\Request;
  */
 class NotificationController extends Controller
 {
-    public const EVENTS = ['reply', 'mention', 'moderation'];
+    // reaction has a LIVE emitter (P2-M1 Reacted → SendReactionNotification). pm.received (M2 Half-B) and
+    // follow (M3) are seated now so they slot in without a later migration; their emitters land in those
+    // milestones (no fake emitters here).
+    public const EVENTS = ['reply', 'mention', 'reaction', 'pm.received', 'follow', 'moderation'];
 
     public const CHANNELS = ['database', 'mail'];
 

@@ -59,6 +59,8 @@ class AppServiceProvider extends ServiceProvider
         Paginator::defaultSimpleView('pagination::simple-hearth');
 
         // Audit-log authentication events (phase-1.5 F-I): login / logout / failed / lockout / reset / 2FA.
+        // (A subscriber — needs explicit registration; plain handle()-listeners in app/Listeners, e.g.
+        // SendReactionNotification for the P2-M2 reaction notification, are AUTO-DISCOVERED — do not re-list.)
         Event::subscribe(AuditAuthEvents::class);
 
         // Route scope-based authorization through the permission-mask engine, deny-by-default.

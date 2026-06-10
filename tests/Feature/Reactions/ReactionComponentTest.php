@@ -10,6 +10,7 @@ use App\Models\Reaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\Support\Users;
 
@@ -81,6 +82,11 @@ it('enforces the per-trust reaction rate limit', function () {
 });
 
 it('keeps the react action within a bounded query count (no N+1 on the action path)', function () {
+    // The P2-M2 reaction notification (Reacted → SendReactionNotification) is a QUEUED listener — on the
+    // baseline tier it is pushed to the DB queue and drained by cron, OFF this hot action path. Fake the
+    // queue so the budget measures the synchronous action's own cost, mirroring production.
+    Queue::fake();
+
     // Warm the permission cache so steady-state action cost is measured, not the cold resolver.
     Livewire::actingAs($this->member)
         ->test('forum.post-reactions', ['postId' => $this->post->id, 'topicId' => $this->post->topic_id, 'canReact' => true])

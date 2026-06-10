@@ -41,6 +41,15 @@
                                     @case('mention')
                                         <x-ui.icon name="message" class="h-4 w-4" />
                                         @break
+                                    @case('reaction')
+                                        <span aria-hidden="true" class="text-sm leading-none">{{ config('hearth.reactions.types.'.($d['reaction_type'] ?? '').'.emoji', '👍') }}</span>
+                                        @break
+                                    @case('pm.received')
+                                        <x-ui.icon name="mail" class="h-4 w-4" />
+                                        @break
+                                    @case('follow')
+                                        <x-ui.icon name="user" class="h-4 w-4" />
+                                        @break
                                     @case('moderation')
                                         <x-ui.icon name="shield" class="h-4 w-4" />
                                         @break
@@ -61,6 +70,15 @@
                                         @break
                                     @case('mention')
                                         {{ $actor }} mentioned you in “{{ $d['topic_title'] ?? 'a discussion' }}”
+                                        @break
+                                    @case('reaction')
+                                        {{ $actor }}@if ($others) and {{ $others }} {{ \Illuminate\Support\Str::plural('other', $others) }} @endif reacted to your post in “{{ $d['topic_title'] ?? 'a discussion' }}”
+                                        @break
+                                    @case('pm.received')
+                                        {{ $actor }} sent you a message
+                                        @break
+                                    @case('follow')
+                                        {{ $actor }} started following you
                                         @break
                                     @case('moderation')
                                         You received a moderation notice

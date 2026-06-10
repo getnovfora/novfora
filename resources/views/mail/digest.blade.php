@@ -18,6 +18,16 @@
                     {{ $item->actor_username ?? 'Someone' }} mentioned you in
                     <strong>{{ $p['topic_title'] ?? 'a discussion' }}</strong>.
                     @break
+                @case('reaction')
+                    {{ $item->actor_username ?? 'Someone' }} reacted to your post in
+                    <strong>{{ $p['topic_title'] ?? 'a discussion' }}</strong>.
+                    @break
+                @case('pm.received')
+                    {{ $item->actor_username ?? 'Someone' }} sent you a message.
+                    @break
+                @case('follow')
+                    {{ $item->actor_username ?? 'Someone' }} started following you.
+                    @break
                 @case('moderation')
                     A moderator posted a notice on your account.
                     @break

@@ -35,6 +35,9 @@ final class NotificationMail extends Mailable implements ShouldQueue
         return new Envelope(subject: match ($this->event) {
             'reply' => "New reply in “{$title}”",
             'mention' => "{$this->actor} mentioned you",
+            'reaction' => "{$this->actor} reacted to your post",
+            'pm.received' => "{$this->actor} sent you a message",
+            'follow' => "{$this->actor} started following you",
             'moderation' => 'A moderation notice',
             default => 'Notification',
         });

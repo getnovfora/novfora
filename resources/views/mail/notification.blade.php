@@ -8,6 +8,15 @@
     @case('mention')
         <p>{{ $actor }} mentioned you in <strong>{{ $payload['topic_title'] ?? 'a discussion' }}</strong>.</p>
         @break
+    @case('reaction')
+        <p>{{ $actor }} reacted to your post in <strong>{{ $payload['topic_title'] ?? 'a discussion' }}</strong>.</p>
+        @break
+    @case('pm.received')
+        <p>{{ $actor }} sent you a message.</p>
+        @break
+    @case('follow')
+        <p>{{ $actor }} started following you.</p>
+        @break
     @case('moderation')
         <p>A moderator has issued a notice on your account. Please review it when you next sign in.</p>
         @break
