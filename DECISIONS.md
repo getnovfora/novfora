@@ -37,6 +37,7 @@ process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed
 | 0020 | **No-SSH web installer** with a **post-install file-marker lock** (no re-trigger / admin-reset vector); one shared `InstallRunner` for web + CLI; pre-install boot hardening; **portable backup/restore** (manifest + SHA-256 integrity) | Accepted | [getting-started](docs/getting-started.md) |
 | 0021 | **No-SSH automatic upgrade** — cron-driven, backup-first, maintenance-safe migration; cheap cached schema-state detection (release-fingerprint, O(cache-read) request path); `HEARTH_AUTO_UPGRADE` default-on with a manual admin/CLI path; held-not-looping failure policy | Accepted | [getting-started §5](docs/getting-started.md) · [RH-10](docs/product/real-host-findings.md) |
 | 0024 | **Project name = NevoBB** — single brand; "Hearth" codename retired; NevoForums parked as redirect/future hosted tier | Accepted | [§ADR-0024](#adr-0024--project-name-nevobb-2026-06-07) |
+| 0025 | **Account deletion + content-cascade policy** — posts pseudonymised (`[Deleted]`); reactions / poll votes / tags hard-deleted; owner-confirmable cascade; voluntary + admin-forced paths share one service | Accepted | [§ADR-0025](#adr-0025--account-deletion-and-content-cascade-policy-2026-06-10) |
 
 ---
 
@@ -295,6 +296,92 @@ formal trademark search before 1.0.
 
 *(ADRs 0003, 0004, 0008, 0009, 0010, 0013, 0014, 0016, 0017, 0018 are summarized in the table above; full
 detail in their linked docs.)*
+
+### ADR-0025 — Account deletion and content-cascade policy (2026-06-10)
+
+**Context:** P2-M1 introduced per-account reactions, poll votes, and applied tags — participation data whose
+ownership is inseparable from the acting user. Multi-participant PMs (M2 Half-B) will add message threads; a
+participant being deleted must have a defined cascade before PM threads can be designed. Two interests are in
+tension: community-content integrity (public posts made to the forum should remain readable) and individual
+privacy (an account holder who leaves should have their identity erased from the record). Before M2 Half-B is
+built, this decision must be locked — P2-M1 already relies on hard-deleting reactions/votes/tags at delete
+time; this ADR confirms and extends that behaviour to the full cascade.
+
+**Decision:**
+
+1. **Posts are pseudonymised, not deleted.** A deleted account's posts remain on the board. `posts.user_id` is
+   set to `NULL`; the author attribution renders as `[Deleted]` and the avatar falls back to the default guest
+   avatar. The canonical body, edit history, and search-index entry are untouched — only the attribution pointer
+   is anonymised. The user's profile page (`/users/{id}`) returns 404 (or a minimal "Account removed" notice).
+
+2. **Reactions, poll votes, and applied tags hard-delete with the account.** These are participation metadata
+   with no independent community value absent the actor identity. Ghost vote counts and phantom tag attributions
+   are avoided. The post `reaction_count` is recounted after the batch delete using the authoritative
+   `post_reaction_counts` recount already in place from P2-M1.
+
+3. **The cascade is owner-confirmable.** Before deletion commits, the initiating party (the user for voluntary
+   deletion; the admin for forced deletion) is shown a summary of what will be permanently removed: total
+   reactions given, poll votes cast, tags applied. Explicit confirmation is required before any write occurs.
+   Both voluntary and admin-forced paths present the same summary and require the same confirmation step.
+
+4. **A single service executes both paths.** `AccountDeletionService` is invoked from the user's account
+   settings and from the ACP member management screen — one audited cascade sequence, no duplication.
+
+**Migration sketch (implementation notes — not runnable code):**
+
+*Schema seam required before the feature is built:*
+- `posts.user_id` must become **nullable** (if it is not already). A `NULL` value unambiguously means "deleted
+  account" — no sentinel/placeholder row is needed, and referential integrity holds without a permanent stub.
+  This is a single reversible `ALTER TABLE` migration. The render layer must handle `NULL` author → `[Deleted]`
+  display name + guest avatar fallback.
+
+*Cascade writes (inside a DB transaction, after the confirmation is submitted):*
+- `posts` — `UPDATE posts SET user_id = NULL WHERE user_id = ?` (pseudonymise all posts).
+- `post_reactions` — `DELETE FROM post_reactions WHERE user_id = ?`; dispatch `ReactionRecount` for each
+  distinct `post_id` affected (or run inline if count is small) — uses the P2-M1 authoritative recount path.
+- `poll_votes` — `DELETE FROM poll_votes WHERE user_id = ?`. Poll result percentages re-derive from
+  `COUNT(*) GROUP BY option_id` at render time; no explicit recount job is needed.
+- `taggables` attribution — `DELETE FROM taggables WHERE tagger_user_id = ?` (or equivalent attribution
+  column). Tag `usage_count` must be decremented or recounted after the batch; use the authoritative recount
+  pattern already established in P2-M1 rather than an in-place decrement (avoids race conditions).
+- `post_drafts` — `DELETE WHERE user_id = ?` (private to the owner; no community value).
+- `notifications` — `DELETE WHERE notifiable_id = ?` (in-app notification records for the deleted user).
+  Also purge any `digest_queue` rows staged for the deleted `user_id`.
+- `sessions` — hard-delete all active sessions to force immediate logout before the `users` row is removed.
+- `users` — hard-delete the account row last, after all cascade writes are committed.
+
+*Confirmation flow:*
+- A pre-deletion summary query (read-only) assembles the counts in one pass: reactions given, poll votes cast,
+  tag applications. These counts are shown in the confirmation UI before any write.
+- The action is a two-step form: (1) initiate → show summary + confirm button; (2) submit confirmation →
+  execute the cascade inside a transaction. Transaction failure = nothing committed.
+- For admin-forced deletion the confirmation step is on the ACP member page; the summary and confirm
+  requirement are identical to the voluntary path.
+
+*Jobs and events affected:*
+- **Queued notification jobs** — any job already in the queue whose target `notifiable_id` is the deleted user
+  must silently no-op at handle time (check `User::find($notifiableId)` before sending; treat null as "skip",
+  not as an exception).
+- **`DigestQueue`** — delete all staged digest entries for the user during the cascade (before the `users`
+  row is removed).
+- **`ReactionRecount`** — must be dispatched (or run inline) for every post whose reaction count changed as a
+  result of the hard-delete batch.
+- **`SendReactionNotification`** and similar queued listeners — the deleted user as *actor* means the
+  notification target (post author) may still receive a notification for an action that happened before
+  deletion. These are benign and need no special handling; the actor display name resolves to `[Deleted]` on
+  render.
+- **Future PM threads (M2 Half-B)** — a PM participant being deleted means their participant row is
+  hard-deleted; the thread and other participants' messages remain. Pseudonymisation applies to PM messages
+  authored by the deleted user (same policy as posts). The exact PM cascade is confirmed when M2 Half-B is
+  designed; this ADR establishes the governing principle.
+
+**Consequences:** M2 Half-B (multi-participant PMs) is unblocked — the cascade contract PM participant
+deletion must honour is now fixed. The P2-M1 hard-deletes for reactions / poll votes / tags are confirmed by
+this decision; forced-cascade integration tests (recount correctness + notification pruning under deletion)
+are deferred to when PMs land per PROJECT-STATE.md. The nullable `posts.user_id` column is a new migration
+seam required before the deletion feature is implemented. Pseudonymisation (not erasure) of post bodies is
+consistent with GDPR Recital 26 — anonymised data falls outside the regulation's personal-data scope — and
+honours community-content integrity.
 
 ---
 
