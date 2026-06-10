@@ -41,5 +41,8 @@
         </x-ui.card>
 
         <livewire:admin.suppressions />
+
+        {{-- Non-VERP bounce manual-review queue (spike-p2-memo §2b / §8). --}}
+        <livewire:admin.bounce-reviews />
     </x-admin.shell>
 @endsection

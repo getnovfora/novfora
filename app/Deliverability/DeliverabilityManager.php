@@ -8,6 +8,7 @@ namespace App\Deliverability;
 
 use App\Deliverability\Bounce\BounceMailbox;
 use App\Deliverability\Bounce\BounceParser;
+use App\Deliverability\Bounce\BounceReviewQueue;
 use App\Deliverability\Webhook\WebhookVerifier;
 
 /**
@@ -24,6 +25,7 @@ final class DeliverabilityManager
         private readonly BounceParser $parser,
         private readonly Suppressor $suppressor,
         private readonly WebhookVerifier $webhook,
+        private readonly BounceReviewQueue $reviews,
     ) {}
 
     /** Poll the configured mailbox, parse each message, apply suppressions. Returns count newly suppressed. */
@@ -42,6 +44,14 @@ final class DeliverabilityManager
                     if ($this->suppressor->applyEvent($event)) {
                         $newly++;
                     }
+                }
+
+                // Without VERP the mailbox can't authenticate a sender-supplied address, so parse() above
+                // auto-suppressed NOTHING. Surface a permanent-bounce / complaint for STAFF review instead of
+                // dropping it (reviewCandidate() returns null when VERP is enabled, so this is a no-op there).
+                $candidate = $this->parser->reviewCandidate($raw);
+                if ($candidate !== null) {
+                    $this->reviews->enqueue($candidate);
                 }
             }
         } catch (\Throwable) {

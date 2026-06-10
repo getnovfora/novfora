@@ -30,6 +30,12 @@ final class BounceParser
     /** Headers a bounce can be delivered to — where our signed VERP address legitimately appears. */
     private const RECIPIENT_HEADERS = ['Delivered-To', 'X-Original-To', 'Envelope-To', 'Return-Path', 'To'];
 
+    /** Body/report headers that name the FAILED recipient — UNAUTHENTICATED, only used for the review queue. */
+    private const CANDIDATE_HEADERS = ['Final-Recipient', 'Original-Rcpt-To', 'Original-Recipient', 'X-Failed-Recipients', 'To'];
+
+    /** Cap on the staff-review excerpt stored from an untrusted message. */
+    private const EXCERPT_BYTES = 1500;
+
     public function __construct(private readonly Verp $verp) {}
 
     /** @return list<BounceEvent> */
@@ -96,6 +102,79 @@ final class BounceParser
         }
 
         return null;
+    }
+
+    /**
+     * NON-VERP manual-review candidate (spike-p2-memo §2b / §8). When VERP is NOT enabled, {@see parse()}
+     * auto-suppresses nothing (it can't authenticate a sender-supplied address). Instead, a permanent-bounce /
+     * complaint message is surfaced UNVERIFIED for staff to review by hand. Returns null when VERP IS enabled
+     * (a bounce to a non-/forged-VERP address is a forgery attempt — queuing it would just re-open the
+     * suppression-as-DoS hole as a review-queue flood), when the message isn't a permanent bounce / complaint
+     * (a transient 4.x.x self-heals — never queued), or when no candidate recipient can be read. TOTAL: any
+     * garbage yields null, never throws.
+     *
+     * @return array{email:string, type:string, permanent:bool, excerpt:string}|null
+     */
+    public function reviewCandidate(string $raw): ?array
+    {
+        try {
+            if ($this->verp->enabled() || $raw === '' || strlen($raw) > 1_048_576) {
+                return null; // VERP authenticates the mailbox path; nothing to review by hand
+            }
+
+            $text = str_replace(["\r\n", "\r"], "\n", $raw);
+
+            // Only queue what staff could act on: a complaint, or a PERMANENT (5.x.x) bounce. Transient skips.
+            if ($this->looksLikeArf($text)) {
+                $type = BounceEvent::COMPLAINT;
+            } elseif (preg_match('/^Status:\s*5\.\d+\.\d+/mi', $text) === 1) {
+                $type = BounceEvent::BOUNCE;
+            } else {
+                return null;
+            }
+
+            $email = $this->candidateRecipient($text);
+            if ($email === null) {
+                return null; // nothing for staff to suppress
+            }
+
+            return [
+                'email' => $email,
+                'type' => $type,
+                'permanent' => true,
+                'excerpt' => $this->excerpt($text),
+            ];
+        } catch (\Throwable) {
+            return null; // total
+        }
+    }
+
+    /** First validly-shaped email from an UNAUTHENTICATED body recipient header (staff-review only). */
+    private function candidateRecipient(string $text): ?string
+    {
+        foreach (self::CANDIDATE_HEADERS as $header) {
+            if (preg_match_all('/^'.$header.':\s*(.+)$/mi', $text, $matches) === false) {
+                continue;
+            }
+            foreach ($matches[1] as $line) {
+                foreach ($this->addressesIn($line) as $candidate) {
+                    $email = strtolower(trim($candidate));
+                    if (filter_var($email, FILTER_VALIDATE_EMAIL) !== false) {
+                        return $email;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /** Bounded, control-stripped snippet of an untrusted message for the ACP review row. */
+    private function excerpt(string $text): string
+    {
+        $snippet = substr($text, 0, self::EXCERPT_BYTES);
+
+        return trim((string) preg_replace('/[^\P{C}\n]+/u', '', $snippet)); // drop control chars, keep newlines
     }
 
     private function looksLikeArf(string $text): bool
