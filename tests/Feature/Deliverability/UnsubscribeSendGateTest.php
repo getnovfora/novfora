@@ -32,11 +32,18 @@ uses(RefreshDatabase::class);
 
 beforeEach(fn () => Mail::fake());
 
-it('honours 1-click unsubscribe (signed) at send time', function () {
+it('GET-confirm does NOT apply; the POST does — honoured at send time', function () {
     $user = Deliverability::user('daily');
     Deliverability::stage($user, 2);
 
-    $this->get(URL::signedRoute('deliverability.unsubscribe', ['user' => $user->getKey()]))->assertOk();
+    $signed = URL::signedRoute('deliverability.unsubscribe', ['user' => $user->getKey()]);
+
+    // GET renders only a confirm page — it must NOT apply the opt-out (resists email-scanner prefetch).
+    $this->get($signed)->assertOk()->assertSee('Unsubscribe from digests?');
+    expect(DigestPreference::where('user_id', $user->getKey())->value('cadence'))->toBe('daily');
+
+    // The POST (RFC 8058 one-click / the confirm form) applies it.
+    $this->post($signed)->assertOk();
     expect(DigestPreference::where('user_id', $user->getKey())->value('cadence'))->toBe('off');
 
     app(DigestAssembler::class)->tick();
@@ -47,10 +54,11 @@ it('honours 1-click unsubscribe (signed) at send time', function () {
         ->and(DigestQueueItem::whereNull('digest_run_id')->count())->toBe(0);
 });
 
-it('rejects an unsigned / forged unsubscribe link', function () {
+it('rejects an unsigned / forged unsubscribe link (GET and POST)', function () {
     $user = Deliverability::user('daily');
 
     $this->get(route('deliverability.unsubscribe', ['user' => $user->getKey()]))->assertForbidden();
+    $this->post(route('deliverability.unsubscribe', ['user' => $user->getKey()]))->assertForbidden();
     expect(DigestPreference::where('user_id', $user->getKey())->value('cadence'))->toBe('daily');
 });
 

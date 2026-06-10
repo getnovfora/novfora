@@ -69,8 +69,9 @@ Route::get('/robots.txt', function () {
 
 // ── Deliverability (Spike P2) ───────────────────────────────────────────────────────────────────────
 // 1-click unsubscribe (RFC 8058). Authenticated by Laravel's signed-URL HMAC (the `signed` middleware), so
-// no login/CSRF token — GET (human) and POST (one-click) both set the user's digest cadence to 'off'. The
-// POST is CSRF-exempt (bootstrap/app.php). Always registered; harmless while the digest path is dormant.
+// no login/CSRF token. GET-confirm / POST-apply split: a GET only renders a confirm page (resists email-
+// scanner prefetch); the POST (RFC 8058 one-click or the confirm form) sets the user's cadence to 'off'.
+// The POST is CSRF-exempt (bootstrap/app.php). Always registered; harmless while the digest path is dormant.
 Route::match(['GET', 'POST'], '/unsubscribe/{user}', UnsubscribeController::class)
     ->middleware('signed')
     ->name('deliverability.unsubscribe');
