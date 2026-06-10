@@ -18,6 +18,28 @@
             here — the always-available baseline floor, working even with no email provider configured.
         </p>
 
+        {{-- Operator email-setup checklist (spike-p2-memo §5; mirrors `php artisan hearth:mail:test`). Sending
+             to strangers — verification mail, digests — is where shared-host SMTP burns reputation. --}}
+        <x-ui.card>
+            <h2 class="text-sm font-semibold text-ink">Email deliverability checklist</h2>
+            <ol class="mt-3 space-y-2 text-sm text-ink-muted list-decimal pl-5 max-w-2xl">
+                <li>
+                    Your <strong>From</strong> address must be on <strong>your sending domain</strong>. An
+                    off-domain From fails SPF/DKIM alignment and lands in spam (or is rejected). VERP only
+                    rewrites the envelope sender / Return-Path — the on-domain From stays aligned.
+                </li>
+                <li>Publish <strong>SPF</strong>, <strong>DKIM</strong> and <strong>DMARC</strong> DNS records for that domain.</li>
+                <li>
+                    For mail to strangers, baseline shared-host SMTP is best-effort. The single highest-value
+                    upgrade is a transactional provider
+                    (<strong>Postmark / SES / Mailgun / Resend</strong>) with its bounce webhook configured.
+                </li>
+            </ol>
+            <p class="mt-3 text-xs text-ink-subtle">
+                Verify outbound mail end-to-end with <code class="rounded bg-surface-sunken px-1 py-0.5">php artisan hearth:mail:test you@example.com</code>.
+            </p>
+        </x-ui.card>
+
         <livewire:admin.suppressions />
     </x-admin.shell>
 @endsection
