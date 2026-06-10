@@ -35,12 +35,15 @@ PostgreSQL on Docker/VPS. Vite, prebuilt assets (no host Node). Approved — ADR
 > **▶ Phase 1 / Core MVP COMPLETE · Phase 1.5 Hardening COMPLETE · RH-6–RH-11 FIXED · Default theme MERGED ·
 > ACP v1 + v1.1 MERGED · Spike P2 deliverability → GO (PR #8 merged) · ACP v2 MERGED (PR #9) ·
 > ▶ P2-M1 ENGAGEMENT & CONTENT DEPTH — BUILT, all gates green, DoD-audited; committed on 7 local branches —
-> **push pending** (this sandbox has no interactive git credentials; user to push, then open PRs).**
+> **push pending** (this sandbox has no interactive git credentials; user to push, then open PRs) ·
+> ▶ P2-M2 HALF-A DELIVERABILITY LIGHT-UP & RICH NOTIFICATIONS — BUILT, all gates green; branch
+> `claude/p2-m2a-deliverability` off `main` — **push pending** (same in-sandbox credential limit).**
 
 **`main` carries:** M0–M5, P1.5 hardening, real-host fixes RH-6–RH-11, default theme + theme polish R1,
 ACP v1 + v1.1 patch, Spike P2 deliverability pipeline (dormant), NevoBB rename (ADR-0024), **ACP v2**.
-**Committed locally, NOT yet pushed:** P2-M1 (7 stacked feature branches `claude/p2-m1-*`; the in-sandbox
-push is blocked on interactive git credentials — **user to push**, then open the PRs).
+**Committed locally, NOT yet pushed:** P2-M1 (7 stacked feature branches `claude/p2-m1-*`) and **P2-M2 Half-A**
+(`claude/p2-m2a-deliverability`, branched off `main`); the in-sandbox push is blocked on interactive git
+credentials — **user to push**, then open the PRs.
 
 **ACP v2 — MERGED to main (PR #9, commit `30bc466`):**
 Pint PASS (361 files) · Larastan level-5 clean · **Pest 518 passed / 1 skipped (1930 assertions)** ·
@@ -89,6 +92,35 @@ security holes, or permission/cache/commit issues found.
 votes/tags hard-delete with their owner; the cascade is owner-confirmable before PMs land) and the Dusk
 browser-journey screenshots for react/poll/prefix/tag/draft (wired into the dusk harness; run in CI).
 
+**P2-M2 Half-A — Deliverability light-up & rich notifications (BUILT 2026-06-09, `claude/p2-m2a-deliverability`):**
+A LIGHT-UP + WIRE-IN of the dormant Spike-P2 pipeline (no rebuild), per
+[`p2-m2a-deliverability-code-kickoff.md`](docs/product/p2-m2a-deliverability-code-kickoff.md). Six items, small
+DCO commits:
+1. **Activate** — `.env.example` `HEARTH_DELIVERABILITY=true`/`HEARTH_DIGEST=true`; the SPF/DKIM/DMARC +
+   on-domain-`From` operator checklist surfaced on the ACP Email page (memo §5).
+2. **`Notifier`→`DigestQueue` wiring (⚙)** — the mail channel routes by digest cadence: immediate = unchanged
+   live path; daily/weekly = staged into the cron digest; `off` = no notification mail. Idempotency stays on
+   the committed UNIQUE row (no lock). In-app channel unaffected; its id seeds the digest dedupe.
+3. **One shared `SuppressionGate` (⚙)** — `Notifier::suppressed()` delegates to it (single send-time gate).
+4. **Event vocab + reaction end-to-end** — `reaction`/`pm.received`/`follow` across `EVENTS`, mail/in-app/digest
+   renderers and the prefs UI. Only `reaction` has a live emitter: a QUEUED, **auto-discovered**
+   `SendReactionNotification` (P2-M1 `Reacted` → notify the post author); kept off the hot react action (≤15
+   budget held). `pm.received` (M2 Half-B) / `follow` (M3) get emitters there — no fake emitters.
+5. **`⚡notification-preferences` SFC** — per-event×channel toggles + an off/immediate/daily/weekly cadence
+   picker over `DigestPreference`; own-prefs-only.
+6. **Memo follow-ups (⚙)** — unsubscribe **GET-confirm / POST-apply** split; **SES + Mailgun** webhook parsers
+   (total + conservative; SNS-unwrap); **non-VERP manual-review queue** (`bounce_reviews`, reversible; populated
+   only when VERP is off so a forged bounce can't flood it; ACP card to suppress-by-hand / dismiss).
+**Gates:** the deliverability suite stays green and EXTENDS to the wiring (Deliverability 73, Notifications 23,
+Reactions all green); Pint PASS (whole repo) · Larastan **L5 clean (0 errors)** · assets rebuilt fresh (CSS
+**9.09 KB gz**, budget 50) · no new dependencies · reversible migration only. Full local suite **738/751 passed,
+1 skipped**; the 12 non-passing are PRE-EXISTING sandbox **filesystem-permission** failures
+(`storage/framework/testing/disks` is root-owned → `Storage::fake()` mkdir errors in the attachment/avatar tests;
+`InstallerTest`/`HostDoctorTest` writable-path probes) — **zero** in notification/deliverability/reaction code;
+green on CI's clean filesystem (the authoritative full gate, per the spike caveat). **DECISIONS.md** records the
+`off`-cadence semantics, the auto-discovered+queued reaction listener, the SES/Mailgun shapes, and the non-VERP
+review-queue forgery-flood guard.
+
 ## Immediate next actions
 
 1. **P2-M1 — BUILT (2026-06-09), DoD-audited; PUSH PENDING (user action), then PR review/merge.** 7 stacked
@@ -98,17 +130,19 @@ browser-journey screenshots for react/poll/prefix/tag/draft (wired into the dusk
    edit-history oembed; do git push -u origin claude/p2-m1-$b; done`, then merge in stack order (each lands
    runnable + tested). Build source remains
    [`docs/product/phase-2-implementation-plan.md`](docs/product/phase-2-implementation-plan.md).
-2. **Next in the greenlit kickoff scope (own packets, not yet built):**
-   - **Deliverability light-up (M2 Half-A)** — code merged + dormant; wire `Notifier→DigestQueue`,
-     `SuppressionGate` dedupe, new event types (incl. `reaction`, which already EMITS the `Reacted` event seam),
-     prefs UI, memo follow-ups. Parallel-safe with M1.
+2. **Deliverability light-up (M2 Half-A) — BUILT (2026-06-09), all gates green; PUSH PENDING (user action),
+   then PR review/merge.** Branch `claude/p2-m2a-deliverability` off `main` (8 small DCO commits). Push with
+   `git push -u origin claude/p2-m2a-deliverability`, then open the PR. Cowork review checklist is in the
+   kickoff packet (live immediate path provably unchanged; idempotency on the committed UNIQUE row; SES/Mailgun
+   parsers total under forged/replay/oversize and still write-only; unsubscribe GET applies nothing).
+3. **Next in the greenlit kickoff scope (own packets, not yet built):**
    - **Multi-participant PMs (M2 Half-B)** — **BLOCKED on the §6 account-deletion / privacy-cascade ADR**
      (decide first; P2-M1 already hard-deletes reactions/poll-votes/tags with their owner per that intended
      default — confirm + add forced-cascade tests when PMs land).
    - **Dusk browser-journey screenshots** for react/poll/prefix/tag/draft — wired into the dusk harness; finish
      in the harness/CI.
    - **Should-tier social HELD** as the descope lever (follow, reputation/points, badges, staff notes, 2nd theme).
-3. **Design-first items still queued (do not build without a plan):**
+4. **Design-first items still queued (do not build without a plan):**
    - RH-4: subdirectory install (ADR needed)
    - Layman "simple-mode" permissions UX (ACP v3, separate cycle)
    - In-code Hearth→NevoBB rename (one reviewed change per ADR-0024; do not rename ad-hoc)

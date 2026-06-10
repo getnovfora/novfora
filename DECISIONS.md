@@ -419,3 +419,57 @@ the URL ONLY; a client never supplies embed HTML.
   re-validates EVERY redirect hop; pins host→a validated IP (CURLOPT_RESOLVE) against DNS rebinding; caps
   redirects, timeout and response size; fails CLOSED (→ facade) on any error. Resolution cached in
   `oembed_cache` (sha256(url) → trusted HTML, 7-day TTL). New dependency: none.
+
+## P2-M2 Half-A — deliverability light-up & rich notifications (2026-06-09)
+
+Light-up + wire-in of the dormant Spike-P2 pipeline (no rebuild). Constraints inherited from
+[`spike-p2-memo.md`](docs/product/spike-p2-memo.md) §4 — idempotency lives in the committed
+`UNIQUE(user,cadence,period)` row, the send is at-least-once, suppression+cadence are re-checked at send,
+volume caps stay conservative. New dependencies: none. Reversible migration only (`bounce_reviews`).
+
+- **`Notifier`→`DigestQueue` wiring + the `off` cadence semantics.** `Notifier::send()`'s MAIL channel now
+  routes by the recipient's digest cadence: **immediate** (the default, absent row) → the UNCHANGED live
+  queued send; **daily/weekly** → staged into the cron digest via `DigestQueue::enqueue()` (no immediate
+  send); **off** → **no notification mail at all** — neither a digest nor an immediate send. The kickoff's
+  "enqueue returns null for immediate/off → live path" describes the common (immediate) case; we resolve the
+  `off` value as *full* mail silence, because the 4-value cadence picker (off/immediate/daily/weekly) is only
+  coherent if `off` is distinct from `immediate`, and a digest-unsubscriber must not be re-flooded with
+  immediate mail. The in-app (database) channel is unaffected by cadence; its notification id seeds the digest
+  dedupe (merged same-thread notifications carry one digest line). Idempotency is unchanged — the assembler's
+  committed UNIQUE row, never a lock.
+- **One shared `SuppressionGate`.** `Notifier`'s private `suppressed()` is removed; it delegates to the shared
+  `SuppressionGate::suppressed()`, so there is a single send-time suppression gate across the immediate and
+  digest paths (memo §4 follow-up), re-checked at send.
+- **Reaction notifications: AUTO-DISCOVERED + QUEUED.** Laravel event-discovery is active in this app, so a
+  plain `handle(Event)` listener in `app/Listeners` is registered automatically — an *additional* explicit
+  `Event::listen()` double-registers (a subtle double-notify we hit and removed). `SendReactionNotification`
+  is therefore registered only by discovery, and is `ShouldQueue` so the notification work (the P2-M1
+  `Reacted` seam → a `reaction` notification to the post author) is deferred to the DB queue and stays OFF the
+  hot react/toggle action path — the react query budget keeps its **≤15** ceiling (the budget test fakes the
+  queue, mirroring the baseline defer; no ceiling change). New event vocab `reaction`/`pm.received`/`follow`
+  is seated across `NotificationController::EVENTS`, the mail/in-app/digest renderers and the prefs UI; only
+  `reaction` has a live emitter — `pm.received` (M2 Half-B) and `follow` (M3) get theirs in those milestones
+  (no fake emitters). Absent preference rows still default on (no seeder needed).
+- **Unsubscribe GET-confirm / POST-apply split** (memo §8). A GET on the signed unsubscribe link only renders
+  a confirm page and applies nothing (resists email-scanner prefetch); the opt-out (cadence → `off`) is
+  applied only by a POST — the RFC 8058 one-click `List-Unsubscribe-Post`, or the confirm form (which posts
+  to the same signed URL; HMAC preserved, CSRF-exempt).
+- **SES + Mailgun webhook parsers** (memo §5). `ProviderWebhookParser` gains `ses` and `mailgun` arms,
+  clean-room from the documented JSON (no SDK). SES: `Bounce`(Permanent→suppress / Transient→never) +
+  `Complaint`, one event per recipient, and unwraps the common SNS `{"Type":"Notification","Message":"…"}`
+  envelope. Mailgun: `event-data` `failed`(severity=`permanent`→suppress) + `complained`, flat-shape
+  fallback. The parser stays **total + conservative**: garbage/unknown/missing-recipient → no event, never
+  throws/500s, and **ambiguity prefers NOT suppressing** (a deliverable address is never wrongly silenced).
+  Trust remains the controller's HMAC over the raw body — never the payload or a provider's own signature, so
+  the endpoint is still only a *writer* to the suppression list (no SSRF sink).
+- **Non-VERP bounce manual-review queue** (memo §2b / §8). A polled IMAP mailbox **without VERP** can't
+  cryptographically authenticate a sender-supplied recipient, so it must not auto-suppress (suppression-as-
+  DoS). `BounceParser::reviewCandidate()` is **additive** — `parse()` (and its "no VERP → suppress nothing"
+  guarantee) is untouched — and surfaces a PERMANENT bounce / complaint **unverified** into the new reversible
+  `bounce_reviews` table via the idempotent `BounceReviewQueue`. It is populated **only when VERP is disabled**
+  (`reviewCandidate()` returns null while VERP is enabled, so a forged/absent-VERP bounce can't flood the queue
+  — the same DoS class the VERP-only-identity rule closed). Transient `4.x.x` self-heals and is never queued.
+  A new ACP card (Admin → System → Email) lets staff suppress by hand (the authentication) or dismiss.
+- **Activation.** `.env.example` ships `HEARTH_DELIVERABILITY=true` + `HEARTH_DIGEST=true`; graceful absence is
+  unchanged (no provider/webhook/VERP/IMAP → VERP/manual floor, `NullBounceMailbox`, never an error). The
+  operator SPF/DKIM/DMARC + on-domain-`From` checklist (memo §5) is surfaced on the ACP Email page.
