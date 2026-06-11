@@ -7,6 +7,7 @@ declare(strict_types=1);
 use App\Mail\NotificationMail;
 use App\Messaging\ConversationService;
 use App\Models\User;
+use App\Models\UserRelationship;
 use App\Permissions\PermissionResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -60,6 +61,24 @@ it('merges a second message in the same conversation into one unread notificatio
     $notes = $bob->fresh()->notifications()->where('type', 'pm.received')->get();
     expect($notes)->toHaveCount(1)
         ->and((int) $notes->first()->data['count'])->toBe(2);
+});
+
+it('does not notify a participant who ignores the sender, even on a later reply', function () {
+    $alice = Users::inGroups(['members', 'tl1']);
+    $bob = User::factory()->create();
+
+    $service = app(ConversationService::class);
+    // Alice starts the thread (no ignore edge yet → Bob is notified of the opening message).
+    $convo = $service->startConversation($alice, [$bob->id], null, 'markdown', ['source' => 'first']);
+    expect($bob->fresh()->notifications()->where('type', 'pm.received')->count())->toBe(1);
+
+    // Bob now ignores Alice; her subsequent reply must NOT reach his notifications.
+    UserRelationship::factory()->ignore()->create(['user_id' => $bob->id, 'related_user_id' => $alice->id]);
+    $service->reply($alice, $convo, 'markdown', ['source' => 'second']);
+
+    $notes = $bob->fresh()->notifications()->where('type', 'pm.received')->get();
+    expect($notes)->toHaveCount(1)
+        ->and((int) $notes->first()->data['count'])->toBe(1); // still 1 — the reply was not delivered to the ignorer
 });
 
 it('keeps delivering the in-app notification with mail faked down (forced-absence, never an error)', function () {

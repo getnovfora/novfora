@@ -170,6 +170,21 @@ it('adds a participant only when the inviter holds can_invite', function () {
     expect(fn () => pmService()->invite($bob, $convo, $dave->id))->toThrow(AuthorizationException::class);
 });
 
+it('enforces the mass-PM cap on invite (the count is re-checked under a lock at add time)', function () {
+    config(['novfora.pm.max_recipients' => 2]); // sender + 2 recipients = 3 active max
+    $alice = sender();
+    $bob = User::factory()->create();
+    $carol = User::factory()->create();
+    $dave = User::factory()->create();
+    $convo = pmService()->startConversation($alice, [$bob->id], null, 'markdown', ['source' => 'hi']); // 2 active
+
+    pmService()->invite($alice, $convo, $carol->id); // 3 active — at the cap
+    expect($convo->participantRows()->whereNull('left_at')->count())->toBe(3);
+
+    expect(fn () => pmService()->invite($alice, $convo, $dave->id))->toThrow(PmException::class); // would be 4 > cap
+    expect($convo->participantRows()->whereNull('left_at')->count())->toBe(3);
+});
+
 it('blocks an invite when the target ignores the inviter', function () {
     $alice = sender();
     $bob = User::factory()->create();

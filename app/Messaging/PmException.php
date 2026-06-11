@@ -12,7 +12,10 @@ use RuntimeException;
  * A RECOVERABLE private-message failure surfaced back to the sender (rate-limited, mass-PM cap exceeded, no
  * reachable recipient, target cannot be added). Distinct from AuthorizationException — that is a hard 403
  * (the user may not PM at all, or is not a participant); these are inline, retryable conditions the UI shows
- * as a validation error. The messages never reveal who ignores whom (block semantics).
+ * as a validation error. The messages never NAME who ignores whom; an ignored recipient is silently dropped
+ * from delivery (block semantics). Note: with a single named recipient, the generic "none reachable" outcome
+ * can still let a sender INFER a block — an accepted LOW (the inherent silent-exclusion-vs-feedback tension),
+ * recorded in DECISIONS.
  */
 final class PmException extends RuntimeException
 {

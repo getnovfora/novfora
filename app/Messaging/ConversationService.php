@@ -89,7 +89,7 @@ final class ConversationService
             }
 
             $message = $this->writeMessage($sender, $conversation, $format, $canonical);
-            $conversation->forceFill(['last_message_at' => $message->created_at])->save();
+            $conversation->forceFill(['last_message_at' => now()])->save();
             $this->markRead($sender, $conversation); // the sender has read their own opening message
 
             Audit::log('pm.started', $conversation, ['recipients' => count($recipients)]);
@@ -121,7 +121,7 @@ final class ConversationService
 
         $message = DB::transaction(function () use ($sender, $conversation, $format, $canonical) {
             $message = $this->writeMessage($sender, $conversation, $format, $canonical);
-            $conversation->forceFill(['last_message_at' => $message->created_at])->save();
+            $conversation->forceFill(['last_message_at' => now()])->save();
             $this->markRead($sender, $conversation);
 
             return $message;
@@ -158,13 +158,22 @@ final class ConversationService
         }
 
         $max = (int) config('novfora.pm.max_recipients', 10);
-        $activeCount = $conversation->participantRows()->whereNull('left_at')->count();
-        if ($activeCount >= $max + 1) { // sender + max recipients
-            throw PmException::tooManyRecipients($max);
-        }
 
-        return DB::transaction(function () use ($conversation, $userId) {
+        return DB::transaction(function () use ($conversation, $userId, $max) {
+            // Serialize concurrent invites on this conversation so the cap check + insert are ATOMIC — a plain
+            // read-then-write lets two parallel invites both observe a sub-cap count and both insert, growing
+            // the thread past max_recipients (TOCTOU). Lock the conversation row first, the same lockForUpdate
+            // discipline ReactionService / PollService use around counter writes.
+            Conversation::query()->whereKey($conversation->getKey())->lockForUpdate()->first();
+
             $row = $conversation->participantRows()->where('user_id', $userId)->first();
+            $alreadyActive = $row instanceof ConversationParticipant && $row->left_at === null;
+
+            // The cap (sender + max recipients = max + 1 active rows) is only at risk when we ADD or re-activate.
+            if (! $alreadyActive && $conversation->participantRows()->whereNull('left_at')->count() >= $max + 1) {
+                throw PmException::tooManyRecipients($max);
+            }
+
             if ($row instanceof ConversationParticipant) {
                 $row->forceFill(['left_at' => null])->save(); // re-activate a previously-left participant
 

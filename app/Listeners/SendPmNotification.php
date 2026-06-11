@@ -8,6 +8,7 @@ namespace App\Listeners;
 
 use App\Events\MessageSent;
 use App\Models\User;
+use App\Models\UserRelationship;
 use App\Notifications\Notifier;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
@@ -43,6 +44,22 @@ final class SendPmNotification implements ShouldQueue
             ->whereNull('left_at')
             ->where('user_id', '!=', $actor->getKey())
             ->pluck('user_id');
+
+        if ($recipientIds->isEmpty()) {
+            return;
+        }
+
+        // IGNORE at the DELIVERY point: a participant who ignores the sender does not receive their messages —
+        // not just at conversation start/invite, but on every message (so ignoring AFTER joining a thread, or
+        // being force-added into a thread with someone you ignore, still stops their messages reaching you).
+        $ignorerIds = UserRelationship::query()
+            ->where('related_user_id', $actor->getKey())
+            ->where('type', UserRelationship::TYPE_IGNORE)
+            ->whereIn('user_id', $recipientIds)
+            ->pluck('user_id');
+        if ($ignorerIds->isNotEmpty()) {
+            $recipientIds = $recipientIds->reject(fn ($id) => $ignorerIds->contains($id))->values();
+        }
 
         if ($recipientIds->isEmpty()) {
             return;

@@ -22,7 +22,10 @@ return new class extends Migration
             $table->id();
             $table->string('subject')->nullable();                      // optional thread subject
             $table->unsignedBigInteger('created_by')->nullable();       // starter; anonymisable (no FK, ADR-0025)
-            $table->timestamp('last_message_at')->nullable();           // inbox ordering + unread comparison
+            // Millisecond precision (the unread watermark): a strict last_read_at < last_message_at comparison
+            // on whole-second columns would treat a message arriving in the SAME second as a markRead as
+            // already-read. ms precision makes a read-vs-send tie effectively impossible.
+            $table->timestamp('last_message_at', 3)->nullable();        // inbox ordering + unread comparison
             $table->unsignedBigInteger('tenant_id')->nullable()->index();
             $table->timestamps();
 
@@ -35,7 +38,7 @@ return new class extends Migration
             // A participant row is the actor's own membership record — HARD-deleted with the account (ADR-0025);
             // a real cascade FK (belt-and-braces with the app-layer delete in AccountDeletionService).
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->timestamp('last_read_at')->nullable();              // unread = last_read_at < conversations.last_message_at
+            $table->timestamp('last_read_at', 3)->nullable();           // unread = last_read_at < conversations.last_message_at (ms precision — see conversations.last_message_at)
             $table->timestamp('left_at')->nullable();                   // soft-leave; non-null = no longer an active participant
             $table->boolean('can_invite')->default(false);              // may add further participants
             $table->unsignedBigInteger('tenant_id')->nullable()->index();
