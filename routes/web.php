@@ -124,6 +124,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/bans/{ban}', [BanController::class, 'destroy'])->name('bans.destroy');
     Route::post('/users/{user}/spam-clean', [BanController::class, 'spamClean'])->name('moderation.spam-clean');
 
+    // Admin-forced account deletion (ADR-0025) — same gate as spam-clean (bans.manage + rank) plus the
+    // deletion-specific guards in AccountDeletionService. GET shows the summary + confirm; DELETE executes.
+    Route::get('/users/{user}/delete', [BanController::class, 'confirmDelete'])->name('moderation.user-delete.confirm');
+    Route::delete('/users/{user}', [BanController::class, 'forceDelete'])->name('moderation.user-delete');
+
     // Warnings / infractions (security §3): staff issue (bans.manage); members acknowledge their own.
     Route::post('/users/{user}/warn', [WarningController::class, 'store'])->name('warnings.store');
     Route::get('/warnings', [WarningController::class, 'index'])->name('warnings.index');
@@ -153,6 +158,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Profile (signature, custom fields, avatar/cover) — own account.
     Route::get('/settings/profile', [ProfileController::class, 'edit'])->name('settings.profile');
     Route::post('/settings/profile', [ProfileController::class, 'update'])->name('settings.profile.save');
+
+    // Account: voluntary deletion (ADR-0025). The ⚡delete-account SFC re-authenticates + confirms; the
+    // cascade and all guards live in AccountDeletionService.
+    Route::view('/settings/account', 'settings.account')->name('settings.account');
 
     // Private messages (P2-M2 Half-B). The /messages/new route MUST be registered before {conversation}
     // so the literal "new" segment is never captured as a conversation id.

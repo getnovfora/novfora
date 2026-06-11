@@ -6,12 +6,15 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Account\AccountDeletionException;
+use App\Account\AccountDeletionService;
 use App\AntiSpam\SpamCleaner;
 use App\Models\Ban;
 use App\Models\User;
 use App\Permissions\Scope;
 use App\Support\ActorRank;
 use App\Support\Audit;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -82,6 +85,44 @@ class BanController extends Controller
         $result = $cleaner->clean($actor, $user, 'Spam cleaner');
 
         return back()->with('status', "Removed {$result['topics']} topic(s) and {$result['posts']} post(s); account banned.");
+    }
+
+    /**
+     * Admin-forced account deletion (ADR-0025) — step 1: show the same pre-deletion summary the voluntary
+     * path shows, plus an explicit confirm. Gated identically to the destructive action (the SINGLE guard
+     * predicate on the service) so an unauthorised actor never even sees the summary.
+     */
+    public function confirmDelete(Request $request, User $user): View
+    {
+        $actor = $request->user();
+        abort_unless($actor instanceof User && AccountDeletionService::canForceDelete($actor, $user), 403);
+
+        return view('moderation.confirm-delete', [
+            'user' => $user,
+            'summary' => app(AccountDeletionService::class)->summary($user),
+        ]);
+    }
+
+    /**
+     * Admin-forced account deletion — step 2: execute. The service re-asserts the full guard (bans.manage +
+     * rank + no-equal/higher-admin + no-self) and runs the one audited cascade; we require an explicit
+     * confirmation field and surface the sole-admin block gracefully.
+     */
+    public function forceDelete(Request $request, User $user, AccountDeletionService $service): RedirectResponse
+    {
+        $actor = $request->user();
+        abort_unless($actor instanceof User && AccountDeletionService::canForceDelete($actor, $user), 403);
+
+        $request->validate(['confirm' => ['accepted']]);
+        $name = $user->display_name ?? $user->username;
+
+        try {
+            $service->deleteAccountAsAdmin($actor, $user);
+        } catch (AccountDeletionException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('forums.index')->with('status', "Account “{$name}” was permanently deleted.");
     }
 
     private function authorizeBans(Request $request): void
