@@ -214,6 +214,7 @@ new class extends Component
                 </ul>
             @endif
         </div>
+        <x-ui.button type="button" variant="subtle" size="sm" wire:click="addRecipient" dusk="pm-recipient-add" class="mt-1.5">Add recipient</x-ui.button>
         <p class="text-xs text-ink-subtle">Max {{ config('novfora.pm.max_recipients', 10) }} recipients.</p>
     </div>
 
@@ -230,7 +231,7 @@ new class extends Component
     <div class="space-y-1.5">
         <div class="flex items-center justify-between gap-2">
             <label class="block text-sm font-medium text-ink">Message</label>
-            <x-ui.button type="button" variant="ghost" size="sm" wire:click="toggleFormat">
+            <x-ui.button type="button" variant="ghost" size="sm" wire:click="toggleFormat" dusk="pm-format-toggle">
                 {{ $format === 'markdown' ? 'Switch to rich text' : 'Switch to Markdown' }}
             </x-ui.button>
         </div>
@@ -240,7 +241,7 @@ new class extends Component
                       dusk="pm-body"
                       class="w-full px-3 py-2 rounded-md bg-surface-raised text-ink border border-line focus:border-accent font-mono text-sm"></textarea>
         @else
-            <div dusk="pm-body">
+            <div dusk="pm-body-editor">
                 <x-content-editor model="canonicalJson" :initial="$canonicalJson"
                                   :upload-url="route('attachments.store')" :mention-url="route('mentions')"
                                   placeholder="Write your message…" />

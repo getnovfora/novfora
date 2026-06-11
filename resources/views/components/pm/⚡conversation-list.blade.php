@@ -64,8 +64,9 @@ new class extends Component
                     $snippet = $conversation->subject
                         ?? ($latestMessage ? \Illuminate\Support\Str::limit((string) $latestMessage->body_text, 80) : '(no messages)');
                 @endphp
-                <li dusk="pm-conversation-row-{{ $conversation->id }}">
+                <li>
                     <a href="{{ route('pm.show', $conversation->id) }}"
+                       dusk="pm-conversation-row-{{ $conversation->id }}"
                        class="flex items-start gap-3 px-4 py-3 hover:bg-surface-sunken transition-colors {{ $unread ? 'bg-accent-soft/30' : '' }}">
 
                         {{-- Avatars: stack up to 2 others --}}

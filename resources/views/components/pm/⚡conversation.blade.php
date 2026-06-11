@@ -240,7 +240,7 @@ new class extends Component
         <form wire:submit="reply" class="space-y-3">
             <div class="flex items-center justify-between gap-2">
                 <h2 class="text-sm font-semibold text-ink">Reply</h2>
-                <x-ui.button type="button" variant="ghost" size="sm" wire:click="toggleFormat">
+                <x-ui.button type="button" variant="ghost" size="sm" wire:click="toggleFormat" dusk="pm-format-toggle">
                     {{ $format === 'markdown' ? 'Switch to rich text' : 'Switch to Markdown' }}
                 </x-ui.button>
             </div>
@@ -250,7 +250,7 @@ new class extends Component
                           dusk="pm-reply-body"
                           class="w-full px-3 py-2 rounded-md bg-surface-raised text-ink border border-line focus:border-accent font-mono text-sm"></textarea>
             @else
-                <div dusk="pm-reply-body">
+                <div dusk="pm-reply-editor">
                     <x-content-editor model="canonicalJson" :initial="$canonicalJson"
                                       :upload-url="route('attachments.store')" :mention-url="route('mentions')"
                                       placeholder="Write a reply…" />
