@@ -11,11 +11,10 @@
 
 ## What this is
 
-**NovFora** (name locked 2026-06-07, ADR-0024; "NovFora" is the **retired codename** — still in code as
-`config/novfora.php`, `nevo:*` commands, `NOVFORA_*` env keys; rename is a **separate planned task**) —
-open-source (**Apache-2.0**), self-hosted forum/community platform; modern PHP; **two tiers from one
-codebase** (baseline shared PHP host / enhanced Docker-VPS); WYSIWYG-first editor; phpBB-grade permission
-masks; strict clean-room.
+**NovFora** (name locked 2026-06-10, ADR-0026; "Hearth" and "NevoBB" are **retired codenames**; in-code
+rename complete 2026-06-11, commit `b0cc294`) — open-source (**Apache-2.0**), self-hosted forum/community
+platform; modern PHP; **two tiers from one codebase** (baseline shared PHP host / enhanced Docker-VPS);
+WYSIWYG-first editor; phpBB-grade permission masks; strict clean-room.
 
 ## Current stack
 
@@ -30,20 +29,22 @@ PostgreSQL on Docker/VPS. Vite, prebuilt assets (no host Node). Approved — ADR
 - **Two stages, gated:** Stage A (Discovery) → Phase 0 gate **passed** → Stage B phased implementation
   (plan-before-code, wait for approval per phase).
 
-## Status (as of 2026-06-09)
+## Status (as of 2026-06-11)
 
 > **▶ Phase 1 / Core MVP COMPLETE · Phase 1.5 Hardening COMPLETE · RH-6–RH-11 FIXED · Default theme MERGED ·
 > ACP v1 + v1.1 MERGED · Spike P2 deliverability → GO (PR #8 merged) · ACP v2 MERGED (PR #9) ·
-> ▶ P2-M1 ENGAGEMENT & CONTENT DEPTH — BUILT, all gates green, DoD-audited; committed on 7 local branches —
-> **push pending** (this sandbox has no interactive git credentials; user to push, then open PRs) ·
-> ▶ P2-M2 HALF-A DELIVERABILITY LIGHT-UP & RICH NOTIFICATIONS — BUILT, all gates green; branch
-> `claude/p2-m2a-deliverability` off `main` — **push pending** (same in-sandbox credential limit).**
+> ▶ P2-M1 ENGAGEMENT & CONTENT DEPTH — COMPLETE on `main` · ▶ P2-M2 HALF-A DELIVERABILITY LIGHT-UP & RICH
+> NOTIFICATIONS — COMPLETE on `main` ·
+> ▶ P2-M2 HALF-B MULTI-PARTICIPANT PMs — BUILT, full suite **794 passed / 1 skipped (2542 assertions)**,
+> adversarially reviewed (3 confirmed findings fixed), PM Dusk journey + screenshots green; branch
+> `claude/p2-m2b-pms` off `main` — **push pending** (this sandbox has no interactive git credentials; user
+> pushes, then opens the PR).**
 
 **`main` carries:** M0–M5, P1.5 hardening, real-host fixes RH-6–RH-11, default theme + theme polish R1,
-ACP v1 + v1.1 patch, Spike P2 deliverability pipeline (dormant), NovFora rename (ADR-0024), **ACP v2**.
-**Committed locally, NOT yet pushed:** P2-M1 (7 stacked feature branches `claude/p2-m1-*`) and **P2-M2 Half-A**
-(`claude/p2-m2a-deliverability`, branched off `main`); the in-sandbox push is blocked on interactive git
-credentials — **user to push**, then open the PRs.
+ACP v1 + v1.1 patch, Spike P2 deliverability pipeline, NovFora rename (ADR-0024/0026), **ACP v2**, **P2-M1
+engagement/content-depth**, and **P2-M2 Half-A deliverability light-up** (the last two landed on `main`
+2026-06-11). **Committed locally, NOT yet pushed:** **P2-M2 Half-B** (`claude/p2-m2b-pms`, branched off
+`main`); the in-sandbox push is blocked on interactive git credentials — **the user pushes**, then opens the PR.
 
 **ACP v2 — MERGED to main (PR #9, commit `30bc466`):**
 Pint PASS (361 files) · Larastan level-5 clean · **Pest 518 passed / 1 skipped (1930 assertions)** ·
@@ -123,29 +124,38 @@ review-queue forgery-flood guard.
 
 ## Immediate next actions
 
-1. **P2-M1 — BUILT (2026-06-09), DoD-audited; PUSH PENDING (user action), then PR review/merge.** 7 stacked
-   branches `claude/p2-m1-*` (reactions → polls → prefixes → tags → drafts → edit-history → oembed); the oembed
-   tip is the integrated, all-gates-green, audit-hardened state. **The push could not run in-sandbox** (no
-   interactive git credentials); push all 7 with e.g. `for b in reactions polls prefixes tags drafts
-   edit-history oembed; do git push -u origin claude/p2-m1-$b; done`, then merge in stack order (each lands
-   runnable + tested). Build source remains
+1. **P2-M1 — COMPLETE on main (2026-06-11).** All 7 slices (reactions → polls → prefixes → tags → drafts →
+   edit-history → oembed) are on `origin/main` with full conventional-commit history preserved. PRs #10–16
+   show as CLOSED (commits landed via direct push in a prior session, not through GitHub's merge button) —
+   history is intact. Build source:
    [`docs/product/phase-2-implementation-plan.md`](docs/product/phase-2-implementation-plan.md).
-2. **Deliverability light-up (M2 Half-A) — BUILT (2026-06-09), all gates green; PUSH PENDING (user action),
-   then PR review/merge.** Branch `claude/p2-m2a-deliverability` off `main` (8 small DCO commits). Push with
-   `git push -u origin claude/p2-m2a-deliverability`, then open the PR. Cowork review checklist is in the
-   kickoff packet (live immediate path provably unchanged; idempotency on the committed UNIQUE row; SES/Mailgun
-   parsers total under forged/replay/oversize and still write-only; unsubscribe GET applies nothing).
-3. **Next in the greenlit kickoff scope (own packets, not yet built):**
-   - **Multi-participant PMs (M2 Half-B)** — **BLOCKED on the §6 account-deletion / privacy-cascade ADR**
-     (decide first; P2-M1 already hard-deletes reactions/poll-votes/tags with their owner per that intended
-     default — confirm + add forced-cascade tests when PMs land).
-   - **Dusk browser-journey screenshots** for react/poll/prefix/tag/draft — wired into the dusk harness; finish
-     in the harness/CI.
-   - **Should-tier social HELD** as the descope lever (follow, reputation/points, badges, staff notes, 2nd theme).
+2. **Deliverability light-up (M2 Half-A) — COMPLETE on main (2026-06-11).** All 8 commits on `origin/main`
+   (same pattern as M1 — landed via direct push). Stale branch deleted. Origin is clean; only `main` remains.
+3. **Multi-participant PMs (M2 Half-B) — BUILT (2026-06-11), branch `claude/p2-m2b-pms` off `main` — PUSH
+   PENDING (user pushes + opens the PR; gh absent in-sandbox).** Built per
+   [`docs/product/p2-m2b-pms-code-kickoff.md`](docs/product/p2-m2b-pms-code-kickoff.md), 10 small DCO commits:
+   schema → **TL0 mass-PM NEVER pin** + PmRateLimiter + ConversationPolicy → send spine (pm.send re-check / rate
+   / cap / **ignore** / single ContentRenderer path / report-on-PM) → live **`pm.received`** emitter → **ADR-0025
+   deletion cascade** → inbox/conversation/composer UI + nav unread badge → DECISIONS → adversarial-review
+   hardening → Dusk journey + harness fix. **Gates:** Pint · Larastan **L5** · **full suite 794 passed / 1
+   skipped (2542 assertions)** · query budgets inbox ≤15 / conversation ≤30 · PM Dusk journey green +
+   light·dark × mobile·desktop screenshots (`tests/Browser/screenshots/p2m2b-*.png`). **Adversarial review**
+   (7 finder dims × 2 verifiers, Opus): 3 confirmed defects FIXED — **HIGH** ignore-at-delivery (the
+   notification fan-out now drops ignorers, so ignoring after joining / being force-added stops the sender),
+   **MEDIUM** invite recipient-cap TOCTOU (lock + re-count inside the txn), **LOW** unread same-second miss
+   (ms-precision watermark); 2 LOWs accepted + documented (ignore-graph inference; 403-vs-404 = app-wide norm).
+   **DECISIONS.md** records the design (anonymisable-author vs cascade-FK split; `string`-not-`ENUM`;
+   participant-only Policy; deferred full multi-table AccountDeletionService).
+   - **Scope fence — NOT in this milestone:** the FOLLOW half of `user_relationships` (table built; wired in
+     M3), reputation/points/badges/staff notes (Should-tier — HELD), the full multi-table account-deletion
+     service + confirmation UI, a PM moderation queue (M4). No second permission or render path.
+   - **Known (pre-existing, not from M2B):** the react/poll/prefix/tag/draft + installer-wizard Dusk journeys
+     are flaky (timeouts) in the LOCAL docker dusk env; the PM journey + editor/theme/admin journeys pass.
+     Validate the flaky ones in clean CI.
 4. **Design-first items still queued (do not build without a plan):**
    - RH-4: subdirectory install (ADR needed)
    - Layman "simple-mode" permissions UX (ACP v3, separate cycle)
-   - Hearth/NevoBB→NovFora in-code rename: complete (refactor(rename) commit, ADR-0026)
+   - ~~Hearth/NevoBB→NovFora in-code rename~~ — **DONE** (commit `b0cc294`, 2026-06-11, ADR-0026)
 
 ## Working rules
 

@@ -55,6 +55,14 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(CustomFieldValue::class);
     }
 
+    /** The private conversations this user participates in (P2-M2 Half-B). @return BelongsToMany<Conversation, $this> */
+    public function conversations(): BelongsToMany
+    {
+        return $this->belongsToMany(Conversation::class, 'conversation_user')
+            ->withPivot(['last_read_at', 'left_at', 'can_invite'])
+            ->withTimestamps();
+    }
+
     /** @return list<int> the user's group ids (primary + secondary) */
     public function groupIds(): array
     {

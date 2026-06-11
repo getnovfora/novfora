@@ -49,6 +49,7 @@ CHROMEDRIVER_PID=$!
 
 # ── helpers ──────────────────────────────────────────────────────────────────────────────────────────
 start_serve() {                       # (re)reads the just-written .env; clears stale config/view first
+  pkill -f 'php -S 127.0.0.1:8000' 2>/dev/null || true   # reap any stray server from a prior pass before binding
   php artisan config:clear >/dev/null
   php artisan view:clear >/dev/null
   php artisan serve --host=127.0.0.1 --port=8000 >/tmp/serve.log 2>&1 &
@@ -61,6 +62,11 @@ start_serve() {                       # (re)reads the just-written .env; clears 
 stop_serve() {
   kill "${SERVE_PID:-}" 2>/dev/null || true
   wait "${SERVE_PID:-}" 2>/dev/null || true
+  # `php artisan serve` forks a `php -S` child that the parent kill can leave behind, holding :8000 so the
+  # NEXT pass fails to bind ("Address already in use"). Reap the stray server explicitly and wait for the port
+  # to actually free before returning.
+  pkill -f 'php -S 127.0.0.1:8000' 2>/dev/null || true
+  for _ in $(seq 1 10); do curl -sf http://127.0.0.1:8000/up >/dev/null 2>&1 && sleep 1 || break; done
   SERVE_PID=
 }
 dump_logs() {
@@ -151,7 +157,7 @@ set +e
 # Editor journey (RH-7 regression) + the default-theme screenshot gate (writes tests/Browser/screenshots/
 # theme-*.png) + the ACP v1 admin journey & screenshot gate (acp-*.png: dashboard/structure/settings/audit
 # in light/dark × mobile/desktop).
-php artisan dusk --without-tty tests/Browser/EditorJourneyTest.php tests/Browser/ThemeScreenshotTest.php tests/Browser/AdminJourneyTest.php tests/Browser/ContentDepthJourneyTest.php
+php artisan dusk --without-tty tests/Browser/EditorJourneyTest.php tests/Browser/ThemeScreenshotTest.php tests/Browser/AdminJourneyTest.php tests/Browser/ContentDepthJourneyTest.php tests/Browser/PmJourneyTest.php
 EDITOR_CODE=$?
 set -e
 [ "$EDITOR_CODE" -ne 0 ] && dump_logs
