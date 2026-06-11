@@ -50,6 +50,26 @@ return [
         ],
     ],
 
+    // Private messages / conversations (P2-M2 Half-B). The pm.send HARD gate lives in antispam.trust_gates
+    // below (tl0 = NEVER = the mass-PM spam-vector lockdown an admin ALLOW cannot lift; tl1+ = allow). These
+    // are the POST-gate abuse controls applied once a user is allowed to PM at all: a per-trust send-rate cap
+    // (cache RateLimiter — DB on baseline, Redis on enhanced, no code change) and a max-recipients-per-send
+    // cap that bounds the mass-PM blast radius.
+    'pm' => [
+        // Messages per minute, per trust level (PmRateLimiter), mirroring reactions/post rate policy.
+        'rate_limits' => [
+            // tl0 is moot in practice — pm.send NEVER blocks a TL0 user before the limiter is consulted — but
+            // kept tight as defence-in-depth in case the limiter is ever reached independently.
+            'tl0' => 2,
+            'tl1' => 5,
+            'tl2' => 15,
+            'default' => 30,
+        ],
+        // Mass-PM cap: the maximum recipients (excluding the sender) a single conversation may be started with
+        // or grown to. Bounds the blast radius of a compromised/abusive trusted account.
+        'max_recipients' => (int) env('NOVFORA_PM_MAX_RECIPIENTS', 10),
+    ],
+
     // oEmbed / rich embeds (P2-M1). SECURITY: the canonical post stores ONLY the URL (a client never supplies
     // embed HTML). An ALLOWLISTED provider renders a SINGLE sandboxed <iframe> built by
     // App\Content\Oembed\EmbedPolicy from a VALIDATED player URL on an allowlisted embed host — NOT through the
