@@ -576,3 +576,56 @@ volume caps stay conservative. New dependencies: none. Reversible migration only
 - **Activation.** `.env.example` ships `NOVFORA_DELIVERABILITY=true` + `NOVFORA_DIGEST=true`; graceful absence is
   unchanged (no provider/webhook/VERP/IMAP → VERP/manual floor, `NullBounceMailbox`, never an error). The
   operator SPF/DKIM/DMARC + on-domain-`From` checklist (memo §5) is surfaced on the ACP Email page.
+
+## P2-M2 Half-B — multi-participant PMs / conversations (2026-06-11)
+
+Private messages — the product's first **co-owned PII** and a new mass-spam surface. The gating and the
+deletion cascade are the load-bearing parts (Opus `xhigh`). New dependencies: none. Reversible migrations only.
+
+- **PM gating runs entirely through the existing permission engine; the TL0 mass-PM NEVER is pinned.**
+  `pm.send` was already catalogued (global scope) and seeded **NEVER on `tl0` / ALLOW from `tl1`** by
+  `TrustGateSeeder` (config `antispam.trust_gates`). A dedicated regression test (`PmPermissionTest`) proves the
+  NEVER is **absolute**: neither a per-user admin ALLOW (at global/forum/thread) **nor a group ALLOW** lifts it
+  (security §1.2 step 5 short-circuits before precedence). `ConversationService` re-checks `pm.send` on **every**
+  send, so a demotion to TL0 stops a user mid-conversation, not only at the inbox door.
+- **Participant-only access is a Policy, not an ACL-scope entry.** PMs live OUTSIDE the forum scope tree
+  (global → category → forum → thread), so there is no meaningful scope to resolve participation against.
+  `ConversationPolicy` (auto-discovered) gates `view`/`reply`/`invite` on participation (+ the `can_invite`
+  pivot flag); the `Gate::before` hook only routes **`Scope`-typed** args to the resolver, so a `Conversation`
+  arg falls through to the policy. The service re-asserts participation as defence-in-depth (Livewire actions
+  carry no route middleware).
+- **The IGNORE check is enforced at the service layer at BOTH points.** A recipient who ignores the sender is
+  **silently excluded** at conversation start (block semantics — the sender is never told who ignores them; if
+  that empties the recipient list the send fails with a generic "none reachable"), and **cannot be added** via
+  invite. A reverse-lookup index `user_relationships(related_user_id, type)` serves the "who ignores X" query.
+- **Single content path; PMs skip the post display layer.** Message bodies render ONLY through
+  `ContentRenderer` (+ `ContentSanitizer`) and pass `ContentModerator::review()` — identical sanitization to
+  posts, no second path; a **REJECT** verdict aborts the write inside the transaction (no orphan conversation).
+  PMs deliberately **omit the post DISPLAY enhancements** (word-filter replacement + oEmbed iframe injection):
+  the sanitized HTML is stored/shown directly, keeping the PM surface minimal (no server-side fetch from PM
+  content). `messages.approved_state` mirrors posts and records a **HOLD** verdict as `pending`, but delivery is
+  **not** gated on it this milestone (there is no PM moderation queue yet — that is the M4 seam); the column
+  exists so M4 can build the queue without a migration.
+- **Schema — anonymisable authors vs. cascade FKs (ADR-0025).** `messages.user_id` and
+  `conversations.created_by` follow the **posts.user_id pattern**: raw nullable, **no FK**, pseudonymised in app
+  code on deletion (a raw users delete would dangle them, never NULL). `conversation_user.*`,
+  `messages.conversation_id`, and **both** `user_relationships` endpoints are real `cascadeOnDelete` FKs.
+  `posts.user_id` was **already** nullable, so no ALTER migration was added. `user_relationships.type` is a
+  **`string(20)` + model constants**, not a DB `ENUM` — matching `posts.approved_state`/`reactions.type` for
+  MySQL **and** PostgreSQL portability and clean reversibility.
+- **`user_relationships` built once; only the IGNORE half is wired.** The FOLLOW half is the M3 seam — the
+  table ships now (cross-milestone, avoids a later migration) but nothing wires follow into feeds/notification
+  routing here.
+- **Deletion cascade = the ADR-0025 PM contract (`PmAccountCascade`).** Authored messages pseudonymised
+  (user_id NULL, body intact → thread stays coherent); participant rows hard-deleted; a conversation purged only
+  once **no** participant remains; a started conversation keeps its thread with `created_by` anonymised;
+  relationship edges hard-deleted on both endpoints — all in one transaction, run **before** the users row. The
+  **full multi-table `AccountDeletionService`** (posts pseudonymise, reaction/tag recounts, notifications/
+  sessions purge) and the deletion **confirmation UI** remain the broader account-deletion feature, outside this
+  milestone's scope fence; this lands the binding PM portion + forced-cascade tests.
+- **`pm.received` emitter: AUTO-DISCOVERED + QUEUED.** `SendPmNotification` (on the `MessageSent` event) mirrors
+  `SendReactionNotification` — registered by discovery only, `ShouldQueue` so fan-out stays off the send path,
+  `$deleteWhenMissingModels`. It notifies every OTHER active participant; the conversation id is passed as
+  `thread_id` so repeat unread PMs **merge** into one notification. M2 Half-A had already seeded the
+  `pm.received` vocabulary, renderers and prefs — this is its first live emitter. Forced-absence: the in-app DB
+  notification always lands even when mail is down (the Notifier swallows transport errors).
