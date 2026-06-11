@@ -198,7 +198,7 @@ new class extends Component
                 $isDeleted = $message->author === null;
             @endphp
             <div dusk="pm-message-{{ $message->id }}" class="flex items-start gap-3">
-                <x-ui.avatar :user="$isDeleted ? null : $message->author" :name="$authorName" size="sm" class="mt-0.5 shrink-0" />
+                <x-ui.avatar :user="$message->author" :guest="$isDeleted" :name="$authorName" size="sm" class="mt-0.5 shrink-0" />
                 <div class="min-w-0 flex-1">
                     <div class="flex items-baseline gap-2 mb-1">
                         <span class="text-sm font-medium text-ink">

@@ -35,9 +35,13 @@ PostgreSQL on Docker/VPS. Vite, prebuilt assets (no host Node). Approved — ADR
 > ACP v1 + v1.1 MERGED · Spike P2 deliverability → GO (PR #8 merged) · ACP v2 MERGED (PR #9) ·
 > ▶ P2-M1 ENGAGEMENT & CONTENT DEPTH — COMPLETE on `main` · ▶ P2-M2 HALF-A DELIVERABILITY LIGHT-UP & RICH
 > NOTIFICATIONS — COMPLETE on `main` ·
-> ▶ P2-M2 HALF-B MULTI-PARTICIPANT PMs — BUILT, full suite **794 passed / 1 skipped (2542 assertions)**,
-> adversarially reviewed (3 confirmed findings fixed), PM Dusk journey + screenshots green; branch
-> `claude/p2-m2b-pms` off `main` — **push pending** (this sandbox has no interactive git credentials; user
+> ▶ P2-M2 HALF-B MULTI-PARTICIPANT PMs — **MERGED to `main` (PR #17, commit `535a924`)** ·
+> ▶ P2 ACCOUNT DELETION (ADR-0025) — **BUILT**, the single audited `AccountDeletionService` cascade + both
+> confirmation surfaces (voluntary ⚡delete-account settings SFC; admin-forced staff-tools flow); Pint · Larastan
+> **L5 clean** · composer audit clean · assets-fresh (no new utility classes) · **+21 dedicated tests**
+> (10 service/cascade + 9 confirm-flow/route + 2 Dusk) all green, full suite **813 passed / 1 skipped
+> (2643 assertions)**; branch
+> `claude/p2-account-deletion` off `main` — **push pending** (sandbox has no interactive git credentials; user
 > pushes, then opens the PR).**
 
 **`main` carries:** M0–M5, P1.5 hardening, real-host fixes RH-6–RH-11, default theme + theme polish R1,
@@ -131,8 +135,7 @@ review-queue forgery-flood guard.
    [`docs/product/phase-2-implementation-plan.md`](docs/product/phase-2-implementation-plan.md).
 2. **Deliverability light-up (M2 Half-A) — COMPLETE on main (2026-06-11).** All 8 commits on `origin/main`
    (same pattern as M1 — landed via direct push). Stale branch deleted. Origin is clean; only `main` remains.
-3. **Multi-participant PMs (M2 Half-B) — BUILT (2026-06-11), branch `claude/p2-m2b-pms` off `main` — PUSH
-   PENDING (user pushes + opens the PR; gh absent in-sandbox).** Built per
+3. **Multi-participant PMs (M2 Half-B) — MERGED to `main` (PR #17, commit `535a924`).** Built per
    [`docs/product/p2-m2b-pms-code-kickoff.md`](docs/product/p2-m2b-pms-code-kickoff.md), 10 small DCO commits:
    schema → **TL0 mass-PM NEVER pin** + PmRateLimiter + ConversationPolicy → send spine (pm.send re-check / rate
    / cap / **ignore** / single ContentRenderer path / report-on-PM) → live **`pm.received`** emitter → **ADR-0025
@@ -152,7 +155,34 @@ review-queue forgery-flood guard.
    - **Known (pre-existing, not from M2B):** the react/poll/prefix/tag/draft + installer-wizard Dusk journeys
      are flaky (timeouts) in the LOCAL docker dusk env; the PM journey + editor/theme/admin journeys pass.
      Validate the flaky ones in clean CI.
-4. **Design-first items still queued (do not build without a plan):**
+4. **Account deletion (ADR-0025) — BUILT (2026-06-11), branch `claude/p2-account-deletion` off `main` — PUSH
+   PENDING (user pushes + opens the PR; gh absent in-sandbox).** Built per
+   [`docs/product/p2-account-deletion-code-kickoff.md`](docs/product/p2-account-deletion-code-kickoff.md). The
+   M1-deferred forced-cascade integration tests, now that PMs have landed. Closes ADR-0025 end-to-end:
+   - **`App\Account\AccountDeletionService`** — ONE audited cascade in a single `DB::transaction` for both paths:
+     capture reacted-post/voted-option ids → pseudonymise authored content (`withTrashed`, attribution → NULL,
+     bodies kept) → hard-delete participation + **authoritative recount** (`post_reaction_counts` /
+     `poll_options.vote_count` via new `ReactionService::recomputeForPosts` / `PollService::recomputeForOptions`
+     batch seams) → purge PII (notifications/sessions/registration_checks/acl+role holders) → **delegate the PM
+     slice to `PmAccountCascade`** (not re-implemented) → delete the users row LAST → audit. `summary()` powers
+     both confirm screens; `canForceDelete()` is the single admin gate (bans.manage + rank + no-equal/higher-admin
+     + no-self); `isSoleAdmin()` blocks deleting the last admin on both paths.
+   - **Voluntary UI** — a new **Account** settings tab → `⚡delete-account` SFC (own-only; password re-auth +
+     explicit confirm; deletes, flushes the session — NOT `Auth::logout()`, which would re-INSERT the just-deleted
+     user — and redirects home). **Admin-forced UI** — `BanController::confirmDelete`/`forceDelete`
+     (`GET /users/{user}/delete` + `DELETE /users/{user}`, gated) with the same summary + an explicit confirm,
+     surfaced as a **Staff tools** trigger on the profile (visible only when `canForceDelete`).
+   - **`[Deleted]` render** — null author → `[Deleted]` name (`:fallback`) + a neutral guest avatar (opt-in
+     `:guest` silhouette, generic null default unchanged) at post + PM author sites; `/users/{id}` 404s.
+   - **Gates:** Pint · Larastan **L5 clean** · composer audit clean · assets-fresh (no new utility classes) ·
+     **+21 dedicated tests** (10 service/cascade incl. single-transaction rollback + recount correctness; 9
+     confirm-flow/route/guard incl. wrong-password & sole-admin; 2 Dusk) + queued-job-no-op + profile-404 +
+     `[Deleted]`-render. Dusk voluntary journey + `p2-acct-delete-*` light·dark × mobile·desktop screenshots.
+     **DECISIONS.md** records the FLAGged calls (audit actor → NULL; email_suppressions deleted) + the
+     withTrashed / logout-re-insert / sole-admin / forced-gate reasoning.
+   - **Scope fence — NOT here:** a full ACP member list/detail page (only the minimal forced-delete trigger),
+     GDPR data-export, any soft-delete/grace-period/undo (this is hard, immediate, confirmed deletion).
+5. **Design-first items still queued (do not build without a plan):**
    - RH-4: subdirectory install (ADR needed)
    - Layman "simple-mode" permissions UX (ACP v3, separate cycle)
    - ~~Hearth/NevoBB→NovFora in-code rename~~ — **DONE** (commit `b0cc294`, 2026-06-11, ADR-0026)

@@ -126,18 +126,58 @@ final class ReactionService
      */
     private function recountType(Post $post, string $type): void
     {
-        $count = Reaction::where('post_id', $post->getKey())->where('type', $type)->count();
+        $this->recountTypeForPostId((int) $post->getKey(), $type);
+    }
+
+    /** As recountType, but keyed by a bare post id (no model needed) — the batch/cascade path. */
+    private function recountTypeForPostId(int $postId, string $type): void
+    {
+        $count = Reaction::where('post_id', $postId)->where('type', $type)->count();
 
         if ($count === 0) {
-            PostReactionCount::where('post_id', $post->getKey())->where('type', $type)->delete();
+            PostReactionCount::where('post_id', $postId)->where('type', $type)->delete();
 
             return;
         }
 
         PostReactionCount::updateOrCreate(
-            ['post_id' => $post->getKey(), 'type' => $type],
+            ['post_id' => $postId, 'type' => $type],
             ['count' => $count],
         );
+    }
+
+    /**
+     * Authoritatively recompute the per-type tallies for a batch of posts and invalidate each affected
+     * topic's cached tally. The account-deletion cascade (ADR-0025) calls this AFTER a departing user's
+     * reactions are bulk-deleted: the affected post ids are captured BEFORE the delete (the reaction rows —
+     * and the captured ids — are gone afterwards), then for every post we recompute exactly the types that
+     * could have shifted: any type with a surviving reaction PLUS any type that still carries a count row
+     * (so a tally the deleted reactor solely held is driven to 0 and its row removed). Config-independent —
+     * a since-removed reaction type is still reconciled. Posts survive deletion (pseudonymised), so a
+     * soft-deleted one is loaded via withTrashed to resolve its topic for cache invalidation.
+     *
+     * @param  list<int>  $postIds
+     */
+    public function recomputeForPosts(array $postIds): void
+    {
+        $postIds = array_values(array_unique(array_map('intval', $postIds)));
+        if ($postIds === []) {
+            return;
+        }
+
+        foreach ($postIds as $postId) {
+            $types = Reaction::where('post_id', $postId)->distinct()->pluck('type')
+                ->merge(PostReactionCount::where('post_id', $postId)->pluck('type'))
+                ->unique();
+
+            foreach ($types as $type) {
+                $this->recountTypeForPostId($postId, (string) $type);
+            }
+        }
+
+        foreach (Post::withTrashed()->whereIn('id', $postIds)->pluck('topic_id')->unique() as $topicId) {
+            $this->invalidateTopic((int) $topicId);
+        }
     }
 
     // ── read side (RH-9: primitives only, rehydrate after the boundary) ────────────────────────────
