@@ -27,7 +27,7 @@ use Throwable;
 class HealthController extends Controller
 {
     /** A heartbeat the queue-drain schedule refreshes each run; staleness => the cron may have stopped. */
-    public const QUEUE_HEARTBEAT = 'hearth:health:queue_drained_at';
+    public const QUEUE_HEARTBEAT = 'novfora:health:queue_drained_at';
 
     public function __invoke(ServiceTier $tier, Installer $installer, SchemaState $schema, RestoreState $restore): JsonResponse
     {
@@ -49,7 +49,7 @@ class HealthController extends Controller
 
         return response()->json([
             'status' => $status,
-            'app' => config('app.name', 'Hearth'),
+            'app' => config('app.name', 'NovFora'),
             'version' => config('app.version', '1.0.0-mvp'),
             'installed' => $installer->isInstalled(),
             'tier' => $this->tierLabel($tier),
@@ -109,7 +109,7 @@ class HealthController extends Controller
     private function checkCache(): array
     {
         try {
-            $token = 'hearth:health:'.bin2hex(random_bytes(4));
+            $token = 'novfora:health:'.bin2hex(random_bytes(4));
             Cache::put($token, '1', 10);
             $ok = Cache::get($token) === '1';
             Cache::forget($token);

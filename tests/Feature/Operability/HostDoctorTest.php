@@ -9,7 +9,7 @@ use App\Install\PublicStorageLinker;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 /*
-| hearth:doctor preflight + the copy-based public-storage fallback (phase-1.5). The doctor must surface the
+| novfora:doctor preflight + the copy-based public-storage fallback (phase-1.5). The doctor must surface the
 | shared-host gotchas and stay "green" (no hard fails) on a healthy host; the storage linker must fall back
 | to copying when symlinks are unavailable so avatars/covers display regardless.
 */
@@ -33,8 +33,8 @@ function rmrf(string $dir): void
     @rmdir($dir);
 }
 
-it('runs hearth:doctor and exits zero on a healthy host', function () {
-    $this->artisan('hearth:doctor')->assertExitCode(0);
+it('runs novfora:doctor and exits zero on a healthy host', function () {
+    $this->artisan('novfora:doctor')->assertExitCode(0);
 });
 
 it('surfaces the shared-host probes', function () {
@@ -53,13 +53,13 @@ it('surfaces the shared-host probes', function () {
 });
 
 it('falls back to copying public storage when symlinks are unavailable', function () {
-    $base = sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-storage-'.bin2hex(random_bytes(4));
+    $base = sys_get_temp_dir().DIRECTORY_SEPARATOR.'novfora-storage-'.bin2hex(random_bytes(4));
     $source = $base.DIRECTORY_SEPARATOR.'app-public';
     $link = $base.DIRECTORY_SEPARATOR.'public-storage';
     @mkdir($source.DIRECTORY_SEPARATOR.'avatars', 0775, true);
     file_put_contents($source.DIRECTORY_SEPARATOR.'avatars'.DIRECTORY_SEPARATOR.'a.txt', 'hello');
 
-    config(['hearth.storage.use_symlink' => false]); // force the no-symlink host condition
+    config(['novfora.storage.use_symlink' => false]); // force the no-symlink host condition
 
     try {
         $method = app(PublicStorageLinker::class)->linkPaths($source, $link);
@@ -77,7 +77,7 @@ it('flags group/world-writable application files (the suEXEC/CloudLinux 500 caus
         $this->markTestSkipped('POSIX permission bits only.');
     }
 
-    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-perm-'.bin2hex(random_bytes(4));
+    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'novfora-perm-'.bin2hex(random_bytes(4));
     @mkdir($dir, 0755, true);
     $safe = $dir.DIRECTORY_SEPARATOR.'safe.php';
     $lax = $dir.DIRECTORY_SEPARATOR.'lax.php';
@@ -103,7 +103,7 @@ it('creates a real symlink where the host allows it', function () {
         $this->markTestSkipped('symlink() needs privilege on Windows');
     }
 
-    $base = sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-storage-'.bin2hex(random_bytes(4));
+    $base = sys_get_temp_dir().DIRECTORY_SEPARATOR.'novfora-storage-'.bin2hex(random_bytes(4));
     $source = $base.DIRECTORY_SEPARATOR.'app-public';
     $link = $base.DIRECTORY_SEPARATOR.'public-storage';
     @mkdir($source, 0775, true);

@@ -1,5 +1,5 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => ($q !== '' ? "Search: {$q}" : 'Search').' · '.config('app.name', 'Hearth')])
+@extends('layouts.app', ['title' => ($q !== '' ? "Search: {$q}" : 'Search').' · '.config('app.name', 'NovFora')])
 
 @section('content')
     {{-- size="lg" follows the site Appearance "Forum width" (--layout-max-width), like the index/board/topic

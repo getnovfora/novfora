@@ -75,11 +75,11 @@ new class extends Component
         $this->saved = 'Saved. Reload a page to see the change.';
     }
 
-    /** Available themes = "Default (core)" + each child-theme directory under hearth.theme.path. */
+    /** Available themes = "Default (core)" + each child-theme directory under novfora.theme.path. */
     public function themeOptions(): array
     {
         $opts = [['value' => '', 'label' => 'Default (core)']];
-        $path = (string) config('hearth.theme.path');
+        $path = (string) config('novfora.theme.path');
         if (is_dir($path)) {
             foreach (glob($path.'/*', GLOB_ONLYDIR) ?: [] as $dir) {
                 $name = basename($dir);

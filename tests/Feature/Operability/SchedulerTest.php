@@ -20,21 +20,21 @@ it('schedules the queue drain, backups, and the trust/anti-spam jobs', function 
 
     expect($commands)->toContain('queue:work');
     expect($commands)->toContain('--stop-when-empty');   // bounded drain, not a daemon
-    expect($commands)->toContain('hearth:backup');
-    expect($commands)->toContain('hearth:trust:recompute');
-    expect($commands)->toContain('hearth:antispam:purge');
+    expect($commands)->toContain('novfora:backup');
+    expect($commands)->toContain('novfora:trust:recompute');
+    expect($commands)->toContain('novfora:antispam:purge');
 });
 
 it('registers a liveness heartbeat callback for the health endpoint', function () {
     $hasHeartbeat = collect(app(Schedule::class)->events())
-        ->contains(fn ($event) => $event->description === 'hearth-queue-heartbeat');
+        ->contains(fn ($event) => $event->description === 'novfora-queue-heartbeat');
 
     expect($hasHeartbeat)->toBeTrue();
 });
 
 it('registers the no-SSH auto-upgrade tick (RH-10), overlap-guarded', function () {
     $event = collect(app(Schedule::class)->events())
-        ->first(fn ($event) => $event->description === 'hearth-auto-upgrade');
+        ->first(fn ($event) => $event->description === 'novfora-auto-upgrade');
 
     expect($event)->not->toBeNull();
     // withoutOverlapping() so a long migration on a coarse, overlapping cron can never double-run.
@@ -46,7 +46,7 @@ it('registers the no-SSH auto-upgrade tick (RH-10), overlap-guarded', function (
 
 it('registers the no-SSH panel-restore drain (RH-11), overlap-guarded', function () {
     $event = collect(app(Schedule::class)->events())
-        ->first(fn ($event) => $event->description === 'hearth-panel-restore');
+        ->first(fn ($event) => $event->description === 'novfora-panel-restore');
 
     expect($event)->not->toBeNull();
     // Same belt as the auto-upgrade: a short, bounded overlap window (the runner's own FILE lock is the real

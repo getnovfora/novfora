@@ -37,10 +37,10 @@ it('drives the full installer wizard in a real browser, then locks', function ()
     expect($token)->not->toBe('');
 
     // The disposable database the wizard installs INTO (created empty by the harness).
-    $dbHost = (string) env('HEARTH_DUSK_INSTALL_DB_HOST', 'mysql');
-    $dbName = (string) env('HEARTH_DUSK_INSTALL_DB_NAME', 'hearth_install');
-    $dbUser = (string) env('HEARTH_DUSK_INSTALL_DB_USER', 'root');
-    $dbPass = (string) env('HEARTH_DUSK_INSTALL_DB_PASS', 'secret');
+    $dbHost = (string) env('NOVFORA_DUSK_INSTALL_DB_HOST', 'mysql');
+    $dbName = (string) env('NOVFORA_DUSK_INSTALL_DB_NAME', 'novfora_install');
+    $dbUser = (string) env('NOVFORA_DUSK_INSTALL_DB_USER', 'root');
+    $dbPass = (string) env('NOVFORA_DUSK_INSTALL_DB_PASS', 'secret');
 
     $this->browse(function (Browser $browser) use ($token, $dbHost, $dbName, $dbUser, $dbPass) {
         // The wizard's inputs are DEFERRED wire:model (sent on the next action, not per keystroke), so a
@@ -73,7 +73,7 @@ it('drives the full installer wizard in a real browser, then locks', function ()
             // ── STEP 3 — site & administrator ────────────────────────────────────────────────────────
             ->type('#siteName', 'Dusk Community')
             ->type('#adminUsername', 'duskadmin')
-            ->type('#adminEmail', 'dusk-admin@hearth.test')
+            ->type('#adminEmail', 'dusk-admin@novfora.test')
             ->type('#adminPassword', 'Sup3rSecret!!')
             ->type('#passwordConfirmation', 'Sup3rSecret!!')
             ->pause(400)
@@ -82,7 +82,7 @@ it('drives the full installer wizard in a real browser, then locks', function ()
 
             // ── STEP 4 — review & install ────────────────────────────────────────────────────────────
             ->assertSee('Dusk Community')               // the review echoes what we typed (wire:model stuck)
-            ->press('Install Hearth')
+
             ->waitForText('is installed', 60)           // step 5 — the real install ran to completion
             ->assertSee('cron');                        // the post-install cron-line guidance
     });

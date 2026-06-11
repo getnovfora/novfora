@@ -90,9 +90,9 @@ new class extends Component
 
         try {
             Mail::raw(
-                'Hearth email self-test — if you received this, outbound email is working. For reliable '
+                ' — if you received this, outbound email is working. For reliable '
                 .'delivery, verify SPF, DKIM and DMARC DNS records for your sending domain.',
-                fn ($message) => $message->to($this->testTo)->subject('Hearth email self-test'),
+                fn ($message) => $message->to($this->testTo)->subject(''),
             );
             $this->testResult = 'Test email sent to '.$this->testTo.'. Check that inbox (and the spam folder).';
             $this->testVariant = 'success';

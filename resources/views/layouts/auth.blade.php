@@ -1,10 +1,10 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => ($authTitle ?? 'Account').' · '.config('app.name', 'Hearth')])
+@extends('layouts.app', ['title' => ($authTitle ?? 'Account').' · '.config('app.name', 'NovFora')])
 
 @section('content')
     <x-ui.container size="sm">
         <div class="py-6 sm:py-10">
-            <p class="text-xs font-semibold uppercase tracking-wider text-ink-subtle">{{ config('app.name', 'Hearth') }}</p>
+            <p class="text-xs font-semibold uppercase tracking-wider text-ink-subtle">{{ config('app.name', 'NovFora') }}</p>
             <h1 class="mt-1 mb-5 text-2xl font-semibold tracking-tight text-ink">{{ $authTitle ?? 'Account' }}</h1>
 
             {{-- Session status is shown by the global flash in layouts.app; here we show only validation errors. --}}

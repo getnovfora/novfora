@@ -11,6 +11,6 @@ it('migrations are fully reversible (migrate then rollback, no errors)', functio
     $this->artisan('migrate:rollback')->assertSuccessful();
 });
 
-it('hearth:backup --dry-run reports a plan and succeeds', function () {
-    $this->artisan('hearth:backup', ['--dry-run' => true])->assertSuccessful();
+it('novfora:backup --dry-run reports a plan and succeeds', function () {
+    $this->artisan('novfora:backup', ['--dry-run' => true])->assertSuccessful();
 });

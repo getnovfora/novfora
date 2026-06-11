@@ -1,6 +1,6 @@
 # Security & Permissions
 
-> **Project:** Hearth (working codename). **Stage A deliverable** (Section 8 #10). **Date:** 2026-06-01.
+> **Project:** NovFora (working codename). **Stage A deliverable** (Section 8 #10). **Date:** 2026-06-01.
 > The **permission-mask resolution engine** (ADR-0006), the **first-class anti-spam subsystem** (ADR-0007 —
 > a standalone, fully-specified ADR), the **moderation model**, and the **OWASP security baseline**.
 > Storage lives in [data-model §4/§5/§6](data-model-initial.md); this doc owns *semantics, algorithms, and
@@ -83,7 +83,7 @@ multiple groups where one says ALLOW and another NEVER → **DENY** (NEVER wins)
 ## 2. Anti-spam subsystem (ADR-0007) — *standalone ADR*
 
 > **Status:** Accepted (Stage A). **Why standalone:** spam is the **#1 evidenced operator burden**
-> ([complaints C1](../research/community-complaints-and-feature-requests.md)) and Hearth's headline
+> ([complaints C1](../research/community-complaints-and-feature-requests.md)) and NovFora's headline
 > differentiator — it is a first-class subsystem, not a settings page. Phased: baseline in **Phase 1**,
 > intelligence in **Phase 4**.
 

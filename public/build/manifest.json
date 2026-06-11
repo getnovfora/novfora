@@ -14,13 +14,13 @@
     "src": "resources/js/app.js",
     "isEntry": true,
     "dynamicImports": [
-      "resources/js/editor/hearth-editor.js"
+      "resources/js/editor/novfora-editor.js"
     ]
   },
-  "resources/js/editor/hearth-editor.js": {
-    "file": "assets/hearth-editor-bSq8-WL7.js",
-    "name": "hearth-editor",
-    "src": "resources/js/editor/hearth-editor.js",
+  "resources/js/editor/novfora-editor.js": {
+    "file": "assets/novfora-editor-bSq8-WL7.js",
+    "name": "novfora-editor",
+    "src": "resources/js/editor/novfora-editor.js",
     "isDynamicEntry": true
   }
 }

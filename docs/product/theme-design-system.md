@@ -1,8 +1,8 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
-# Hearth default theme — design system cheat sheet (implementer contract)
+# NovFora default theme — design system cheat sheet (implementer contract)
 
 > The binding taste contract is [theme-design-brief.md](theme-design-brief.md). This file is the **how**:
 > the exact tokens, components, and conventions every restyled page MUST use so the result is consistent.
@@ -15,13 +15,13 @@ Copyright 2026 The Hearth Authors
    (The one sanctioned exception already exists in `x-ui.avatar` for the per-name tint.)
 2. **Colour via SEMANTIC utilities only** — they switch automatically in light/dark. **Never** use `dark:`
    variants and **never** use raw palette steps (`bg-slate-800`, `text-indigo-600`) for surfaces/text —
-   those don't switch. Raw scales are allowed only for fixed accents inside `.hearth-prose` etc.
+   those don't switch. Raw scales are allowed only for fixed accents inside `.novfora-prose` etc.
 3. **Mobile-first.** Every page must be good at **360px**: no horizontal scroll, tables reflow to stacked
    rows, nav/actions wrap. Add `sm:`/`md:`/`lg:` upward.
 4. **Touch targets ≥44px** on every interactive control (`min-h-11`, or the `x-ui` components which bake it in).
 5. **Reuse `x-ui.*` components** instead of re-implementing buttons/inputs/badges/etc.
 6. **Preserve the a11y floor and SEO blocks** — keep `@push('head')`, `id`/`name`/`for`, ARIA, `wire:` and
-   form `action`/`@csrf`/`@method` exactly. Keep existing Dusk selectors (`.hearth-prose`, `@topic-title`,
+   form `action`/`@csrf`/`@method` exactly. Keep existing Dusk selectors (`.novfora-prose`, `@topic-title`,
    the "Post topic" button text, installer wizard bindings).
 
 ## Semantic colour tokens → utilities
@@ -66,7 +66,7 @@ Shadow: `shadow-sm` (rows/cards), `shadow-md` (menus/modals). That's the whole e
 ## Page skeleton (copy this shape)
 
 ```blade
-@extends('layouts.app', ['title' => $thing->title.' · '.config('app.name', 'Hearth')])
+@extends('layouts.app', ['title' => $thing->title.' · '.config('app.name', 'NovFora')])
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[['label' => 'Forums', 'url' => route('forums.index')], ['label' => $thing->title]]" />
 @endsection

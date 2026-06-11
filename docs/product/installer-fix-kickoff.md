@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # Installer Wizard — front-end fix + full browser test — Claude Code kickoff prompt
 
@@ -46,7 +46,7 @@ FIX:
    a test MySQL connection → Continue → Site & admin → Continue → Install → assert the Done/installed state and
    that /install then 403s (locked). This both proves the fix and catches any downstream step bug in one pass.
 3. Rebuild the deployable bundle via scripts/build-release.sh (ships bootstrap/cache/packages.php) and re-run
-   scripts/verify-release.sh (cold HTTP boot). Deliver the new hearth-release.zip to D:\Forum with size + sha256.
+   scripts/verify-release.sh (cold HTTP boot). Deliver the new novfora-release.zip to D:\Forum with size + sha256.
 
 DEFINITION OF DONE: the installer wizard is fully operable in a real browser (the new full-wizard Dusk test is
 green); the existing Pest suite + M0–M5 + the new Dusk test all pass; Pint/Larastan/composer-audit clean; the
@@ -60,6 +60,6 @@ SCOPE FENCE: installer front-end fix + browser test + rebuild only. No product f
 
 ## After this
 
-The owner re-uploads the rebuilt `hearth-release.zip` (or just the corrected installer views/assets) and runs
+The owner re-uploads the rebuilt `novfora-release.zip` (or just the corrected installer views/assets) and runs
 the wizard, which should now click straight through to a completed install — the real-host validation's primary
 goal. Remaining open items afterward: RH-4 (subdirectory install, design-first) and RH-5 (stale assets + CI guard).

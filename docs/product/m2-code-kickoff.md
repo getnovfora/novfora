@@ -1,17 +1,17 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # M2 — Claude Code kickoff prompt (Phase 1, Forum structure & content + the editor)
 
 > Paste the block below into the **Claude Code** session to begin Phase 1 **M2**. The Phase 1 plan (M0–M5) is
 > owner-approved; **M0 + M1 are done** (M1 at commit `be9040d`). **Owner sign-off (2026-06-02): the permission
 > `NO` is `neutral/inherit` — interpretation (ii); use `NEVER` to hard-deny.** M2 is where the **validated Spike 0
-> editor finally ports into the real app** and `hearth-spike/` retires.
+> editor finally ports into the real app** and `nevo-spike/` retires.
 > Specs: [phase-1-plan.md](phase-1-plan.md) §5 (M2) + **§4 (the 7 editor findings — now you implement them)**;
 > [data-model-initial.md](../architecture/data-model-initial.md) §2 (structure) + §3 (canonical storage);
 > ADR-0005; [security-and-permissions.md](../architecture/security-and-permissions.md) §3 (soft-delete/recycle/audit)
-> + §4 (XSS/sanitize); the **[spike-0 memo](spike-0-memo.md)** + the `hearth-spike/` reference files.
+> + §4 (XSS/sanitize); the **[spike-0 memo](spike-0-memo.md)** + the `nevo-spike/` reference files.
 
 ---
 
@@ -23,7 +23,7 @@ START OF SESSION: read PROJECT-STATE.md, CLAUDE.md, docs/PROJECT-BRIEF.md (stand
 docs/product/phase-1-plan.md §5 (M2) AND §4 (the 7 editor findings — you implement these now);
 docs/architecture/data-model-initial.md §2 (categories→forums→topics→posts) + §3 (canonical content storage);
 ADR-0005; docs/architecture/security-and-permissions.md §3 (soft-delete/recycle/audit) + §4 (sanitize/XSS);
-the Spike 0 memo (docs/product/spike-0-memo.md) and the hearth-spike/ reference files you are porting from.
+the Spike 0 memo (docs/product/spike-0-memo.md) and the nevo-spike/ reference files you are porting from.
 
 MODEL/EFFORT: Opus 4.8 at xhigh on (a) the canonical renderer + sanitizer — the security boundary — and
 (b) the editor integration (apply the 7 findings exactly; a reactive-proxy regression there is the known trap).
@@ -49,7 +49,7 @@ BUILD M2:
 2) CANONICAL CONTENT STORAGE (ADR-0005 / data-model §3): each post carries body_format (tiptap_json default |
    markdown | legacy), body_canonical (lossless source — editing reopens THIS), body_html_cache (display HTML
    ALWAYS regenerated + sanitized server-side from canonical), body_text (search projection). **Port
-   `CanonicalRenderer` from hearth-spike/app/Support/** — the proven JSON→HTML mapper + symfony/html-sanitizer
+   `CanonicalRenderer` from nevo-spike/app/Support/** — the proven JSON→HTML mapper + symfony/html-sanitizer
    allowlist is the security boundary; client HTML is never trusted. Decide whether to back it with a maintained
    MIT tiptap-php lib or keep the hand-rolled mapper — license-vet either way (ADR-0015, record in DECISIONS.md).
    Port + extend the spike's CanonicalRendererTest (the XSS battery) against the M2 node set.
@@ -68,7 +68,7 @@ BUILD M2:
 5) CACHING: fragment/response caching for forum + thread views (baseline file/DB cache, tier-graceful, never
    load-bearing for correctness).
 
-6) RETIRE hearth-spike/ once CanonicalRenderer + the editor are ported and the M2 editor tests are green.
+6) RETIRE nevo-spike/ once CanonicalRenderer + the editor are ported and the M2 editor tests are green.
 
 DEFINITION OF DONE: the Spike 0 acceptance battery now runs as Dusk journeys against the REAL app (state
 survival across Livewire round-trips, drag-drop/paste upload, mentions, a11y) + the CanonicalRenderer XSS

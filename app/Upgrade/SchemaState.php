@@ -44,10 +44,10 @@ use Throwable;
 final class SchemaState
 {
     /** One cache key holds the whole state (one O(1) read on the request path). */
-    public const KEY = 'hearth:schema:state';
+    public const KEY = 'novfora:schema:state';
 
     /** Non-blocking lock so only one request performs the empty-state bootstrap check (no stampede). */
-    private const BOOTSTRAP_LOCK = 'hearth:schema:bootstrap';
+    private const BOOTSTRAP_LOCK = 'novfora:schema:bootstrap';
 
     /** @var array<string,string> memoised fingerprints, keyed by the joined migration paths */
     private static array $fingerprintMemo = [];
@@ -93,7 +93,7 @@ final class SchemaState
                 return false;
             }
 
-            return (bool) config('hearth.upgrade.auto', true);
+            return (bool) config('novfora.upgrade.auto', true);
         } catch (Throwable) {
             return false;
         }
@@ -125,7 +125,7 @@ final class SchemaState
             return false;
         }
         $startedAt = (int) ($s['upgrading_at'] ?? 0);
-        $window = max(60, (int) config('hearth.upgrade.lock_seconds', 600));
+        $window = max(60, (int) config('novfora.upgrade.lock_seconds', 600));
 
         return $startedAt > 0 && (now()->timestamp - $startedAt) < $window;
     }
@@ -233,7 +233,7 @@ final class SchemaState
      */
     public function migrationPaths(): array
     {
-        $configured = config('hearth.upgrade.migration_paths');
+        $configured = config('novfora.upgrade.migration_paths');
         $configured = is_array($configured) && $configured !== []
             ? array_values($configured)
             : [database_path('migrations')];
@@ -322,7 +322,7 @@ final class SchemaState
             'pending' => $this->isPending(),
             'upgrading' => $this->upgradingActive($s),
             'stuck' => (bool) ($s['stuck'] ?? false),
-            'auto' => (bool) config('hearth.upgrade.auto', true),
+            'auto' => (bool) config('novfora.upgrade.auto', true),
             'last' => is_array($last) ? [
                 'result' => $last['result'] ?? null,
                 'at' => $last['at'] ?? null,

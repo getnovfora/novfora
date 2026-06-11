@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # M1 — Claude Code kickoff prompt (Phase 1, Identity & access)
 
@@ -90,5 +90,5 @@ CSP, rate limits, audit log). Strict clean-room. When M1 lands runnable + tested
 
 The Cowork session reviews M1 (especially: does the truth-table suite actually cover the §1.5 edge cases, and
 is the cache provably non-load-bearing for correctness?), updates PROJECT-STATE, and preps the **M2** kickoff —
-forum structure → content → **porting the validated editor pattern + `CanonicalRenderer`** from `hearth-spike/`
+forum structure → content → **porting the validated editor pattern + `CanonicalRenderer`** from `nevo-spike/`
 (which then retires). M1's permission engine becomes the per-node authorization M2's CRUD gates against.

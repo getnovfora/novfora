@@ -3,7 +3,7 @@
      period, instead of one email per event. $items = list<DigestQueueItem>; $unsubscribeUrl = signed link. --}}
 <p>Hello,</p>
 
-<p>Here's what you missed on {{ config('app.name', 'Hearth') }}:</p>
+<p>Here's what you missed on {{ config('app.name', 'NovFora') }}:</p>
 
 <ul>
     @foreach ($items as $item)
@@ -43,7 +43,7 @@
 
 <hr>
 <p style="color:#888;font-size:.85rem">
-    You're receiving this digest because of your notification preferences on {{ config('app.name', 'Hearth') }}.
+    You're receiving this digest because of your notification preferences on {{ config('app.name', 'NovFora') }}.
     <a href="{{ $unsubscribeUrl }}">Unsubscribe from digests</a> or adjust them in your notification settings.
     On a shared host, email is best-effort — if these arrive late or in spam, ask your administrator about a
     transactional email provider.

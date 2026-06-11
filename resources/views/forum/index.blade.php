@@ -1,5 +1,5 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => 'Forums · '.config('app.name', 'Hearth')])
+@extends('layouts.app', ['title' => 'Forums · '.config('app.name', 'NovFora')])
 
 @section('content')
     <x-ui.container size="lg" class="space-y-6">

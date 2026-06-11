@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: Apache-2.0
+﻿# SPDX-License-Identifier: Apache-2.0
 # Chrome-enabled Dusk harness WITH a disposable MySQL alongside it. run.sh drives TWO sequential serve passes
 # (the RH-7 follow-up — enforce-ON split): PASS 1 runs the full-wizard installer journey (InstallerWizardTest)
-# under REAL pre-install enforcement (HEARTH_INSTALL_ENFORCE=true) and installs into the disposable MySQL
+# under REAL pre-install enforcement (NOVFORA_INSTALL_ENFORCE=true) and installs into the disposable MySQL
 # below; PASS 2 runs the editor journey against a reachable app (enforcement off) on the served app's own
 # sqlite. MySQL here exists purely as the wizard's install target.
 #
@@ -13,7 +13,7 @@ services:
     image: mysql:8
     environment:
       MYSQL_ROOT_PASSWORD: secret
-      MYSQL_DATABASE: hearth_install
+      MYSQL_DATABASE: nevo_install
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-psecret"]
       interval: 5s

@@ -20,9 +20,9 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     config([
-        'hearth.antispam.registration.stopforumspam.use_api' => true, // tests fake Http; no real network
-        'hearth.antispam.registration.captcha.provider' => 'qa',
-        'hearth.antispam.registration.captcha.qa.answers' => ['blue'],
+        'novfora.antispam.registration.stopforumspam.use_api' => true, // tests fake Http; no real network
+        'novfora.antispam.registration.captcha.provider' => 'qa',
+        'novfora.antispam.registration.captcha.qa.answers' => ['blue'],
     ]);
     $this->seed();
 });

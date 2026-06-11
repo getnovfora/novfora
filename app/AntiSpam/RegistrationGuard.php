@@ -33,7 +33,7 @@ final class RegistrationGuard
         $username = (string) ($context['username'] ?? '');
         $ip = (string) ($context['ip'] ?? '');
 
-        $reg = (array) config('hearth.antispam.registration', []);
+        $reg = (array) config('novfora.antispam.registration', []);
         $scores = [];
         $reasons = [];
         $degraded = false;
@@ -134,7 +134,7 @@ final class RegistrationGuard
             ->where('source', 'disposable')->where('type', 'email_domain')->where('value', $domain)->exists();
     }
 
-    /** A domain on the cron-warmed StopForumSpam toxic-domains list (phase-1.5 F-C, hearth:antispam:warm). */
+    /** A domain on the cron-warmed StopForumSpam toxic-domains list (phase-1.5 F-C, novfora:antispam:warm). */
     private function toxicDomain(string $email): bool
     {
         if (! str_contains($email, '@')) {

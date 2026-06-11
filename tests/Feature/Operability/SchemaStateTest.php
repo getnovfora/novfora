@@ -29,7 +29,7 @@ it('reports an up-to-date schema after a normal migrate (nothing pending, gate o
 });
 
 it('detects pending migrations when deployed code carries an unapplied migration', function () {
-    config(['hearth.upgrade.migration_paths' => [
+    config(['novfora.upgrade.migration_paths' => [
         database_path('migrations'),
         base_path('tests/Fixtures/upgrade/ok'),
     ]]);
@@ -55,7 +55,7 @@ it('gates on a new-release fingerprint change before the scheduler re-checks (cl
 });
 
 it('does not gate a merely-pending state in manual mode (the documented asymmetry)', function () {
-    config(['hearth.upgrade.auto' => false]);
+    config(['novfora.upgrade.auto' => false]);
     $schema = app(SchemaState::class);
     $schema->put(['pending' => true, 'fingerprint' => $schema->codeFingerprint()]);
 
@@ -65,7 +65,7 @@ it('does not gate a merely-pending state in manual mode (the documented asymmetr
 
 it('self-expires a stale upgrading flag (hard-kill resilience)', function () {
     $schema = app(SchemaState::class);
-    $window = (int) config('hearth.upgrade.lock_seconds', 600);
+    $window = (int) config('novfora.upgrade.lock_seconds', 600);
 
     $schema->refresh();  // nothing pending: pending=false, fingerprint stamped (isolates the upgrading check)
     $schema->beginRun(); // stamps upgrading_at = now

@@ -37,10 +37,10 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => redirect()->route('forums.index', [], 301));
 
 // ── No-SSH web installer (M5, phase-1-plan §5) ─────────────────────────────────────────────────────────
-// Unauthenticated pre-install surface. The `hearth.not-installed` lock 403s every installer route once
+// Unauthenticated pre-install surface. The `novfora.not-installed` lock 403s every installer route once
 // installed (no re-trigger, no admin-reset vector); RedirectIfNotInstalled (web group) sends an
 // un-installed site here. The wizard itself is the Livewire <livewire:installer.wizard /> component.
-Route::middleware('hearth.not-installed')->group(function () {
+Route::middleware('novfora.not-installed')->group(function () {
     Route::view('/install', 'install.index')->name('install');
 });
 
@@ -78,7 +78,7 @@ Route::match(['GET', 'POST'], '/unsubscribe/{user}', UnsubscribeController::clas
 
 // Provider bounce/complaint webhook — registered ONLY when configured (dormant otherwise → 404). Auth is an
 // HMAC over the raw body (MailWebhookController / WebhookVerifier); CSRF-exempt (bootstrap/app.php).
-if ((bool) config('hearth.deliverability.webhook.enabled') && (string) config('hearth.deliverability.webhook.secret', '') !== '') {
+if ((bool) config('novfora.deliverability.webhook.enabled') && (string) config('novfora.deliverability.webhook.secret', '') !== '') {
     Route::post('/webhooks/mail/{provider}', MailWebhookController::class)->name('deliverability.webhook');
 }
 

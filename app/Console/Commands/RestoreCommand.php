@@ -12,7 +12,7 @@ use App\Backup\RestoreService;
 use Illuminate\Console\Command;
 
 /**
- * `php artisan hearth:restore <archive>` — restore a Hearth backup (M5; RH-11 routes it through the shared
+ * `php artisan novfora:restore <archive>` — restore a NovFora backup (M5; RH-11 routes it through the shared
  * pipeline). DESTRUCTIVE: it overwrites the live database and storage, so it confirms first (skip with
  * --force). The archive's manifest + dump SHA-256 are validated before anything is touched; a corrupt or
  * foreign archive is refused. It runs the SAME backup-first, maintenance-safe choreography the no-SSH panel
@@ -21,9 +21,9 @@ use Illuminate\Console\Command;
  */
 class RestoreCommand extends Command
 {
-    protected $signature = 'hearth:restore {archive : Path to a hearth-*.zip backup archive} {--force : Skip the confirmation prompt}';
+    protected $signature = 'novfora:restore {archive : Path to a novfora-*.zip backup archive} {--force : Skip the confirmation prompt}';
 
-    protected $description = 'Restore the database and storage from a Hearth backup archive (destructive).';
+    protected $description = 'Restore the database and storage from a NovFora backup archive (destructive).';
 
     public function handle(RestoreRunner $runner, RestoreService $restore): int
     {
@@ -42,7 +42,7 @@ class RestoreCommand extends Command
                 ' · '.$this->humanSize($info['size_bytes']).' · database: '.$info['db_kind'].
                 ($info['storage_included'] ? ' + storage' : '').'.');
         } catch (BackupException $e) {
-            $this->components->error('Not a valid Hearth backup: '.$e->getMessage());
+            $this->components->error('Not a valid NovFora backup: '.$e->getMessage());
 
             return self::FAILURE;
         }
@@ -79,7 +79,7 @@ class RestoreCommand extends Command
             $this->components->bulletList([
                 'The site stays in maintenance until you recover — it does not retry indefinitely.',
                 $result->safetyBackup !== null
-                    ? 'Roll back to the previous state: php artisan hearth:restore '.$result->safetyBackup
+                    ? 'Roll back to the previous state: php artisan novfora:restore '.$result->safetyBackup
                     : 'No pre-restore safety snapshot was taken — restore another known-good backup.',
             ]);
         }

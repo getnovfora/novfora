@@ -1,5 +1,5 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => 'Notifications · '.config('app.name', 'Hearth')])
+@extends('layouts.app', ['title' => 'Notifications · '.config('app.name', 'NovFora')])
 
 @section('content')
     <x-ui.container size="md" class="space-y-5">
@@ -42,7 +42,7 @@
                                         <x-ui.icon name="message" class="h-4 w-4" />
                                         @break
                                     @case('reaction')
-                                        <span aria-hidden="true" class="text-sm leading-none">{{ config('hearth.reactions.types.'.($d['reaction_type'] ?? '').'.emoji', '👍') }}</span>
+                                        <span aria-hidden="true" class="text-sm leading-none">{{ config('novfora.reactions.types.'.($d['reaction_type'] ?? '').'.emoji', '👍') }}</span>
                                         @break
                                     @case('pm.received')
                                         <x-ui.icon name="mail" class="h-4 w-4" />

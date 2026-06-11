@@ -13,7 +13,7 @@ use Livewire\Component;
  * (no SSH). Authorization is enforced IN the component (mount + every action), not only on the route —
  * Livewire actions reach the component via the livewire/update endpoint, which does not carry the
  * admin/system route middleware. Download and delete are path-safe: the name is reduced to a basename and
- * must match the exact `hearth-*.zip` pattern inside the configured backup directory, so neither can touch
+ * must match the exact `novfora-*.zip` pattern inside the configured backup directory, so neither can touch
  * an arbitrary file.
  *
  * RESTORE is destructive (it overwrites the live database + uploaded files), so it is guarded harder than
@@ -150,7 +150,7 @@ new class extends Component
     private function resolve(BackupService $backups, string $name): ?string
     {
         $name = basename($name);
-        if (! preg_match('/^hearth-\d{8}-\d{6}\.zip$/', $name)) {
+        if (! preg_match('/^novfora-\d{8}-\d{6}\.zip$/', $name)) {
             return null;
         }
         $path = $backups->destination().DIRECTORY_SEPARATOR.$name;

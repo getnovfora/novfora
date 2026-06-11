@@ -20,7 +20,7 @@ use App\Support\Audit;
  *
  * Trust levels ARE ACL groups (TrustGateSeeder seeds their gates), so promoting a user = moving their
  * trust-group membership; the permission engine then resolves the new gates with no second system. This
- * runs from the scheduler (`hearth:trust:recompute`, cron — ADR-0011), is idempotent, and reads the
+ * runs from the scheduler (`novfora:trust:recompute`, cron — ADR-0011), is idempotent, and reads the
  * numeric promotion thresholds from each TL group's `auto_promotion` config.
  *
  * Rules: a live infraction-point total ≥ `demotion_points` demotes to TL0; any lesser live flag (a warning
@@ -48,7 +48,7 @@ final class TrustLevelManager
         $points = $this->liveInfractionPoints($user);
 
         // Serious infractions → hard demotion to TL0, even for a leader.
-        if ($points >= (int) config('hearth.antispam.trust.demotion_points', 10)) {
+        if ($points >= (int) config('novfora.antispam.trust.demotion_points', 10)) {
             return 0;
         }
 

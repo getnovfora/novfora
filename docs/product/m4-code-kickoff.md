@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # M4 — Claude Code kickoff prompt (Phase 1, Notifications · Search · SEO · Theme)
 
@@ -22,7 +22,7 @@ which is a versioned public contract: design it deliberately.
 STEP 0 — IDEMPOTENCY GUARD + housekeeping (before any build):
   • Confirm M4 isn't already done: read PROJECT-STATE.md + `git log --oneline`. If M4 commits exist / it's
     recorded done, STOP and report — do NOT rebuild.
-  • Confirm M3 is green (Docker dev env) and the working tree is clean. If an empty `hearth-spike/` dir is
+  • Confirm M3 is green (Docker dev env) and the working tree is clean. If an empty `nevo-spike/` dir is
     still on disk, remove it.
   • Doc reconciliation: phase-1-plan §3's "Explicitly NOT in Phase 1" list is now stale — reports,
     warnings/infractions, and edit history were delivered in M2/M3 (per the brief §6 + security §3). Update

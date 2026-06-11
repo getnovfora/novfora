@@ -35,8 +35,8 @@ beforeEach(function () {
 it('caches poll display data as a primitive array (RH-9)', function () {
     $this->service->displayData($this->poll->fresh());
 
-    $version = (int) Cache::get("hearth.poll.ver.p{$this->poll->id}", 0);
-    $cached = Cache::store('database')->get("hearth.poll.display.p{$this->poll->id}.v{$version}");
+    $version = (int) Cache::get("novfora.poll.ver.p{$this->poll->id}", 0);
+    $cached = Cache::store('database')->get("novfora.poll.display.p{$this->poll->id}.v{$version}");
 
     expect($cached)->toBeArray()
         ->and($cached['question'])->toBeString()

@@ -1,7 +1,7 @@
 {
     "preset": "laravel",
     "exclude": [
-        "hearth-spike",
+        "nevo-spike",
         "bootstrap/cache",
         "storage"
     ]

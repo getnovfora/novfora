@@ -1,13 +1,13 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # ACP feature taxonomy — six reference platforms (clean-room research)
 
 > Compiled exclusively from **public official documentation** (phpBB.com admin guide/KB, SMF Online Manual,
 > docs.mybb.com, ProBoards Help/admin guide, invisioncommunity.com guides, docs.xenforo.com) and official
 > feature pages. **No source code, templates, or repositories were consulted** (clean-room rule). Items not
-> re-verifiable in docs are marked **(unv.)**. Purpose: benchmark Hearth's ACP **coverage** (v1 → Phase 2 →
+> re-verifiable in docs are marked **(unv.)**. Purpose: benchmark NovFora's ACP **coverage** (v1 → Phase 2 →
 > Phase 3/4) — the design stays entirely ours.
 
 **ACP shape at a glance**
@@ -145,9 +145,9 @@ Copyright 2026 The Hearth Authors
 
 **(c) Distinctive one-platform ideas:** SMF's file-version diagnostics + admin search · phpBB's style live-preview-by-URL + per-language Q&A captcha · MyBB's mass-mail-as-PMs · ProBoards' if/else layout templating in a visual editor · Invision's per-admin reorderable ACP + queue monitor · XenForo's route filters, PWA config, page nodes, activity-summary digest, per-user XML portability.
 
-**Design lesson:** the hosted platform (ProBoards) wins on "nothing to maintain" but pays with no export, no mail control, no DB tools — the self-hosted five all treat backup/maintenance/logs as core ACP surface. Hearth already leads here (self-upgrade, panel backup/restore, health) — the ACP's job is to *surface* that operational strength, not hide it.
+**Design lesson:** the hosted platform (ProBoards) wins on "nothing to maintain" but pays with no export, no mail control, no DB tools — the self-hosted five all treat backup/maintenance/logs as core ACP surface. NovFora already leads here (self-upgrade, panel backup/restore, health) — the ACP's job is to *surface* that operational strength, not hide it.
 
-## Hearth mapping
+## NovFora mapping
 - **ACP v1:** shell + dashboard w/ pending actions · forum structure manager · settings pages (general/site notice, registration, email + test send, moderation defaults, anti-spam) · appearance settings (theme select, accent, width, density/mode defaults, poster position, board-list style) · System panels migrated in · audit log viewer · ACP quick search · scheduled-task visibility.
 - **Phase 2:** mass email/newsletter · member pruning/inactive cleanup · group promotions UI · ranks/titles · registration agreement editor · per-forum moderation overrides · registration approval/invite modes.
 - **Phase 3:** extensions manager UI · theme/layout configurator · importers UI w/ redirect maps · analytics dashboards · permission roles/templates + "test as user" tracer.

@@ -80,7 +80,7 @@ final class WarningService
     private function applyConsequence(User $target): ?array
     {
         $points = (int) Warning::where('user_id', $target->getKey())->live()->sum('points');
-        $thresholds = (array) config('hearth.antispam.warnings.thresholds', []);
+        $thresholds = (array) config('novfora.antispam.warnings.thresholds', []);
 
         if (isset($thresholds['ban']) && $points >= (int) $thresholds['ban']) {
             $target->forceFill(['status' => 'banned'])->save();
@@ -93,7 +93,7 @@ final class WarningService
         }
 
         if (isset($thresholds['temp_ban']) && $points >= (int) $thresholds['temp_ban']) {
-            $days = (int) config('hearth.antispam.warnings.temp_ban_days', 7);
+            $days = (int) config('novfora.antispam.warnings.temp_ban_days', 7);
             Ban::create([
                 'user_id' => $target->getKey(), 'type' => 'user', 'scope_type' => 'global',
                 'reason' => 'Infraction threshold reached', 'expires_at' => now()->addDays($days),

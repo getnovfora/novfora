@@ -7,7 +7,7 @@ use Livewire\Component;
 
 /**
  * Admin → Settings → Moderation defaults (ACP v1, PART 3.4). Knobs that back EXISTING mechanisms: the
- * new-user first-post hold count (NewUserModeration; 0 = auto-post; tracks HEARTH_NEW_USER_HOLD_POSTS
+ * new-user first-post hold count (NewUserModeration; 0 = auto-post; tracks NOVFORA_NEW_USER_HOLD_POSTS
  * until set here), the suspicious-score hold threshold + links-per-post (LocalHeuristicsScanner), and the
  * per-trust flood limits (PostRateLimiter). An edit-time/grace window has no current mechanism, so it is
  * flagged here rather than invented (scope fence).

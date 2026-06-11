@@ -49,10 +49,10 @@ class RoleSeeder extends Seeder
             'post.images' => $allow,
             'pm.send' => $allow,
             // Staff create polls regardless of trust level (poll.create is withheld from the base member
-            // preset and granted progressively from TL1 — see config/hearth.php trust_gates).
+            // preset and granted progressively from TL1 — see config/novfora.php trust_gates).
             'poll.create' => $allow,
             // Staff can mint new tags regardless of trust level (tag.create is withheld from the base member
-            // preset and granted progressively from TL1 — see config/hearth.php trust_gates). tag.apply is
+            // preset and granted progressively from TL1 — see config/novfora.php trust_gates). tag.apply is
             // already inherited from the member preset.
             'tag.create' => $allow,
         ];

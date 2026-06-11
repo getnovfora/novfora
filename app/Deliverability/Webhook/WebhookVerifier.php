@@ -19,31 +19,31 @@ final class WebhookVerifier
 {
     public function configured(): bool
     {
-        return (bool) config('hearth.deliverability.webhook.enabled')
-            && (string) config('hearth.deliverability.webhook.secret', '') !== '';
+        return (bool) config('novfora.deliverability.webhook.enabled')
+            && (string) config('novfora.deliverability.webhook.secret', '') !== '';
     }
 
     /** True only when the signature + timestamp verify against the raw body. */
     public function verify(Request $request): bool
     {
-        $secret = (string) config('hearth.deliverability.webhook.secret', '');
+        $secret = (string) config('novfora.deliverability.webhook.secret', '');
         if ($secret === '') {
             return false;
         }
 
         $raw = $request->getContent();
-        $maxBytes = (int) config('hearth.deliverability.webhook.max_body_bytes', 262144);
+        $maxBytes = (int) config('novfora.deliverability.webhook.max_body_bytes', 262144);
         if ($raw === '' || strlen($raw) > $maxBytes) {
             return false;
         }
 
-        $signature = (string) $request->header('X-Hearth-Signature', '');
-        $timestamp = (string) $request->header('X-Hearth-Timestamp', '');
+        $signature = (string) $request->header('X-NovFora-Signature', '');
+        $timestamp = (string) $request->header('X-NovFora-Timestamp', '');
         if ($signature === '' || $timestamp === '' || ! ctype_digit($timestamp)) {
             return false;
         }
 
-        $tolerance = max(1, (int) config('hearth.deliverability.webhook.tolerance_seconds', 300));
+        $tolerance = max(1, (int) config('novfora.deliverability.webhook.tolerance_seconds', 300));
         if (abs(now()->getTimestamp() - (int) $timestamp) > $tolerance) {
             return false; // stale / replayed
         }

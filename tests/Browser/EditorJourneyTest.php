@@ -23,7 +23,7 @@ uses(DatabaseTruncation::class);
 
 beforeEach(function () {
     $this->seed(DatabaseSeeder::class);
-    $this->member = Users::inGroups(['members'], ['username' => 'ada', 'email' => 'ada@hearth.test']);
+    $this->member = Users::inGroups(['members'], ['username' => 'ada', 'email' => 'ada@novfora.test']);
     $this->forum = Forum::create(['slug' => 'general', 'title' => 'General', 'type' => 'forum']);
 });
 
@@ -31,16 +31,16 @@ it('composes a topic in the WYSIWYG editor and posts it (end-to-end, in the real
     $this->browse(function (Browser $browser) {
         $browser->loginAs($this->member)
             ->visit(route('topics.create', $this->forum))
-            ->waitFor('.hearth-prose', 15)                   // editor mounted (lazy TipTap chunk loaded)
+            ->waitFor('.novfora-prose', 15)                   // editor mounted (lazy TipTap chunk loaded)
 
             // Criterion #5 (a11y): the editor is an ARIA textbox, keyboard-reachable.
-            ->assertAttribute('.hearth-prose', 'role', 'textbox')
-            ->assertAttribute('.hearth-prose', 'aria-multiline', 'true')
+            ->assertAttribute('.novfora-prose', 'role', 'textbox')
+            ->assertAttribute('.novfora-prose', 'aria-multiline', 'true')
 
             // Compose: a title, then real keystrokes into the WYSIWYG editor.
             ->type('@topic-title', 'My Dusk topic')
-            ->click('.hearth-prose')
-            ->keys('.hearth-prose', 'Composed in the real editor, posted for real.')
+            ->click('.novfora-prose')
+            ->keys('.novfora-prose', 'Composed in the real editor, posted for real.')
             ->pause(400)                                      // let the deferred $wire.set + blur sync settle
 
             // Post it. The page wire:navigates to the new topic, which renders the body from the SERVER-side
@@ -56,16 +56,16 @@ it('survives a Livewire validation morph with zero content loss (criterion #1a, 
     $this->browse(function (Browser $browser) {
         $browser->loginAs($this->member)
             ->visit(route('topics.create', $this->forum))
-            ->waitFor('.hearth-prose', 15)
+            ->waitFor('.novfora-prose', 15)
 
             // Type content into the editor, then force a Livewire re-render via a failed (empty-title) save.
-            ->click('.hearth-prose')
-            ->keys('.hearth-prose', 'Editor content that must survive the morph')
+            ->click('.novfora-prose')
+            ->keys('.novfora-prose', 'Editor content that must survive the morph')
             ->pause(300)
             ->press('Post topic')
             ->waitForText('The title field is required.', 15) // the validation morph has rendered
 
             // The wire:ignore'd editor island + its synced canonical content survive the morph untouched.
-            ->assertSeeIn('.hearth-prose', 'Editor content that must survive the morph');
+            ->assertSeeIn('.novfora-prose', 'Editor content that must survive the morph');
     });
 });

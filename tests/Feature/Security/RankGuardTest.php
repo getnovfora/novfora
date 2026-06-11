@@ -72,7 +72,7 @@ it('forbids a moderator from spam-cleaning an admin', function () {
 });
 
 it('respects allow_equal so a moderator may then action a peer', function () {
-    config(['hearth.moderation.rank.allow_equal' => true]);
+    config(['novfora.moderation.rank.allow_equal' => true]);
     $mod = Users::inGroups(['moderators']);
     $peer = Users::inGroups(['moderators']);
 

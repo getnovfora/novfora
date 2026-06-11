@@ -70,7 +70,7 @@ it('rejects an unknown reaction type at the action (422)', function () {
 });
 
 it('enforces the per-trust reaction rate limit', function () {
-    config(['hearth.reactions.rate_limits' => ['default' => 1, 'tl0' => 1]]);
+    config(['novfora.reactions.rate_limits' => ['default' => 1, 'tl0' => 1]]);
 
     $component = Livewire::actingAs($this->member)
         ->test('forum.post-reactions', ['postId' => $this->post->id, 'topicId' => $this->post->topic_id, 'canReact' => true]);

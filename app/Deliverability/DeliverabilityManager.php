@@ -31,14 +31,14 @@ final class DeliverabilityManager
     /** Poll the configured mailbox, parse each message, apply suppressions. Returns count newly suppressed. */
     public function ingestAvailable(): int
     {
-        if (! (bool) config('hearth.deliverability.enabled')) {
+        if (! (bool) config('novfora.deliverability.enabled')) {
             return 0; // dormant
         }
 
         $newly = 0;
 
         try {
-            $cap = max(1, (int) config('hearth.deliverability.imap.per_tick_cap', 100));
+            $cap = max(1, (int) config('novfora.deliverability.imap.per_tick_cap', 100));
             foreach ($this->mailbox->fetch($cap) as $raw) {
                 foreach ($this->parser->parse($raw) as $event) {
                     if ($this->suppressor->applyEvent($event)) {

@@ -22,8 +22,8 @@ beforeEach(function () {
         $this->markTestSkipped('pure-PHP MySQL backup path requires a MySQL connection');
     }
     config([
-        'hearth.backup.db_method' => 'php', // force the pure-PHP path even where mysqldump exists
-        'hearth.backup.path' => storage_path('phpbackup-test'),
+        'novfora.backup.db_method' => 'php', // force the pure-PHP path even where mysqldump exists
+        'novfora.backup.path' => storage_path('phpbackup-test'),
     ]);
     Artisan::call('migrate:fresh', ['--force' => true]);
     Artisan::call('db:seed', ['--force' => true]);

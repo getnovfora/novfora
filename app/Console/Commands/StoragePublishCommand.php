@@ -10,13 +10,13 @@ use App\Install\PublicStorageLinker;
 use Illuminate\Console\Command;
 
 /**
- * `php artisan hearth:storage:publish` — make uploaded public files reachable under public/storage. Prefers
+ * `php artisan novfora:storage:publish` — make uploaded public files reachable under public/storage. Prefers
  * a real symlink; on hosts that forbid symlinks it writes (and refreshes) a copy mirror instead. The single
  * cron line keeps the mirror current, but operators can run this by hand after bulk changes.
  */
 class StoragePublishCommand extends Command
 {
-    protected $signature = 'hearth:storage:publish';
+    protected $signature = 'novfora:storage:publish';
 
     protected $description = 'Publish public uploads to public/storage (symlink, or a copy mirror where symlinks are disabled).';
 

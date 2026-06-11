@@ -50,7 +50,7 @@ class DemoSeeder extends Seeder
 
             $this->thread($posts, $announce, $users['leader'],
                 'Welcome to the community 🎉',
-                "We're glad you're here. This forum is running on **Hearth** — an open-source, self-hosted "
+                "We're glad you're here.  — an open-source, self-hosted "
                 ."community platform.\n\nTake a look around, introduce yourself, and start a discussion. "
                 .'Staff post announcements here; everything else is fair game in the other forums.',
                 [
@@ -114,11 +114,11 @@ class DemoSeeder extends Seeder
     private function users(): array
     {
         return [
-            'lurker' => $this->user('quinn', 'quinn@demo.hearth.test', 'tl0'),   // present, but doesn't post
-            'basic' => $this->user('sam', 'sam@demo.hearth.test', 'tl1'),
-            'member' => $this->user('riley', 'riley@demo.hearth.test', 'tl2'),
-            'regular' => $this->user('jordan', 'jordan@demo.hearth.test', 'tl3'),
-            'leader' => $this->user('avery', 'avery@demo.hearth.test', 'tl4'),
+            'lurker' => $this->user('quinn', 'quinn@demo.novfora.test', 'tl0'),   // present, but doesn't post
+            'basic' => $this->user('sam', 'sam@demo.novfora.test', 'tl1'),
+            'member' => $this->user('riley', 'riley@demo.novfora.test', 'tl2'),
+            'regular' => $this->user('jordan', 'jordan@demo.novfora.test', 'tl3'),
+            'leader' => $this->user('avery', 'avery@demo.novfora.test', 'tl4'),
         ];
     }
 

@@ -1,6 +1,6 @@
 # Testing Strategy
 
-> **Project:** Hearth (working codename). **Stage A deliverable** (addition beyond Section 8, requested at
+> **Project:** NovFora (working codename). **Stage A deliverable** (addition beyond Section 8, requested at
 > Checkpoint 1). **Date:** 2026-06-01. The test pyramid, the **dedicated testing of permission-mask
 > resolution and service-tier fallbacks** (brief hard rules), fixtures, and CI. Principle from the brief:
 > **no feature is "done" without tests.**

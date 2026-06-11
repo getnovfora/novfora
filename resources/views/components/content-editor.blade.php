@@ -19,7 +19,7 @@
 
 <div
     wire:ignore
-    x-data="hearthEditor({
+    x-data="nevoEditor({
         model: @js($model),
         content: @js($initial),
         uploadUrl: @js($uploadUrl),
@@ -28,13 +28,13 @@
         draft: @js((bool) $draft),
         draftDebounce: @js((int) $draftDebounce),
     })"
-    class="hearth-editor"
+    class="novfora-editor"
 >
-    <div class="hearth-toolbar" role="toolbar" aria-label="Formatting">
+    <div class="novfora-toolbar" role="toolbar" aria-label="Formatting">
         <button type="button" x-on:click="cmd('bold')" :class="{ 'is-active': isActive('bold') }" aria-label="Bold"><b>B</b></button>
         <button type="button" x-on:click="cmd('italic')" :class="{ 'is-active': isActive('italic') }" aria-label="Italic"><i>I</i></button>
         <button type="button" x-on:click="cmd('strike')" :class="{ 'is-active': isActive('strike') }" aria-label="Strikethrough"><s>S</s></button>
-        <span class="hearth-sep" aria-hidden="true"></span>
+        <span class="novfora-sep" aria-hidden="true"></span>
         <button type="button" x-on:click="cmd('h2')" :class="{ 'is-active': isActive('heading', { level: 2 }) }" aria-label="Heading">H</button>
         <button type="button" x-on:click="cmd('bulletList')" :class="{ 'is-active': isActive('bulletList') }" aria-label="Bullet list">&bull;</button>
         <button type="button" x-on:click="cmd('orderedList')" :class="{ 'is-active': isActive('orderedList') }" aria-label="Numbered list">1.</button>
@@ -44,10 +44,10 @@
         @if ($uploadUrl)
             <button type="button" x-on:click="$refs.file.click()" aria-label="Upload image">&#128247;</button>
         @endif
-        <span class="hearth-hint" aria-hidden="true">Type <kbd>/</kbd> for commands, <kbd>@</kbd> to mention</span>
+        <span class="novfora-hint" aria-hidden="true">Type <kbd>/</kbd> for commands, <kbd>@</kbd> to mention</span>
     </div>
 
-    <div x-ref="mount" class="hearth-mount"></div>
+    <div x-ref="mount" class="novfora-mount"></div>
 
     @if ($uploadUrl)
         <input type="file" accept="image/*" x-ref="file" hidden

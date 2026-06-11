@@ -200,7 +200,7 @@ final class PollService
         $version = $this->version((int) $poll->getKey());
 
         return Cache::remember(
-            "hearth.poll.display.p{$poll->getKey()}.v{$version}",
+            "novfora.poll.display.p{$poll->getKey()}.v{$version}",
             now()->addMinutes(self::DISPLAY_TTL_MINUTES),
             function () use ($poll): array {
                 $options = PollOption::where('poll_id', $poll->getKey())
@@ -252,12 +252,12 @@ final class PollService
 
     private function version(int $pollId): int
     {
-        return (int) Cache::get("hearth.poll.ver.p{$pollId}", 0);
+        return (int) Cache::get("novfora.poll.ver.p{$pollId}", 0);
     }
 
     private function bumpVersion(int $pollId): void
     {
-        $key = "hearth.poll.ver.p{$pollId}";
+        $key = "novfora.poll.ver.p{$pollId}";
         if (! Cache::add($key, 1, now()->addYear())) {
             Cache::increment($key);
         }

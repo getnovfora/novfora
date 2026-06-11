@@ -10,18 +10,18 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 it('logs in a verified user with correct credentials', function () {
-    $user = User::factory()->create(['email' => 'ada@hearth.test']); // password = "password"
+    $user = User::factory()->create(['email' => 'ada@novfora.test']); // password = "password"
 
-    $this->post('/login', ['email' => 'ada@hearth.test', 'password' => 'password'])
+    $this->post('/login', ['email' => 'ada@novfora.test', 'password' => 'password'])
         ->assertRedirect('/home');
 
     $this->assertAuthenticatedAs($user);
 });
 
 it('rejects an incorrect password', function () {
-    User::factory()->create(['email' => 'ada@hearth.test']);
+    User::factory()->create(['email' => 'ada@novfora.test']);
 
-    $this->post('/login', ['email' => 'ada@hearth.test', 'password' => 'wrong'])
+    $this->post('/login', ['email' => 'ada@novfora.test', 'password' => 'wrong'])
         ->assertSessionHasErrors('email');
 
     $this->assertGuest();
@@ -35,13 +35,13 @@ it('logs out', function () {
 });
 
 it('throttles repeated failed logins (rate limiting)', function () {
-    User::factory()->create(['email' => 'ada@hearth.test']);
+    User::factory()->create(['email' => 'ada@novfora.test']);
 
     // The login route carries throttle:login (5/min per email+IP); the 6th attempt is blocked (429).
     foreach (range(1, 5) as $ignored) {
-        $this->post('/login', ['email' => 'ada@hearth.test', 'password' => 'wrong']);
+        $this->post('/login', ['email' => 'ada@novfora.test', 'password' => 'wrong']);
     }
 
-    $this->post('/login', ['email' => 'ada@hearth.test', 'password' => 'wrong'])
+    $this->post('/login', ['email' => 'ada@novfora.test', 'password' => 'wrong'])
         ->assertStatus(429);
 });

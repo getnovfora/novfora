@@ -26,10 +26,10 @@ final class ThemeManager
 
     public function __construct(private readonly Factory $view) {}
 
-    /** Activate a theme (defaults to config('hearth.theme.active')); returns the active Theme, or null for core. */
+    /** Activate a theme (defaults to config('novfora.theme.active')); returns the active Theme, or null for core. */
     public function boot(?string $slug = null): ?Theme
     {
-        $slug ??= config('hearth.theme.active');
+        $slug ??= config('novfora.theme.active');
         if (! is_string($slug) || $slug === '') {
             return null; // no active theme → core views only
         }
@@ -74,7 +74,7 @@ final class ThemeManager
 
     private function load(string $slug): ?Theme
     {
-        $base = rtrim((string) config('hearth.theme.path', base_path('themes')), '/\\');
+        $base = rtrim((string) config('novfora.theme.path', base_path('themes')), '/\\');
         $dir = $base.DIRECTORY_SEPARATOR.$slug;
         $manifest = $dir.DIRECTORY_SEPARATOR.'theme.json';
         if (! is_file($manifest)) {

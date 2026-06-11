@@ -21,7 +21,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     // The test env defaults the live API off (no network); these tests fake Http, so opt it back on.
-    config(['hearth.antispam.registration.stopforumspam.use_api' => true]);
+    config(['novfora.antispam.registration.stopforumspam.use_api' => true]);
     $this->seed();
 });
 
@@ -96,10 +96,10 @@ it('flags a cron-warmed StopForumSpam toxic email domain (flag-don\'t-block)', f
 });
 
 it('warms the blocklist cache from the downloaded toxic-domains list', function () {
-    config(['hearth.antispam.registration.stopforumspam.warm.enabled' => true]);
+    config(['novfora.antispam.registration.stopforumspam.warm.enabled' => true]);
     Http::fake(['*' => Http::response("# a comment line\nbad-one.example\nbad-two.example\n", 200)]);
 
-    $this->artisan('hearth:antispam:warm')->assertSuccessful();
+    $this->artisan('novfora:antispam:warm')->assertSuccessful();
 
     expect(BlocklistEntry::where('source', 'stopforumspam')->where('type', 'email_domain')->where('value', 'bad-one.example')->exists())->toBeTrue();
     expect(BlocklistEntry::where('value', 'bad-two.example')->exists())->toBeTrue();
@@ -137,11 +137,11 @@ it('flags on IP registration velocity', function () {
 });
 
 it('purges registration checks past the retention window (GDPR)', function () {
-    config(['hearth.antispam.retention.registration_checks_days' => 30]);
+    config(['novfora.antispam.retention.registration_checks_days' => 30]);
     RegistrationCheck::create(['email' => 'old@example.com', 'decision' => 'allow', 'created_at' => now()->subDays(40)]);
     RegistrationCheck::create(['email' => 'recent@example.com', 'decision' => 'allow', 'created_at' => now()->subDays(5)]);
 
-    $this->artisan('hearth:antispam:purge')->assertSuccessful();
+    $this->artisan('novfora:antispam:purge')->assertSuccessful();
 
     expect(RegistrationCheck::where('email', 'old@example.com')->exists())->toBeFalse();
     expect(RegistrationCheck::where('email', 'recent@example.com')->exists())->toBeTrue();

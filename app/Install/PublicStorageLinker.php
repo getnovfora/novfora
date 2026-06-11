@@ -24,12 +24,12 @@ final class PublicStorageLinker
 {
     public function source(): string
     {
-        return (string) config('hearth.storage.public_source', storage_path('app/public'));
+        return (string) config('novfora.storage.public_source', storage_path('app/public'));
     }
 
     public function link(): string
     {
-        return (string) config('hearth.storage.public_link', public_path('storage'));
+        return (string) config('novfora.storage.public_link', public_path('storage'));
     }
 
     /** Establish the link (or mirror) for the default public paths. @return 'symlink'|'copy'|'failed' */
@@ -85,7 +85,7 @@ final class PublicStorageLinker
     /** Whether a real symlink is even worth attempting on this host (function present + enabled + opted-in). */
     public function symlinkUsable(): bool
     {
-        if (! (bool) config('hearth.storage.use_symlink', true)) {
+        if (! (bool) config('novfora.storage.use_symlink', true)) {
             return false;
         }
         if (! \function_exists('symlink')) {

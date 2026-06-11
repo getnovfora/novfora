@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # ACP v1.1 — post-deploy bug patch — Claude Code kickoff
 

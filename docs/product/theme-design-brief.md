@@ -1,12 +1,12 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
-# Hearth default theme — design brief
+# NovFora default theme — design brief
 
 > Owner-approved direction for the **default theme / UI polish pass** (the phase after the RH-5/Dusk hygiene
 > run). This brief is the taste contract: the implementation kickoff derives from it. The theme rides the
-> existing override layer (`HEARTH_THEME`, [THEME-API.md](../THEME-API.md)) and changes **no behavior** —
+> existing override layer (`NOVFORA_THEME`, [THEME-API.md](../THEME-API.md)) and changes **no behavior** —
 > Blade/Tailwind/CSS only, plus the two small user settings named below.
 
 ## 1. Direction (owner-chosen)
@@ -49,7 +49,7 @@ hue, done properly). Warmth comes from geometry, spacing, and voice — not from
 
 ## 4. Scope — pages and components
 
-**Global shell:** header (wordmark "Hearth" as text for now, search, notifications bell, user menu, sign-in),
+**Global shell:** header (wordmark "NovFora" as text for now, search, notifications bell, user menu, sign-in),
 mobile nav, breadcrumbs, footer, flash/notice styling.
 **Core pages:** forum index (category sections + forum rows) · forum view (topic list: title/author/replies/
 views/last activity, pinned/locked badges, pagination) · topic view (post stream: avatar, author meta, body

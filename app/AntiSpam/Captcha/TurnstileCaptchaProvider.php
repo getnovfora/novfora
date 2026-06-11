@@ -24,7 +24,7 @@ final class TurnstileCaptchaProvider implements CaptchaProvider
 
     public function available(): bool
     {
-        return (string) config('hearth.antispam.registration.captcha.turnstile.secret', '') !== '';
+        return (string) config('novfora.antispam.registration.captcha.turnstile.secret', '') !== '';
     }
 
     public function challenge(): array
@@ -32,7 +32,7 @@ final class TurnstileCaptchaProvider implements CaptchaProvider
         return [
             'type' => 'turnstile',
             'field' => 'cf-turnstile-response',
-            'site_key' => (string) config('hearth.antispam.registration.captcha.turnstile.site_key', ''),
+            'site_key' => (string) config('novfora.antispam.registration.captcha.turnstile.site_key', ''),
         ];
     }
 
@@ -45,7 +45,7 @@ final class TurnstileCaptchaProvider implements CaptchaProvider
 
         try {
             $resp = Http::timeout(4)->connectTimeout(2)->asForm()->post(self::VERIFY_URL, [
-                'secret' => (string) config('hearth.antispam.registration.captcha.turnstile.secret', ''),
+                'secret' => (string) config('novfora.antispam.registration.captcha.turnstile.secret', ''),
                 'response' => $token,
             ]);
 

@@ -12,16 +12,16 @@ use App\Permissions\Scope;
 use Illuminate\Console\Command;
 
 /**
- * `php artisan hearth:why <user> <permission> <scope>` — explain a permission decision (security §1.4).
+ * `php artisan novfora:why <user> <permission> <scope>` — explain a permission decision (security §1.4).
  *
  * Examples:
- *   php artisan hearth:why 1 forum.post.create forum:2
- *   php artisan hearth:why admin@example.test forum.topic.delete thread:17
- *   php artisan hearth:why 5 admin.access global
+ *   php artisan novfora:why 1 forum.post.create forum:2
+ *   php artisan novfora:why admin@example.test forum.topic.delete thread:17
+ *   php artisan novfora:why 5 admin.access global
  */
 class PermissionWhyCommand extends Command
 {
-    protected $signature = 'hearth:why {user : user id or email} {permission : permission key} {scope=global : global|category:ID|forum:ID|thread:ID}';
+    protected $signature = 'novfora:why {user : user id or email} {permission : permission key} {scope=global : global|category:ID|forum:ID|thread:ID}';
 
     protected $description = 'Explain why a user can or cannot do something at a scope (the ACL inspector).';
 

@@ -27,7 +27,7 @@ uses(DatabaseTruncation::class);
 beforeEach(function () {
     $this->seed(DatabaseSeeder::class);
     $this->admin = Users::withTwoFactor(Users::inGroups(['admins'], [
-        'username' => 'adminjo', 'email' => 'adminjo@hearth.test', 'display_name' => 'Admin Jo',
+        'username' => 'adminjo', 'email' => 'adminjo@novfora.test', 'display_name' => 'Admin Jo',
     ]));
 });
 

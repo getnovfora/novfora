@@ -1,10 +1,10 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # RH-11 — No-SSH restore: the Backups panel can't restore — Claude Code kickoff
 
-> **Finding (RH-11):** `hearth:restore` exists only as a CLI command; the Admin → System → Backups panel
+> **Finding (RH-11):** `novfora:restore` exists only as a CLI command; the Admin → System → Backups panel
 > can create/download but not restore. A no-SSH operator therefore has **no recovery path at all** — and
 > the RH-10 recovery docs already (incorrectly) tell them to "restore the pre-upgrade backup via the admin
 > Backups panel." Documented-but-unimplemented, same class as RH-10. **Beta gate:** invites wait on this.

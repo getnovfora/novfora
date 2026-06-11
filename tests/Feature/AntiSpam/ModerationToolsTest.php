@@ -98,7 +98,7 @@ it('lets staff trigger the Spam Cleaner via the route', function () {
 });
 
 it('rate-limits posting per trust tier', function () {
-    config(['hearth.antispam.rate_limits' => ['tl0' => 2, 'default' => 20]]);
+    config(['novfora.antispam.rate_limits' => ['tl0' => 2, 'default' => 20]]);
     $tl0 = Users::inGroups(['members', 'tl0']);
     $limiter = app(PostRateLimiter::class);
 

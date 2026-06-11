@@ -17,7 +17,7 @@
              render-time, rejected if the form is submitted implausibly fast. --}}
         <div class="absolute -left-[9999px]" aria-hidden="true">
             <label>Leave this field empty
-                <input type="text" name="{{ config('hearth.antispam.registration.honeypot.field', 'hp_url') }}"
+                <input type="text" name="{{ config('novfora.antispam.registration.honeypot.field', 'hp_url') }}"
                        tabindex="-1" autocomplete="off" value="">
             </label>
         </div>

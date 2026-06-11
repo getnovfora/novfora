@@ -49,7 +49,7 @@ final class RestoreState
     /** The JSON state file. Must live OUTSIDE storage/app (the restore target) so a restore can't wipe it. */
     public function path(): string
     {
-        return (string) config('hearth.backup.restore_state_path', storage_path('hearth-restore.json'));
+        return (string) config('novfora.backup.restore_state_path', storage_path('novfora-restore.json'));
     }
 
     // ── Gate / read predicates (cheap: one small file read, no DB) ───────────────────────────────────

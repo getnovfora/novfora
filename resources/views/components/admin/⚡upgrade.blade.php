@@ -60,7 +60,7 @@ new class extends Component
         }
 
         return [
-            'auto' => (bool) config('hearth.upgrade.auto', true),
+            'auto' => (bool) config('novfora.upgrade.auto', true),
             'pending' => $pending,
             'pendingCount' => count($pending),
             'upgrading' => $schema->isUpgrading(),
@@ -91,7 +91,7 @@ new class extends Component
             <span class="text-sm text-ink-muted">New releases migrate themselves via cron — no action needed.</span>
         @else
             <x-ui.badge variant="neutral">Off · manual</x-ui.badge>
-            <span class="text-sm text-ink-muted">You apply pending migrations yourself (here, or via <code class="font-mono text-xs">php artisan hearth:upgrade</code>).</span>
+            <span class="text-sm text-ink-muted">You apply pending migrations yourself (here, or via <code class="font-mono text-xs">php artisan novfora:upgrade</code>).</span>
         @endif
     </div>
 
@@ -103,7 +103,7 @@ new class extends Component
         <x-ui.alert variant="danger">
             <strong>An upgrade is held for attention.</strong> The site is in maintenance and will not retry
             automatically. Re-upload the previous release (the gate clears within a cron tick), or restore the
-            pre-upgrade backup with <code class="font-mono text-xs">php artisan hearth:restore</code>. See
+            pre-upgrade backup with <code class="font-mono text-xs">php artisan novfora:restore</code>. See
             getting-started §5.
         </x-ui.alert>
     @endif

@@ -16,7 +16,7 @@ use Throwable;
 use ZipArchive;
 
 /**
- * Restores a Hearth backup archive produced by {@see BackupService} (M5). The inverse operation, and a
+ * Restores a NovFora backup archive produced by {@see BackupService} (M5). The inverse operation, and a
  * DESTRUCTIVE one — it overwrites the live database and storage — so the CLI gates it behind --force /
  * an interactive confirm. Before touching anything it validates the manifest format and verifies the
  * dump's SHA-256 against the manifest, refusing a corrupted or foreign archive.
@@ -37,7 +37,7 @@ class RestoreService
             throw new BackupException('Backup archive not found: '.$archivePath);
         }
 
-        $work = sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-restore-'.bin2hex(random_bytes(6));
+        $work = sys_get_temp_dir().DIRECTORY_SEPARATOR.'novfora-restore-'.bin2hex(random_bytes(6));
         $this->ensureDir($work);
 
         try {
@@ -63,7 +63,7 @@ class RestoreService
      * Read a backup's manifest metadata WITHOUT extracting it (RH-11) — cheap, so it backs both the CLI
      * restore confirmation (date, size, database kind) and the panel's request pre-check (the no-SSH path
      * inspects + checks engine compatibility in-request, then defers the heavier dump-hash verification to
-     * the cron run). Refuses an archive that is not a recognised Hearth backup. Does NOT verify the dump hash
+     * the cron run). Refuses an archive that is not a recognised NovFora backup. Does NOT verify the dump hash
      * — {@see validate()} does that, with {@see assertRestorable()}, before a restore touches the database.
      *
      * @return array{created_at:?string, version:?string, db_kind:string, db_driver:string, storage_included:bool, size_bytes:int}
@@ -181,7 +181,7 @@ class RestoreService
     {
         $raw = $zip->getFromName('manifest.json');
         if ($raw === false) {
-            throw new BackupException('This archive has no manifest — it is not a Hearth backup.');
+            throw new BackupException('This archive has no manifest — it is not a novfora backup.');
         }
 
         $manifest = json_decode($raw, true);
@@ -200,7 +200,7 @@ class RestoreService
     {
         $path = $work.DIRECTORY_SEPARATOR.'manifest.json';
         if (! is_file($path)) {
-            throw new BackupException('This archive has no manifest — it is not a Hearth backup.');
+            throw new BackupException('This archive has no manifest — it is not a novfora backup.');
         }
 
         $manifest = json_decode((string) file_get_contents($path), true);
@@ -257,7 +257,7 @@ class RestoreService
             // Baseline hardening (phase-1.5): when proc_open/the mysql binary aren't usable (common on
             // shared hosts), apply the dump in-process over PDO instead of shelling out. Mirrors
             // BackupService's pure-PHP path; the .sql produced by either dumper restores the same way.
-            if (BackupService::processFunctionsAvailable() && (string) config('hearth.backup.db_method', 'auto') !== 'php') {
+            if (BackupService::processFunctionsAvailable() && (string) config('novfora.backup.db_method', 'auto') !== 'php') {
                 try {
                     $this->runRestore(
                         ['mysql', '-h', (string) ($c['host'] ?? '127.0.0.1'), '-P', (string) ($c['port'] ?? 3306),

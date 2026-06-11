@@ -1,5 +1,5 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => 'Moderator control panel · '.config('app.name', 'Hearth')])
+@extends('layouts.app', ['title' => 'Moderator control panel · '.config('app.name', 'NovFora')])
 
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[

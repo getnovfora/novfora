@@ -42,10 +42,10 @@ it('rejects an invalid confirmation code', function () {
 });
 
 it('challenges 2FA at login and completes with a valid code', function () {
-    $user = Users::withTwoFactor(User::factory()->create(['email' => 'ada@hearth.test']));
+    $user = Users::withTwoFactor(User::factory()->create(['email' => 'ada@novfora.test']));
 
     // Right credentials, but a 2FA user is not logged in yet — bounced to the challenge.
-    $this->post('/login', ['email' => 'ada@hearth.test', 'password' => 'password'])
+    $this->post('/login', ['email' => 'ada@novfora.test', 'password' => 'password'])
         ->assertRedirect(route('two-factor.login'));
     $this->assertGuest();
 

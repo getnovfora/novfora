@@ -1,4 +1,4 @@
-# PROJECT-HISTORY.md — NevoBB completed milestone log
+# PROJECT-HISTORY.md — NovFora completed milestone log
 
 > Completed milestone records moved here from `PROJECT-STATE.md` to keep that file lean.
 > **This file is reference-only** — do not load it every session. Read it when you need context on
@@ -22,7 +22,7 @@
 > **Update 2026-06-02 (Spike 0 EXECUTED → GO):** all six criteria **PASS** with executed evidence — **Pest 10
 > passed / 82 assertions** (incl. the #4 security suite) and **Playwright 6/6** (incl. the #1a GO-blocker, both
 > paths). Run in a **Docker `php:8.3`** env (this box has no host PHP) + host Node/Playwright/Chromium. Memo:
-> [`docs/product/spike-0-memo.md`](docs/product/spike-0-memo.md); reference scaffold in `hearth-spike/` (source
+> [`docs/product/spike-0-memo.md`](docs/product/spike-0-memo.md); reference scaffold in `nevo-spike/` (source
 > committed, heavy artifacts git-ignored; env in `.spike-docker/`). **Key findings:** Livewire 4 = single-file
 > components; the **editor must be non-reactive closure state** (a reactive proxy breaks ProseMirror →
 > "mismatched transaction"); deferred `$wire.set` needs no debounce. **No fallback needed — ADR-0012 stands.**
@@ -53,21 +53,21 @@
 > **M2 implementation notes**. **NEXT = owner gate: begin Phase 1 M0** (already approved in the Phase 1 plan,
 > 2026-06-01) — scaffold the real app at the **repo root** (skeleton + service-tier detection + CI + installer
 > skeleton + reversible-migration baseline). The validated editor pattern + `CanonicalRenderer` **port in M2**,
-> not M0 (per the plan); then M1→M5. Retire `hearth-spike/` once the real app supersedes it. M0 build kickoff:
+> not M0 (per the plan); then M1→M5. Retire `nevo-spike/` once the real app supersedes it. M0 build kickoff:
 > [`docs/product/m0-code-kickoff.md`](docs/product/m0-code-kickoff.md). *(These Cowork doc edits are on disk;
 > commit them from the Code env — the Cowork mount is unreliable for git writes.)*
 
 > **Update 2026-06-02 (M0 DONE — Code):** **Phase 1 M0 (skeleton & guardrails) complete** at the repo root.
 > Laravel **13.13** + Livewire **4.3** + Scout merged in (preserving docs/git); baseline-safe drivers +
-> `.env.example` (MySQL). **Service-tier detection (ADR-0003):** probes that never throw + `hearth:tier` CLI
+> `.env.example` (MySQL). **Service-tier detection (ADR-0003):** probes that never throw + `novfora:tier` CLI
 > + a local-gated `Admin → System → Service Tier` Livewire panel + **5 forced-absence tests**.
-> Reversible-migration guard + `hearth:backup` skeleton. **Prebuilt Vite assets committed** (no host Node).
+> Reversible-migration guard + `novfora:backup` skeleton. **Prebuilt Vite assets committed** (no host Node).
 > **CI** (Pint, Larastan, Pest, `composer audit`, asset budget) — green; full local run: **Pest 9 passed + 1
 > todo**, Larastan clean, Pint 46 files. Built via a Docker **php:8.3 + mysql:8** dev env (`docker-compose.yml`,
 > `docker/dev/`). Commits `4227af5`…`d686cbd` on `main`; dep licenses recorded in `DECISIONS.md`.
 > **NEXT: M1 — Identity & access** (auth + 2FA + the **permission-mask engine**, ADR-0006) per
 > [`phase-1-plan.md`](docs/product/phase-1-plan.md) §5. The validated editor pattern + `CanonicalRenderer`
-> port in **M2**; retire `hearth-spike/` then.
+> port in **M2**; retire `nevo-spike/` then.
 
 > **Update 2026-06-02 (M1 DONE — Code):** **Phase 1 M1 (Identity & access) complete.** Two pillars.
 > **(1) The permission-mask engine (ADR-0006 / security §1.2, implemented exactly):** three-state
@@ -77,7 +77,7 @@
 > is marked inline in `PermissionResolver::compute()`). Per-request memo + a resolved cache keyed by a
 > global ACL version × the user's group-set signature (event-driven invalidation, incl. scope-topology
 > changes); **correctness never depends on the cache.** Exposed via Laravel Gate (`$user->can('perm',
-> $scope)`), deny-by-default. The **"why can/can't X" inspector (§1.4)** = a service + `hearth:why` CLI + an
+> $scope)`), deny-by-default. The **"why can/can't X" inspector (§1.4)** = a service + `novfora:why` CLI + an
 > ACP Livewire panel, all reading the same resolution (no re-implementation). Schema: groups + group_user,
 > permissions + acl_entries (5-col resolution index), roles/role_permissions/role_assignments, minimal
 > forums/topics scope nodes (materialised path), bans; nullable `tenant_id` seam only (ADR-0004). **Seeds**
@@ -94,7 +94,7 @@
 > MySQL + cron). Dep licenses (fortify / google2fa / bacon-qr / passkeys) in `DECISIONS.md` (ADR-0019);
 > `.env.example` gains `HASH_DRIVER=argon2id`. Commits on `main` (small, conventional, signed-off).
 > **NEXT: M2 — forum CRUD + content storage + the validated editor / `CanonicalRenderer` port**; retire
-> `hearth-spike/` then. **OPEN ITEM for the owner: confirm the NO = neutral ("ii") interpretation** (a
+> `nevo-spike/` then. **OPEN ITEM for the owner: confirm the NO = neutral ("ii") interpretation** (a
 > one-branch flip switches to strict-"i" if you want a set NO to hard-stop inheritance).
 
 > **Update 2026-06-03 (M2 DONE — Code):** **Phase 1 M2 (Forum structure, content & the WYSIWYG editor)
@@ -125,14 +125,14 @@
 > tier + M1 truth-table/auth suites STAY green); Larastan + Pint clean; reversible migrations; `composer audit`
 > clean. The Spike-0 battery is also written as a **Dusk journey** (`tests/Browser`) that runs in a
 > Chrome-enabled CI (`php artisan dusk`) — the normal `pest` run excludes Browser, so CI without a browser
-> stays green. **`hearth-spike/` retired.** **NEXT: M3 — Anti-spam baseline & moderation (ADR-0007).**
+> stays green. **`nevo-spike/` retired.** **NEXT: M3 — Anti-spam baseline & moderation (ADR-0007).**
 
 > **Update 2026-06-03 (M3 DONE — Code):** **Phase 1 M3 (Anti-spam baseline & moderation, ADR-0007) complete.**
 > The whole subsystem is **unified with the M1 permission engine — no second permission system.**
 > **(1) Trust→ACL gating:** TL gates seeded as `acl_entries` on TL0–TL4 from a config matrix
-> (`config/hearth.php`) — TL0 = NEVER on links/images/mass-PM (absolute; an admin ALLOW cannot lift it,
+> (`config/novfora.php`) — TL0 = NEVER on links/images/mass-PM (absolute; an admin ALLOW cannot lift it,
 > pinned by a test), TL1+ = ALLOW; attachments stay an admin-liftable soft seam. Enforced by **link/image
-> suppression at the shared sanitize step**. Auto promotion/demotion via idempotent `hearth:trust:recompute`
+> suppression at the shared sanitize step**. Auto promotion/demotion via idempotent `novfora:trust:recompute`
 > cron. **(2) Registration layer:** tri-state **allow / flag→pending / block** from StopForumSpam,
 > disposable-email, honeypot+encrypted-timing, IP velocity + a `CaptchaProvider` abstraction (Q&A baseline,
 > Turnstile pluggable). **(3) Posting/reactive:** `ContentScanner` contract + word filters + new-user
@@ -152,9 +152,9 @@
 
 > **Update 2026-06-03 (M5 DONE → Phase 1 / MVP COMPLETE — Code):** **Core MVP is shippable. No new
 > dependencies.** **(1) No-SSH web installer (ADR-0020):** browser wizard + `InstallRunner` (shared with
-> `hearth:install` CLI); write `.env` → DB → migrate → seed → create admin → `storage:link` → LOCK last.
+> `novfora:install` CLI); write `.env` → DB → migrate → seed → create admin → `storage:link` → LOCK last.
 > Lock = `storage/installed` file marker, written last; installer 403s once present; no re-trigger vector.
-> **(2) Backups + restore:** `hearth:backup` (cron + `--keep`), `hearth:restore` (manifest+SHA-256), Admin →
+> **(2) Backups + restore:** `novfora:backup` (cron + `--keep`), `novfora:restore` (manifest+SHA-256), Admin →
 > Backups panel. **(3) Health:** `GET /health` (DB, cache, cron freshness, tier, install state). **(4) One
 > cron line (ADR-0011).** **(5) Demo seed + getting-started.** **(6) `.env.example` finalized.** **(7) Perf
 > budgets in CI.** **(8) Dusk executed: 2 passed.** All six Phase 1 exit criteria met. **Pest 272 passed /
@@ -165,35 +165,35 @@
 > suppression covers signatures; (H-3) pure-PHP MySQL dump+restore fallback; (M-1) narrow `User`
 > mass-assignment; (M-2) installer pre-checks marker writability; (M-3) baseline `SecurityHeaders` middleware
 > (CSP + nosniff + frame-ancestors); (M-4) `.env` written 0600; (L-1) `APP_DEBUG` forced off pre-install;
-> (L-2) HTTPS-only cookie on https install. **Part 2:** `hearth:doctor` preflight,
+> (L-2) HTTPS-only cookie on https install. **Part 2:** `novfora:doctor` preflight,
 > `PublicStorageLinker` copy-based fallback, `docs/REAL-HOST-VALIDATION.md`. **Pest 289 passed / 940 assertions.**
 
 > **Update 2026-06-03 (PHASE 1.5 — Security Fix Pass — Code):** owner chose to fix ALL ten flagged items
 > (F-A..F-M3 + tenant_id). **Fixed:** F-A setup token (install-token.txt); F-B rate-limit + mandatory
-> honeypot + single-use Q&A nonce; F-C StopForumSpam fail-safe + `hearth:antispam:warm`; F-D trust promotion
+> honeypot + single-use Q&A nonce; F-C StopForumSpam fail-safe + `novfora:antispam:warm`; F-D trust promotion
 > needs topics-read signal; F-E trust change re-renders posts; F-F actor-vs-target rank check; F-G explicit
 > `$fillable` on six ACL models; F-H `tenant_id` removed from User mass-assignment; F-I auth-event audit
-> logging; F-M3 strict nonce CSP behind `HEARTH_CSP_STRICT` toggle. **Pest 310 passed / 1012 assertions.**
+> logging; F-M3 strict nonce CSP behind `NOVFORA_CSP_STRICT` toggle. **Pest 310 passed / 1012 assertions.**
 
 > **Update 2026-06-05 (REAL-HOST RH-6 — installer wizard front-end FIXED — Code):** root cause: Livewire
 > auto-starts from `DOMContentLoaded` listener with no `readyState` fallback; shared-host JS optimizer
 > deferred the script past the event → `start()` never ran → directives unbound. Fix: standalone install
 > layout declares Livewire runtime explicitly + a boot guard. Coverage: `InstallerWizardTest` drives the full
 > wizard in real Chrome; `InstallerLayoutTest` in-process guard. **Pest 314 passed / 1026 assertions; Dusk 3.**
-> `hearth-release.zip` sha256 `b385a4bca…`.
+> `nevo-release.zip` sha256 `b385a4bca…`.
 
 > **Update 2026-06-06 (REAL-HOST RH-7 — install-enforce middleware ate Livewire's hashed endpoint — Code):**
 > root cause: `RedirectIfNotInstalled` allow-listed `'livewire/*'` but Livewire 4 serves updates under
 > `livewire-<hash>/...`; every `wire:click` POST was 302'd to `/install`. Fix: allowlist matches
 > `'livewire-*/*'` + the live path from `app('livewire')->getUpdateUri()`. New enforcement-ON feature test.
-> **Pest 319 passed / 1047 assertions.** `hearth-release.zip` sha256 `ebff3944…`.
+> **Pest 319 passed / 1047 assertions.** `nevo-release.zip` sha256 `ebff3944…`.
 
 > **Update 2026-06-06 (REAL-HOST RH-8 + RH-9 — post-install fixes — Code):** live install completed
 > end-to-end. RH-8: root route served Laravel welcome page; fixed to 301-redirect `/` → `/forums`; deleted
 > `welcome.blade.php`. RH-9: `serializable_classes => false` (anti-object-injection, kept) + Eloquent
 > Collection cached = `__PHP_Incomplete_Class` on cache hit; fixed to cache primitive array tree + rehydrate
 > read-only `ForumNode` value objects after boundary. `ForumIndexCacheTest` verified to fail pre-fix.
-> **Pest 331 passed / 1108 assertions.** `hearth-release.zip` sha256 `f48862b0…`.
+> **Pest 331 passed / 1108 assertions.** `nevo-release.zip` sha256 `f48862b0…`.
 
 > **Update 2026-06-06 (HYGIENE — RH-5 assets + CI freshness guard + Dusk enforce-ON split — Code):**
 > RH-5: stale committed `app.css` drifted from source (P1.5/RH-8 template change never rebuilt); rebuilt,
@@ -201,7 +201,7 @@
 > for deterministic build. Dusk enforce-ON harness split: PASS 1 (installer, enforcement-ON, fresh DB),
 > PASS 2 (app/editor, enforcement-off). **Pest 333 passed / 1128 assertions.**
 
-> **Update 2026-06-06 (DEFAULT THEME / UI POLISH — Code):** Hearth now looks like the product.
+> **Update 2026-06-06 (DEFAULT THEME / UI POLISH — Code):** NovFora now looks like the product.
 > PART 1: design tokens (`--surface/--ink/--accent/…`, light+dark, density modifier). PART 2: per-user
 > colour mode + density settings (reversible columns, JS-free server-rendered). PART 3: Blade component
 > library (`ui/*` — button/input/badge/alert/card/avatar/…) + restyled global shell + all core pages
@@ -218,7 +218,7 @@
 > **Update 2026-06-07 (RH-10 — no-SSH auto-upgrade — Code):** `SchemaState` (O(cache-read) detection +
 > release fingerprint) + `UpgradeRunner` (every-minute Schedule::call, withoutOverlapping, backup-first,
 > migrate→flush→exit-maintenance, idempotent on kill) + `PreventRequestsDuringUpgrade` (branded 503). Controls:
-> `HEARTH_AUTO_UPGRADE=true` default; false = Admin → System → Upgrade SFC. Adversarial review (34 agents):
+> `NOVFORA_AUTO_UPGRADE=true` default; false = Admin → System → Upgrade SFC. Adversarial review (34 agents):
 > 2 HIGH fixed (24h overlap-mutex strand; killed-mid-run `upgrading` flag wedge). **Pest 378 passed / 1286
 > assertions.** ADR-0021.
 
@@ -238,7 +238,7 @@
 > poster position, etc.). PART 4: system surface (service-tier, permissions inspector, backups, upgrade,
 > custom-fields, audit-log viewer, Tasks). **Pest 451 passed / 1593 assertions; CSS 8.34 KB gz.** Admin Dusk
 > journey + screenshot gate wired (`AdminJourneyTest`: login→dashboard→create board→public index; light/dark ×
-> desktop/mobile). Release `hearth-release.zip` sha256 `5c4472a9…`.
+> desktop/mobile). Release `nevo-release.zip` sha256 `5c4472a9…`.
 
 > **Update 2026-06-08 (ACP v1.1 — post-deploy bug patch — Code):** two live bugs + test gap.
 > BUG 1: registration SFC `gates()` type-hinted `Settings $settings` but called arg-less from Blade → 500;
@@ -254,7 +254,7 @@
 > Adversarial 6-lens review (19 agents): HIGH (bounce parser trusted unauthenticated body headers → fixed to
 > VERP-only identity) + MEDIUM (gated user re-scanned forever → period retired). GO criteria → 6 permanent
 > test files in `tests/Feature/Deliverability/*`. No new dependencies. Dormant behind
-> `hearth.deliverability.enabled` (default false).
+> `novfora.deliverability.enabled` (default false).
 
 > **Update 2026-06-08 (ACP v2 — member-group manager + staff/group name colours — Code):**
 > PART 1: member-group manager (`Admin → Members → Groups`). `GroupManager` service (system-protection,
@@ -265,6 +265,6 @@
 > eager-loaded. Schema: `groups.description` new only (reused pre-existing `groups.color` M1 seam). Reversible.
 > Adversarial review (18 agents): 4 findings fixed — HIGH membership-boundary bypass on delete-with-reassign,
 > MEDIUM priority cap, MEDIUM AA palette (4 light hexes), MEDIUM setRole audit gap. All 4 have regression tests.
-> Self-verified green in Docker `hearth-dev`: **Pest 518 passed / 1 skipped (1930 assertions)**; Pint PASS
+> Self-verified green in Docker `nevo-dev`: **Pest 518 passed / 1 skipped (1930 assertions)**; Pint PASS
 > (361 files); Larastan level-5 clean; composer/npm audit clean; CSS 8.54 KB gz; assets rebuilt.
-> Branch `claude/acp-v2-groups` pushed; PR pending. ADR-0024 (NevoBB name) already on main.
+> Branch `claude/acp-v2-groups` pushed; PR pending. ADR-0024 (NovFora name) already on main.

@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Cache;
  */
 final class AclVersion
 {
-    private const KEY = 'hearth.acl.version';
+    private const KEY = 'novfora.acl.version';
 
     public function current(): int
     {

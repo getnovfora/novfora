@@ -1,10 +1,10 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # Simulated community ("living demo board") — Claude Code kickoff
 
-> Owner goal: a separate Hearth install that **simulates organic growth to critical mass** — personas
+> Owner goal: a separate NovFora install that **simulates organic growth to critical mass** — personas
 > joining over time, starting threads, replying — both as a realism/load harness and a living demo.
 > Decisions made: runs on a **second cPanel subdomain** (baseline tier, NO SSH — everything must work via
 > the web installer + the single cron line), **LLM corpus + budget-capped live replies**, **mid-community
@@ -14,7 +14,7 @@ Copyright 2026 The Hearth Authors
 ---
 
 ```
-Build Hearth's community simulator: deterministic backfilled history + cron-driven ongoing activity,
+Build NovFora's community simulator: deterministic backfilled history + cron-driven ongoing activity,
 safe-by-default, baseline-tier compatible (no SSH, no daemons). Separate branch + PR.
 
 STEP 0: read PROJECT-STATE.md. Branch from current main (must include the merged theme + RH-10).
@@ -22,26 +22,26 @@ Commit identity per CLAUDE.md (Tommy Huynh <tommy@saturnhq.net>, DCO -s, no AI a
 
 PART 1 — SAFETY MODEL (build first; non-negotiable):
   • Simulation is HARD-DISABLED by default: every sim command/job refuses unless
-    HEARTH_SIM_ENABLED=true AND a deliberate sim marker exists (storage/sim-enabled, written by
-    `hearth:sim:enable --i-understand` only). Refuses on any install where it isn't both.
+    NOVFORA_SIM_ENABLED=true AND a deliberate sim marker exists (storage/sim-enabled, written by
+    `novfora:sim:enable --i-understand` only). Refuses on any install where it isn't both.
   • Every simulated user is flagged (users.is_simulated, reversible migration) and belongs to a
     "Simulated" group → a small "demo" badge renders on their names (honesty: the board never passes
     bots off as humans). A site notice setting marks the board as a living demo.
-  • `hearth:sim:wipe` removes ALL simulated users + their content + recomputes counters; covered by a
+  • `novfora:sim:wipe` removes ALL simulated users + their content + recomputes counters; covered by a
     completeness test. The simulator ships inert in the product (flag-gated) — document why in the PR.
 
 PART 2 — GROWTH PLAN (deterministic):
-  • `hearth:sim:plan --seed=<n> --profile=mid` writes storage/sim-plan.json: ~200 personas (name, join
+  • `novfora:sim:plan --seed=<n> --profile=mid` writes storage/sim-plan.json: ~200 personas (name, join
     day, interests mapped to the board's forums, activity weight on a 90/9/1 lurker power law, writing
     style tag), an S-curve join schedule over ~180 simulated days, thread/reply event timeline with
     daily + weekend rhythms. Same seed → same plan (testable).
 
 PART 3 — BACKFILL (the past, in cron-sized chunks):
-  • `hearth:sim:backfill` enqueues chunked jobs (drained by the EXISTING cron line — no SSH, no worker)
+  • `novfora:sim:backfill` enqueues chunked jobs (drained by the EXISTING cron line — no SSH, no worker)
     that replay the plan: create users (verified, simulated-flagged), threads + replies through the real
     PostService with BACKDATED timestamps (created_at/last_posted_at per plan), realistic view_count
     seeding, trust levels recomputed. Resumable + idempotent (plan event ids), progress visible via
-    `hearth:sim:status` and an admin panel line. Target: full mid profile completes within ~an hour of
+    `novfora:sim:status` and an admin panel line. Target: full mid profile completes within ~an hour of
     normal cron ticks; safe to re-run.
   • Content comes from the COMMITTED corpus (PART 4) — backfill needs no network/API.
 
@@ -49,9 +49,9 @@ PART 4 — CONTENT ENGINE:
   • database/sim/corpus/*.json — persona-tagged thread starters + replies per forum category, plus a
     local generator script (tools/sim/generate-corpus.php, run on a dev machine with ANTHROPIC_API_KEY)
     that (re)builds the corpus via the Claude API. Corpus is committed so installs never need a key.
-  • LIVE replies (optional, off by default): when enabled (HEARTH_SIM_LIVE_API=true + key), the ongoing
+  • LIVE replies (optional, off by default): when enabled (NOVFORA_SIM_LIVE_API=true + key), the ongoing
     simulation may generate context-aware replies via the API for threads with recent human/persona
-    activity — HARD budget caps (HEARTH_SIM_API_MAX_PER_DAY, default small), graceful fallback to
+    activity — HARD budget caps (NOVFORA_SIM_API_MAX_PER_DAY, default small), graceful fallback to
     corpus when capped/unreachable. Never blocks a request path; runs only inside queued jobs.
 
 PART 5 — ONGOING LIFE (the present):
@@ -80,7 +80,7 @@ persona driver (flagged as follow-up).
 ## Deployment recipe (owner, after merge — no SSH needed)
 1. Create subdomain (e.g. `demo.adorablespider.com`) + a second database in cPanel.
 2. Upload/extract the current release zip; run the web installer against the new DB.
-3. cPanel file manager: add to `.env` → `HEARTH_SIM_ENABLED=true` (+ optional live-API key/caps).
+3. cPanel file manager: add to `.env` → `NOVFORA_SIM_ENABLED=true` (+ optional live-API key/caps).
 4. Add the same single cron line for the new install path.
 5. Run enable + plan + backfill via the admin sim panel (or the one-shot "start simulation" action) —
    then watch the board grow on cron ticks.

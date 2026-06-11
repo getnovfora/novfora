@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 /* ──────────────────────────────────────────────────────────────────────────────────────────────────
- | Hearth default theme — design tokens + base styles.
+ |  — design tokens + base styles.
  |
  | DETERMINISTIC SOURCES (PART 5 build hygiene). Automatic content detection is DISABLED (`source(none)`)
  | and we scan ONLY the app's own tracked sources: Blade views (incl. the published, restyled pagination
@@ -160,13 +160,13 @@
 
     /* THEME-API public contract + a11y floor (ADR-0009 §3.3 / ADR-0016 / docs/THEME-API.md). These names
        are the documented override points; aliased onto the semantic set so they inherit colour-mode. */
-    --hearth-bg: var(--surface);
-    --hearth-fg: var(--ink);
-    --hearth-muted: var(--ink-muted);
-    --hearth-accent: var(--accent);
-    --hearth-accent-fg: var(--accent-ink);
-    --hearth-border: var(--line);
-    --hearth-radius: var(--radius-md);
+    --novfora-bg: var(--surface);
+    --novfora-fg: var(--ink);
+    --novfora-muted: var(--ink-muted);
+    --novfora-accent: var(--accent);
+    --novfora-accent-fg: var(--accent-ink);
+    --novfora-border: var(--line);
+    --novfora-radius: var(--radius-md);
 
     color-scheme: light;
 }
@@ -308,7 +308,7 @@ body {
 
 /* ── a11y floor (ADR-0009 §3.3 / ADR-0016): skip link, screen-reader-only text, visible focus ──────────
  | Restyle, don't remove (THEME-API contract). The literal strings :focus-visible / .skip-link / the
- | --hearth-accent token are asserted by tests/Feature/Theme/A11yTest.php. */
+ | --novfora-accent token are asserted by tests/Feature/Theme/A11yTest.php. */
 .skip-link {
     position: absolute;
     left: -9999px;
@@ -344,16 +344,16 @@ body {
     outline: none;
 }
 
-/* ── WYSIWYG editor (Spike-0 island) + rendered post content (.hearth-prose) ───────────────────────────
- | Class names + structure are a Dusk contract (EditorJourneyTest drives .hearth-prose); restyled onto the
+/* ── WYSIWYG editor (Spike-0 island) + rendered post content (.novfora-prose) ───────────────────────────
+ | Class names + structure are a Dusk contract (EditorJourneyTest drives .novfora-prose); restyled onto the
  | tokens so the editor and rendered posts read correctly in dark mode too. */
-.hearth-editor {
+.novfora-editor {
     border: 1px solid var(--line-strong);
     border-radius: var(--radius-md);
     overflow: hidden;
     background: var(--surface-raised);
 }
-.hearth-toolbar {
+.novfora-toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -362,7 +362,7 @@ body {
     border-bottom: 1px solid var(--line);
     background: var(--surface-sunken);
 }
-.hearth-toolbar button {
+.novfora-toolbar button {
     min-width: 1.9rem;
     height: 1.9rem;
     padding: 0 0.4rem;
@@ -373,27 +373,27 @@ body {
     font-size: 0.9rem;
     color: var(--ink-muted);
 }
-.hearth-toolbar button:hover {
+.novfora-toolbar button:hover {
     background: var(--surface);
     color: var(--ink);
 }
-.hearth-toolbar button.is-active {
+.novfora-toolbar button.is-active {
     background: var(--accent-soft);
     border-color: color-mix(in srgb, var(--accent) 35%, transparent);
     color: var(--accent-soft-ink);
 }
-.hearth-toolbar .hearth-sep {
+.novfora-toolbar .novfora-sep {
     width: 1px;
     height: 1.2rem;
     background: var(--line-strong);
     margin: 0 0.3rem;
 }
-.hearth-toolbar .hearth-hint {
+.novfora-toolbar .novfora-hint {
     margin-left: auto;
     color: var(--ink-subtle);
     font-size: 0.75rem;
 }
-.hearth-toolbar kbd {
+.novfora-toolbar kbd {
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 3px;
@@ -401,7 +401,7 @@ body {
     font-size: 0.7rem;
 }
 
-.hearth-prose {
+.novfora-prose {
     min-height: 8rem;
     max-height: 28rem;
     overflow-y: auto;
@@ -410,90 +410,90 @@ body {
     line-height: 1.65;
     color: var(--ink);
 }
-.hearth-prose:focus {
+.novfora-prose:focus {
     box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
     border-radius: var(--radius-sm);
 }
-.hearth-prose p {
+.novfora-prose p {
     margin: 0 0 0.7rem;
 }
-.hearth-prose h1,
-.hearth-prose h2,
-.hearth-prose h3 {
+.novfora-prose h1,
+.novfora-prose h2,
+.novfora-prose h3 {
     margin: 0.9rem 0 0.45rem;
     line-height: 1.25;
     font-weight: 650;
 }
-.hearth-prose a {
+.novfora-prose a {
     color: var(--accent);
     text-underline-offset: 2px;
 }
-.hearth-prose ul,
-.hearth-prose ol {
+.novfora-prose ul,
+.novfora-prose ol {
     margin: 0 0 0.7rem 1.4rem;
 }
-.hearth-prose blockquote {
+.novfora-prose blockquote {
     margin: 0 0 0.7rem;
     padding: 0.1rem 0 0.1rem 0.9rem;
     border-left: 3px solid var(--accent-soft);
     color: var(--ink-muted);
 }
-.hearth-prose pre {
+.novfora-prose pre {
     background: var(--color-slate-900);
     color: var(--color-slate-50);
     padding: 0.75rem 0.95rem;
     border-radius: var(--radius-md);
     overflow-x: auto;
 }
-.hearth-prose code {
+.novfora-prose code {
     background: var(--surface-sunken);
     padding: 0.05rem 0.3rem;
     border-radius: var(--radius-sm);
     font-family: var(--font-mono);
     font-size: 0.92em;
 }
-.hearth-prose pre code {
+.novfora-prose pre code {
     background: transparent;
     padding: 0;
     color: inherit;
 }
-.hearth-prose hr {
+.novfora-prose hr {
     border: 0;
     border-top: 1px solid var(--line);
     margin: 1.1rem 0;
 }
-.hearth-prose img {
+.novfora-prose img {
     max-width: 100%;
     height: auto;
     border-radius: var(--radius-md);
 }
-.hearth-prose table {
+.novfora-prose table {
     border-collapse: collapse;
     margin: 0 0 0.7rem;
     width: 100%;
 }
-.hearth-prose th,
-.hearth-prose td {
+.novfora-prose th,
+.novfora-prose td {
     border: 1px solid var(--line-strong);
     padding: 0.35rem 0.6rem;
 }
-.hearth-prose th {
+.novfora-prose th {
     background: var(--surface-sunken);
     text-align: left;
 }
-.hearth-prose details {
+.novfora-prose details {
     margin: 0 0 0.7rem;
     border: 1px solid var(--line);
     border-radius: var(--radius-md);
     padding: 0.4rem 0.7rem;
 }
-.hearth-prose .mention {
+.novfora-prose .mention {
     background: var(--accent-soft);
     color: var(--accent-soft-ink);
     border-radius: var(--radius-sm);
     padding: 0 0.25rem;
 }
-.hearth-prose p.is-editor-empty:first-child::before {
+.novfora-prose p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
     color: var(--ink-subtle);
     float: left;
@@ -502,7 +502,7 @@ body {
 }
 
 /* Shared suggestion popup (mentions + slash commands). */
-.hearth-suggest {
+.novfora-suggest {
     z-index: 50;
     min-width: 11rem;
     max-height: 16rem;
@@ -513,7 +513,7 @@ body {
     box-shadow: var(--shadow-md);
     padding: 0.25rem;
 }
-.hearth-suggest-item {
+.novfora-suggest-item {
     display: block;
     width: 100%;
     text-align: left;
@@ -525,14 +525,14 @@ body {
     font-size: 0.9rem;
     color: var(--ink);
 }
-.hearth-suggest-item:hover,
-.hearth-suggest-item.is-active {
+.novfora-suggest-item:hover,
+.novfora-suggest-item.is-active {
     background: var(--accent-soft);
     color: var(--accent-soft-ink);
 }
 
 /* oEmbed (P2-M1) — responsive embed frame, the link-card facade, and the editor placeholder. */
-.hearth-embed-frame {
+.novfora-embed-frame {
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 9;
@@ -541,14 +541,14 @@ body {
     overflow: hidden;
     background: var(--surface-sunken);
 }
-.hearth-embed-frame iframe {
+.novfora-embed-frame iframe {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     border: 0;
 }
-.hearth-embed-facade {
+.novfora-embed-facade {
     display: flex;
     flex-direction: column;
     gap: 0.125rem;
@@ -560,19 +560,19 @@ body {
     text-decoration: none;
     transition: border-color 0.15s ease;
 }
-.hearth-embed-facade:hover {
+.novfora-embed-facade:hover {
     border-color: var(--accent);
 }
-.hearth-embed-facade-title {
+.novfora-embed-facade-title {
     color: var(--ink);
     font-weight: 600;
     word-break: break-word;
 }
-.hearth-embed-facade-host {
+.novfora-embed-facade-host {
     color: var(--ink-subtle);
     font-size: 0.8125rem;
 }
-.hearth-embed-edit {
+.novfora-embed-edit {
     margin: 0.5rem 0;
     padding: 0.625rem 0.875rem;
     border: 1px dashed var(--line);

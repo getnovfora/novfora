@@ -35,7 +35,7 @@ final class MailWebhookController extends Controller
         }
 
         $raw = (string) $request->getContent();
-        $max = (int) config('hearth.deliverability.webhook.max_body_bytes', 262144);
+        $max = (int) config('novfora.deliverability.webhook.max_body_bytes', 262144);
         if (strlen($raw) > $max) {
             return response()->json(['error' => 'payload too large'], 413);
         }

@@ -34,7 +34,7 @@ class S3Probe extends Probe
     {
         // A lightweight existence check; the SDK applies its own connect timeouts. Any failure throws,
         // and the Probe base wrapper turns it into a graceful "down".
-        Storage::disk('s3')->exists('.hearth-tier-probe');
+        Storage::disk('s3')->exists('.novfora-tier-probe');
 
         return true;
     }

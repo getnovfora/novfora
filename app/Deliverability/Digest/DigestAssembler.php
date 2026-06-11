@@ -43,7 +43,7 @@ class DigestAssembler
     public function tick(?Carbon $now = null): int
     {
         $now ??= Carbon::now();
-        $cap = max(0, (int) config('hearth.deliverability.digest.max_users_per_tick', 50));
+        $cap = max(0, (int) config('novfora.deliverability.digest.max_users_per_tick', 50));
         $dispatched = 0;
 
         // Phase 0 — self-heal: re-dispatch runs committed as 'built' whose enqueue never landed (a crash
@@ -138,7 +138,7 @@ class DigestAssembler
             return null;
         }
 
-        $rate = max(1, (int) config('hearth.deliverability.digest.per_user_item_rate', 100));
+        $rate = max(1, (int) config('novfora.deliverability.digest.per_user_item_rate', 100));
 
         try {
             return DB::transaction(function () use ($user, $cadence, $periodKey, $now, $rate): DigestRun {

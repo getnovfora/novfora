@@ -110,7 +110,7 @@ class CreateNewUser implements CreatesNewUsers
     /** Throw a 429 when this IP has exceeded the per-hour registration cap (no-op when disabled, e.g. tests). */
     private function ensureNotRateLimited(): void
     {
-        $cfg = (array) config('hearth.antispam.registration.rate_limit', []);
+        $cfg = (array) config('novfora.antispam.registration.rate_limit', []);
         if (! ($cfg['enabled'] ?? true)) {
             return;
         }
@@ -120,7 +120,7 @@ class CreateNewUser implements CreatesNewUsers
             return;
         }
 
-        $key = 'hearth:register:'.(string) request()->ip();
+        $key = 'novfora:register:'.(string) request()->ip();
         if (RateLimiter::tooManyAttempts($key, $max)) {
             throw new ThrottleRequestsException('Too many registration attempts. Please try again later.');
         }
@@ -139,12 +139,12 @@ class CreateNewUser implements CreatesNewUsers
      */
     private function looksAutomated(array $input): bool
     {
-        $field = (string) config('hearth.antispam.registration.honeypot.field', 'hp_url');
+        $field = (string) config('novfora.antispam.registration.honeypot.field', 'hp_url');
         if (filled($input[$field] ?? null)) {
             return true; // the hidden trap was filled
         }
 
-        $required = (bool) config('hearth.antispam.registration.honeypot.required', true);
+        $required = (bool) config('novfora.antispam.registration.honeypot.required', true);
         $token = $input['hp_ts'] ?? null;
 
         if (! is_string($token) || $token === '') {
@@ -157,7 +157,7 @@ class CreateNewUser implements CreatesNewUsers
             return $required; // tampered/undecryptable token → reject when required
         }
 
-        $minSeconds = (int) config('hearth.antispam.registration.honeypot.min_seconds', 2);
+        $minSeconds = (int) config('novfora.antispam.registration.honeypot.min_seconds', 2);
 
         // A non-positive timestamp is bogus; submitting faster than the floor is bot-like.
         return $renderedAt <= 0 || (now()->timestamp - $renderedAt) < $minSeconds;

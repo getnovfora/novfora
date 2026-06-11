@@ -16,8 +16,8 @@ final class CaptchaManager
     public function for(string $action = 'register'): CaptchaProvider
     {
         $key = (string) config(
-            "hearth.antispam.registration.captcha.actions.{$action}",
-            config('hearth.antispam.registration.captcha.provider', 'qa'),
+            "novfora.antispam.registration.captcha.actions.{$action}",
+            config('novfora.antispam.registration.captcha.provider', 'qa'),
         );
 
         $provider = $this->make($key);

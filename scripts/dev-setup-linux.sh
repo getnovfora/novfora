@@ -1,6 +1,6 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2026 The Hearth Authors
+# Copyright 2026 The NevoBB Authors
 #
 # Hearth dev environment — Ubuntu/Debian setup (apt). Idempotent; safe to re-run.
 # Installs the native toolchain (PHP 8.3+, Composer, Node 22, gh, Claude Code),
@@ -94,8 +94,8 @@ say "Writing .env (matched to the Docker MySQL service)"
 sed -i -E 's/^DB_CONNECTION=.*/DB_CONNECTION=mysql/' .env
 sed -i -E 's/^DB_HOST=.*/DB_HOST=127.0.0.1/' .env
 sed -i -E 's/^DB_PORT=.*/DB_PORT=3306/' .env
-sed -i -E 's/^DB_DATABASE=.*/DB_DATABASE=hearth/' .env
-sed -i -E 's/^DB_USERNAME=.*/DB_USERNAME=hearth/' .env
+sed -i -E 's/^DB_DATABASE=.*/DB_DATABASE=nevo/' .env
+sed -i -E 's/^DB_USERNAME=.*/DB_USERNAME=nevo/' .env
 sed -i -E 's/^DB_PASSWORD=.*/DB_PASSWORD=secret/' .env
 
 say "Installing PHP + JS dependencies"

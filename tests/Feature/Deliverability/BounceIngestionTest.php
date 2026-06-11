@@ -28,10 +28,10 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     config([
-        'hearth.deliverability.enabled' => true,
-        'hearth.deliverability.verp.enabled' => true,
-        'hearth.deliverability.verp.domain' => 'bounce.example.com',
-        'hearth.deliverability.verp.key' => 'a-test-verp-key',
+        'novfora.deliverability.enabled' => true,
+        'novfora.deliverability.verp.enabled' => true,
+        'novfora.deliverability.verp.domain' => 'bounce.example.com',
+        'novfora.deliverability.verp.key' => 'a-test-verp-key',
     ]);
 });
 
@@ -142,7 +142,7 @@ it('REFUSES to suppress from an ARF body recipient when VERP is absent', functio
 });
 
 it('auto-suppresses NOTHING from a polled mailbox when VERP is disabled (manual-review baseline)', function () {
-    config(['hearth.deliverability.verp.enabled' => false]);
+    config(['novfora.deliverability.verp.enabled' => false]);
     User::factory()->create(['email' => 'real@example.com']);
 
     // Even a perfectly well-formed DSN cannot be authenticated without VERP → no auto-suppression.

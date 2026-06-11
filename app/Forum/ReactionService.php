@@ -33,7 +33,7 @@ final class ReactionService
     /** @return list<string> the configured reaction type keys */
     public static function types(): array
     {
-        return array_keys((array) config('hearth.reactions.types', []));
+        return array_keys((array) config('novfora.reactions.types', []));
     }
 
     public static function isValidType(string $type): bool
@@ -160,7 +160,7 @@ final class ReactionService
         $version = $this->version($topicId);
 
         $all = Cache::remember(
-            "hearth.reactions.counts.t{$topicId}.v{$version}",
+            "novfora.reactions.counts.t{$topicId}.v{$version}",
             now()->addMinutes(self::COUNTS_TTL_MINUTES),
             function () use ($topicId): array {
                 // One query; emit plain nested scalars so unserialize(allowed_classes:false) leaves it intact.
@@ -239,6 +239,6 @@ final class ReactionService
 
     private function versionKey(int $topicId): string
     {
-        return "hearth.reactions.ver.t{$topicId}";
+        return "novfora.reactions.ver.t{$topicId}";
     }
 }

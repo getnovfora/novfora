@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # RH-10 — No-SSH upgrade: make "it migrates automatically" true — Claude Code kickoff
 
@@ -16,7 +16,7 @@ Copyright 2026 The Hearth Authors
 ---
 
 ```
-Implement Hearth's no-SSH upgrade mechanism: cron-driven, backup-first, maintenance-safe automatic
+Implement NovFora's no-SSH upgrade mechanism: cron-driven, backup-first, maintenance-safe automatic
 migration — keeping the documented promise on the baseline tier. Branch + PR. No product features.
 
 STEP 0: read PROJECT-STATE.md, docs/product/real-host-findings.md, routes/console.php (the scheduler),
@@ -37,7 +37,7 @@ THE MECHANISM (design for the baseline tier: cron is the only reliable executor;
    double-run):
    When pending migrations are detected, in strict order:
    a. Enter maintenance (friendly branded 503 — never raw SQL errors during the window).
-   b. Take a backup (the existing hearth:backup pipeline) — the pre-upgrade restore point. Failure to
+   b. Take a backup (the existing novfora:backup pipeline) — the pre-upgrade restore point. Failure to
       back up ABORTS the upgrade (stay pending, surface loudly).
    c. php artisan migrate --force (via the Migrator/Artisan in-process).
    d. Clear/refresh the relevant caches (compiled views are content-hashed already; config isn't cached
@@ -62,7 +62,7 @@ THE MECHANISM (design for the baseline tier: cron is the only reliable executor;
      rolled-back schema) or restore the pre-upgrade backup via the admin Backups panel.
 
 5) OPERATOR CONTROLS:
-   • HEARTH_AUTO_UPGRADE=true by default (the documented promise). Setting false = manual mode: the
+   • NOVFORA_AUTO_UPGRADE=true by default (the documented promise). Setting false = manual mode: the
      admin System panel gains an "Apply pending migrations" action (admin.access + 2FA + confirm) —
      same pipeline, human-triggered. (Auto mode is what saves the operator when new columns break
      signed-in pages — note that asymmetry in the docs.)

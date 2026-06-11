@@ -12,22 +12,22 @@ use Illuminate\Support\Facades\Http;
 use Throwable;
 
 /**
- * `php artisan hearth:antispam:warm` — refresh the cron-cached StopForumSpam toxic-domains blocklist
+ * `php artisan novfora:antispam:warm` — refresh the cron-cached StopForumSpam toxic-domains blocklist
  * (phase-1.5 F-C). Keeps the blocklist warm so the registration screener has a real offline signal when
  * the live API is unreachable, instead of failing open. Baseline-safe: it degrades to a no-op on ANY
  * network failure (never fails the cron run) and bounds the import for shared hosts.
  */
 class WarmBlocklistCommand extends Command
 {
-    protected $signature = 'hearth:antispam:warm';
+    protected $signature = 'novfora:antispam:warm';
 
     protected $description = 'Refresh the cron-cached StopForumSpam toxic-domains blocklist (degrades gracefully).';
 
     public function handle(): int
     {
-        $cfg = (array) config('hearth.antispam.registration.stopforumspam.warm', []);
+        $cfg = (array) config('novfora.antispam.registration.stopforumspam.warm', []);
         if (! ($cfg['enabled'] ?? true)) {
-            $this->components->info('Blocklist warming is disabled (hearth.antispam…stopforumspam.warm.enabled).');
+            $this->components->info('Blocklist warming is disabled (novfora.antispam…stopforumspam.warm.enabled).');
 
             return self::SUCCESS;
         }

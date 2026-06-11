@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # Follow-up: the RH-10 maintenance gate's "null-safe reads" claim doesn't cover the write path
 
@@ -31,8 +31,8 @@ Two of them are intended, one is the documented manual-mode asymmetry:
    (`SchemaState.php:97-98`); `state()` likewise returns `[]` on a read error (`:345-354`). On the
    baseline tier the cache **is** the DB, so a DB hiccup *during* the upgrade window opens the gate. This
    is deliberate ("a cache blip should not 503 the entire site", `:62`).
-3. **Manual mode (`hearth.upgrade.auto=false`).** A merely-pending schema does not gate at all
-   (`SchemaState.php:92-96`; documented asymmetry, `config/hearth.php:235-243`) — the admin must reach the
+3. **Manual mode (`novfora.upgrade.auto=false`).** A merely-pending schema does not gate at all
+   (`SchemaState.php:92-96`; documented asymmetry, `config/novfora.php:235-243`) — the admin must reach the
    panel to apply. **Manual-mode 500s on signed-in pages are by design, NOT the gap.** (Default is
    `auto=true`.)
 

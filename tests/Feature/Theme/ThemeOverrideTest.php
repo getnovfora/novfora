@@ -13,8 +13,8 @@ use App\Theme\ThemeManager;
 
 it('resolves a child theme view ahead of core without editing core', function () {
     config([
-        'hearth.theme.path' => base_path('tests/Fixtures/themes'),
-        'hearth.theme.active' => 'sample',
+        'novfora.theme.path' => base_path('tests/Fixtures/themes'),
+        'novfora.theme.active' => 'sample',
     ]);
 
     // Before activation the core view renders (no override marker).
@@ -34,7 +34,7 @@ it('exposes a semver theme API version (the public contract)', function () {
 });
 
 it('is a no-op when no theme is active (core is the default)', function () {
-    config(['hearth.theme.active' => null]);
+    config(['novfora.theme.active' => null]);
 
     expect(app(ThemeManager::class)->boot())->toBeNull();
 });

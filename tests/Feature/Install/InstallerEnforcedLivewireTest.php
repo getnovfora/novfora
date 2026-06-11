@@ -13,7 +13,7 @@ use Tests\TestCase;
 /*
 | RH-7 — the pre-install enforce middleware must NOT eat Livewire's own update endpoint.
 |
-| The no-SSH installer wizard is a Livewire component. Until Hearth is installed, RedirectIfNotInstalled
+| The no-SSH installer wizard is a Livewire component. Until NovFora is installed, RedirectIfNotInstalled
 | forces every web request to /install behind a short allowlist that keeps the wizard reachable. Livewire 4
 | serves its update/asset endpoints under a per-install HASHED prefix — /livewire-<hash>/update, the hash
 | derived from APP_KEY (Livewire\Mechanisms\HandleRequests\EndpointResolver::prefix()) — so the old bare
@@ -23,7 +23,7 @@ use Tests\TestCase;
 |
 | Why every prior test missed it: the installer suite renders the wizard via Livewire::test(), which DISABLES
 | the middleware stack entirely (SubsequentRender::temporarilyDisableExceptionHandlingAndMiddleware), and the
-| suite at large runs with HEARTH_INSTALL_ENFORCE=false (Installer::shouldEnforce() opts it out) — so the
+| suite at large runs with NOVFORA_INSTALL_ENFORCE=false (Installer::shouldEnforce() opts it out) — so the
 | redirect never fired. These tests close that gap by driving the REAL web middleware stack with enforcement
 | ON, which is exactly the real-host pre-install state. They are the in-process equivalent of the browser's
 | wire:click: the redirect is decided in PHP middleware, identically for any client.
@@ -33,13 +33,13 @@ beforeEach(function () {
     // A pristine, NOT-yet-installed site with enforcement ON — the real-host pre-install condition the suite
     // at large opts out of. The marker points at an absent path (→ shouldEnforce() === true); the setup-token
     // gate is off so toStep2 can advance on the requirement checklist alone.
-    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-rh7-'.bin2hex(random_bytes(6));
+    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'novfora-rh7-'.bin2hex(random_bytes(6));
     @mkdir($dir, 0775, true);
 
     config([
-        'hearth.install.enforce' => true,
-        'hearth.install.require_token' => false,
-        'hearth.install.marker' => $dir.DIRECTORY_SEPARATOR.'installed',
+        'novfora.install.enforce' => true,
+        'novfora.install.require_token' => false,
+        'novfora.install.marker' => $dir.DIRECTORY_SEPARATOR.'installed',
     ]);
 });
 

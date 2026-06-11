@@ -13,7 +13,7 @@ use Livewire\Mechanisms\HandleRequests\EndpointResolver;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Until Hearth is installed, send every browser request to the web installer (M5). This is what makes a
+ * Until NovFora is installed, send every browser request to the web installer (M5). This is what makes a
  * no-SSH upload "just work": the operator visits the site and is taken straight to the wizard.
  *
  * A short allowlist keeps the wizard itself reachable — the installer pages, Livewire's update endpoint

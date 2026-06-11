@@ -1,10 +1,10 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
-# Contributing to Hearth
+# Contributing to NovFora
 
-Thanks for your interest in **Hearth** (working codename), an open-source, self-hosted forum platform.
+Thanks for your interest in **NovFora**, an open-source, self-hosted forum platform.
 This guide covers how we work and how to get a change merged. Governance, roles, and the decision process
 live in [GOVERNANCE.md](GOVERNANCE.md).
 
@@ -31,7 +31,7 @@ live in [GOVERNANCE.md](GOVERNANCE.md).
 ## Development setup *(once the Phase 1 scaffold lands)*
 
 ```bash
-git clone <repo> && cd hearth
+git clone <repo> && cd novfora
 composer install
 cp .env.example .env && php artisan key:generate
 php artisan migrate --seed         # seeds a demo community used by tests + the getting-started guide

@@ -1,11 +1,11 @@
 # Community Complaints & Feature Requests — Evidence Table
 
-> **Project:** Hearth (working codename). **Stage A deliverable** for Section 5.4.
+> **Project:** NovFora (working codename). **Stage A deliverable** for Section 5.4.
 > **Date:** 2026-06-01. **Method:** hybrid research — live web search across operator forums (phpBB/MyBB
 > communities), Hacker News, review sites (Trustpilot, Capterra), vendor docs, and technical write-ups.
 > Every row carries a real source link. Claims are split into **confirmed patterns** (multiple independent
 > sources) vs **weaker/one-off signals**.
-> **How to read the last column:** "Our design response" is Hearth's synthesized answer; it links to the
+> **How to read the last column:** "Our design response" is NovFora's synthesized answer; it links to the
 > ADR/architecture doc where the decision is recorded and the [roadmap](../product/roadmap.md) phase that
 > delivers it. These responses are the evidentiary backbone of our MVP and prioritization.
 
@@ -13,7 +13,7 @@
 
 ## 1. Confirmed patterns (multiple independent sources)
 
-| # | Complaint / request | Platform(s) | Evidence (source) | Severity | Frequency / confidence | Product opportunity | **Our design response (Hearth)** |
+| # | Complaint / request | Platform(s) | Evidence (source) | Severity | Frequency / confidence | Product opportunity | **Our design response (NovFora)** |
 |---|---|---|---|:--:|---|---|---|
 | C1 | **Spam is the #1 ongoing operator burden** — bots overwhelm even a fully-configured anti-spam stack (one admin: 80–100 spam accounts/day despite Q&A + CAPTCHA + StopForumSpam) | phpBB, MyBB, SMF, XenForo | [phpBB "flood of spam accounts"](https://www.phpbb.com/community/viewtopic.php?t=2431966); [phpBB "spamming bots taking over"](https://www.phpbb.com/community/viewtopic.php?t=2438341); [Akismet on forum spam](https://akismet.com/blog/forum-spam/); [HN: "spam was a losing battle, I stopped running a board"](https://news.ycombinator.com/item?id=33726098) | **High** | **Confirmed** — 6+ independent sources | First-class, layered anti-spam baked into core registration & posting, not a bolt-on | **Anti-spam is a first-class subsystem with its own [ADR](../architecture/security-and-permissions.md#anti-spam):** Discourse-style **trust levels** that gate new-user capability *through the permission-mask engine*; **crowdsourced blocklist** (StopForumSpam-style) at registration with **configurable confidence thresholds** (low→flag, high→block); **provider-swappable CAPTCHA abstraction** (Q&A + invisible providers); pluggable content scanning (Akismet-style); rate limiting, honeypots, disposable-email blocking, new-user moderation queue, and a **Spam Cleaner** bulk-removal tool. All baseline-tier safe (no Redis required). |
 | C2 | **Dated / absent mobile UX** — default themes aren't mobile-first; responsiveness needs third-party themes | phpBB, MyBB, SMF | [MyBB community: "no good mobile interface"](https://community.mybb.com/thread-222085.html); [IONOS: MyBB "weak in mobile and SEO"](https://www.ionos.com/digitalguide/hosting/cms/the-best-forum-software/); [HN: forums "late to responsive layouts"](https://news.ycombinator.com/item?id=33726098) | **High** | **Confirmed** — 5+ sources | Mobile-first by default; no theme swap needed | **Mobile-first responsive default theme**; touch-friendly **inline moderation**; **PWA** (installable + web push) on the enhanced tier, degrading to responsive web on baseline; **WCAG 2.1 AA** baked into the editor & theming ADRs from the start (not deferred). |
@@ -38,7 +38,7 @@
 
 ## 3. Weaker / one-off signals (track, don't over-invest)
 
-| # | Complaint / request | Platform(s) | Evidence (source) | Severity | Confidence | Our design response (Hearth) |
+| # | Complaint / request | Platform(s) | Evidence (source) | Severity | Confidence | Our design response (NovFora) |
 |---|---|---|---|:--:|---|---|
 | W1 | **Absent real-time features** — no live post updates / push | phpBB, MyBB, SMF | [phpBB: "boring that real-time updates haven't been implemented"](https://www.phpbb.com/community/viewtopic.php?t=2611736); [review: MyBB "needs real-time notifications"](https://gegosoft.com/top-5-php-based-forum-platforms-in-2024/) | Medium | Common (3 sources) | **Livewire polling** for near-real-time on baseline (no daemon needed); **Laravel Reverb / Pusher WebSockets** on enhanced. Graceful degradation is a cross-cutting rule. |
 | W2 | **Shallow monetization outside Invision** — no native donations/subscriptions; third-party add-ons rot | phpBB, MyBB, SMF | [phpBB monetize thread relies on third-party exts](https://www.phpbb.com/community/viewtopic.php?t=2625871) | Medium | Common (2–3 sources) | **Phase 4** paid memberships/subscriptions with **Stripe first** and the **subscription→group→permission** pipeline (IPS concept); pluggable payments; optional ad slots. Should/Could per MoSCoW. |

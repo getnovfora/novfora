@@ -1,5 +1,5 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => 'Reports · '.config('app.name', 'Hearth')])
+@extends('layouts.app', ['title' => 'Reports · '.config('app.name', 'NovFora')])
 
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[

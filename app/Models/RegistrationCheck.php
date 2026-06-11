@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Append-only record of a registration anti-spam evaluation (ADR-0007 / data-model §6). Carries PII
- * (IP/email) under a configurable retention window — purged by `hearth:antispam:purge` (security §2.6).
+ * (IP/email) under a configurable retention window — purged by `novfora:antispam:purge` (security §2.6).
  */
 class RegistrationCheck extends Model
 {

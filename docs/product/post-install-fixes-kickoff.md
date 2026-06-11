@@ -1,10 +1,10 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # Post-install live-host fixes (RH-8 + RH-9) — Claude Code kickoff
 
-> The live-host install **completed end-to-end** (RH-7 validated on `hearth.adorablespider.com` — wizard →
+> The live-host install **completed end-to-end** (RH-7 validated on `nevo.adorablespider.com` — wizard →
 > demo community → topics render). The post-install smoke then surfaced two real bugs, both diagnosed from
 > the live host's `laravel.log` + code reading. Evidence below is conclusive — implement, don't re-litigate.
 
@@ -60,7 +60,7 @@ RH-9 — SECURITY HARDENING + OBJECT CACHE = POISONED FRAGMENT CACHE (the /forum
        classes in serializable_classes — that re-opens the object-injection surface the hardening closed.
     2. REPO-WIDE SWEEP: audit every Cache::put/remember/rememberForever/increment value in app/ for
        non-scalar payloads (models, Collections, Carbon instances). Known suspect: the queue heartbeat
-       (HealthController::QUEUE_HEARTBEAT, 'hearth:health:queue_drained_at') — live /health shows
+       (HealthController::QUEUE_HEARTBEAT, 'novfora:health:queue_drained_at') — live /health shows
        queue.ok: null, consistent with a Carbon object coming back as __PHP_Incomplete_Class and being
        discarded. Store epoch ints / ISO strings instead. Fix every object write found.
     3. Add a defensive note in config/cache.php above serializable_classes: cached values must be
@@ -81,7 +81,7 @@ RH-9 — SECURITY HARDENING + OBJECT CACHE = POISONED FRAGMENT CACHE (the /forum
 DELIVER:
   • Full suite + new tests green; Pint/Larastan/composer-audit clean.
   • Rebuild scripts/build-release.sh + scripts/verify-release.sh (cold boot → 302 /install). Report the new
-    hearth-release.zip size + sha256 and surface the artifact.
+    novfora-release.zip size + sha256 and surface the artifact.
   • Docs: add RH-8 and RH-9 entries to docs/product/real-host-findings.md (status FIXED, with the root-cause
     chains above), mark RH-7 "FIXED + VALIDATED on the live host (full wizard → installed community)", and
     refresh the Next list (remaining: RH-4 subdirectory design-first, RH-5 assets+CI guard, Dusk enforce-ON

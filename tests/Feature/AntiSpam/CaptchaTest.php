@@ -13,7 +13,7 @@ use App\AntiSpam\Captcha\QaCaptchaProvider;
 */
 
 it('verifies the Q&A answer case-insensitively, rejecting wrong/empty answers', function () {
-    config(['hearth.antispam.registration.captcha.qa.answers' => ['blue']]);
+    config(['novfora.antispam.registration.captcha.qa.answers' => ['blue']]);
     $qa = new QaCaptchaProvider;
 
     expect($qa->verify(['captcha_answer' => '  BLUE ']))->toBeTrue();
@@ -22,15 +22,15 @@ it('verifies the Q&A answer case-insensitively, rejecting wrong/empty answers', 
 });
 
 it('returns the Q&A provider by default', function () {
-    config(['hearth.antispam.registration.captcha.provider' => 'qa']);
+    config(['novfora.antispam.registration.captcha.provider' => 'qa']);
 
     expect(app(CaptchaManager::class)->for('register')->key())->toBe('qa');
 });
 
 it('degrades an unconfigured Turnstile to Q&A (tier-graceful)', function () {
     config([
-        'hearth.antispam.registration.captcha.provider' => 'turnstile',
-        'hearth.antispam.registration.captcha.turnstile.secret' => '',
+        'novfora.antispam.registration.captcha.provider' => 'turnstile',
+        'novfora.antispam.registration.captcha.turnstile.secret' => '',
     ]);
 
     expect(app(CaptchaManager::class)->for('register')->key())->toBe('qa');
@@ -38,8 +38,8 @@ it('degrades an unconfigured Turnstile to Q&A (tier-graceful)', function () {
 
 it('uses Turnstile when a secret is configured', function () {
     config([
-        'hearth.antispam.registration.captcha.provider' => 'turnstile',
-        'hearth.antispam.registration.captcha.turnstile.secret' => 'a-secret',
+        'novfora.antispam.registration.captcha.provider' => 'turnstile',
+        'novfora.antispam.registration.captcha.turnstile.secret' => 'a-secret',
     ]);
 
     expect(app(CaptchaManager::class)->for('register')->key())->toBe('turnstile');
@@ -47,8 +47,8 @@ it('uses Turnstile when a secret is configured', function () {
 
 it('honours a per-action override', function () {
     config([
-        'hearth.antispam.registration.captcha.provider' => 'qa',
-        'hearth.antispam.registration.captcha.actions.register' => 'null',
+        'novfora.antispam.registration.captcha.provider' => 'qa',
+        'novfora.antispam.registration.captcha.actions.register' => 'null',
     ]);
 
     expect(app(CaptchaManager::class)->for('register')->key())->toBe('null');

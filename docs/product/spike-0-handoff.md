@@ -40,8 +40,8 @@ Do the spike in a **scratch directory** (not the repo root) so `D:\Forum` stays 
 
 ```bash
 # 1. Laravel 13 + Livewire 4
-composer create-project "laravel/laravel:^13" hearth-spike
-cd hearth-spike
+composer create-project "laravel/laravel:^13" nevo-spike
+cd nevo-spike
 composer require "livewire/livewire:^4.0"
 composer require symfony/html-sanitizer      # MIT — server-side allowlist sanitizer
 
@@ -75,7 +75,7 @@ spot-check). `@tiptap/*` core/extensions are MIT; **do not** add `@tiptap-pro/*`
 > *contract*: TipTap owns the DOM inside a Livewire-ignored boundary; canonical JSON flows to the server;
 > server renders + sanitizes HTML.
 
-### 2a. Editor factory — `resources/js/editor/hearth-editor.js`
+### 2a. Editor factory — `resources/js/editor/novfora-editor.js`
 ```js
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
@@ -84,7 +84,7 @@ import Mention from '@tiptap/extension-mention'
 // Slash commands: build on @tiptap/suggestion (see TipTap docs); omitted here for brevity.
 
 // Factory returns a TipTap editor; caller wires persistence + events.
-export function createHearthEditor({ element, content, onUpdate }) {
+export function createNovForaEditor({ element, content, onUpdate }) {
   return new Editor({
     element,
     extensions: [
@@ -104,12 +104,12 @@ export function createHearthEditor({ element, content, onUpdate }) {
 // resources/js/editor/island.js  (registered from app.js; the heavy TipTap code is dynamically
 // imported below so it is code-split OUT of the main bundle — see criterion #6)
 document.addEventListener('alpine:init', () => {
-  window.Alpine.data('hearthEditor', (initialJson) => ({
+  window.Alpine.data('nevoEditor', (initialJson) => ({
     editor: null,
     async init() {
       // Lazy-load the factory so @tiptap/* lands in its own chunk, not app.js:
-      const { createHearthEditor } = await import('./hearth-editor')
-      this.editor = createHearthEditor({
+      const { createNovForaEditor } = await import('./novfora-editor')
+      this.editor = createNovForaEditor({
         element: this.$refs.mount,
         content: initialJson,
         // Debounced sync of CANONICAL JSON to the Livewire component (no DOM coupling):
@@ -157,7 +157,7 @@ class PostComposer extends Component
 <div>
   <div
     wire:ignore
-    x-data="hearthEditor(@js($canonicalJson))"
+    x-data="nevoEditor(@js($canonicalJson))"
     x-ref="mount"
     class="prose max-w-none border rounded p-3 min-h-[12rem]"
     aria-label="Post editor"

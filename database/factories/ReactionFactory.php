@@ -20,7 +20,7 @@ class ReactionFactory extends Factory
 
     public function definition(): array
     {
-        $types = array_keys((array) config('hearth.reactions.types', ['like' => []]));
+        $types = array_keys((array) config('novfora.reactions.types', ['like' => []]));
 
         return [
             'post_id' => Post::factory(),

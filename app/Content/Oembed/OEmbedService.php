@@ -12,7 +12,7 @@ use App\Models\OembedCache;
  * oEmbed orchestrator (P2-M1). Given a URL, returns TRUSTED embed HTML:
  *   - allowlisted provider → a single sandboxed iframe (EmbedPolicy) from a constructed player URL, with an
  *     optional best-effort title from the provider's oEmbed endpoint fetched through SsrfGuard;
- *   - anything else        → a NevoBB link-card facade (no fetch, no provider HTML).
+ *   - anything else        → a NovFora link-card facade (no fetch, no provider HTML).
  * The result is cached per URL so the (at most one) network fetch and the render run once per TTL.
  */
 final class OEmbedService
@@ -26,7 +26,7 @@ final class OEmbedService
 
     public function render(string $url): string
     {
-        if (! (bool) config('hearth.oembed.enabled', true)) {
+        if (! (bool) config('novfora.oembed.enabled', true)) {
             return $this->policy->facade($url); // feature off → always a facade, never an embed
         }
 
@@ -61,7 +61,7 @@ final class OEmbedService
             return null;
         }
 
-        $body = $this->guard->safeGet($endpoint, (array) config('hearth.oembed', []));
+        $body = $this->guard->safeGet($endpoint, (array) config('novfora.oembed', []));
         if ($body === null) {
             return null;
         }

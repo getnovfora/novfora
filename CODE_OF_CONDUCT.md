@@ -1,10 +1,10 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # Code of Conduct
 
-**Hearth** (working codename) is an open community. We want participating in it — filing an issue, opening a
+**NovFora** is an open community. We want participating in it — filing an issue, opening a
 pull request, joining a discussion, writing a module or theme — to be a respectful, harassment-free
 experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex
 characteristics, gender identity and expression, level of experience, education, socio-economic status,
@@ -34,7 +34,7 @@ This document is referenced by [GOVERNANCE.md §6](GOVERNANCE.md), which defines
 
 ## 2. Scope
 
-This Code applies in all Hearth project spaces — the code repositories, issue trackers, pull requests,
+This Code applies in all NovFora project spaces — the code repositories, issue trackers, pull requests,
 discussion forums, chat, and any official event or channel — and also when an individual is officially
 representing the project in a public space (for example, using an official account or acting as an appointed
 representative).
@@ -82,7 +82,7 @@ reconsidered.
 
 ## 6. Attribution
 
-This Code of Conduct is an original document written for Hearth. It reflects norms that are common across
+This Code of Conduct is an original document written for NovFora. It reflects norms that are common across
 healthy open-source communities (such as the Contributor Covenant family of codes) and is adapted to
-Hearth's [governance model](GOVERNANCE.md). Changes to this document follow the RFC process in
+NovFora's [governance model](GOVERNANCE.md). Changes to this document follow the RFC process in
 [GOVERNANCE.md §7](GOVERNANCE.md).

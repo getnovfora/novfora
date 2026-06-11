@@ -10,7 +10,7 @@ namespace App\Content\Oembed;
  * The DEDICATED embed render policy (P2-M1, amendment #2) — SEPARATE from the post ContentSanitizer, which
  * forbids iframes. This is trusted server output: a provider URL is matched against a fixed allowlist; an
  * allowlisted match becomes a SINGLE sandboxed <iframe> whose src is a constructed player URL on an
- * allowlisted EMBED host (never the provider's own returned HTML). Anything else is a NevoBB link-card facade.
+ * allowlisted EMBED host (never the provider's own returned HTML). Anything else is a NovFora link-card facade.
  */
 final class EmbedPolicy
 {
@@ -21,7 +21,7 @@ final class EmbedPolicy
      */
     public function match(string $url): ?array
     {
-        foreach ((array) config('hearth.oembed.providers', []) as $name => $provider) {
+        foreach ((array) config('novfora.oembed.providers', []) as $name => $provider) {
             if (! is_array($provider) || ! isset($provider['pattern'], $provider['embed'], $provider['host'])) {
                 continue;
             }
@@ -43,10 +43,10 @@ final class EmbedPolicy
     /** Build the single sandboxed iframe for an allowlisted embed src. Trusted output — NOT the post sanitizer. */
     public function iframe(string $src, ?string $title = null): string
     {
-        $sandbox = (string) config('hearth.oembed.sandbox', 'allow-scripts allow-same-origin allow-popups allow-presentation');
-        $allow = (string) config('hearth.oembed.allow', 'encrypted-media; fullscreen; picture-in-picture');
+        $sandbox = (string) config('novfora.oembed.sandbox', 'allow-scripts allow-same-origin allow-popups allow-presentation');
+        $allow = (string) config('novfora.oembed.allow', 'encrypted-media; fullscreen; picture-in-picture');
 
-        return '<div class="hearth-embed-frame">'
+        return '<div class="novfora-embed-frame">'
             .'<iframe src="'.$this->esc($src).'"'
             .' title="'.$this->esc($title !== null && trim($title) !== '' ? $title : 'Embedded media').'"'
             .' sandbox="'.$this->esc($sandbox).'"'
@@ -55,7 +55,7 @@ final class EmbedPolicy
             .' frameborder="0" allowfullscreen></iframe></div>';
     }
 
-    /** Build a NevoBB link-card facade for a non-allowlisted (or unresolved) URL. Plain, safe — no provider HTML. */
+    /** Build a NovFora link-card facade for a non-allowlisted (or unresolved) URL. Plain, safe — no provider HTML. */
     public function facade(string $url, ?string $title = null): string
     {
         $safe = $this->safeHttpUrl($url);
@@ -66,9 +66,9 @@ final class EmbedPolicy
         $label = $title !== null && trim($title) !== '' ? $title : $safe;
         $host = (string) (parse_url($safe, PHP_URL_HOST) ?? '');
 
-        return '<a class="hearth-embed-facade" href="'.$this->esc($safe).'" rel="nofollow noopener noreferrer" target="_blank">'
-            .'<span class="hearth-embed-facade-title">'.$this->esc($label).'</span>'
-            .'<span class="hearth-embed-facade-host">'.$this->esc($host).'</span></a>';
+        return '<a class="novfora-embed-facade" href="'.$this->esc($safe).'" rel="nofollow noopener noreferrer" target="_blank">'
+            .'<span class="novfora-embed-facade-title">'.$this->esc($label).'</span>'
+            .'<span class="novfora-embed-facade-host">'.$this->esc($host).'</span></a>';
     }
 
     private function safeHttpUrl(string $url): ?string

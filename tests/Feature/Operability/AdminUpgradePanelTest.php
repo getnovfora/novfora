@@ -49,7 +49,7 @@ it('applies pending migrations from the panel and reports the result', function 
     $this->mock(UpgradeRunner::class)
         ->shouldReceive('runManual')
         ->once()
-        ->andReturn(UpgradeResult::success(3, 120, 'hearth-20260607-120000.zip'));
+        ->andReturn(UpgradeResult::success(3, 120, 'novfora-20260607-120000.zip'));
 
     Livewire::test('admin.upgrade')
         ->call('apply')
@@ -63,7 +63,7 @@ it('surfaces a failed apply with the recovery hint', function () {
     $this->mock(UpgradeRunner::class)
         ->shouldReceive('runManual')
         ->once()
-        ->andReturn(UpgradeResult::failed('migrate', 'boom', 'hearth-20260607-120000.zip'));
+        ->andReturn(UpgradeResult::failed('migrate', 'boom', 'novfora-20260607-120000.zip'));
 
     Livewire::test('admin.upgrade')
         ->call('apply')

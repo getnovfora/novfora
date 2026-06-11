@@ -18,7 +18,7 @@
             here — the always-available baseline floor, working even with no email provider configured.
         </p>
 
-        {{-- Operator email-setup checklist (spike-p2-memo §5; mirrors `php artisan hearth:mail:test`). Sending
+        {{-- Operator email-setup checklist (spike-p2-memo §5; mirrors `php artisan novfora:mail:test`). Sending
              to strangers — verification mail, digests — is where shared-host SMTP burns reputation. --}}
         <x-ui.card>
             <h2 class="text-sm font-semibold text-ink">Email deliverability checklist</h2>
@@ -36,7 +36,7 @@
                 </li>
             </ol>
             <p class="mt-3 text-xs text-ink-subtle">
-                Verify outbound mail end-to-end with <code class="rounded bg-surface-sunken px-1 py-0.5">php artisan hearth:mail:test you@example.com</code>.
+                Verify outbound mail end-to-end with <code class="rounded bg-surface-sunken px-1 py-0.5">php artisan novfora:mail:test you@example.com</code>.
             </p>
         </x-ui.card>
 

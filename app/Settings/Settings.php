@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Crypt;
  *   2. the registry's config() path   (config files already fold env() → hardcoded default), else
  *   3. the registry's literal default.
  * Defaults are NOT seeded as rows — that would shadow the env/config fallback and defeat the whole point
- * of the override (e.g. the owner's HEARTH_NEW_USER_HOLD_POSTS keeps governing until an admin sets a
+ * of the override (e.g. the owner's NOVFORA_NEW_USER_HOLD_POSTS keeps governing until an admin sets a
  * value in the panel, after which the panel value wins and survives the next release).
  *
  * CACHING (RH-9): the whole bag is read ONCE per request and cached as PRIMITIVES only (the raw string
@@ -35,7 +35,7 @@ use Illuminate\Support\Facades\Crypt;
  */
 class Settings
 {
-    public const CACHE_KEY = 'hearth:settings:bag';
+    public const CACHE_KEY = 'novfora:settings:bag';
 
     /**
      * Per-request memo of the primitive bag. null = not yet loaded this request.

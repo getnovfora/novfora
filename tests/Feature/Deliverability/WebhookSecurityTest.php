@@ -28,11 +28,11 @@ const WEBHOOK_SECRET = 'a-long-random-per-install-secret';
 
 beforeEach(function () {
     config([
-        'hearth.deliverability.enabled' => true,
-        'hearth.deliverability.webhook.enabled' => true,
-        'hearth.deliverability.webhook.secret' => WEBHOOK_SECRET,
-        'hearth.deliverability.webhook.max_body_bytes' => 262144,
-        'hearth.deliverability.webhook.tolerance_seconds' => 300,
+        'novfora.deliverability.enabled' => true,
+        'novfora.deliverability.webhook.enabled' => true,
+        'novfora.deliverability.webhook.secret' => WEBHOOK_SECRET,
+        'novfora.deliverability.webhook.max_body_bytes' => 262144,
+        'novfora.deliverability.webhook.tolerance_seconds' => 300,
     ]);
 });
 
@@ -40,10 +40,10 @@ function webhookCall(string $raw, ?string $sig, ?string $ts, string $provider = 
 {
     $request = Request::create("/webhooks/mail/{$provider}", 'POST', [], [], [], [], $raw);
     if ($sig !== null) {
-        $request->headers->set('X-Hearth-Signature', $sig);
+        $request->headers->set('X-NovFora-Signature', $sig);
     }
     if ($ts !== null) {
-        $request->headers->set('X-Hearth-Timestamp', $ts);
+        $request->headers->set('X-NovFora-Timestamp', $ts);
     }
 
     return app(MailWebhookController::class)->__invoke(
@@ -128,7 +128,7 @@ it('rejects a malformed JSON body with 422, never 500', function () {
 });
 
 it('rejects an oversize body with 413 before parsing', function () {
-    config(['hearth.deliverability.webhook.max_body_bytes' => 32]);
+    config(['novfora.deliverability.webhook.max_body_bytes' => 32]);
     $raw = json_encode(['type' => 'bounce', 'email' => 'bob@example.com', 'permanent' => true, 'id' => 'big', 'pad' => str_repeat('x', 200)]);
     [$ts, $sig] = signWebhook($raw);
 

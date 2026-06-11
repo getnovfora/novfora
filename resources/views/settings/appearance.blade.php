@@ -1,10 +1,10 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => 'Appearance · '.config('app.name', 'Hearth')])
+@extends('layouts.app', ['title' => 'Appearance · '.config('app.name', 'NovFora')])
 
 @section('content')
     <x-settings.shell title="Appearance">
         <p class="text-sm text-ink-muted">
-            Choose how {{ config('app.name', 'Hearth') }} looks for you. These settings follow your account on
+            Choose how {{ config('app.name', 'NovFora') }} looks for you. These settings follow your account on
             every device, and apply even with JavaScript disabled.
         </p>
 
@@ -13,8 +13,8 @@
               x-data="{
                   mode: @js($user->color_mode),
                   density: @js($user->density),
-                  setMode(m) { this.mode = m; window.Hearth && window.Hearth.setColorMode(m); },
-                  setDensity(d) { this.density = d; window.Hearth && window.Hearth.setDensity(d); },
+                  setMode(m) { this.mode = m; window.NovFora && window.NovFora.setColorMode(m); },
+                  setDensity(d) { this.density = d; window.NovFora && window.NovFora.setDensity(d); },
               }">
             @csrf
 

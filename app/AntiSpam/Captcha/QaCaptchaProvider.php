@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
  */
 final class QaCaptchaProvider implements CaptchaProvider
 {
-    private const NONCE_PREFIX = 'hearth:qa-nonce:';
+    private const NONCE_PREFIX = 'novfora:qa-nonce:';
 
     private const NONCE_FIELD = 'captcha_nonce';
 
@@ -39,7 +39,7 @@ final class QaCaptchaProvider implements CaptchaProvider
         $challenge = [
             'type' => 'qa',
             'field' => 'captcha_answer',
-            'question' => (string) config('hearth.antispam.registration.captcha.qa.question', ''),
+            'question' => (string) config('novfora.antispam.registration.captcha.qa.question', ''),
         ];
 
         if ($this->singleUse()) {
@@ -73,7 +73,7 @@ final class QaCaptchaProvider implements CaptchaProvider
 
         $accepted = array_map(
             fn ($a) => strtolower(trim((string) $a)),
-            (array) config('hearth.antispam.registration.captcha.qa.answers', []),
+            (array) config('novfora.antispam.registration.captcha.qa.answers', []),
         );
 
         return in_array($answer, $accepted, true);
@@ -92,6 +92,6 @@ final class QaCaptchaProvider implements CaptchaProvider
 
     private function singleUse(): bool
     {
-        return (bool) config('hearth.antispam.registration.captcha.qa.single_use', true);
+        return (bool) config('novfora.antispam.registration.captcha.qa.single_use', true);
     }
 }

@@ -10,12 +10,12 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Mail;
 
 /**
- * `php artisan hearth:mail:test {email}` — deliverability self-test (ADR-0014). Sends one message through the
+ * `php artisan novfora:mail:test {email}` — deliverability self-test (ADR-0014). Sends one message through the
  * configured transport and prints the SPF/DKIM/DMARC + best-effort-baseline guidance the admin panel echoes.
  */
 class MailSelfTestCommand extends Command
 {
-    protected $signature = 'hearth:mail:test {email : Address to send the self-test to}';
+    protected $signature = 'novfora:mail:test {email : Address to send the self-test to}';
 
     protected $description = 'Send a deliverability self-test email and print deliverability guidance.';
 
@@ -25,9 +25,9 @@ class MailSelfTestCommand extends Command
 
         try {
             Mail::raw(
-                'Hearth email self-test — if you received this, outbound email is working. '
+                ' — if you received this, outbound email is working. '
                 .'For reliable delivery, verify SPF, DKIM and DMARC DNS records for your sending domain.',
-                fn ($message) => $message->to($email)->subject('Hearth email self-test'),
+                fn ($message) => $message->to($email)->subject(''),
             );
             $this->info("Self-test email dispatched to {$email}.");
         } catch (\Throwable $e) {

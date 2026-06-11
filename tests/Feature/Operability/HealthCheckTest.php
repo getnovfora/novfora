@@ -12,11 +12,11 @@ use Illuminate\Support\Facades\Cache;
 /** Point the file-based restore state at a throwaway path so a test never touches the real storage file. */
 function isolateRestoreState(): void
 {
-    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-rh11-health-'.bin2hex(random_bytes(6));
+    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'novfora-rh11-health-'.bin2hex(random_bytes(6));
     @mkdir($dir, 0775, true);
     config([
-        'hearth.backup.restore_state_path' => $dir.DIRECTORY_SEPARATOR.'hearth-restore.json',
-        'hearth.backup.restore_lock_path' => $dir.DIRECTORY_SEPARATOR.'hearth-restore.lock',
+        'novfora.backup.restore_state_path' => $dir.DIRECTORY_SEPARATOR.'novfora-restore.json',
+        'novfora.backup.restore_lock_path' => $dir.DIRECTORY_SEPARATOR.'novfora-restore.lock',
     ]);
     app(RestoreState::class)->forget();
 }

@@ -73,7 +73,7 @@ new class extends Component
 ?>
 
 <div class="mt-3 flex flex-wrap items-center gap-1.5" dusk="reactions-{{ $postId }}">
-    @foreach (config('hearth.reactions.types', []) as $key => $meta)
+    @foreach (config('novfora.reactions.types', []) as $key => $meta)
         @php($count = (int) ($counts[$key] ?? 0))
         @if ($canReact || $count > 0)
             <button type="button"

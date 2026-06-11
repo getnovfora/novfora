@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\Schema;
 /** @return array{0:string,1:string,2:string} [dir, backupDir, sqlitePath] — migrated temp DB, installed. */
 function restoreSandbox(): array
 {
-    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-rh11-'.bin2hex(random_bytes(6));
+    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'novfora-rh11-'.bin2hex(random_bytes(6));
     @mkdir($dir, 0775, true);
     $db = $dir.DIRECTORY_SEPARATOR.'app.sqlite';
     touch($db);
@@ -38,11 +38,11 @@ function restoreSandbox(): array
     config([
         'database.default' => 'sqlite',
         'database.connections.sqlite.database' => $db,
-        'hearth.backup.path' => $backupDir,
-        'hearth.install.marker' => $marker,
-        'hearth.backup.restore_state_path' => $dir.DIRECTORY_SEPARATOR.'hearth-restore.json',
-        'hearth.backup.restore_lock_path' => $dir.DIRECTORY_SEPARATOR.'hearth-restore.lock',
-        'hearth.upgrade.migration_paths' => [database_path('migrations')],
+        'novfora.backup.path' => $backupDir,
+        'novfora.install.marker' => $marker,
+        'novfora.backup.restore_state_path' => $dir.DIRECTORY_SEPARATOR.'novfora-restore.json',
+        'novfora.backup.restore_lock_path' => $dir.DIRECTORY_SEPARATOR.'novfora-restore.lock',
+        'novfora.upgrade.migration_paths' => [database_path('migrations')],
     ]);
     DB::purge('sqlite');
     Artisan::call('migrate', ['--force' => true]);
@@ -59,14 +59,14 @@ function restoreSandbox(): array
 function unapplicableSqlBackup(string $backupDir): string
 {
     @mkdir($backupDir, 0775, true);
-    $path = $backupDir.DIRECTORY_SEPARATOR.'hearth-20990101-000000.zip';
+    $path = $backupDir.DIRECTORY_SEPARATOR.'novfora-20990101-000000.zip';
     $dump = "-- not applied\nSELECT 1;\n";
     $zip = new ZipArchive;
     $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
     $zip->addFromString('database.sql', $dump);
     $zip->addFromString('manifest.json', json_encode([
         'format' => 1,
-        'app' => 'Hearth',
+        'app' => 'NovFora',
         'version' => 'x',
         'created_at' => now()->toIso8601String(),
         'db' => ['kind' => 'sql', 'driver' => 'mysql', 'file' => 'database.sql', 'sha256' => hash('sha256', $dump)],
@@ -161,13 +161,13 @@ it('hands off to RH-10: a restored older schema reads as pending and the auto-up
     $oldBackup = app(BackupService::class)->create(0)->name();
 
     // (b) the live install moves forward — deployed code now carries + has applied a fixture migration.
-    config(['hearth.upgrade.migration_paths' => [
+    config(['novfora.upgrade.migration_paths' => [
         database_path('migrations'),
         base_path('tests/Fixtures/upgrade/ok'),
     ]]);
     Artisan::call('migrate', [
         '--force' => true,
-        '--path' => config('hearth.upgrade.migration_paths'),
+        '--path' => config('novfora.upgrade.migration_paths'),
         '--realpath' => true,
     ]);
     expect(Schema::hasTable('rh10_probe'))->toBeTrue();
@@ -175,7 +175,7 @@ it('hands off to RH-10: a restored older schema reads as pending and the auto-up
     expect(app(SchemaState::class)->hasPendingMigrations())->toBeFalse(); // up to date
 
     // (c) restore the OLDER backup (predates the fixture).
-    config(['hearth.upgrade.auto' => true]);
+    config(['novfora.upgrade.auto' => true]);
     expect(app(RestoreRunner::class)->runNow($backupDir.DIRECTORY_SEPARATOR.$oldBackup)->isSuccess())->toBeTrue();
 
     // The restored schema is now BEHIND the deployed code → rh10_probe gone, migrations pending, gate holds.
@@ -194,10 +194,10 @@ it('hands off to RH-10: a restored older schema reads as pending and the auto-up
 
 it('the auto-upgrade tick stands down while a restore is in progress', function () {
     restoreSandbox();
-    config(['hearth.upgrade.auto' => true]);
+    config(['novfora.upgrade.auto' => true]);
 
     // A restore is requested but not yet drained — the gate is up.
-    app(RestoreState::class)->request('hearth-20260101-000000.zip', null, 'Admin');
+    app(RestoreState::class)->request('novfora-20260101-000000.zip', null, 'Admin');
 
     $result = app(UpgradeRunner::class)->runAutomatic();
 
@@ -212,7 +212,7 @@ it('holds the site after ANY mid-restore failure — even with default config (t
     User::factory()->create();
 
     // A real archive on disk to stage, but force the apply step to throw (validation passes, restore fails).
-    $path = $backupDir.DIRECTORY_SEPARATOR.'hearth-20990101-000000.zip';
+    $path = $backupDir.DIRECTORY_SEPARATOR.'novfora-20990101-000000.zip';
     @mkdir($backupDir, 0775, true);
     file_put_contents($path, 'staged-bytes');
     $this->mock(RestoreService::class, function ($m) {
@@ -253,7 +253,7 @@ it('holds for the operator when a previous restore was interrupted mid-run (cras
 
     // Simulate a process killed mid-restore: a request is recorded and `running` is set, but no result was
     // ever written. The file lock is free (the crashed process released it on death).
-    $state->request('hearth-20260101-000000.zip', null, 'Admin');
+    $state->request('novfora-20260101-000000.zip', null, 'Admin');
     $state->beginRun();
     expect($state->isRunning())->toBeTrue();
 
@@ -267,8 +267,8 @@ it('holds for the operator when a previous restore was interrupted mid-run (cras
 
 it('skips entirely when the site is not yet installed', function () {
     restoreSandbox();
-    @unlink(config('hearth.install.marker'));
-    app(RestoreState::class)->request('hearth-20260101-000000.zip', null, 'Admin');
+    @unlink(config('novfora.install.marker'));
+    app(RestoreState::class)->request('novfora-20260101-000000.zip', null, 'Admin');
 
     $result = app(RestoreRunner::class)->runPending();
 
@@ -276,16 +276,16 @@ it('skips entirely when the site is not yet installed', function () {
     expect($result->reason)->toBe('not-installed');
 });
 
-it('request() refuses a foreign (non-Hearth) archive up front, without recording a request', function () {
+it('request()  up front, without recording a request', function () {
     [, $backupDir] = restoreSandbox();
     @mkdir($backupDir, 0775, true);
-    $foreign = $backupDir.DIRECTORY_SEPARATOR.'hearth-20300101-000000.zip';
+    $foreign = $backupDir.DIRECTORY_SEPARATOR.'novfora-20300101-000000.zip';
     $zip = new ZipArchive;
     $zip->open($foreign, ZipArchive::CREATE);
-    $zip->addFromString('readme.txt', 'not a hearth backup'); // no manifest.json
+    $zip->addFromString('readme.txt', 'not a novfora backup'); // no manifest.json
     $zip->close();
 
-    expect(fn () => app(RestoreRunner::class)->request('hearth-20300101-000000.zip', null, 'Admin'))
+    expect(fn () => app(RestoreRunner::class)->request('novfora-20300101-000000.zip', null, 'Admin'))
         ->toThrow(BackupException::class);
     expect(app(RestoreState::class)->isRequested())->toBeFalse(); // nothing queued → gate stays open
 });

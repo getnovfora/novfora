@@ -1,11 +1,11 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => 'Home · '.config('app.name', 'Hearth')])
+@extends('layouts.app', ['title' => 'Home · '.config('app.name', 'NovFora')])
 
 @section('content')
     @php($user = auth()->user())
     <x-ui.container size="md" class="space-y-6">
         <div class="space-y-1">
-            <p class="text-xs font-medium uppercase tracking-wide text-ink-subtle">{{ config('app.name', 'Hearth') }}</p>
+            <p class="text-xs font-medium uppercase tracking-wide text-ink-subtle">{{ config('app.name', 'NovFora') }}</p>
             <h1 class="text-2xl font-semibold tracking-tight text-ink">Welcome, <x-ui.user-name :user="$user" /></h1>
             <p class="text-sm text-ink-muted">
                 You’re signed in as <span class="font-medium text-ink">{{ $user->username }}</span> ({{ $user->email }}).

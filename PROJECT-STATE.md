@@ -1,4 +1,4 @@
-# PROJECT-STATE.md — NevoBB (session resume / handoff)
+# PROJECT-STATE.md — NovFora (session resume / handoff)
 
 > **Purpose:** single source of truth for where this project stands right now. Read this **first**, every
 > session — both Claude Code and Claude Cowork. Keep it at the repo root. Whoever is working keeps it updated.
@@ -11,8 +11,8 @@
 
 ## What this is
 
-**NevoBB** (name locked 2026-06-07, ADR-0024; "Hearth" is the **retired codename** — still in code as
-`config/hearth.php`, `hearth:*` commands, `HEARTH_*` env keys; rename is a **separate planned task**) —
+**NovFora** (name locked 2026-06-07, ADR-0024; "NovFora" is the **retired codename** — still in code as
+`config/novfora.php`, `nevo:*` commands, `NOVFORA_*` env keys; rename is a **separate planned task**) —
 open-source (**Apache-2.0**), self-hosted forum/community platform; modern PHP; **two tiers from one
 codebase** (baseline shared PHP host / enhanced Docker-VPS); WYSIWYG-first editor; phpBB-grade permission
 masks; strict clean-room.
@@ -40,7 +40,7 @@ PostgreSQL on Docker/VPS. Vite, prebuilt assets (no host Node). Approved — ADR
 > `claude/p2-m2a-deliverability` off `main` — **push pending** (same in-sandbox credential limit).**
 
 **`main` carries:** M0–M5, P1.5 hardening, real-host fixes RH-6–RH-11, default theme + theme polish R1,
-ACP v1 + v1.1 patch, Spike P2 deliverability pipeline (dormant), NevoBB rename (ADR-0024), **ACP v2**.
+ACP v1 + v1.1 patch, Spike P2 deliverability pipeline (dormant), NovFora rename (ADR-0024), **ACP v2**.
 **Committed locally, NOT yet pushed:** P2-M1 (7 stacked feature branches `claude/p2-m1-*`) and **P2-M2 Half-A**
 (`claude/p2-m2a-deliverability`, branched off `main`); the in-sandbox push is blocked on interactive git
 credentials — **user to push**, then open the PRs.
@@ -96,7 +96,7 @@ browser-journey screenshots for react/poll/prefix/tag/draft (wired into the dusk
 A LIGHT-UP + WIRE-IN of the dormant Spike-P2 pipeline (no rebuild), per
 [`p2-m2a-deliverability-code-kickoff.md`](docs/product/p2-m2a-deliverability-code-kickoff.md). Six items, small
 DCO commits:
-1. **Activate** — `.env.example` `HEARTH_DELIVERABILITY=true`/`HEARTH_DIGEST=true`; the SPF/DKIM/DMARC +
+1. **Activate** — `.env.example` `NOVFORA_DELIVERABILITY=true`/`NOVFORA_DIGEST=true`; the SPF/DKIM/DMARC +
    on-domain-`From` operator checklist surfaced on the ACP Email page (memo §5).
 2. **`Notifier`→`DigestQueue` wiring (⚙)** — the mail channel routes by digest cadence: immediate = unchanged
    live path; daily/weekly = staged into the cron digest; `off` = no notification mail. Idempotency stays on
@@ -145,7 +145,7 @@ review-queue forgery-flood guard.
 4. **Design-first items still queued (do not build without a plan):**
    - RH-4: subdirectory install (ADR needed)
    - Layman "simple-mode" permissions UX (ACP v3, separate cycle)
-   - In-code Hearth→NevoBB rename (one reviewed change per ADR-0024; do not rename ad-hoc)
+   - Hearth/NevoBB→NovFora in-code rename: complete (refactor(rename) commit, ADR-0026)
 
 ## Working rules
 

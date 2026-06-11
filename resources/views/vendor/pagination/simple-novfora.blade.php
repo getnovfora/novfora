@@ -1,5 +1,5 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-{{-- Hearth's simple (prev/next only) paginator view (token-styled). See hearth.blade.php. --}}
+{{-- NevoBB's simple (prev/next only) paginator view (token-styled). See nevo.blade.php. --}}
 @if ($paginator->hasPages())
     <nav role="navigation" aria-label="{{ __('Pagination Navigation') }}" class="flex justify-between gap-2 text-sm">
         @if ($paginator->onFirstPage())

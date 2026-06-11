@@ -1,11 +1,11 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # Phase 2 Plan — Community (plan-before-code)
 
-> **Project:** NevoBB (the engine — "Hearth" was the working codename, retired at **ADR-0024**, 2026-06-07;
-> the codebase string rename `hearth → nevobb` is a separate planned change — see §7). **Status: DRAFT for
+> **Project:** NovFora (the engine — "NovFora" was the working codename, retired at **ADR-0024**, 2026-06-07;
+> the codebase string rename `nevo → nevobb` is a separate planned change — see §7). **Status: DRAFT for
 > owner approval — NO Phase-2 application code is written until this plan is signed off** (plan-before-code per
 > the working agreement). **Date:** 2026-06-08.
 > **Stack (locked, ADR-0001/0002):** Laravel 13 · Livewire 4 · Alpine · Blade · PHP 8.3 · MySQL 8/MariaDB.
@@ -22,7 +22,7 @@ Copyright 2026 The Hearth Authors
 **Goal:** turn a proven forum *engine* into a community people **come back to** — reactions, multi-participant
 PMs, activity feeds, digest email, polls/prefixes/tags, richer moderation — **without breaking the
 always-runnable baseline rule, the unified permission engine, the anti-spam posture, or the semver'd
-no-core-edit theme API**. Phase 1 proved NevoBB installs and runs; Phase 2 makes it *sticky* and earns the
+no-core-edit theme API**. Phase 1 proved NovFora installs and runs; Phase 2 makes it *sticky* and earns the
 **Public Beta** invite list.
 
 **Definition of done (Phase 2 exit criteria):**
@@ -93,7 +93,7 @@ The roadmap's Phase-2 deliverable list was written before Phase 1 shipped Full-M
 |---|---|---|
 | **Reports** → staff dashboard | M3 | ✅ done |
 | **Warnings/infractions** (points, time-decay, auto-consequences, required ack) | M3 | ✅ done |
-| **Trust-level promotion rules** | M3 (`hearth:trust:recompute` cron) | ✅ done |
+| **Trust-level promotion rules** | M3 (`novfora:trust:recompute` cron) | ✅ done |
 | **Edit history** (post revisions, storage) | M2 (`post_revisions`) | ✅ stored — only the **diff *viewer*** remains (→ P2-M1) |
 | **Custom profile fields** | M4 (ACP CRUD) | ✅ done |
 | **Markdown input mode** | M2 (editor toggle) | ✅ done |
@@ -269,7 +269,7 @@ rehearsal** against the Phase-2 migrations. → the **🚩 Public Beta gate**.
 | **Cache-object-poisoning regressions** (the RH-9 class) on new cached data | Primitives-only in cache + rehydrate after the boundary; serializing-store cache-HIT tests on feeds + counts |
 | **Phase-2 scope breadth** | Milestones land independently runnable; the §3B **Should-tier** social items (reputation/points, badges, follow/ignore, staff notes, 2nd theme) are the first descope lever — re-surfaced to you, never silent |
 | **Theme-API drift** | Semver discipline; the **2nd example theme is the regression proof**; no core-edit; THEME-API contract tests stay green |
-| **The Hearth → NevoBB codebase rename** (ADR-0024, ~197 refs: `config/hearth.php`, `hearth:*` commands, `HEARTH_*` env, SPDX lines) | Land it as **one reviewed change with a documented `HEARTH_*` → `NEVOBB_*` env migration, before the Public Beta gate** (so no operator contract breaks); don't multiply new `hearth:` references in Phase-2 code meanwhile — see §8 Q2 |
+| **The Hearth/NevoBB → NovFora codebase rename** (ADR-0026, complete) | Landed as one reviewed change per `refactor(rename): Hearth/NevoBB → NovFora per ADR-0026` |
 
 ---
 
@@ -280,10 +280,10 @@ rehearsal** against the Phase-2 migrations. → the **🚩 Public Beta gate**.
    the **Should-tier** social items (reputation/points, badges/trophies, follow/ignore, staff notes,
    2nd theme) are the explicit **descope lever**. Added rule: **private-beta feedback may REORDER the
    work within the core** — the P2-M1…M5 order is not locked until beta signal arrives.
-2. **NevoBB rename → deferred to the v1.0 launch gate (Phase 5), NOT Phase 2 or Public Beta.** One
+2. **NovFora rename → deferred to the v1.0 launch gate (Phase 5), NOT Phase 2 or Public Beta.** One
    rename, at the end, after all churn settles (ROADMAP already slots it at Phase 5). During Phase 2:
-   don't gratuitously multiply new `hearth:` surface area, but no rename work happens. When executed at
-   the v1.0 gate it MUST carry (a) an env back-compat shim (`NEVOBB_*` → fall back to `HEARTH_*`, so the
+   don't gratuitously multiply new `nevo:` surface area, but no rename work happens. When executed at
+   the v1.0 gate it MUST carry (a) an env back-compat shim (`NEVOBB_*` → fall back to `NOVFORA_*`, so the
    live host's hand-maintained `.env` never silently reverts) and (b) a name-clearance scan
    (GitHub/Packagist/domain/trademark) before the public flip. *(§7's rename row is therefore a Phase-5
    item, not a Phase-2 risk.)*
@@ -309,9 +309,7 @@ On approval I will:
    (reputation/points, badges/trophies, follow/ignore, staff notes, the 2nd example theme) as an explicit
    **descope lever** for a faster path to Public Beta? *(Recommendation: build the engagement core —
    reactions, PMs, feeds, digests, polls/tags — first; treat the Should-tier as the trim if timeline slips.)*
-2. **The NevoBB rename (ADR-0024)** — fold the `hearth → nevobb` codebase rename into Phase 2 as its own
-   reviewed change **before the Public Beta gate** (my recommendation), or run it as a separate task outside
-   this plan?
+2. **The NovFora rename (ADR-0026)** — complete. Landed as `refactor(rename): Hearth/NevoBB → NovFora per ADR-0026` before Phase 2 began.
 3. **Enhanced-tier opportunism** — keep Phase 2 strictly baseline-first with graceful-degrade seams (the
    roadmap's position; enhanced tier = Phase 4), or opportunistically light up a *driver* path where it
    degrades cleanly (e.g. Reverb for live notifications, Meilisearch for facets)? *(Recommendation: keep

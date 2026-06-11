@@ -142,7 +142,7 @@ final class PermissionResolver
 
     private function cacheKey(User $user, string $permission, Scope $scope): string
     {
-        return 'hearth.acl.v'.$this->version->current()
+        return 'novfora.acl.v'.$this->version->current()
             .'.u'.$user->getKey().'.g'.$user->groupSignature()
             .'.'.md5($permission.'|'.$scope->key());
     }

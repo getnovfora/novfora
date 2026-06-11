@@ -29,7 +29,7 @@ use Livewire\Livewire;
 /** @return array{0:string,1:string,2:string,3:string} [dir, envPath, markerPath, sqlitePath] */
 function installSandbox(): array
 {
-    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-install-'.bin2hex(random_bytes(6));
+    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'novfora-install-'.bin2hex(random_bytes(6));
     @mkdir($dir, 0775, true);
     $env = $dir.DIRECTORY_SEPARATOR.'.env';
     $marker = $dir.DIRECTORY_SEPARATOR.'installed';
@@ -37,9 +37,9 @@ function installSandbox(): array
     touch($db);
 
     config([
-        'hearth.install.enforce' => true,
-        'hearth.install.env_path' => $env,
-        'hearth.install.marker' => $marker,
+        'novfora.install.enforce' => true,
+        'novfora.install.env_path' => $env,
+        'novfora.install.marker' => $marker,
     ]);
 
     return [$dir, $env, $marker, $db];
@@ -112,10 +112,10 @@ it('writes env keys surgically and preserves the rest of the file', function () 
     [, $env] = installSandbox();
     $writer = app(EnvWriter::class);
     $writer->ensureExists();                                     // copies .env.example
-    $writer->set(['APP_NAME' => 'Hearth Demo', 'DB_DATABASE' => 'mydb']);
+    $writer->set(['APP_NAME' => 'NovFora Demo', 'DB_DATABASE' => 'mydb']);
 
     $contents = file_get_contents($env);
-    expect($contents)->toContain('APP_NAME="Hearth Demo"');     // quoted (contains a space)
+    expect($contents)->toContain('APP_NAME="NovFora Demo"');     // quoted (contains a space)
     expect($contents)->toContain('DB_DATABASE=mydb');
     expect($contents)->toContain('SCOUT_DRIVER=database');      // an untouched example key survives
 });
@@ -188,7 +188,7 @@ it('refuses to run — writing nothing — when the install lock directory is no
     // destructive step, so a half-built-yet-unlocked site (re-runnable installer → second admin) is impossible.
     $blocker = $dir.DIRECTORY_SEPARATOR.'not-a-dir';
     touch($blocker);
-    config(['hearth.install.marker' => $blocker.DIRECTORY_SEPARATOR.'installed']);
+    config(['novfora.install.marker' => $blocker.DIRECTORY_SEPARATOR.'installed']);
 
     expect(fn () => app(InstallRunner::class)->run(sampleInput($db)))->toThrow(RuntimeException::class);
 
@@ -212,7 +212,7 @@ it('does not force a secure cookie for a plain-http site URL', function () {
 it('requires the setup token and consumes it on a successful install (F-A)', function () {
     [$dir, , , $db] = installSandbox();
     $tokenPath = $dir.DIRECTORY_SEPARATOR.'install-token.txt';
-    config(['hearth.install.require_token' => true, 'hearth.install.token_path' => $tokenPath]);
+    config(['novfora.install.require_token' => true, 'novfora.install.token_path' => $tokenPath]);
 
     $installer = app(Installer::class);
     $token = $installer->ensureToken();
@@ -230,7 +230,7 @@ it('requires the setup token and consumes it on a successful install (F-A)', fun
 
 it('blocks the wizard at step 1 without the setup token (F-A)', function () {
     [$dir] = installSandbox();
-    config(['hearth.install.require_token' => true, 'hearth.install.token_path' => $dir.DIRECTORY_SEPARATOR.'install-token.txt']);
+    config(['novfora.install.require_token' => true, 'novfora.install.token_path' => $dir.DIRECTORY_SEPARATOR.'install-token.txt']);
     app(Installer::class)->ensureToken();
 
     Livewire::test('installer.wizard')

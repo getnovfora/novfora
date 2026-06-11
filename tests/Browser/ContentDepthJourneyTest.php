@@ -33,11 +33,11 @@ beforeEach(function () {
 
     // ── actors ─────────────────────────────────────────────────────────────────────────────────────
     $this->member = Users::inGroups(['members'], [
-        'username' => 'reader', 'email' => 'reader@hearth.test', 'display_name' => 'Reader',
+        'username' => 'reader', 'email' => 'reader@novfora.test', 'display_name' => 'Reader',
     ]);
 
     $this->admin = Users::withTwoFactor(Users::inGroups(['admins'], [
-        'username' => 'adminp2', 'email' => 'adminp2@hearth.test', 'display_name' => 'Admin P2',
+        'username' => 'adminp2', 'email' => 'adminp2@novfora.test', 'display_name' => 'Admin P2',
     ]));
 
     // ── board ──────────────────────────────────────────────────────────────────────────────────────

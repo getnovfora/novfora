@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Schema;
 | The no-SSH automatic upgrade mechanism (RH-10 / ADR-0021), driven through the UpgradeRunner directly.
 | These manage their own temp file-DB + an out-of-tree fixture "release" migration (so real migrations
 | actually run), so they do NOT use RefreshDatabase. The fixture dirs live in tests/Fixtures/upgrade/* and
-| are added to hearth.upgrade.migration_paths so they read as pending and the runner applies them for real.
+| are added to novfora.upgrade.migration_paths so they read as pending and the runner applies them for real.
 */
 
 /**
@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Schema;
  */
 function upgradeSandbox(string $fixture = 'ok'): array
 {
-    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-upgrade-'.bin2hex(random_bytes(6));
+    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'novfora-upgrade-'.bin2hex(random_bytes(6));
     @mkdir($dir, 0775, true);
     $db = $dir.DIRECTORY_SEPARATOR.'app.sqlite';
     touch($db);
@@ -35,8 +35,8 @@ function upgradeSandbox(string $fixture = 'ok'): array
     config([
         'database.default' => 'sqlite',
         'database.connections.sqlite.database' => $db,
-        'hearth.backup.path' => $backupDir,
-        'hearth.install.marker' => $marker,
+        'novfora.backup.path' => $backupDir,
+        'novfora.install.marker' => $marker,
     ]);
     DB::purge('sqlite');
 
@@ -47,7 +47,7 @@ function upgradeSandbox(string $fixture = 'ok'): array
     file_put_contents($marker, '{"installed_at":"test"}');
 
     // Now the deployed "code" carries the fixture migration the DB has not seen.
-    config(['hearth.upgrade.migration_paths' => [
+    config(['novfora.upgrade.migration_paths' => [
         database_path('migrations'),
         base_path("tests/Fixtures/upgrade/{$fixture}"),
     ]]);
@@ -59,12 +59,12 @@ function upgradeSandbox(string $fixture = 'ok'): array
 
 afterEach(function () {
     // Release the upgrade lock between tests so a held-lock test can't leak into the next.
-    Cache::lock('hearth:upgrade:lock')->forceRelease();
+    Cache::lock('novfora:upgrade:lock')->forceRelease();
 });
 
 it('auto-applies pending migrations: takes a backup, migrates, then exits maintenance', function () {
     [, $backupDir] = upgradeSandbox('ok');
-    config(['hearth.upgrade.auto' => true]);
+    config(['novfora.upgrade.auto' => true]);
     $schema = app(SchemaState::class);
 
     expect($schema->hasPendingMigrations())->toBeTrue();
@@ -85,7 +85,7 @@ it('auto-applies pending migrations: takes a backup, migrates, then exits mainte
 
 it('is idempotent: a second run after success is a no-op', function () {
     upgradeSandbox('ok');
-    config(['hearth.upgrade.auto' => true]);
+    config(['novfora.upgrade.auto' => true]);
 
     expect(app(UpgradeRunner::class)->runAutomatic()->isSuccess())->toBeTrue();
 
@@ -96,7 +96,7 @@ it('is idempotent: a second run after success is a no-op', function () {
 
 it('does not auto-run in manual mode, but the manual apply (admin/CLI) works', function () {
     upgradeSandbox('ok');
-    config(['hearth.upgrade.auto' => false]);
+    config(['novfora.upgrade.auto' => false]);
 
     $auto = app(UpgradeRunner::class)->runAutomatic();
     expect($auto->isSkipped())->toBeTrue();
@@ -110,10 +110,10 @@ it('does not auto-run in manual mode, but the manual apply (admin/CLI) works', f
 
 it('never double-runs: a held cache lock makes the run skip without migrating', function () {
     upgradeSandbox('ok');
-    config(['hearth.upgrade.auto' => true]);
+    config(['novfora.upgrade.auto' => true]);
 
     // Another tick is "mid-run" — it holds the lock.
-    expect(Cache::lock('hearth:upgrade:lock', 60)->get())->toBeTrue();
+    expect(Cache::lock('novfora:upgrade:lock', 60)->get())->toBeTrue();
 
     $result = app(UpgradeRunner::class)->runAutomatic();
 
@@ -124,13 +124,13 @@ it('never double-runs: a held cache lock makes the run skip without migrating', 
 
 it('aborts when the pre-upgrade backup fails: no migration runs and it stays gated (surface loudly)', function () {
     [$dir] = upgradeSandbox('ok');
-    config(['hearth.upgrade.auto' => true]);
+    config(['novfora.upgrade.auto' => true]);
 
     // Force a REAL backup failure: point the backup directory under a regular file, so it can't be
     // created → BackupService::create() throws. (BackupService is final; a real failure is faithful.)
     $blocker = $dir.DIRECTORY_SEPARATOR.'blocker';
     file_put_contents($blocker, 'x');
-    config(['hearth.backup.path' => $blocker.DIRECTORY_SEPARATOR.'backups']);
+    config(['novfora.backup.path' => $blocker.DIRECTORY_SEPARATOR.'backups']);
 
     $result = app(UpgradeRunner::class)->runAutomatic();
 
@@ -147,7 +147,7 @@ it('aborts when the pre-upgrade backup fails: no migration runs and it stays gat
 
 it('holds for the operator after a migration failure: maintenance retained, health stuck, no retry loop', function () {
     upgradeSandbox('fail');
-    config(['hearth.upgrade.auto' => true, 'hearth.upgrade.max_auto_attempts' => 2]);
+    config(['novfora.upgrade.auto' => true, 'novfora.upgrade.max_auto_attempts' => 2]);
     $schema = app(SchemaState::class);
 
     // Attempt 1 fails — a backup is still taken; not yet stuck (1 of 2).
@@ -176,7 +176,7 @@ it('holds for the operator after a migration failure: maintenance retained, heal
 
 it("rolls back this run's applied batch when a later migration in the batch fails", function () {
     upgradeSandbox('partial');
-    config(['hearth.upgrade.auto' => false]);
+    config(['novfora.upgrade.auto' => false]);
 
     expect(Schema::hasTable('rh10_step_one'))->toBeFalse();
 
@@ -191,7 +191,7 @@ it("rolls back this run's applied batch when a later migration in the batch fail
 
 it('clears a stuck hold when the drift resolves (operator re-uploaded the previous release)', function () {
     upgradeSandbox('fail');
-    config(['hearth.upgrade.auto' => true, 'hearth.upgrade.max_auto_attempts' => 1]);
+    config(['novfora.upgrade.auto' => true, 'novfora.upgrade.max_auto_attempts' => 1]);
     $schema = app(SchemaState::class);
 
     // One failed attempt → stuck (cap = 1).
@@ -200,7 +200,7 @@ it('clears a stuck hold when the drift resolves (operator re-uploaded the previo
 
     // The operator re-uploads the PREVIOUS release: the failing fixture is no longer in the code, so
     // nothing is pending anymore.
-    config(['hearth.upgrade.migration_paths' => [database_path('migrations')]]);
+    config(['novfora.upgrade.migration_paths' => [database_path('migrations')]]);
 
     $next = app(UpgradeRunner::class)->runAutomatic();
     expect($next->isSkipped())->toBeTrue();
@@ -209,25 +209,25 @@ it('clears a stuck hold when the drift resolves (operator re-uploaded the previo
     expect($schema->shouldGateRequests())->toBeFalse();   // gate lifted on its own
 });
 
-it('the hearth:upgrade --check command reports status without applying anything', function () {
+it('the novfora:upgrade --check command reports status without applying anything', function () {
     upgradeSandbox('ok');
 
-    $this->artisan('hearth:upgrade', ['--check' => true])->assertSuccessful();
+    $this->artisan('novfora:upgrade', ['--check' => true])->assertSuccessful();
 
     expect(Schema::hasTable('rh10_probe'))->toBeFalse(); // --check never applies
 });
 
-it('the hearth:upgrade command applies pending migrations (the operator CLI path)', function () {
+it('the novfora:upgrade command applies pending migrations (the operator CLI path)', function () {
     upgradeSandbox('ok');
 
-    $this->artisan('hearth:upgrade')->assertSuccessful();
+    $this->artisan('novfora:upgrade')->assertSuccessful();
 
     expect(Schema::hasTable('rh10_probe'))->toBeTrue();
 });
 
 it('gates from the very first request after the mechanism-introducing deploy (empty state + pending)', function () {
     upgradeSandbox('ok'); // installed, the fixture is pending, and state was forgotten (the old code wrote none)
-    config(['hearth.upgrade.auto' => true]);
+    config(['novfora.upgrade.auto' => true]);
     $schema = app(SchemaState::class);
 
     expect($schema->state())->toBe([]); // no prior state to fingerprint-compare against
@@ -239,8 +239,8 @@ it('gates from the very first request after the mechanism-introducing deploy (em
 
 it('skips entirely when the site is not yet installed', function () {
     upgradeSandbox('ok');
-    config(['hearth.upgrade.auto' => true]);
-    @unlink(config('hearth.install.marker')); // pretend not installed
+    config(['novfora.upgrade.auto' => true]);
+    @unlink(config('novfora.install.marker')); // pretend not installed
 
     $result = app(UpgradeRunner::class)->runAutomatic();
 

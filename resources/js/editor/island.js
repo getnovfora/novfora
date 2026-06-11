@@ -10,14 +10,14 @@
 // `editor` local below), which Alpine never proxies. Typing works either way; programmatic commands
 // (image insert, slash) are what break under a proxy.
 document.addEventListener('alpine:init', () => {
-  window.Alpine.data('hearthEditor', (config = {}) => {
+  window.Alpine.data('nevoEditor', (config = {}) => {
     let editor = null
     let api = null
     let draftTimer = null
     return {
       async init() {
-        api = await import('./hearth-editor') // <-- lazy chunk (TipTap + extensions)
-        editor = api.createHearthEditor({
+        api = await import('./novfora-editor') // <-- lazy chunk (TipTap + extensions)
+        editor = api.createNovForaEditor({
           element: this.$refs.mount,
           content: config.content ?? { type: 'doc', content: [] },
           placeholder: config.placeholder ?? 'Write something…',

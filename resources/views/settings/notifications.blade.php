@@ -1,5 +1,5 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => 'Notification preferences · '.config('app.name', 'Hearth')])
+@extends('layouts.app', ['title' => 'Notification preferences · '.config('app.name', 'NovFora')])
 
 @section('content')
     <x-settings.shell title="Notifications">

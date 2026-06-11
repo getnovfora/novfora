@@ -18,9 +18,9 @@ declare(strict_types=1);
 beforeEach(function () {
     // A pristine, not-yet-installed sandbox so /install renders: no marker, no token gate, no redirect.
     config([
-        'hearth.install.enforce' => false,
-        'hearth.install.require_token' => false,
-        'hearth.install.marker' => sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-nomarker-'.bin2hex(random_bytes(5)),
+        'novfora.install.enforce' => false,
+        'novfora.install.require_token' => false,
+        'novfora.install.marker' => sys_get_temp_dir().DIRECTORY_SEPARATOR.'novfora-nomarker-'.bin2hex(random_bytes(5)),
     ]);
 });
 

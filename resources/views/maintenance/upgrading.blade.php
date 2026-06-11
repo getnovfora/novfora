@@ -6,7 +6,7 @@
      browser lands on the live site the moment the window closes. When a run is held for the operator
      (stuck), it shows recovery steps + the relevant backup name instead of the "back shortly" copy. --}}
 @php($mode = ($mode ?? 'upgrade') === 'restore' ? 'restore' : 'upgrade')
-@php($name = $appName ?? config('app.name', 'Hearth'))
+@php($name = $appName ?? config('app.name', 'NovFora'))
 @php($title = ($stuck ?? false) ? ($mode === 'restore' ? 'Restore paused' : 'Upgrade paused') : ($mode === 'restore' ? 'Restoring' : 'Upgrading'))
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -51,7 +51,7 @@
                 <div class="hint">
                     <p style="margin:0 0 .6rem"><strong>To recover without SSH:</strong></p>
                     <p style="margin:0 0 .6rem">
-                        Over FTP / your host file manager, delete <code>storage/hearth-restore.json</code> to
+                        Over FTP / your host file manager, delete <code>storage/novfora-restore.json</code> to
                         lift this hold, then sign in and restore a known-good backup again from
                         <strong>Admin → System → Backups</strong>
                         @if (! empty($backup))
@@ -63,7 +63,7 @@
                     </p>
                     <p style="margin:0">
                         With shell access you can instead restore directly:
-                        <code>php artisan hearth:restore &lt;archive&gt;</code>. See
+                        <code>php artisan novfora:restore &lt;archive&gt;</code>. See
                         <strong><code>docs/getting-started.md</code> §5</strong> for the full recovery steps.
                     </p>
                 </div>
@@ -82,7 +82,7 @@
                     @if (! empty($backup))
                         <p style="margin:0">
                             A pre-upgrade backup was taken first: <code>{{ $backup }}</code>. With shell access you can
-                            restore it with <code>php artisan hearth:restore {{ $backup }}</code>. See
+                            restore it with <code>php artisan novfora:restore {{ $backup }}</code>. See
                             <strong><code>docs/getting-started.md</code> §5</strong> for the full recovery steps.
                         </p>
                     @else

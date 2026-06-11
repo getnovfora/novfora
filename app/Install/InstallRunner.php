@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Hash;
 use Throwable;
 
 /**
- * The single, ordered install sequence shared by the web wizard and the `hearth:install` CLI command
+ * The single, ordered install sequence shared by the web wizard and the `novfora:install` CLI command
  * (M5, phase-1-plan §5). Keeping ONE runner means there is exactly one place where secrets are written,
  * migrations are run, and the admin is created — one surface to reason about and to test.
  *
@@ -44,7 +44,7 @@ final class InstallRunner
     public function run(InstallInput $in): InstallResult
     {
         if ($this->installer->isInstalled()) {
-            throw new \RuntimeException('Hearth is already installed.');
+            throw new \RuntimeException('NovFora is already installed.');
         }
 
         // Setup-token gate (phase-1.5 F-A): the unauthenticated installer only runs for someone who can read
@@ -215,14 +215,14 @@ final class InstallRunner
         if ($method === 'copy') {
             $notes[] = 'Your host does not allow symlinks, so public files (avatars, covers) are served from '
                 .'a COPY at public/storage. The cron line keeps it refreshed automatically; after bulk '
-                .'changes you can also run `php artisan hearth:storage:publish`.';
+                .'changes you can also run `php artisan novfora:storage:publish`.';
 
             return true; // a working copy IS published — just not via a symlink
         }
 
         if ($method === 'failed') {
             $notes[] = 'Could not publish public/storage automatically (symlinks are disabled and the copy '
-                .'fallback failed). Run `php artisan hearth:storage:publish` so uploaded avatars and images display.';
+                .'fallback failed). Run `php artisan novfora:storage:publish` so uploaded avatars and images display.';
 
             return false;
         }

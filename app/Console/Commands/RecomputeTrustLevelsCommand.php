@@ -11,12 +11,12 @@ use App\Models\User;
 use Illuminate\Console\Command;
 
 /**
- * `php artisan hearth:trust:recompute` — auto promotion/demotion of trust levels (ADR-0007 §2.3).
+ * `php artisan novfora:trust:recompute` — auto promotion/demotion of trust levels (ADR-0007 §2.3).
  * Idempotent and correct within one (coarse) cron interval (ADR-0011); scheduled hourly in routes/console.php.
  */
 class RecomputeTrustLevelsCommand extends Command
 {
-    protected $signature = 'hearth:trust:recompute {--user= : Recompute only this user id}';
+    protected $signature = 'novfora:trust:recompute {--user= : Recompute only this user id}';
 
     protected $description = 'Recompute trust-level group membership (auto promotion/demotion).';
 

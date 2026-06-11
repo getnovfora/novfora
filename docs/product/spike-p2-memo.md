@@ -1,12 +1,12 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # Spike P2 — baseline deliverability (digest + bounce) — GO/NO-GO memo
 
 > **Verdict: GO** (with criterion #1 stated honestly as *exactly-once assembly + effectively-once delivery*).
 > **Date:** 2026-06-08. **Branch:** `claude/spike-p2-deliverability` (off `main`, post-ACP).
-> **Status:** spike reference pipeline + tests, **dormant behind `hearth.deliverability.enabled` (default
+> **Status:** spike reference pipeline + tests, **dormant behind `novfora.deliverability.enabled` (default
 > false)** — the live immediate notification path (`App\Notifications\Notifier`) is **untouched**. This is the
 > Phase-2 analog of Spike 0: a focused de-risk of the one uncertain, high-blast-radius Phase-2 seam, per
 > [phase-2-plan.md](phase-2-plan.md) §4 and [the kickoff](spike-p2-deliverability-kickoff.md). It is **not**
@@ -36,7 +36,7 @@ was triggered.
 ### (a) Cron-batched digest — exactly-once assembly
 
 Pending notifications for digest-cadence users are staged into a durable ledger (`digest_queue_items`). One
-cron tick (`hearth:deliverability:digest-run`, `everyMinute → withoutOverlapping → skip during restore`)
+cron tick (`novfora:deliverability:digest-run`, `everyMinute → withoutOverlapping → skip during restore`)
 **assembles** due digests:
 
 ```
@@ -79,7 +79,7 @@ double-*delivery* window is the irreducible SMTP-accept→`status='sent'` gap sh
    oversize → 413; malformed JSON → 422; **never 500, never suppresses a bogus address.** It only ever
    *writes* to the suppression list — it never fetches a URL from the payload, so it is **not an SSRF sink**.
    A reference parser handles **Postmark** (the recommended provider) and a `generic` shape.
-2. **Cron-polled IMAP mailbox** (`hearth:deliverability:poll-bounces`): guarded by `extension_loaded('imap')`;
+2. **Cron-polled IMAP mailbox** (`novfora:deliverability:poll-bounces`): guarded by `extension_loaded('imap')`;
    absent → bound to `NullBounceMailbox` (no-op). It is the *delivery* mechanism; **authentication is VERP**
    (see 3). Raw messages are parsed clean-room from **RFC 3464 (DSN)** and **RFC 5965 (ARF)** — body headers
    are used **only to classify** (permanent `5.x.x` → suppress; **transient `4.x.x` NEVER**; ARF → complaint).
@@ -138,12 +138,12 @@ Two lines join the single cron entry (`* * * * * php artisan schedule:run`), bot
 discipline and **dormant until the flag**:
 
 ```php
-Schedule::command('hearth:deliverability:digest-run')
+Schedule::command('novfora:deliverability:digest-run')
     ->everyMinute()->withoutOverlapping($shortMutex)   // short mutex (≥2 min, <60) — the DB UNIQUE row is the
-    ->name('hearth-digest-run')->skip($duringRestore);  // real guard; a SIGKILL must not strand for a day
-Schedule::command('hearth:deliverability:poll-bounces')
+    ->name('novfora-digest-run')->skip($duringRestore);  // real guard; a SIGKILL must not strand for a day
+Schedule::command('novfora:deliverability:poll-bounces')
     ->everyMinute()->withoutOverlapping()
-    ->name('hearth-poll-bounces')->skip($duringRestore);
+    ->name('novfora-poll-bounces')->skip($duringRestore);
 ```
 
 **Constraints P2-M2 must honour:**
@@ -171,7 +171,7 @@ shared-host SMTP burns reputation. The recommended path, to be documented for op
 - **The From address MUST be on your sending domain** (the live cPanel lesson — an off-domain From fails
   SPF/DKIM alignment and lands in spam or is rejected). VERP rewrites only the **envelope sender / Return-Path**
   — the on-domain `From` is untouched, preserving alignment.
-- **Publish SPF, DKIM, and DMARC** for the sending domain. `hearth:mail:test` already prints this checklist;
+- **Publish SPF, DKIM, and DMARC** for the sending domain. `novfora:mail:test` already prints this checklist;
   P2-M2 should surface it in the ACP email page next to the suppression list.
 - **Baseline `sendmail`/SMTP stays the zero-config floor** — it works, it just isn't reputation-safe for
   strangers. The provider is the recommended upgrade, not a requirement.
@@ -209,7 +209,7 @@ service:
   `notification_preferences`).
 - **ACP:** `resources/views/admin/suppressions.blade.php` + `…/components/admin/⚡suppressions.blade.php`
   (Admin → System → Email suppressions); nav entry in `app/Admin/AdminNavigation.php`.
-- **Wiring (dormant):** `config/hearth.php` (`deliverability` block), `routes/console.php`, `routes/web.php`,
+- **Wiring (dormant):** `config/novfora.php` (`deliverability` block), `routes/console.php`, `routes/web.php`,
   `bootstrap/app.php` (CSRF exempt for the two machine endpoints), `bootstrap/providers.php` +
   `app/Providers/DeliverabilityServiceProvider.php`, `.env.example`.
 - **Tests:** `tests/Feature/Deliverability/*` + `tests/Support/Deliverability.php`.
@@ -245,5 +245,5 @@ manual-review queue. Neither affects the GO verdict.
 GO memo in hand → the **P2-M2** digest/bounce feature work has a proven foundation and the constraints above.
 The rest of **P2-M1** (engagement core) proceeds in parallel and does not wait on this spike. Both feature
 milestones stay gated on private-beta feedback having started (plan §8). To activate the pipeline, P2-M2 flips
-`HEARTH_DELIVERABILITY=true` (+ `HEARTH_DIGEST=true` and the chosen bounce path) and wires the notification
+`NOVFORA_DELIVERABILITY=true` (+ `NOVFORA_DIGEST=true` and the chosen bounce path) and wires the notification
 path through `DigestQueue::enqueue()` for batched-cadence recipients.

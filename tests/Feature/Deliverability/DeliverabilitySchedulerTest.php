@@ -24,13 +24,13 @@ it('wires the digest + bounce-poll ticks into the schedule', function () {
         ->filter()
         ->implode("\n");
 
-    expect($commands)->toContain('hearth:deliverability:digest-run')
-        ->and($commands)->toContain('hearth:deliverability:poll-bounces');
+    expect($commands)->toContain('novfora:deliverability:digest-run')
+        ->and($commands)->toContain('novfora:deliverability:poll-bounces');
 });
 
 it('guards the digest tick with a SHORT overlap mutex (not Laravel\'s 24h default)', function () {
     $event = collect(app(Schedule::class)->events())
-        ->first(fn ($event) => $event->description === 'hearth-digest-run');
+        ->first(fn ($event) => $event->description === 'novfora-digest-run');
 
     expect($event)->not->toBeNull();
     expect($event->withoutOverlapping)->toBeTrue();
@@ -41,7 +41,7 @@ it('guards the digest tick with a SHORT overlap mutex (not Laravel\'s 24h defaul
 
 it('overlap-guards the bounce poll', function () {
     $event = collect(app(Schedule::class)->events())
-        ->first(fn ($event) => $event->description === 'hearth-poll-bounces');
+        ->first(fn ($event) => $event->description === 'novfora-poll-bounces');
 
     expect($event)->not->toBeNull();
     expect($event->withoutOverlapping)->toBeTrue();
@@ -49,17 +49,17 @@ it('overlap-guards the bounce poll', function () {
 
 it('the digest command is a behaviour-neutral no-op while dormant', function () {
     Mail::fake();
-    config(['hearth.deliverability.enabled' => false]);
+    config(['novfora.deliverability.enabled' => false]);
     $user = Deliverability::user('daily');
     Deliverability::stage($user, 3);
 
-    $this->artisan('hearth:deliverability:digest-run')->assertSuccessful();
+    $this->artisan('novfora:deliverability:digest-run')->assertSuccessful();
 
     Mail::assertNotSent(DigestMail::class); // dormant → the command never assembled anything
 });
 
 it('the bounce-poll command is a no-op while dormant', function () {
-    config(['hearth.deliverability.enabled' => false]);
+    config(['novfora.deliverability.enabled' => false]);
 
-    $this->artisan('hearth:deliverability:poll-bounces')->assertSuccessful();
+    $this->artisan('novfora:deliverability:poll-bounces')->assertSuccessful();
 });

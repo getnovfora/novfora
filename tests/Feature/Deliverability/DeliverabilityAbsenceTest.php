@@ -25,7 +25,7 @@ uses(RefreshDatabase::class);
 beforeEach(fn () => Mail::fake());
 
 it('ingests cleanly with nothing configured — returns 0, never throws, floor = manual', function () {
-    config(['hearth.deliverability.enabled' => true]); // enabled, but no webhook/verp/imap
+    config(['novfora.deliverability.enabled' => true]); // enabled, but no webhook/verp/imap
 
     $manager = app(DeliverabilityManager::class);
 

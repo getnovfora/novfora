@@ -1,5 +1,5 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => $topic->title.' · '.config('app.name', 'Hearth')])
+@extends('layouts.app', ['title' => $topic->title.' · '.config('app.name', 'NovFora')])
 
 @push('head')
     @php($canonical = route('topics.show', $topic))
@@ -134,7 +134,7 @@
                                 @endif
                             </div>
 
-                            <div class="hearth-prose pt-3 md:pt-4">{!! $post->body_html_cache !!}</div>
+                            <div class="novfora-prose pt-3 md:pt-4">{!! $post->body_html_cache !!}</div>
 
                             <livewire:forum.post-reactions :key="'react-'.$post->id"
                                 :post-id="$post->id"

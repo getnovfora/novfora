@@ -1,10 +1,10 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => 'Edit profile · '.config('app.name', 'Hearth')])
+@extends('layouts.app', ['title' => 'Edit profile · '.config('app.name', 'NovFora')])
 
 @section('content')
     <x-settings.shell title="Profile">
         <p class="text-sm text-ink-muted">
-            Update how you appear across {{ config('app.name', 'Hearth') }}. Your signature and custom fields
+            Update how you appear across {{ config('app.name', 'NovFora') }}. Your signature and custom fields
             show on your public profile and posts.
         </p>
 

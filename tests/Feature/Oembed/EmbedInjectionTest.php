@@ -54,17 +54,17 @@ it('keeps the post ContentSanitizer stripping raw iframes (the embed policy is t
 });
 
 it('renders a facade (no iframe) for an embed node when oEmbed is disabled — forced absence', function () {
-    config(['hearth.oembed.enabled' => false]);
+    config(['novfora.oembed.enabled' => false]);
 
     $topic = app(PostService::class)->createTopic($this->author, $this->forum, 'Embed off', 'tiptap_json', embedDoc('https://www.youtube.com/watch?v=dQw4w9WgXcQ'));
     $html = (string) $topic->posts()->first()->body_html_cache;
 
-    expect($html)->not->toContain('<iframe')->toContain('hearth-embed-facade');
+    expect($html)->not->toContain('<iframe')->toContain('novfora-embed-facade');
 });
 
 it('renders a facade for a non-allowlisted embed-node URL', function () {
     $topic = app(PostService::class)->createTopic($this->author, $this->forum, 'Random embed', 'tiptap_json', embedDoc('https://random.example/post'));
     $html = (string) $topic->posts()->first()->body_html_cache;
 
-    expect($html)->toContain('hearth-embed-facade')->not->toContain('<iframe');
+    expect($html)->toContain('novfora-embed-facade')->not->toContain('<iframe');
 });

@@ -17,7 +17,7 @@
             schedule. Restoring overwrites the current database and files (a pre-restore safety snapshot is
             taken first); the site shows a brief maintenance page while it runs. With shell access you can
             also restore from the command line with
-            <code class="rounded-sm bg-surface-sunken px-1 py-0.5 font-mono text-xs text-ink">php artisan hearth:restore &lt;archive&gt;</code>.
+            <code class="rounded-sm bg-surface-sunken px-1 py-0.5 font-mono text-xs text-ink">php artisan novfora:restore &lt;archive&gt;</code>.
         </p>
 
         <livewire:admin.backups />

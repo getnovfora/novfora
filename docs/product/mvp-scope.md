@@ -1,6 +1,6 @@
 # MVP Scope
 
-> **Project:** Hearth (working codename). **Stage A deliverable** (Section 8 #5). **Date:** 2026-06-01.
+> **Project:** NovFora (working codename). **Stage A deliverable** (Section 8 #5). **Date:** 2026-06-01.
 > Defines the **Phase 1 Core MVP** — the **Must** set from [feature-prioritization](feature-prioritization.md) —
 > plus an explicit **MVP-cut-options menu** for the Phase 0 gate (your decision). The MVP must **run on a
 > baseline host (PHP 8.3 + MySQL + cron)** and be **tested + runnable** at completion, like every phase.

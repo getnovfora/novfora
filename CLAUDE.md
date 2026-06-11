@@ -12,11 +12,7 @@ pain points all of them share (spam, weak search, dated mobile UX, painful upgra
 theming, weak real-time, install friction).
 
 **Name: NovFora** (finalised 2026-06-10 — ADR-0026, supersedes ADR-0024). Single brand; domains
-`novfora.com` and `novfora.net` registered. "Hearth" and "NevoBB" are **retired codenames** — they
-still appear throughout the code (`config/hearth.php` or `config/nevo.php`, `hearth:*`/`nevo:*`
-commands, `HEARTH_*`/`NEVO_*` env keys, SPDX lines); the **Hearth/NevoBB → NovFora rename is the
-immediate next task** (ADR-0026), to be executed as one reviewed change. Do not rename ad-hoc; flag
-stragglers.
+`novfora.com` and `novfora.net` registered. "Hearth" and "NevoBB" are **retired codenames**.
 
 **Status: Stage B (active implementation).** Phase 1 / Core MVP complete; Phase 1.5 hardening complete;
 real-host fixes merged; ACP v1 + Spike P2 merged. See `PROJECT-STATE.md` for the current handoff state.

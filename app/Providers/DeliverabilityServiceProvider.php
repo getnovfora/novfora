@@ -15,16 +15,16 @@ use Illuminate\Support\ServiceProvider;
  * Spike P2 — wires the deliverability reference pipeline. The only binding that needs a decision is the
  * bounce mailbox: the real {@see ImapBounceMailbox} when the imap extension is present AND a mailbox is
  * configured, otherwise the {@see NullBounceMailbox} forced-absence default. Everything else autowires.
- * Nothing here activates the pipeline — the cron lines and routes self-gate on hearth.deliverability.enabled.
+ * Nothing here activates the pipeline — the cron lines and routes self-gate on novfora.deliverability.enabled.
  */
 final class DeliverabilityServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
         $this->app->bind(BounceMailbox::class, function () {
-            $imap = (bool) config('hearth.deliverability.imap.enabled')
+            $imap = (bool) config('novfora.deliverability.imap.enabled')
                 && extension_loaded('imap')
-                && (string) config('hearth.deliverability.imap.host', '') !== '';
+                && (string) config('novfora.deliverability.imap.host', '') !== '';
 
             return $imap ? new ImapBounceMailbox : new NullBounceMailbox;
         });

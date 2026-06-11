@@ -14,7 +14,7 @@ use Illuminate\Database\Seeder;
 /**
  * Trust-level anti-spam gating (ADR-0007 / security §2.3) — the crux of M3.
  *
- * Writes the `config('hearth.antispam.trust_gates')` matrix as acl_entries on the seeded TL groups at
+ * Writes the `config('novfora.antispam.trust_gates')` matrix as acl_entries on the seeded TL groups at
  * global scope. Because trust levels ARE ACL groups, new-user gating runs entirely through the existing
  * PermissionResolver — there is NO second permission system. TL0 carries NEVER on true spam vectors
  * (links/images/mass-PM) so even an admin's per-forum ALLOW cannot lift it (NEVER is absolute); higher
@@ -32,7 +32,7 @@ class TrustGateSeeder extends Seeder
     public function run(): void
     {
         /** @var array<string, array<string, string>> $gates */
-        $gates = config('hearth.antispam.trust_gates', []);
+        $gates = config('novfora.antispam.trust_gates', []);
 
         foreach ($gates as $slug => $entries) {
             $group = Group::where('slug', $slug)->first();

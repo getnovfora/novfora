@@ -47,20 +47,20 @@ Schedule::command('queue:work --stop-when-empty --tries=3 --max-time=50')
 // left running so liveness keeps ticking; harmless if the DB-backed cache is mid-restore.)
 Schedule::call(fn () => Cache::put(HealthController::QUEUE_HEARTBEAT, now()->timestamp, now()->addDay()))
     ->everyMinute()
-    ->name('hearth-queue-heartbeat');
+    ->name('novfora-queue-heartbeat');
 
 // On hosts without symlinks, public/storage is a COPIED mirror of uploaded avatars/covers (the installer's
 // copy fallback). Refresh it each tick so new uploads appear; a fast no-op where a real symlink is in place.
 // Skipped during a restore — storage/app is being overwritten too.
 Schedule::call(fn () => app(PublicStorageLinker::class)->refresh())
     ->everyMinute()
-    ->name('hearth-storage-mirror')
+    ->name('novfora-storage-mirror')
     ->skip($duringRestore);
 
 // No-SSH automatic upgrade (RH-10 / ADR-0021): when deployed code has pending migrations, apply them behind
 // a backup-first maintenance window — so extracting a new release over a live install "just migrates", no
 // SSH. Always registered: it refreshes the cached schema-state flag that GET /health and the maintenance
-// gate read (cheap; a no-op when nothing's pending), and only RUNS the upgrade when HEARTH_AUTO_UPGRADE is
+// gate read (cheap; a no-op when nothing's pending), and only RUNS the upgrade when NOVFORA_AUTO_UPGRADE is
 // on. withoutOverlapping + the runner's own cache lock mean it can never double-run on a coarse, overlapping
 // cron; a run killed mid-migration is resumed idempotently on the next tick (migrations are per-migration
 // transactional, already-applied ones skipped). Separate from the heartbeat above, which keeps firing.
@@ -69,10 +69,10 @@ Schedule::call(fn () => app(PublicStorageLinker::class)->refresh())
 // default: a process hard-killed mid-run (SIGKILL / OOM / fatal) releases no signal handler, so a 24h mutex
 // would strand the auto-upgrade — and the maintenance gate — for up to a day. The runner's own cache lock is
 // the real double-run guard, so a ~lock-window expiry is enough to let the next tick resume.
-$upgradeMutexMinutes = max(2, (int) ceil(((int) config('hearth.upgrade.lock_seconds', 600)) / 60) + 2);
+$upgradeMutexMinutes = max(2, (int) ceil(((int) config('novfora.upgrade.lock_seconds', 600)) / 60) + 2);
 Schedule::call(fn () => app(UpgradeRunner::class)->runAutomatic())
     ->everyMinute()
-    ->name('hearth-auto-upgrade')
+    ->name('novfora-auto-upgrade')
     ->withoutOverlapping($upgradeMutexMinutes);
 
 // No-SSH panel restore (RH-11 / ADR-0022): the Admin → System → Backups "Restore" action records a request
@@ -85,46 +85,46 @@ Schedule::call(fn () => app(UpgradeRunner::class)->runAutomatic())
 $restoreMutexMinutes = $upgradeMutexMinutes;
 Schedule::call(fn () => app(RestoreRunner::class)->runPending())
     ->everyMinute()
-    ->name('hearth-panel-restore')
+    ->name('novfora-panel-restore')
     ->withoutOverlapping($restoreMutexMinutes);
 
 // Anti-spam trust automation (ADR-0007 §2.3): auto promotion/demotion. Idempotent + overlap-guarded so a
 // long run on a large board never doubles up on a coarse interval. Skipped during a restore (writes users).
-Schedule::command('hearth:trust:recompute')->hourly()->withoutOverlapping()->skip($duringRestore);
+Schedule::command('novfora:trust:recompute')->hourly()->withoutOverlapping()->skip($duringRestore);
 
 // Privacy/GDPR retention (ADR-0007 §2.6): purge aged registration checks + expired blocklist cache.
-Schedule::command('hearth:antispam:purge')->daily()->skip($duringRestore);
+Schedule::command('novfora:antispam:purge')->daily()->skip($duringRestore);
 
 // Keep the crowdsourced blocklist warm (phase-1.5 F-C) so the registration screener has an offline signal
 // when the live API is down — never cold. Degrades to a no-op on any network failure.
-Schedule::command('hearth:antispam:warm')->daily()->skip($duringRestore);
+Schedule::command('novfora:antispam:warm')->daily()->skip($duringRestore);
 
 // Automated backups (M5): DB + storage + manifest, pruned to the retention count. Honours the configured
-// cadence (daily | weekly | off — config hearth.backup.schedule). Skipped during a restore so it never
+// cadence (daily | weekly | off — config novfora.backup.schedule). Skipped during a restore so it never
 // snapshots a half-restored database.
-if (($backupCadence = (string) config('hearth.backup.schedule', 'daily')) !== 'off') {
-    $backup = Schedule::command('hearth:backup')->withoutOverlapping()->skip($duringRestore);
+if (($backupCadence = (string) config('novfora.backup.schedule', 'daily')) !== 'off') {
+    $backup = Schedule::command('novfora:backup')->withoutOverlapping()->skip($duringRestore);
     $backupCadence === 'weekly' ? $backup->weekly() : $backup->daily();
 }
 
 // Deliverability (Spike P2, Phase-2 plan §4) — DORMANT BY DEFAULT. The two ticks below are always wired
-// into the single cron line, but each command early-returns until config('hearth.deliverability.enabled')
-// (and, for the digest, hearth.deliverability.digest.enabled) — so a deploy changes no behaviour; P2-M2
+// into the single cron line, but each command early-returns until config('novfora.deliverability.enabled')
+// (and, for the digest, novfora.deliverability.digest.enabled) — so a deploy changes no behaviour; P2-M2
 // flips the flag. Both follow the M5 drain discipline: everyMinute + withoutOverlapping + skip during a
 // restore (they write the DB). The digest tick uses a SHORT, bounded overlap mutex — NOT Laravel's 24h
 // default — because the real double-run guard is the committed UNIQUE(user,cadence,period) row, not the
 // lock; a hard-killed tick (which releases no handler) must not strand the digest for a day (RH-10 lesson).
-$digestMutexMinutes = max(2, (int) config('hearth.deliverability.digest.mutex_minutes', 2));
-Schedule::command('hearth:deliverability:digest-run')
+$digestMutexMinutes = max(2, (int) config('novfora.deliverability.digest.mutex_minutes', 2));
+Schedule::command('novfora:deliverability:digest-run')
     ->everyMinute()
     ->withoutOverlapping($digestMutexMinutes)
-    ->name('hearth-digest-run')
+    ->name('novfora-digest-run')
     ->skip($duringRestore);
 
 // Bounce/complaint poll (the daemon-free IMAP path); no-op when no mailbox is configured / the imap ext is
 // absent (degrades to the VERP + manual-ACP floor). Webhook ingestion is push (a route), not scheduled.
-Schedule::command('hearth:deliverability:poll-bounces')
+Schedule::command('novfora:deliverability:poll-bounces')
     ->everyMinute()
     ->withoutOverlapping()
-    ->name('hearth-poll-bounces')
+    ->name('novfora-poll-bounces')
     ->skip($duringRestore);

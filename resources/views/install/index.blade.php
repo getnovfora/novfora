@@ -8,7 +8,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="robots" content="noindex">
-    <title>Install {{ config('app.name', 'Hearth') }}</title>
+    <title>Install {{ config('app.name', 'NovFora') }}</title>
     {{-- Fully self-contained: the installer must NEVER depend on the app CSS bundle (a fresh upload may not
          have built assets, and the bundle's hashes change with the theme). All styling is the inline <style>
          below, on the same indigo/slate palette as the theme. --}}
@@ -53,7 +53,7 @@
 <body>
     <div class="wrap">
         <header>
-            <h1>{{ config('app.name', 'Hearth') }} installer</h1>
+            <h1>{{ config('app.name', 'NovFora') }} installer</h1>
             <p class="muted">Set up your community in a few steps — no SSH or command line required.</p>
         </header>
         <livewire:installer.wizard />

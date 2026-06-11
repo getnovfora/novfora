@@ -44,11 +44,11 @@ it('still renders the iframe when the metadata fetch fails (best-effort title)',
 
 it('renders a non-allowlisted URL as a link-card facade, never an iframe', function () {
     $html = app(OEmbedService::class)->render('https://random.example/article');
-    expect($html)->toContain('hearth-embed-facade')->not->toContain('<iframe');
+    expect($html)->toContain('novfora-embed-facade')->not->toContain('<iframe');
 });
 
 it('renders a facade (never an iframe) when oEmbed is disabled — forced absence', function () {
-    config(['hearth.oembed.enabled' => false]);
+    config(['novfora.oembed.enabled' => false]);
 
     $html = app(OEmbedService::class)->render('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     expect($html)->not->toContain('<iframe');

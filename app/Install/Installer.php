@@ -9,7 +9,7 @@ namespace App\Install;
 /**
  * The install-state / lock authority (M5, phase-1-plan §5).
  *
- * Hearth is installed iff the marker file exists. A FILE marker — not a DB flag — is deliberate: the
+ * NovFora is installed iff the marker file exists. A FILE marker — not a DB flag — is deliberate: the
  * lock must be checkable BEFORE the database exists (a fresh, no-SSH upload) and must survive a DB wipe,
  * so a wiped database can never silently re-open the unauthenticated installer.
  *
@@ -23,7 +23,7 @@ final class Installer
 {
     public function markerPath(): string
     {
-        return (string) config('hearth.install.marker', storage_path('installed'));
+        return (string) config('novfora.install.marker', storage_path('installed'));
     }
 
     public function isInstalled(): bool
@@ -34,11 +34,11 @@ final class Installer
     /**
      * Whether the app should force the unauthenticated installer (redirect every request to the wizard
      * and harden pre-install drivers). False once installed, and false in environments that opt out
-     * (the test suite, via HEARTH_INSTALL_ENFORCE=false) so they are never redirected to /install.
+     * (the test suite, via NOVFORA_INSTALL_ENFORCE=false) so they are never redirected to /install.
      */
     public function shouldEnforce(): bool
     {
-        return (bool) config('hearth.install.enforce', true) && ! $this->isInstalled();
+        return (bool) config('novfora.install.enforce', true) && ! $this->isInstalled();
     }
 
     /**
@@ -88,12 +88,12 @@ final class Installer
 
     public function tokenPath(): string
     {
-        return (string) config('hearth.install.token_path', storage_path('install-token.txt'));
+        return (string) config('novfora.install.token_path', storage_path('install-token.txt'));
     }
 
     public function requiresToken(): bool
     {
-        return (bool) config('hearth.install.require_token', true);
+        return (bool) config('novfora.install.require_token', true);
     }
 
     /**

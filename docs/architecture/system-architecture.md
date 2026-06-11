@@ -1,6 +1,6 @@
 # System Architecture
 
-> **Project:** Hearth (working codename). **Stage A deliverable** (Section 8 #4). **Date:** 2026-06-01.
+> **Project:** NovFora (working codename). **Stage A deliverable** (Section 8 #4). **Date:** 2026-06-01.
 > Covers the two deployment tiers, the service-tier detection + driver-abstraction contract, the cron-driven
 > queue, email deliverability, the SEO subsystem, search tiering with a documented (illustrative) threshold,
 > concrete performance budgets, and the practical-MVP → scalable-long-term path.
@@ -19,7 +19,7 @@ because an enhanced service is absent.
 
 ```
                  ┌─────────────────────────────────────────────────────────┐
-                 │            Hearth application (identical code)            │
+                 │            NovFora application (identical code)            │
                  │  Laravel 13 · Livewire 4 · Alpine · Blade (server-rendered)│
                  └───────────────┬─────────────────────────┬───────────────┘
         capability contracts →   │  (config-selected drivers + tier detection) │
@@ -49,7 +49,7 @@ upgrade. Degradation behavior is specified, not incidental.
 | Image processing | sync vs queued | on-request / next cron | queued workers | Synchronous thumbnailing |
 
 **Service-tier detection.** At install and at runtime (cached, with a manual "re-detect" in the admin panel)
-Hearth probes each optional service — Redis `PING`, Meilisearch/Typesense `/health`, a Reverb handshake, S3
+NovFora probes each optional service — Redis `PING`, Meilisearch/Typesense `/health`, a Reverb handshake, S3
 `HeadBucket`. The installer and an **Admin → System → Service Tier** panel display the **active tier per
 capability** and an "enabling *X* unlocks *Y*" hint (e.g., "Add Redis → real-time queue + faster cache").
 Detection failures **downgrade silently to the baseline driver** and log an info event — never a user-facing
@@ -120,7 +120,7 @@ Email is where self-hosted forums quietly fail (verification mails in spam, boun
 - **Provider abstraction:** Laravel Mail transport — `smtp` (host) by default; **SES / Postmark / Mailgun /
   SendGrid** on the enhanced tier via config only. A pluggable transport keeps providers swappable.
 - **Authentication guidance (DNS, documented in the install guide):** **SPF**, **DKIM**, and **DMARC** are
-  DNS/server concerns Hearth cannot set for the operator, but the installer's email step and the admin panel
+  DNS/server concerns NovFora cannot set for the operator, but the installer's email step and the admin panel
   link a concrete checklist and run a **self-test send + DNS lookup** that warns if SPF/DKIM/DMARC records are
   missing or misaligned.
 - **Bounce & complaint handling:** enhanced providers deliver bounce/complaint **webhooks** → a suppression

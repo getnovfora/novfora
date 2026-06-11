@@ -193,7 +193,7 @@ class RestoreRunner
             // (2) pre-restore safety snapshot of the CURRENT state (best-effort) — makes the restore
             //     reversible. keep=0 so it can never prune another archive.
             $safety = null;
-            if ((bool) config('hearth.backup.pre_restore_safety', true)) {
+            if ((bool) config('novfora.backup.pre_restore_safety', true)) {
                 try {
                     $safety = $this->backups->create(0)->name();
                 } catch (Throwable $e) {
@@ -267,7 +267,7 @@ class RestoreRunner
         } catch (Throwable $e) {
             report($e); // best effort — short-TTL fragments self-heal
         }
-        foreach (['forum.index.tree', 'hearth.sitemap'] as $key) {
+        foreach (['forum.index.tree', 'novfora.sitemap'] as $key) {
             try {
                 Cache::forget($key);
             } catch (Throwable) {
@@ -290,7 +290,7 @@ class RestoreRunner
      */
     private function locked(callable $fn): RestoreResult
     {
-        $lockPath = (string) config('hearth.backup.restore_lock_path', storage_path('hearth-restore.lock'));
+        $lockPath = (string) config('novfora.backup.restore_lock_path', storage_path('novfora-restore.lock'));
         $dir = \dirname($lockPath);
         if (! is_dir($dir)) {
             @mkdir($dir, 0775, true);
@@ -321,7 +321,7 @@ class RestoreRunner
         if (! is_file($archivePath)) {
             throw new BackupException('Backup archive not found: '.$archivePath);
         }
-        $tmp = tempnam(sys_get_temp_dir(), 'hearth-restore-src-');
+        $tmp = tempnam(sys_get_temp_dir(), 'novfora-restore-src-');
         if ($tmp === false || ! @copy($archivePath, $tmp)) {
             if ($tmp !== false) {
                 @unlink($tmp);
@@ -336,7 +336,7 @@ class RestoreRunner
     private function resolveArchive(string $name): ?string
     {
         $name = basename($name);
-        if (! preg_match('/^hearth-\d{8}-\d{6}\.zip$/', $name)) {
+        if (! preg_match('/^novfora-\d{8}-\d{6}\.zip$/', $name)) {
             return null;
         }
         $path = $this->backups->destination().DIRECTORY_SEPARATOR.$name;

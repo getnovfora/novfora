@@ -11,12 +11,12 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
 /**
- * `php artisan hearth:tier` — print the active service tier per capability and the reachability of
+ * `php artisan novfora:tier` — print the active service tier per capability and the reachability of
  * each optional enhanced service. Baseline-friendly (works on a shared host with no extra services).
  */
 class TierStatusCommand extends Command
 {
-    protected $signature = 'hearth:tier';
+    protected $signature = 'novfora:tier';
 
     protected $description = 'Show the active service tier per capability and optional-service reachability.';
 

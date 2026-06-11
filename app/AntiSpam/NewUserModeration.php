@@ -29,7 +29,7 @@ final class NewUserModeration
             return true;
         }
 
-        $limit = (int) config('hearth.antispam.new_user_moderation.posts', 2);
+        $limit = (int) config('novfora.antispam.new_user_moderation.posts', 2);
         if ($limit <= 0 || ! $author->groups()->where('slug', 'tl0')->exists()) {
             return false;
         }

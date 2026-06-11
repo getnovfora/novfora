@@ -40,14 +40,14 @@ it('sends a CSP that locks down the high-value sinks', function () {
 });
 
 it('can be disabled by config (operator escape hatch)', function () {
-    config(['hearth.security.headers.enabled' => false]);
+    config(['novfora.security.headers.enabled' => false]);
     Forum::create(['slug' => 'general', 'title' => 'General', 'type' => 'forum']);
 
     $this->get(route('forums.index'))->assertOk()->assertHeaderMissing('Content-Security-Policy');
 });
 
 it('emits a strict, nonce-based CSP when opted in (F-M3)', function () {
-    config(['hearth.security.csp.strict' => true]);
+    config(['novfora.security.csp.strict' => true]);
     Forum::create(['slug' => 'general', 'title' => 'General', 'type' => 'forum']);
 
     $csp = (string) $this->get(route('forums.index'))->assertOk()->headers->get('Content-Security-Policy');

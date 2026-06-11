@@ -25,7 +25,7 @@
 @endswitch
 
 @if (! empty($payload['url']))
-    <p><a href="{{ $payload['url'] }}">View it on {{ config('app.name', 'Hearth') }}</a></p>
+    <p><a href="{{ $payload['url'] }}">View it on {{ config('app.name', 'NovFora') }}</a></p>
 @endif
 
 <hr>

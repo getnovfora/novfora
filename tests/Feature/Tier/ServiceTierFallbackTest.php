@@ -53,11 +53,11 @@ it('reports services as not-configured (reachable=null) on the baseline tier', f
         ->and($snapshot->services['redis']->reachable)->toBeNull();
 });
 
-it('hearth:tier command succeeds even with a dead enhanced service', function () {
+it('novfora:tier command succeeds even with a dead enhanced service', function () {
     config([
         'cache.default' => 'redis',
         'database.redis.default.host' => '10.255.255.1',
     ]);
 
-    $this->artisan('hearth:tier')->assertSuccessful();
+    $this->artisan('novfora:tier')->assertSuccessful();
 });

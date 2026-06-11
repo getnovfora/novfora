@@ -11,15 +11,15 @@ use App\Backup\BackupService;
 use Illuminate\Console\Command;
 
 /**
- * `php artisan hearth:backup` — create a backup: a single portable `.zip` with the database dump, a
+ * `php artisan novfora:backup` — create a backup: a single portable `.zip` with the database dump, a
  * mirror of storage/app, and an integrity manifest (M5; completes the M0 skeleton). Baseline-friendly:
- * runs from cron (the single schedule:run line) and from the admin UI. Restore is `hearth:restore`.
+ * runs from cron (the single schedule:run line) and from the admin UI. Restore is `novfora:restore`.
  */
-class HearthBackupCommand extends Command
+class BackupCommand extends Command
 {
-    protected $signature = 'hearth:backup
-        {--path= : Output directory (default: config hearth.backup.path)}
-        {--keep= : Retain the N newest archives (default: config hearth.backup.keep)}
+    protected $signature = 'novfora:backup
+        {--path= : Output directory (default: config novfora.backup.path)}
+        {--keep= : Retain the N newest archives (default: config novfora.backup.keep)}
         {--dry-run : Show the plan without writing}';
 
     protected $description = 'Create a backup archive (database + storage + manifest); prune to the retention count.';
@@ -27,7 +27,7 @@ class HearthBackupCommand extends Command
     public function handle(BackupService $backups): int
     {
         if ($path = $this->option('path')) {
-            config(['hearth.backup.path' => $path]);
+            config(['novfora.backup.path' => $path]);
         }
 
         $connection = (string) config('database.default');
@@ -63,7 +63,7 @@ class HearthBackupCommand extends Command
     {
         $this->newLine();
         $this->components->bulletList([
-            'Restore with: php artisan hearth:restore /path/to/hearth-YYYYmmdd-HHMMSS.zip',
+            'Restore with: php artisan novfora:restore /path/to/novfora-YYYYmmdd-HHMMSS.zip',
             'Reversible migrations mean upgrades never need manual DB surgery — see docs/getting-started.md.',
         ]);
     }

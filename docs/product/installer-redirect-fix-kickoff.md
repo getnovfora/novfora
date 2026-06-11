@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # Installer blocker (RH-7) — install-enforce middleware eats Livewire's update endpoint — Claude Code kickoff
 
@@ -35,13 +35,13 @@ THE BUG (proven on the live cPanel host by direct browser inspection + a manual 
     (that's why the runtime boots). A GET to the update path returns 405 (method-not-allowed thrown during
     routing, before the web-group middleware) — only the real POST reaches the middleware and gets redirected.
 
-WHY CI MISSED IT (fix the gap too): the wizard's existing coverage runs with HEARTH_INSTALL_ENFORCE=false
+WHY CI MISSED IT (fix the gap too): the wizard's existing coverage runs with NOVFORA_INSTALL_ENFORCE=false
 (Installer::shouldEnforce() opts the test suite out), so RedirectIfNotInstalled is a no-op in every test and
 the redirect never happens. The bug only exists with enforcement ON — the real pre-install state — which
 nothing exercised.
 
 PART 1 — REPRODUCE (prove it before fixing):
-  Write a feature test that fails on main: force enforcement ON (config hearth.install.enforce=true, marker
+  Write a feature test that fails on main: force enforcement ON (config novfora.install.enforce=true, marker
   absent), GET /install, parse the Livewire update URI from the returned HTML (the data-update-uri attribute /
   the livewire script), POST a minimal Livewire update payload to it, and assert the response is a redirect to
   /install (the bug). This reproduces the host failure in-process, no browser needed. Confirm it currently
@@ -71,8 +71,8 @@ PART 3 — REGRESSION TEST (this is the missing coverage; it must run with enfor
 
 PART 4 — REBUILD + VERIFY + DELIVER:
   • Rebuild the deployable bundle via scripts/build-release.sh (ships bootstrap/cache/packages.php) and re-run
-    scripts/verify-release.sh (cold HTTP boot → 302 /install). Deliver the new hearth-release.zip to D:\Forum
-    with size + sha256. Keep /hearth-release.zip gitignored.
+    scripts/verify-release.sh (cold HTTP boot → 302 /install). Deliver the new novfora-release.zip to D:\Forum
+    with size + sha256. Keep /novfora-release.zip gitignored.
 
 DEFINITION OF DONE: the new enforcement-ON test fails on main and passes after the fix; the full Pest suite +
 M0–M5 + the installer browser test pass; Pint/Larastan/composer-audit clean; bundle rebuilt + cold-boot
@@ -88,7 +88,7 @@ Blade/JS (the RH-6 boot guard is harmless and out of scope), and do not add prod
 
 ## After this
 
-The owner re-uploads the rebuilt `hearth-release.zip` and runs the wizard on the live host — with RH-7 fixed,
+The owner re-uploads the rebuilt `novfora-release.zip` and runs the wizard on the live host — with RH-7 fixed,
 Continue should advance through every step to a completed install (the real-host validation's primary goal).
 Remaining open items afterward: **RH-4** (first-class subdirectory install, design-first) and **RH-5** (rebuild
 stale committed assets + CI freshness guard). The harmless RH-6 boot guard can be left as-is or reverted in a

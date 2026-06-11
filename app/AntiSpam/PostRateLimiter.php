@@ -30,7 +30,7 @@ final class PostRateLimiter
 
     private function limitFor(User $user): int
     {
-        $limits = (array) config('hearth.antispam.rate_limits', []);
+        $limits = (array) config('novfora.antispam.rate_limits', []);
 
         foreach (['tl0', 'tl1', 'tl2', 'tl3'] as $slug) {
             if (isset($limits[$slug]) && $user->groups()->where('slug', $slug)->exists()) {

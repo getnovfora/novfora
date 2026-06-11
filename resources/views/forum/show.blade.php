@@ -1,5 +1,5 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => $forum->title.' · '.config('app.name', 'Hearth')])
+@extends('layouts.app', ['title' => $forum->title.' · '.config('app.name', 'NovFora')])
 
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[

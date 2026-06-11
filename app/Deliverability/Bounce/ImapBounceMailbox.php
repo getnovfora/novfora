@@ -21,9 +21,9 @@ final class ImapBounceMailbox implements BounceMailbox
     public function available(): bool
     {
         return extension_loaded('imap')
-            && (bool) config('hearth.deliverability.imap.enabled')
-            && (string) config('hearth.deliverability.imap.host', '') !== ''
-            && (string) config('hearth.deliverability.imap.username', '') !== '';
+            && (bool) config('novfora.deliverability.imap.enabled')
+            && (string) config('novfora.deliverability.imap.host', '') !== ''
+            && (string) config('novfora.deliverability.imap.username', '') !== '';
     }
 
     public function fetch(int $limit): array
@@ -44,7 +44,7 @@ final class ImapBounceMailbox implements BounceMailbox
             $count = @imap_num_msg($connection);
             $count = is_int($count) ? $count : 0;
             $take = min($limit, $count);
-            $delete = (bool) config('hearth.deliverability.imap.delete_processed', true);
+            $delete = (bool) config('novfora.deliverability.imap.delete_processed', true);
 
             for ($i = 1; $i <= $take; $i++) {
                 // FT_PEEK: don't flip \Seen — we decide deletion explicitly below.
@@ -74,11 +74,11 @@ final class ImapBounceMailbox implements BounceMailbox
 
     private function mailboxString(): string
     {
-        $host = (string) config('hearth.deliverability.imap.host');
-        $port = (int) config('hearth.deliverability.imap.port', 993);
-        $mailbox = (string) config('hearth.deliverability.imap.mailbox', 'INBOX');
+        $host = (string) config('novfora.deliverability.imap.host');
+        $port = (int) config('novfora.deliverability.imap.port', 993);
+        $mailbox = (string) config('novfora.deliverability.imap.mailbox', 'INBOX');
 
-        $flags = match ((string) config('hearth.deliverability.imap.encryption', 'ssl')) {
+        $flags = match ((string) config('novfora.deliverability.imap.encryption', 'ssl')) {
             'tls' => '/imap/tls',
             'none' => '/imap/notls',
             default => '/imap/ssl',
@@ -89,11 +89,11 @@ final class ImapBounceMailbox implements BounceMailbox
 
     private function username(): string
     {
-        return (string) config('hearth.deliverability.imap.username', '');
+        return (string) config('novfora.deliverability.imap.username', '');
     }
 
     private function password(): string
     {
-        return (string) config('hearth.deliverability.imap.password', '');
+        return (string) config('novfora.deliverability.imap.password', '');
     }
 }

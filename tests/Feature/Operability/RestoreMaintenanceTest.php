@@ -18,11 +18,11 @@ uses(RefreshDatabase::class);
 */
 
 beforeEach(function () {
-    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-rh11-mw-'.bin2hex(random_bytes(6));
+    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'novfora-rh11-mw-'.bin2hex(random_bytes(6));
     @mkdir($dir, 0775, true);
     config([
-        'hearth.backup.restore_state_path' => $dir.DIRECTORY_SEPARATOR.'hearth-restore.json',
-        'hearth.backup.restore_lock_path' => $dir.DIRECTORY_SEPARATOR.'hearth-restore.lock',
+        'novfora.backup.restore_state_path' => $dir.DIRECTORY_SEPARATOR.'novfora-restore.json',
+        'novfora.backup.restore_lock_path' => $dir.DIRECTORY_SEPARATOR.'novfora-restore.lock',
     ]);
     app(RestoreState::class)->forget();
     $this->seed();
@@ -42,7 +42,7 @@ it('serves a branded 503 restore page (not a SQL error) while a restore is runni
 });
 
 it('gates the queued window too: a requested-but-not-yet-running restore returns 503', function () {
-    app(RestoreState::class)->request('hearth-20260607-101500.zip', null, 'Admin');
+    app(RestoreState::class)->request('novfora-20260607-101500.zip', null, 'Admin');
 
     $this->get('/forums')->assertStatus(503);
 });
@@ -67,13 +67,13 @@ it('returns a 503 JSON body for AJAX/JSON requests during the window', function 
 it('shows the recovery hint (pre-restore safety snapshot) when a restore is stuck, and /health is degraded', function () {
     app(RestoreState::class)->put([
         'stuck' => true,
-        'last' => ['result' => 'failed', 'archive' => 'hearth-20260607-090000.zip', 'safety_backup' => 'hearth-20260607-101500.zip'],
+        'last' => ['result' => 'failed', 'archive' => 'novfora-20260607-090000.zip', 'safety_backup' => 'novfora-20260607-101500.zip'],
     ]);
 
     $res = $this->get('/forums');
     $res->assertStatus(503);
     expect($res->getContent())->toContain('Restore paused');
-    expect($res->getContent())->toContain('hearth-20260607-101500.zip'); // the safety-snapshot recovery hint
+    expect($res->getContent())->toContain('novfora-20260607-101500.zip'); // the safety-snapshot recovery hint
 
     $this->getJson('/health')
         ->assertOk()

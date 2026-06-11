@@ -59,7 +59,7 @@ final class PreventRequestsDuringUpgrade
 
     private function maintenance(Request $request, string $mode, bool $stuck, ?string $backup): Response
     {
-        $retryAfter = max(5, (int) config('hearth.upgrade.retry_after', 30));
+        $retryAfter = max(5, (int) config('novfora.upgrade.retry_after', 30));
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -74,7 +74,7 @@ final class PreventRequestsDuringUpgrade
                 'stuck' => $stuck,
                 'backup' => $backup,
                 'retryAfter' => $retryAfter,
-                'appName' => (string) config('app.name', 'Hearth'),
+                'appName' => (string) config('app.name', 'NovFora'),
             ], 503)
             ->header('Retry-After', (string) $retryAfter);
     }

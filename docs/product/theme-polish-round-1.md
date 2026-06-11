@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # Theme polish — round 1 (owner visual feedback) — Claude Code kickoff
 
@@ -27,7 +27,7 @@ CLAUDE.md (Tommy Huynh <tommy@saturnhq.net>, DCO -s, no AI attribution).
      badge where derivable from already-loaded data, joined date / post count ONLY if available without
      new queries (eager-loaded author attributes). Post body right of it.
    • Mobile: collapses to the current top-bar layout (avatar+name+time above body).
-   • Preserve the Dusk selectors and .hearth-prose contract; moderation controls keep working.
+   • Preserve the Dusk selectors and .novfora-prose contract; moderation controls keep working.
    • The admin-switchable top/left/right option is BACKLOG (Part B) — build only the left default.
 
 2) BOARD VIEW (forum/show) — info-dense classic topic table (ProBoards reference):

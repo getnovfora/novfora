@@ -1,6 +1,6 @@
 # Plugin / Module & Theme System
 
-> **Project:** Hearth (working codename). **Stage A deliverable** (Section 8 #9). **Date:** 2026-06-01.
+> **Project:** NovFora (working codename). **Stage A deliverable** (Section 8 #9). **Date:** 2026-06-01.
 > The versioned **module/extension API**, the **dual (visual + developer) theming** model, and the
 > **resumable, verifying importer** architecture — none of which require editing core. These are the brief's
 > answer to the incumbents' worst traits: upgrade-breaking add-ons (C3), theming-needs-core-edits (C4), and
@@ -15,7 +15,7 @@
 Laravel does **not** give a forum-grade extension or visual-theming system for free
 ([stack §7](technical-stack-recommendation.md)). Every incumbent's biggest pain — add-ons and themes breaking
 on upgrade, customization requiring core edits — is a *direct consequence* of a bad extension/theme
-architecture (MyBB's `eval()` templates + `find_replace`; SMF's core-file patches). Hearth treats this as the
+architecture (MyBB's `eval()` templates + `find_replace`; SMF's core-file patches). NovFora treats this as the
 **highest-leverage design problem**, designed in Stage A and stabilized before Phase 3 builds it.
 
 **Governing principles:**
@@ -41,7 +41,7 @@ A module is a self-contained Laravel package (in `modules/<vendor>/<name>/` or C
   "name": "Acme Birthday Greetings",
   "slug": "acme/birthdays",
   "version": "1.4.0",          // the module's own semver
-  "api_version": "^2.0",       // the Hearth MODULE API major(s) it supports
+  "api_version": "^2.0",       // the NovFora MODULE API major(s) it supports
   "requires": { "php": ">=8.3", "modules": { "acme/core-utils": "^1.0" } },
   "provides": ["routes", "permissions", "settings", "slots", "migrations", "listeners"]
 }
@@ -55,7 +55,7 @@ A `ModuleServiceProvider` is the single registration entrypoint; the core **neve
 |---|---|---|
 | **Domain events** | Laravel events fired across core (`PostCreated`, `UserRegistered`, `TopicMoved`, …) | award a badge on `PostCreated` |
 | **Filter hooks** | a synchronous filter pipeline transforming a value through registered callbacks | filter rendered post HTML; adjust a resolved permission set |
-| **UI slots** | named Blade slot components (`<x-hearth::slot name="topic.sidebar"/>`) modules inject into | add a widget to the thread sidebar **without touching the template** |
+| **UI slots** | named Blade slot components (`<x-novfora::slot name="topic.sidebar"/>`) modules inject into | add a widget to the thread sidebar **without touching the template** |
 | **Routes & controllers** | modules register their own routes/Livewire components | a `/birthdays` page |
 | **Permissions** | modules register new permission keys into the ACL catalog | `acme.birthdays.manage` participates in the same mask engine |
 | **Settings & admin pages** | register settings + an ACP panel | module config UI |
@@ -70,7 +70,7 @@ internal and may change between minors. The surface is documented and **frozen w
 - **Semver of the module API (the contract).** Adding events/hooks/slots = minor. Changing/removing a public
   signature, event payload, or slot = **major**. Deprecations live **one full major** with runtime warnings
   before removal.
-- **Pre-upgrade compatibility check.** Before a core upgrade, Hearth compares each installed module's
+- **Pre-upgrade compatibility check.** Before a core upgrade, NovFora compares each installed module's
   `api_version` against the new core's supported API range and produces a **report** (compatible / needs-update
   / incompatible). Incompatible modules are **disabled, not silently broken**, and the admin is told exactly
   which and why — turning C3's "upgrade then discover breakage" into "know before you upgrade."
@@ -109,7 +109,7 @@ Two audiences, one system, **no core edits** for either.
 ### 3.2 Developer theme layer (diff-based Blade overrides)
 
 - A **child theme** is a package (`themes/<vendor>/<name>/`) with a manifest, Blade view overrides, and assets.
-- **Parent-fallback resolution:** Hearth resolves a view from `active theme → parent theme → core`, so a child
+- **Parent-fallback resolution:** NovFora resolves a view from `active theme → parent theme → core`, so a child
   **stores only the views it changes** (XenForo's diff-inheritance concept, native to Blade's view finder). No
   core template is ever edited; upgrades don't clobber customizations.
 - **Assets** are built with **Vite and shipped prebuilt** (no Node on the host). Themes can ship compiled
@@ -139,7 +139,7 @@ mangled embeds, outright failure on large boards) and SEO loss (C5).
 ### 4.1 Shape
 
 - **Source drivers** for **phpBB (3.x), MyBB (1.8), SMF (2.x)** (+ **XenForo** as a stretch). Each driver reads
-  the legacy DB **read-only** and its file store, mapping to Hearth entities. Importers are **our own code that
+  the legacy DB **read-only** and its file store, mapping to NovFora entities. Importers are **our own code that
   copies *data*** — never the reference program (clean-room).
 - **Resumable batches:** work runs as **checkpointed, idempotent** queue jobs (offsets persisted), so a
   multi-million-post import survives interruption and **runs within cron windows** on the baseline tier. Re-runs

@@ -15,7 +15,7 @@ function acpSettings(): Settings
 }
 
 it('falls back to the config-backed value when no override row exists', function () {
-    config(['hearth.antispam.new_user_moderation.posts' => 2]);
+    config(['novfora.antispam.new_user_moderation.posts' => 2]);
 
     expect(acpSettings()->int('moderation.new_user_hold_posts'))->toBe(2);
     expect(Setting::count())->toBe(0); // defaults are NOT persisted (ADR-0023)
@@ -28,7 +28,7 @@ it('falls back to the literal registry default for a pure-DB setting', function 
 });
 
 it('lets a DB override take precedence over config, persisting as a row', function () {
-    config(['hearth.antispam.new_user_moderation.posts' => 2]);
+    config(['novfora.antispam.new_user_moderation.posts' => 2]);
 
     acpSettings()->set('moderation.new_user_hold_posts', 0);
 
@@ -75,7 +75,7 @@ it('treats a blank secret write as "leave the current value unchanged"', functio
 });
 
 it('audit-logs every write with who/key/old→new', function () {
-    config(['hearth.antispam.new_user_moderation.posts' => 2]);
+    config(['novfora.antispam.new_user_moderation.posts' => 2]);
 
     acpSettings()->set('moderation.new_user_hold_posts', 0);
 
@@ -100,7 +100,7 @@ it('pushes DB overrides into live config so existing consumers honour them', fun
 
     acpSettings()->applyToConfig();
 
-    expect(config('hearth.antispam.new_user_moderation.posts'))->toBe(5);
+    expect(config('novfora.antispam.new_user_moderation.posts'))->toBe(5);
     expect(config('app.name'))->toBe('Override Town');
 });
 
@@ -113,7 +113,7 @@ it('leaves config untouched for keys without an override row', function () {
 });
 
 it('reverts a key to its env/config fallback on forget()', function () {
-    config(['hearth.antispam.content.suspicious_score' => 2]);
+    config(['novfora.antispam.content.suspicious_score' => 2]);
 
     acpSettings()->set('moderation.suspicious_score', 9);
     expect(acpSettings()->int('moderation.suspicious_score'))->toBe(9);

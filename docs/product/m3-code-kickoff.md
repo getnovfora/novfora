@@ -1,12 +1,12 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # M3 — Claude Code kickoff prompt (Phase 1, Anti-spam baseline & moderation)
 
 > Paste the block below into the **Claude Code** session to begin Phase 1 **M3**. The Phase 1 plan (M0–M5) is
 > owner-approved; **M0 + M1 + M2 are done**. M3 is a **deep-reasoning / security-sensitive** milestone
-> (CLAUDE.md) — the anti-spam subsystem is Hearth's headline differentiator, and trust-level gating must run
+> (CLAUDE.md) — the anti-spam subsystem is NovFora's headline differentiator, and trust-level gating must run
 > **through the existing permission engine**, not a second system.
 > Specs: [phase-1-plan.md](phase-1-plan.md) §5 (M3); **[security-and-permissions.md](../architecture/security-and-permissions.md) §2
 > (anti-spam, ADR-0007) + §3 (moderation)**; [data-model-initial.md](../architecture/data-model-initial.md) §5
@@ -24,7 +24,7 @@ STEP 0 — IDEMPOTENCY GUARD + M2 CLOSE-OUT (do this first, before any build):
     commits exist, STOP and report — do NOT rebuild. (An accidental re-fire must be a no-op.)
   • Confirm M2 is green: bring up the Docker dev env and run the full suite at HEAD (the trailing db6248a was a
     post-completion test fix). If it isn't green, STOP and fix M2 before starting M3.
-  • If `hearth-spike/` is still physically on disk, delete it (`rm -rf hearth-spike/` — it's retired in git,
+  • If `nevo-spike/` is still physically on disk, delete it (`rm -rf nevo-spike/` — it's retired in git,
     only untracked build cruft remains). Confirm a clean working tree, then build.
 
 START OF SESSION: read PROJECT-STATE.md, CLAUDE.md, docs/PROJECT-BRIEF.md (standing rule). Then the M3 spec:

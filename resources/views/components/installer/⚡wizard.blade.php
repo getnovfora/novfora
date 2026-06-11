@@ -29,8 +29,8 @@ new class extends Component
     public string $dbDriver = 'mysql';
     public string $dbHost = '127.0.0.1';
     public int $dbPort = 3306;
-    public string $dbDatabase = 'hearth';
-    public string $dbUsername = 'hearth';
+    public string $dbDatabase = 'novfora';
+    public string $dbUsername = 'novfora';
     public string $dbPassword = '';
     public bool $dbTested = false;
     public ?string $dbMessage = null;
@@ -152,7 +152,7 @@ new class extends Component
     public function runInstall(): void
     {
         // The lock, enforced at the action too (defence in depth beyond the route + the runner).
-        abort_if(app(Installer::class)->isInstalled(), 403, 'Hearth is already installed.');
+        abort_if(app(Installer::class)->isInstalled(), 403, 'NovFora is already installed.');
 
         $this->validate($this->dbRules() + $this->siteRules());
         $this->installError = null;
@@ -207,7 +207,7 @@ new class extends Component
         @php($req = $this->requirements())
         @php($snap = $this->tier())
         <h2>System check</h2>
-        <p class="muted">Hearth runs on a baseline shared host (PHP 8.3+, MySQL, cron). Red items must be fixed before continuing; amber items are recommendations.</p>
+        <p class="muted">NovFora runs on a baseline shared host (PHP 8.3+, MySQL, cron). Red items must be fixed before continuing; amber items are recommendations.</p>
 
         <div role="list">
             @foreach ($req['checks'] as $c)
@@ -338,7 +338,7 @@ new class extends Component
         <div class="actions">
             <button type="button" class="btn-ghost btn" wire:click="back" wire:loading.attr="disabled">Back</button>
             <button type="button" class="btn" wire:click="runInstall" wire:loading.attr="disabled">
-                <span wire:loading.remove wire:target="runInstall">Install Hearth</span>
+                <span wire:loading.remove wire:target="runInstall">Install NovFora</span>
                 <span wire:loading wire:target="runInstall">Installing…</span>
             </button>
         </div>

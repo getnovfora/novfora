@@ -24,7 +24,7 @@ uses(RefreshDatabase::class);
 beforeEach(fn () => Mail::fake());
 
 it('respects the per-tick user cap and drains the backlog over later ticks, once per user', function () {
-    config(['hearth.deliverability.digest.max_users_per_tick' => 3]);
+    config(['novfora.deliverability.digest.max_users_per_tick' => 3]);
 
     foreach (range(1, 5) as $i) {
         Deliverability::stage(Deliverability::user('daily'), 1);
@@ -41,7 +41,7 @@ it('respects the per-tick user cap and drains the backlog over later ticks, once
 });
 
 it('caps a single digest to the per-user item rate, rolling the overflow into the next period', function () {
-    config(['hearth.deliverability.digest.per_user_item_rate' => 2]);
+    config(['novfora.deliverability.digest.per_user_item_rate' => 2]);
     $user = Deliverability::user('daily');
     Deliverability::stage($user, 5);
 
@@ -59,7 +59,7 @@ it('caps a single digest to the per-user item rate, rolling the overflow into th
 });
 
 it('does not let a gated user starve the per-tick cap or re-scan forever', function () {
-    config(['hearth.deliverability.digest.max_users_per_tick' => 5]);
+    config(['novfora.deliverability.digest.max_users_per_tick' => 5]);
 
     // A gated (unsubscribed) user created FIRST (lowest id) with stale daily items from before opting out.
     $gated = Deliverability::user('off');

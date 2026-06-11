@@ -19,7 +19,7 @@ final class RequirementChecker
 {
     public const PHP_FLOOR = '8.3.0';
 
-    /** Hard-required PHP extensions (Laravel 13 + Hearth's content/DB/archive paths). */
+    /** Hard-required PHP extensions (). */
     public const REQUIRED_EXTENSIONS = [
         'pdo', 'mbstring', 'openssl', 'tokenizer', 'ctype', 'json', 'fileinfo', 'zip',
     ];

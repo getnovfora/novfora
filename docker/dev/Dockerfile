@@ -1,5 +1,5 @@
-# SPDX-License-Identifier: Apache-2.0
-# Hearth local-dev / CI PHP image. NOTE: this is dev/CI convenience, NOT the baseline runtime —
+﻿# SPDX-License-Identifier: Apache-2.0
+# NevoBB local-dev / CI PHP image. NOTE: this is dev/CI convenience, NOT the baseline runtime —
 # the baseline tier is plain PHP 8.3 + MySQL + cron on a shared host (no daemons, no Docker required).
 FROM php:8.3-cli-bookworm
 

@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Project:** Hearth (working codename). **Stage A deliverable** (Section 8 #6). **Date:** 2026-06-01.
+> **Project:** NovFora (working codename). **Stage A deliverable** (Section 8 #6). **Date:** 2026-06-01.
 > Phases 0–5. **Every phase ends runnable + tested on the baseline tier** (PHP 8.3 + MySQL + cron) — the
 > explicit guard against the big-rewrite death-march that stalled MyBB 2.0 and SMF 3.0. **Plan-before-code
 > per phase, with approval at each gate.** Phases are scoped by **deliverable and dependency**, not calendar

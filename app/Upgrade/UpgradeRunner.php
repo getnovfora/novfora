@@ -39,7 +39,7 @@ use Throwable;
  */
 class UpgradeRunner
 {
-    private const LOCK = 'hearth:upgrade:lock';
+    private const LOCK = 'novfora:upgrade:lock';
 
     public function __construct(
         private readonly Installer $installer,
@@ -79,7 +79,7 @@ class UpgradeRunner
             return UpgradeResult::skipped('up-to-date');
         }
 
-        if (! (bool) config('hearth.upgrade.auto', true)) {
+        if (! (bool) config('novfora.upgrade.auto', true)) {
             return UpgradeResult::skipped('manual-mode');
         }
         if ($this->schema->isStuck()) {
@@ -90,7 +90,7 @@ class UpgradeRunner
     }
 
     /**
-     * Operator-initiated (Admin → System → Upgrade, or `php artisan hearth:upgrade`). Ignores the auto
+     * Operator-initiated (Admin → System → Upgrade, or `php artisan novfora:upgrade`). Ignores the auto
      * toggle and clears any stuck hold first — a human deliberately retrying is not the unattended loop the
      * cap guards against.
      */
@@ -123,7 +123,7 @@ class UpgradeRunner
     {
         // The closure runs only if the lock is acquired, and the lock is released afterwards (even on
         // throw). A non-UpgradeResult return means the lock was already held by a concurrent run.
-        $ran = Cache::lock(self::LOCK, max(60, (int) config('hearth.upgrade.lock_seconds', 600)))
+        $ran = Cache::lock(self::LOCK, max(60, (int) config('novfora.upgrade.lock_seconds', 600)))
             ->get(fn () => $this->execute($auto));
 
         return $ran instanceof UpgradeResult ? $ran : UpgradeResult::skipped('locked');
@@ -194,7 +194,7 @@ class UpgradeRunner
     private function fail(bool $auto, string $stage, Throwable $e, ?string $backup): UpgradeResult
     {
         $attempts = $this->schema->attempts() + 1;
-        $maxAuto = max(1, (int) config('hearth.upgrade.max_auto_attempts', 2));
+        $maxAuto = max(1, (int) config('novfora.upgrade.max_auto_attempts', 2));
 
         // Automatic mode holds once attempts are exhausted (no retry loop). A manual failure holds
         // immediately — a human is watching, so surface it rather than leaving an un-flagged broken state.
@@ -256,7 +256,7 @@ class UpgradeRunner
 
     private function clearAppCaches(): void
     {
-        foreach (['forum.index.tree', 'hearth.sitemap'] as $key) {
+        foreach (['forum.index.tree', 'novfora.sitemap'] as $key) {
             try {
                 Cache::forget($key);
             } catch (Throwable) {

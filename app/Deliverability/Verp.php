@@ -23,7 +23,7 @@ final class Verp
 
     public function enabled(): bool
     {
-        return (bool) config('hearth.deliverability.verp.enabled')
+        return (bool) config('novfora.deliverability.verp.enabled')
             && $this->domain() !== ''
             && $this->key() !== '';
     }
@@ -84,11 +84,11 @@ final class Verp
 
     private function domain(): string
     {
-        return strtolower(trim((string) config('hearth.deliverability.verp.domain', '')));
+        return strtolower(trim((string) config('novfora.deliverability.verp.domain', '')));
     }
 
     private function key(): string
     {
-        return (string) config('hearth.deliverability.verp.key', '');
+        return (string) config('novfora.deliverability.verp.key', '');
     }
 }

@@ -29,5 +29,5 @@ it('ships a visible-focus rule and AA-contrast design tokens', function () {
 
     expect($css)->toContain(':focus-visible')
         ->toContain('.skip-link')
-        ->toContain('--hearth-accent');
+        ->toContain('--novfora-accent');
 });

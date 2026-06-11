@@ -27,10 +27,10 @@ beforeEach(function () {
     $this->seed(DemoSeeder::class); // a believable community for the forum index
 
     $this->shotUser = Users::inGroups(['members', 'tl2'], [
-        'username' => 'maya', 'email' => 'maya@hearth.test', 'display_name' => 'Maya Rivera',
+        'username' => 'maya', 'email' => 'maya@novfora.test', 'display_name' => 'Maya Rivera',
     ]);
     $mod = Users::inGroups(['moderators', 'tl4'], [
-        'username' => 'morgan', 'email' => 'morgan@hearth.test', 'display_name' => 'Morgan Lee',
+        'username' => 'morgan', 'email' => 'morgan@novfora.test', 'display_name' => 'Morgan Lee',
     ]);
 
     // A board that has BOTH a sub-board and a populated topic table, to showcase items 2 + 3 in one shot.

@@ -1,6 +1,6 @@
 # Feature Prioritization (MoSCoW)
 
-> **Project:** Hearth (working codename). **Stage A deliverable** (Section 8 #7). **Date:** 2026-06-01.
+> **Project:** NovFora (working codename). **Stage A deliverable** (Section 8 #7). **Date:** 2026-06-01.
 > The full Section-6 feature surface tagged **Must / Should / Could / Won't-for-now**, with the delivery phase
 > and notes. **Must = the MVP** ([mvp-scope](mvp-scope.md)); phases are defined in [roadmap](roadmap.md).
 > Tagging reflects the evidence in [community-complaints](../research/community-complaints-and-feature-requests.md):

@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 /** @return array{0:string,1:string} [dir, sqlitePath] — a migrated temp SQLite DB + a backup dir. */
 function backupSandbox(): array
 {
-    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-backup-'.bin2hex(random_bytes(6));
+    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'novfora-backup-'.bin2hex(random_bytes(6));
     @mkdir($dir, 0775, true);
     $db = $dir.DIRECTORY_SEPARATOR.'app.sqlite';
     touch($db);
@@ -31,7 +31,7 @@ function backupSandbox(): array
     config([
         'database.default' => 'sqlite',
         'database.connections.sqlite.database' => $db,
-        'hearth.backup.path' => $dir.DIRECTORY_SEPARATOR.'backups',
+        'novfora.backup.path' => $dir.DIRECTORY_SEPARATOR.'backups',
     ]);
     DB::purge('sqlite');
     Artisan::call('migrate', ['--force' => true]);
@@ -77,13 +77,13 @@ it('verifies archive integrity and refuses a tampered dump', function () {
         ->toThrow(BackupException::class);
 });
 
-it('refuses an archive with no Hearth manifest', function () {
+it('', function () {
     [$dir] = backupSandbox();
-    $bogus = $dir.DIRECTORY_SEPARATOR.'backups'.DIRECTORY_SEPARATOR.'hearth-19990101-000000.zip';
+    $bogus = $dir.DIRECTORY_SEPARATOR.'backups'.DIRECTORY_SEPARATOR.'novfora-19990101-000000.zip';
     @mkdir(dirname($bogus), 0775, true);
     $zip = new ZipArchive;
     $zip->open($bogus, ZipArchive::CREATE);
-    $zip->addFromString('readme.txt', 'not a hearth backup');
+    $zip->addFromString('readme.txt', 'not a novfora backup');
     $zip->close();
 
     expect(fn () => app(RestoreService::class)->restore($bogus))
@@ -115,7 +115,7 @@ it('prunes old archives beyond the retention count', function () {
 
     // Five fake archives with distinct timestamps.
     foreach (['20260101-000000', '20260102-000000', '20260103-000000', '20260104-000000', '20260105-000000'] as $i => $stamp) {
-        $path = $backupDir.DIRECTORY_SEPARATOR.'hearth-'.$stamp.'.zip';
+        $path = $backupDir.DIRECTORY_SEPARATOR.'novfora-'.$stamp.'.zip';
         file_put_contents($path, 'x');
         touch($path, mktime(0, 0, 0, 1, $i + 1, 2026));
     }
@@ -124,6 +124,6 @@ it('prunes old archives beyond the retention count', function () {
 
     expect(count(app(BackupService::class)->list()))->toBe(2);
     // The two newest survive.
-    expect(is_file($backupDir.DIRECTORY_SEPARATOR.'hearth-20260105-000000.zip'))->toBeTrue();
-    expect(is_file($backupDir.DIRECTORY_SEPARATOR.'hearth-20260101-000000.zip'))->toBeFalse();
+    expect(is_file($backupDir.DIRECTORY_SEPARATOR.'novfora-20260105-000000.zip'))->toBeTrue();
+    expect(is_file($backupDir.DIRECTORY_SEPARATOR.'novfora-20260101-000000.zip'))->toBeFalse();
 });

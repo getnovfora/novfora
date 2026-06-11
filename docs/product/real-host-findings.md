@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # Real-Host Validation — Findings & Bug Log
 
@@ -10,10 +10,10 @@ Copyright 2026 The Hearth Authors
 
 ## Outcome so far
 
-**The core promise is proven on real hardware, end-to-end:** after the RH-1 fix Hearth boots on a real cPanel
+**The core promise is proven on real hardware, end-to-end:** after the RH-1 fix NovFora boots on a real cPanel
 shared host with every system check green (PHP 8.4, all extensions, all paths writable, Baseline tier), and
 after RH-7 the **no-SSH install completes through the browser** on the subdomain layout — wizard → demo
-community → topics render (validated on `hearth.adorablespider.com`). The post-install smoke then surfaced two
+community → topics render (validated on `nevo.adorablespider.com`). The post-install smoke then surfaced two
 real post-install bugs — **RH-8** (root served Laravel's scaffold page) and **RH-9** (a poisoned fragment cache
 500'd `/forums`) — both now **FIXED** (below). The two no-SSH operability gaps the doc-vs-reality audit then
 surfaced are also closed: **RH-10** (auto-upgrade — "it migrates automatically" is now true) and **RH-11**
@@ -29,16 +29,16 @@ runs `package:discover` and ships `packages.php`; the release verify does a true
 `artisan`) so this can't slip through again.
 
 ### RH-2 — CloudLinux/suEXEC strictness on world-writable files — MITIGATED
-Extraction can leave files `0777`, which strict PHP handlers 500 on. `hearth:doctor` now flags world/group-
+Extraction can leave files `0777`, which strict PHP handlers 500 on. `novfora:doctor` now flags world/group-
 writable app files, and runbook §3a adds a "set 755/644 after extract" step.
 
 ### RH-3 — Subfolder install recipe — documented (runbook §3b), but insufficient on its own — see RH-4.
 
 ### ⭐ RH-4 — Subdirectory install is broken — OPEN (owner-flagged priority)
-**Requirement:** an end user must be able to install Hearth into a **subdirectory of the web root**
+**Requirement:** an end user must be able to install NovFora into a **subdirectory of the web root**
 (e.g. `example.com/community`), not only at a domain/subdomain root. Common shared-host scenario.
 
-**Observed** (`example.com/HearthBB`, app at `~/Hearth`): after the boot fix, the System step renders but the
+**Observed** (`example.com/NovForaBB`, app at `~/NovFora`): after the boot fix, the System step renders but the
 wizard's **Continue (a Livewire action) does nothing**, and **`app-*.css` returns 404** (page unstyled, JS not
 wired).
 
@@ -157,7 +157,7 @@ Kickoff: [installer-fix-kickoff.md](installer-fix-kickoff.md).
 
 ### ⭐ RH-7 — Install-enforce middleware redirects Livewire's update endpoint → wizard can't complete — FIXED + VALIDATED on the live host
 **This was the actual reason the wizard "does nothing."** Confirmed by direct live-host inspection
-(`hearth.adorablespider.com`, cPanel) through the browser, including a manual replay of the Livewire request:
+(`nevo.adorablespider.com`, cPanel) through the browser, including a manual replay of the Livewire request:
 
 **Proof (live host, pre-install, enforcement ON):**
 - `livewire.js` loads once; the `installer.wizard` component is reactive; clicking **Re-check** *does* fire a
@@ -165,7 +165,7 @@ Kickoff: [installer-fix-kickoff.md](installer-fix-kickoff.md).
 - Every action then fails with `SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON` thrown
   inside `livewire.js` at `JSON.parse`.
 - Replaying the update request shows why: `POST /livewire-2cd208c8/update` → **302, `redirected:true`,
-  `finalUrl: /install`**, body = the install page HTML (`<!DOCTYPE html> … <title>Install Hearth</title>`).
+  `finalUrl: /install`**, body = the install page HTML (`<!DOCTYPE html> … <title>Install NovFora</title>`).
   Livewire expects JSON, receives HTML, throws, and falls back to a **full page reload** → the wizard snaps
   back to a blank step 1. That is the "pasted the token, nothing happens" symptom exactly (the token field
   even clears, because the page reloaded).
@@ -179,7 +179,7 @@ redirected to `/install`. (The `livewire.js` **asset** route sits outside the en
 update path returns 405, not a redirect, because method-not-allowed is thrown during routing before the
 `web`-group middleware runs; only the real `POST` reaches the middleware and gets redirected.)
 
-**Why every test missed it:** the wizard's only automated coverage runs with `HEARTH_INSTALL_ENFORCE=false`
+**Why every test missed it:** the wizard's only automated coverage runs with `NOVFORA_INSTALL_ENFORCE=false`
 (`Installer::shouldEnforce()` opts the test suite out), so `RedirectIfNotInstalled` is a no-op in CI and the
 redirect never happens. The bug only appears with enforcement **on** — i.e. exactly the real-host pre-install
 state, which nothing exercised.
@@ -210,12 +210,12 @@ slipped through. They render `/install`, read the live update URI + the componen
 Verified: these three failed on the unfixed middleware (`Expected 200, received 302` → `/install`) and pass
 after the fix; full Pest **319 passed / 1 skipped (1047 assertions)**, Pint + Larastan + `composer audit` clean.
 The deployable bundle was rebuilt (`scripts/build-release.sh`) and cold-boot-verified (fresh extract, empty
-`APP_KEY`, no DB → `GET /` → **302 → /install**): `hearth-release.zip` **12,937,205 bytes**, sha256
+`APP_KEY`, no DB → `GET /` → **302 → /install**): `novfora-release.zip` **12,937,205 bytes**, sha256
 `ebff39444dae1f6357e0f7b9c27fe5e0d4ad1ac58687d12da447ab15d27db956` (ships `bootstrap/cache/packages.php`; the
 fixed middleware is inside). Kickoff: [installer-redirect-fix-kickoff.md](installer-redirect-fix-kickoff.md).
 
 **Validated on the live host:** the operator re-uploaded the bundle and the no-SSH wizard completed end-to-end
-on `hearth.adorablespider.com` — system check → token → DB → site/admin → install → lock, then the demo
+on `nevo.adorablespider.com` — system check → token → DB → site/admin → install → lock, then the demo
 community and topics render. The post-install smoke is what surfaced RH-8 and RH-9 below.
 
 > **Note on browser coverage.** RH-7 is a purely *server-side* middleware redirect — a real browser adds nothing
@@ -223,10 +223,10 @@ community and topics render. The post-install smoke is what surfaced RH-8 and RH
 > guard and they run in the normal Pest CI job (no Chrome/MySQL needed).
 >
 > **Follow-up LANDED — Dusk enforce-ON harness split.** The Dusk harness previously served ONE app with
-> `HEARTH_INSTALL_ENFORCE=false` (shared by `InstallerWizardTest` + `EditorJourneyTest`, since the editor needs
+> `NOVFORA_INSTALL_ENFORCE=false` (shared by `InstallerWizardTest` + `EditorJourneyTest`, since the editor needs
 > `/forums` reachable), so the installer journey never exercised real pre-install enforcement in a browser. It is
 > now split into **two sequential serve passes** (`docker/dusk/run.sh` + the CI Dusk job): **PASS 1 — INSTALLER**
-> serves with `HEARTH_INSTALL_ENFORCE=true` and no marker on a fresh DB, so `InstallerWizardTest`'s every
+> serves with `NOVFORA_INSTALL_ENFORCE=true` and no marker on a fresh DB, so `InstallerWizardTest`'s every
 > `wire:click` flows through `RedirectIfNotInstalled` exactly like production (installing into a disposable MySQL);
 > **PASS 2 — APP** serves enforcement-off for `EditorJourneyTest` (unchanged). Each pass gets its own `.env` + DB +
 > installer sandbox — no shared state. The CI Dusk job gained a MySQL service + `pdo_mysql` as the wizard's install
@@ -329,8 +329,8 @@ turns into a real outage.) A beta gate that blocked the themed live deploy.
 - **Failure** — best-effort roll back **this run's** batch only; stay in maintenance; **hold**
   (`schema.stuck`, no retry loop) after ≤`max_auto_attempts`; the maintenance page names the pre-upgrade
   backup; the hold self-clears when the operator re-uploads the previous release.
-- **Controls** — `HEARTH_AUTO_UPGRADE=true` by default; `false` = manual (*Admin → System → Upgrade* /
-  `php artisan hearth:upgrade`). Documented asymmetry: auto mode protects signed-in pages; manual mode keeps
+- **Controls** — `NOVFORA_AUTO_UPGRADE=true` by default; `false` = manual (*Admin → System → Upgrade* /
+  `php artisan novfora:upgrade`). Documented asymmetry: auto mode protects signed-in pages; manual mode keeps
   the site reachable so the admin can apply.
 
 **Coverage** — `tests/Feature/Operability/{AutoUpgradeTest,SchemaStateTest,UpgradeMaintenanceTest,AdminUpgradePanelTest}.php`
@@ -342,13 +342,13 @@ failure modes (a 24h scheduler overlap-mutex that could strand the auto-upgrade 
 left by a process killed mid-run that wedged the site at 503) plus 4 nits. Suite **Pest 381 passed / 1
 skipped (1295 assertions)**; Pint + Larastan + `composer audit` clean; `assets-fresh` reproduces the
 committed bundle. Bundle rebuilt + cold-boot-verified (`RELEASE_VERIFY=PASS`, `GET / → 302 /install`):
-`hearth-release.zip` **12,813,544 bytes**, sha256
+`novfora-release.zip` **12,813,544 bytes**, sha256
 `451def6a40c3aed76ff3c3dfc235bc221a0c0ae39d2db5d101f3368ea2c30b5d`. **This is the mechanism that makes the
 themed live deploy safe** — deploying that bundle onto the live site is RH-10's first real-world validation
 (the appearance migration applies itself via cron).
 
 ### ⭐ RH-11 — the Backups panel could create but not RESTORE (no-SSH recovery was impossible) — FIXED (ADR-0022)
-**Found (doc-vs-reality audit, same class as RH-10):** `hearth:restore` existed only as a **CLI** command;
+**Found (doc-vs-reality audit, same class as RH-10):** `novfora:restore` existed only as a **CLI** command;
 *Admin → System → Backups* could create/download/delete but **not restore**. A no-SSH operator therefore had
 **no recovery path at all** — and the RH-10 recovery guidance pointed them at "restore the pre-upgrade backup
 via the admin Backups panel," which did not exist. Documented-but-unimplemented; a beta gate (invites waited
@@ -360,7 +360,7 @@ on it).
   CACHE_STORE/SESSION_DRIVER/QUEUE_CONNECTION=database). So a synchronous web restore would wipe the very
   session/cache backing the request mid-flight (and is bounded by PHP's request-time limit on large
   archives), and a DB-queue job would erase its own `jobs` row mid-restore. The restore state is therefore a
-  **file** (`RestoreState` → `storage/hearth-restore.json`, outside the `storage/app` restore target, so it
+  **file** (`RestoreState` → `storage/novfora-restore.json`, outside the `storage/app` restore target, so it
   survives the DB swap and keeps the maintenance gate up across it), and the run is drained by the **single
   cron line** (`RestoreRunner::runPending`) in CLI context with no web timeout. `RestoreRunner::runNow` is the
   synchronous path the CLI uses; both reach one `execute()` — CLI and panel share ONE pipeline.
@@ -386,9 +386,9 @@ on it).
   process killed mid-restore, detected on the next cron tick because the file lock is free yet the state still
   says `running` — **HOLDS** the site in maintenance (`restore.stuck`) rather than serving a possibly
   half-restored DB. **No-SSH recovery from a held restore:** the maintenance page tells the operator to delete
-  `storage/hearth-restore.json` via the host file manager (the same deliberate filesystem action that resets
+  `storage/novfora-restore.json` via the host file manager (the same deliberate filesystem action that resets
   the install marker), then restore a known-good backup / the named pre-restore safety snapshot from the panel;
-  with a shell, `php artisan hearth:restore` does it directly (and clears the hold on success).
+  with a shell, `php artisan novfora:restore` does it directly (and clears the hold on success).
 - **Cron-side stand-down:** while a restore is requested/running/stuck, the scheduler skips every DB-touching
   job (queue drain, backups, trust/anti-spam) so nothing reads or writes the database being replaced; the
   auto-upgrade tick already self-guards. The HTTP maintenance gate + this scheduler `->skip()` are the two
@@ -420,9 +420,9 @@ release rebuild (`scripts/build-release.sh` + `verify-release.sh` → size + sha
    (root = scaffold welcome) and RH-9 (poisoned fragment cache → `/forums` 500), both fixed with the missing
    serializing-store / root-route coverage. Suite **Pest 331 passed / 1 skipped (1108 assertions)**; Pint +
    Larastan + `composer audit` clean. Bundle rebuilt + cold-boot-verified (`RELEASE_VERIFY=PASS`,
-   `GET / → 302 → /install`): `hearth-release.zip` **12,924,197 bytes**, sha256
+   `GET / → 302 → /install`): `novfora-release.zip` **12,924,197 bytes**, sha256
    `f48862b0aed5cef7323d4d9a8d43ad977c9ff9b90271de716e7c2fe9834c0e86` (ships `bootstrap/cache/packages.php`; the
-   fixes are inside; `/hearth-release.zip` stays gitignored). **Human step:** redeploy the rebuilt bundle (or the
+   fixes are inside; `/novfora-release.zip` stays gitignored). **Human step:** redeploy the rebuilt bundle (or the
    changed files) — `/` becomes the community, `/forums` is stable under cache hits, and `/health`'s queue check
    reports truthfully once cron is running.
 2. **RH-5 — stale committed assets + CI freshness guard — FIXED (this pass).** Rebuilt + committed
@@ -430,9 +430,9 @@ release rebuild (`scripts/build-release.sh` + `verify-release.sh` → size + sha
    `CONTRIBUTING.md`, and added `ViteManifestTest`. **Dusk enforce-ON harness split — LANDED (this pass):** two
    serve passes (installer enforce-ON, then editor) in `docker/dusk/run.sh` + the CI Dusk job (see the RH-7
    entry). Suite **Pest 333 passed / 1 skipped (1128 assertions)**; Pint + Larastan + `composer audit` clean.
-   Bundle rebuilt + cold-boot-verified (`RELEASE_VERIFY=PASS`, `GET / → 302 → /install`): `hearth-release.zip`
+   Bundle rebuilt + cold-boot-verified (`RELEASE_VERIFY=PASS`, `GET / → 302 → /install`): `novfora-release.zip`
    **12,918,488 bytes**, sha256 `3844efebfd8a5dbc378e7f33595ac924a45b596feb171a5427107f9c5bb22d56`
-   (`/hearth-release.zip` stays gitignored). *(Dusk not executed in this sandbox — no Chrome/MySQL; landed via
+   (`/novfora-release.zip` stays gitignored). *(Dusk not executed in this sandbox — no Chrome/MySQL; landed via
    PR #2, where the assets-fresh + Dusk jobs are the live check.)*
 3. **RH-4 — subdirectory install (design-first):** spike → ADR → implement + add a subdirectory case to the
    install test matrix. Still the owner-flagged priority. RH-1/RH-2 landed; RH-6 was a misdiagnosis (superseded

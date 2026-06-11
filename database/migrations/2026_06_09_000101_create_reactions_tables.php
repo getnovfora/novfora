@@ -22,7 +22,7 @@ return new class extends Migration
             // hard-deleted with them (privacy §6) — so this is a real FK with cascade; the deletion flow
             // recomputes the affected tallies (an §6 ADR finalises that before M2 PMs land).
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('type', 20); // one of config('hearth.reactions.types') keys
+            $table->string('type', 20); // one of config('novfora.reactions.types') keys
             $table->unsignedBigInteger('tenant_id')->nullable()->index();
             $table->timestamps();
 

@@ -1,8 +1,8 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
-# Phase 2 Implementation Plan — NevoBB Community (APPROVED, build source)
+# Phase 2 Implementation Plan — NovFora Community (APPROVED, build source)
 
 > **Status: APPROVED with amendments (owner, 2026-06-09).** This is the engineering companion to the
 > owner-approved [product plan](phase-2-plan.md) and the build source for Claude Code. It was drafted by Code
@@ -31,7 +31,7 @@ from its draft.
    surface), so it would strip the very iframe that makes a video/rich embed render. Embeds get a **dedicated
    embed policy** — a fixed allowlist of embed hosts + forced `sandbox` + minimal `allow` on a single
    `<iframe>` — distinct from the post-content sanitizer, which keeps forbidding iframes. Non-allowlisted hosts
-   render a **NevoBB link-card facade**, never raw provider HTML. (See §2 P2-M1 · §3.)
+   render a **NovFora link-card facade**, never raw provider HTML. (See §2 P2-M1 · §3.)
 
 3. **Edit-history diff is format-aware, not `body_text` (correctness fix).** `body_text` is the *tags-stripped
    search projection* — diffing it hides formatting/link/image edits, and it is not the lossless source.
@@ -61,8 +61,8 @@ from its draft.
    deletion behaviour for these is **undefined in the draft** and must be decided **before M2 PMs land** — a
    short ADR + forced-cascade tests. (See new §6.)
 
-8. **New `hearth:` crons grow the rename surface (noted, not changed).** `hearth:reputation:recompute` and
-   `hearth:badges:recompute` correctly follow the existing `hearth:` convention — **do not pre-rename to
+8. **New `nevo:` crons grow the rename surface (noted, not changed).** `nevo:reputation:recompute` and
+   `nevo:badges:recompute` correctly follow the existing `nevo:` convention — **do not pre-rename to
    `nevobb:`** (that would fragment the single Phase-5 rename, ADR-0024). Just note each adds to the ~197-ref
    rename surface swept at the v1.0 gate.
 
@@ -74,7 +74,7 @@ weights** (one reaction per post per user). **Plan persistence (Code DP-3) — D
 ## 0b. Reconciliation — what the codebase audit changed vs. the product plan
 
 **A. Spike P2 is already done (GO, PR #8) — product-plan §4 "spike first" is complete.** The full deliverability
-pipeline is **merged and dormant** behind `HEARTH_DELIVERABILITY=false` (verified `config/hearth.php` →
+pipeline is **merged and dormant** behind `NOVFORA_DELIVERABILITY=false` (verified `config/novfora.php` →
 `deliverability.enabled` defaults false): `DigestAssembler`, `DigestQueue`, `SendDigestJob`, `DigestMail`,
 `Verp`, tri-path bounce (`WebhookVerifier` HMAC, `ImapBounceMailbox`, manual floor), `Suppressor` /
 `SuppressionGate`, `Unsubscribe`, migrations, ACP suppressions UI, and the GO test suite. **M2's deliverability
@@ -89,13 +89,13 @@ half is a "light-up + wire-in," not a build** — the lone intentional gap is wi
 | `notifications` + `notification_preferences` (live; `NotificationController::EVENTS = [reply, mention, moderation]`) | — |
 | Deliverability schema + code (dormant) | — |
 | `topics.poll_id` · `topics.prefix_id` · `topics.moved_to_topic_id` (bare nullable FK seams, no `constrained()`) | the tables they point at |
-| `pm.send` in `PermissionCatalogSeeder` + **TL0 `'pm.send' => 'never'`** in `config/hearth.php` + mod/admin ALLOW in `RoleSeeder` | the PM **delivery** schema + UI |
+| `pm.send` in `PermissionCatalogSeeder` + **TL0 `'pm.send' => 'never'`** in `config/novfora.php` + mod/admin ALLOW in `RoleSeeder` | the PM **delivery** schema + UI |
 | `users.reputation_points` column | the `reputation_events` **ledger** |
 | `groups.color` (M1 seam) + `groups.description` (ACP v2) → community-feel "Part B" largely done | forum stats / view-count / online heuristic |
 
 **C. Owner decisions (binding):** engagement core first; **Should-tier = explicit descope lever** (reputation/
 points, badges, follow/ignore-follow-half, staff notes, 2nd theme); **rename → Phase 5** (no rename now; don't
-multiply `hearth:` surface gratuitously); **enhanced tier → Phase 4** (baseline-first, seams only, no Reverb/
+multiply `nevo:` surface gratuitously); **enhanced tier → Phase 4** (baseline-first, seams only, no Reverb/
 Meilisearch light-up); kickoff scope per §0.1 / §5.
 
 ---
@@ -105,7 +105,7 @@ Meilisearch light-up); kickoff scope per §0.1 / §5.
 Per-feature checklist the milestones assume (verified seams in **bold**):
 
 1. **Permission key** → add to **`PermissionCatalogSeeder::catalog()`**; grant in **`RoleSeeder`** presets; if
-   TL-gated, add to **`config/hearth.php → antispam.trust_gates`** (`never` = hard spam gate an admin ALLOW
+   TL-gated, add to **`config/novfora.php → antispam.trust_gates`** (`never` = hard spam gate an admin ALLOW
    can't lift; `no` = admin-liftable) and re-run **`TrustGateSeeder`**. **No second permission system** —
    authorize only via **`$user->canDo('key', $scope)`** (the **`Gate::before`** hook in `AppServiceProvider`
    routes `Scope`-typed args to **`PermissionResolver`** over **`acl_entries`**). Every new key's NEVER/
@@ -143,7 +143,7 @@ Legend — **Tier:** `Core` (committed) · `Should` (descope lever, **held** per
 | **Reactions** (single-choice typed + score) | Core | `reactions`(post_id,user_id,type · **UNIQUE(post_id,user_id)**); `post_reaction_counts`(post_id,type,count); config typed set + score weights | `ReactionService` + model-event counters; `ReactionRateLimiter` (per-TL); perm `react.create`; **emits `reaction` domain event** (Notifier). **Score weight is config-only, inert until M3 reputation (amendment #4)** | `⚡post-reactions` in post partial | mask · toggle/change/unreact integrity · **cache-HIT (RH-9)** · query-budget · rate-limit · Dusk | ◐ (counters/cache ⚙, UI ◻) |
 | **Drafts / autosave** | Core | `post_drafts`(user_id,context_type,context_id,body_canonical · UNIQUE) own-only | editor island: **debounce only the network `$wire.saveDraft`** (Spike-0 #3), keep immediate deferred sync, `@persist` for `wire:navigate`; editor stays **closure-local** (Spike #1 — never a reactive Alpine prop) | extend `content-editor` | own-only authz · save/restore/discard-on-publish · Dusk type→navigate→restore | ◐ (own-only authz ⚙, island ◻) |
 | **Edit-history diff viewer** (over live `post_revisions`) | Core | — | **`RevisionDiffService` — format-aware (amendment #3):** markdown → diff `body_canonical`; tiptap_json → diff a normalized text/structure extraction (NOT `body_text`); render via `ContentRenderer`. perm `post.history.view` (author+staff). Record extraction + any lib in `DECISIONS.md` | `⚡post-history` modal | visibility (author/staff yes, others no) · diff correctness incl. formatting-only edit | ◻ (+ ⚙ on the diff-source/perm decision) |
-| **oEmbed** (SSRF-safe) | Core | `oembed_cache`(url_hash UNIQUE, html, provider, expires_at) | **`SsrfGuard`** (DNS-resolve, block RFC-1918/5156/loopback/link-local, re-validate post-redirect, redirect cap, timeout, size cap, https-only); `OEmbedService` (host allowlist → server fetch → **dedicated embed policy, NOT post ContentSanitizer (amendment #2)** → cache); **non-allowlisted host → NevoBB link-card facade**; canonical stores **URL only** | embed node in editor | **SSRF battery** (IP-literal, DNS→private, redirect-to-internal, oversize, timeout, non-allowlist) · **embed-policy test (iframe sandbox/allowlist; post-sanitizer still strips iframes)** · forced-absence | ⚙ **(all)** |
+| **oEmbed** (SSRF-safe) | Core | `oembed_cache`(url_hash UNIQUE, html, provider, expires_at) | **`SsrfGuard`** (DNS-resolve, block RFC-1918/5156/loopback/link-local, re-validate post-redirect, redirect cap, timeout, size cap, https-only); `OEmbedService` (host allowlist → server fetch → **dedicated embed policy, NOT post ContentSanitizer (amendment #2)** → cache); **non-allowlisted host → NovFora link-card facade**; canonical stores **URL only** | embed node in editor | **SSRF battery** (IP-literal, DNS→private, redirect-to-internal, oversize, timeout, non-allowlist) · **embed-policy test (iframe sandbox/allowlist; post-sanitizer still strips iframes)** · forced-absence | ⚙ **(all)** |
 | **Polls UI** (over `topics.poll_id` seam) | Core | `polls`(topic_id,question,is_multiple,max_choices,closes_at,is_closed); `poll_options`(poll_id,label,position,vote_count); `poll_votes` — **per-mode UNIQUE (amendment #5):** `UNIQUE(poll_option_id,user_id)` floor + single-choice one-per-`(poll_id,user_id)` + multi `max_choices` app cap | `PollService` + event counters; perms `poll.create`(TL-gated), `poll.vote`; option text via sanitizer/moderator | `⚡poll` + poll block in `⚡create-topic` | vote integrity (single/multi/closed) · perm · **cache-HIT** · budget | ◐ (vote integrity/gate ⚙, UI ◻) |
 | **Topic prefixes UI** (over `topics.prefix_id` seam) | Core | `prefixes`(forum_id nullable,label,color_token,position) | ACP CRUD; perm `prefix.manage`; filtered listing | `⚡prefixes` (mirror `⚡groups`) + selector | ACP render-mirror (auto) · filtered-listing budget · CRUD | ◻ |
 | **Tags UI** | Core | `tags`(name,slug UNIQUE,usage_count); `taggables`(poly, UNIQUE) | `TagService` (usage_count via events); perms `tag.create`(**TL-gated, anti-spam**), `tag.apply`; names sanitized | tag input (autocomplete) + tag listing page | apply/filter · `tag.create` TL gate · budget | ◐ (TL gate ⚙, UI ◻) |
@@ -158,7 +158,7 @@ Legend — **Tier:** `Core` (committed) · `Should` (descope lever, **held** per
 
 | Work | Tier | Detail | Model |
 |---|---|---|---|
-| **Activate pipeline** | Core | `HEARTH_DELIVERABILITY=true` / `HEARTH_DIGEST=true` in `.env.example` (graceful absence already handled → VERP/manual floor); document SPF/DKIM/DMARC + on-domain `From` (memo §5) | ◻ |
+| **Activate pipeline** | Core | `NOVFORA_DELIVERABILITY=true` / `NOVFORA_DIGEST=true` in `.env.example` (graceful absence already handled → VERP/manual floor); document SPF/DKIM/DMARC + on-domain `From` (memo §5) | ◻ |
 | **Wire `Notifier` → `DigestQueue`** | Core | `Notifier::send()` calls `DigestQueue::enqueue()` first for batched cadence (returns null for immediate/off → live path untouched); idempotency lives in the DB UNIQUE row, not the lock (memo §4) | ⚙ |
 | **Dedupe suppression** | Core | `Notifier::suppressed()` delegates to the shared `SuppressionGate` (memo §4 follow-up) | ⚙ |
 | **New event types** | Core | `reaction`, `pm.received`, `follow` added to `NotificationController::EVENTS` + Notifier + display component + prefs rows | ◻ |
@@ -180,8 +180,8 @@ regression (TL0 NEVER pinned) green; deletion-cascade tests green; no second ren
 |---|---|---|---|---|
 | **Activity feed (baseline)** | **Core** | `activities`(actor_id,verb,subject poly,scope_forum_id,created_at) append-only via model events | **fan-out-on-read**, per-viewer **permission-filtered** via resolver (like M4 search), cached primitives+rehydrate, within budget; works without follow. **Deletion cascade per §6** | ⚙ (perm-filter/cache) ◻ (view) |
 | **Follow** (follow half of `user_relationships`) | **Held** | follow half (table from M2) | drives feed inclusion + notif routing | ◻ |
-| **Reputation / points** | **Held** | `reputation_events`(source poly, points · **UNIQUE source for idempotency**); `users.reputation_points` = denorm sum | `ReputationService` (idempotent award — **reactions' score wires here, amendment #4**); `hearth:reputation:recompute` cron (withoutOverlapping + short mutex). **Adds to rename surface (#8)** | ⚙ (idempotent award) |
-| **Badges / trophies** | **Held** | `badges`(slug,criteria JSON); `user_badges`(UNIQUE) | criteria engine (events → idempotent awards; `hearth:badges:recompute` cron). **Adds to rename surface (#8)** | ⚙ (idempotency) ◻ (CRUD) |
+| **Reputation / points** | **Held** | `reputation_events`(source poly, points · **UNIQUE source for idempotency**); `users.reputation_points` = denorm sum | `ReputationService` (idempotent award — **reactions' score wires here, amendment #4**); `nevo:reputation:recompute` cron (withoutOverlapping + short mutex). **Adds to rename surface (#8)** | ⚙ (idempotent award) |
+| **Badges / trophies** | **Held** | `badges`(slug,criteria JSON); `user_badges`(UNIQUE) | criteria engine (events → idempotent awards; `nevo:badges:recompute` cron). **Adds to rename surface (#8)** | ⚙ (idempotency) ◻ (CRUD) |
 | **Community-feel pack** | Core | — | **mostly pre-done** (group colours = ACP v2); remaining = forum stats, **view-count increment** (throttle per session, no write-storm), online heuristic via `last_seen` | ◻ |
 
 ### P2-M4 — Moderation depth & discovery
@@ -286,4 +286,4 @@ merges.
 - **TO DECIDE before M2 PMs (Opus ADR):** account-deletion/privacy cascade (§6).
 - **TO RECORD in `DECISIONS.md` during M1:** edit-history diff source/extraction (#3); any diff library;
   oEmbed embed-host allowlist + sandbox policy (#2); any query-budget ceiling change (#6).
-- **Phase-5 (not now):** `hearth → nevobb` rename sweep (ADR-0024) — new `hearth:` crons add to its surface (#8).
+- **Phase-5 (not now):** `nevo → nevobb` rename sweep (ADR-0024) — new `nevo:` crons add to its surface (#8).

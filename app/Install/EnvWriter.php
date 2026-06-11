@@ -23,7 +23,7 @@ final class EnvWriter
 {
     public function path(): string
     {
-        return (string) config('hearth.install.env_path', base_path('.env'));
+        return (string) config('novfora.install.env_path', base_path('.env'));
     }
 
     /** Ensure a `.env` exists, copying from `.env.example` when absent (a no-SSH upload has no `.env`). */

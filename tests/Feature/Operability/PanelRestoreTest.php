@@ -24,14 +24,14 @@ uses(RefreshDatabase::class);
 beforeEach(function () {
     $this->seed();
 
-    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-rh11-panel-'.bin2hex(random_bytes(6));
+    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'novfora-rh11-panel-'.bin2hex(random_bytes(6));
     @mkdir($dir, 0775, true);
     config([
-        'hearth.backup.path' => $dir,
-        'hearth.backup.restore_state_path' => $dir.DIRECTORY_SEPARATOR.'hearth-restore.json',
+        'novfora.backup.path' => $dir,
+        'novfora.backup.restore_state_path' => $dir.DIRECTORY_SEPARATOR.'novfora-restore.json',
     ]);
     // A listable, resolvable archive (resolve() only checks the name pattern + is_file).
-    $this->archive = 'hearth-20260601-120000.zip';
+    $this->archive = 'novfora-20260601-120000.zip';
     file_put_contents($dir.DIRECTORY_SEPARATOR.$this->archive, 'x');
 
     app(RestoreState::class)->forget();

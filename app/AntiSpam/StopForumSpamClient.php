@@ -26,7 +26,7 @@ final class StopForumSpamClient
      */
     public function check(string $ip, string $email, string $username): array
     {
-        $cfg = (array) config('hearth.antispam.registration.stopforumspam', []);
+        $cfg = (array) config('novfora.antispam.registration.stopforumspam', []);
 
         if (($cfg['use_api'] ?? true) === true) {
             $live = $this->fromApi($ip, $email, $username, (int) ($cfg['timeout'] ?? 4));

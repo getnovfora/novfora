@@ -1,8 +1,8 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
-# Hearth Theme API (developer override layer)
+# NovFora Theme API (developer override layer)
 
 > **Status:** stable, **semver'd public contract** (CLAUDE.md / ADR-0009 §3.2). **API version: `1.0`**
 > (`App\Theme\ThemeManager::API_VERSION`). A breaking change to the overridable-view set or manifest is a
@@ -17,10 +17,10 @@ handful of views it actually customises (XenForo-style diff inheritance, native 
 
 ## Resolution order
 
-When Hearth renders a view it resolves it **active theme → parent theme → … → core**. The active theme's
+When NovFora renders a view it resolves it **active theme → parent theme → … → core**. The active theme's
 `views/` directory is checked first; the first file found wins. So a theme shipping
 `themes/<slug>/views/forum/topic.blade.php` replaces core's `resources/views/forum/topic.blade.php` with no
-core change. Activation is config-only: set `HEARTH_THEME=<slug>` (or `config('hearth.theme.active')`).
+core change. Activation is config-only: set `NOVFORA_THEME=<slug>` (or `config('novfora.theme.active')`).
 
 ## Package layout
 
@@ -38,7 +38,7 @@ themes/<slug>/
   "slug": "acme/aurora",     // unique; the directory under themes/
   "name": "Aurora",
   "version": "1.2.0",        // the theme's own semver
-  "api_version": "^1.0",     // the Hearth THEME API major(s) it targets — checked before a core upgrade
+  "api_version": "^1.0",     // the NovFora THEME API major(s) it targets — checked before a core upgrade
   "parent": "acme/base"      // optional: inherit (fall back to) another theme, then core
 }
 ```
@@ -70,7 +70,7 @@ Core bakes in a WCAG 2.1 AA floor that themes **may restyle but must not strip**
 
 - a **skip link** (`<a href="#main" class="skip-link">`) and a single `#main` landmark in `layouts.app`;
 - a **visible focus** rule (`:focus-visible`) and a screen-reader-only utility (`.sr-only`);
-- **AA-contrast design tokens** as CSS custom properties (`--hearth-fg`/`--hearth-bg`/`--hearth-accent`/…),
+- **AA-contrast design tokens** as CSS custom properties (`--novfora-fg`/`--novfora-bg`/`--novfora-accent`/…),
   the home for the Phase 3 visual configurator. Default combinations meet AA (≥ 4.5:1 body, ≥ 3:1 UI).
 
 A theme that overrides `layouts.app` must preserve the skip link, the `#main` landmark, and focus visibility.

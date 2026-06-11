@@ -130,11 +130,11 @@ it('runs the scheduled command idempotently', function () {
     givePosts($user, 6);
     giveReads($user, 5);
 
-    $this->artisan('hearth:trust:recompute')->assertSuccessful();
+    $this->artisan('novfora:trust:recompute')->assertSuccessful();
     expect((int) $user->fresh()->trust_level)->toBe(1);
 
     // A second pass changes nothing.
-    $this->artisan('hearth:trust:recompute')->assertSuccessful();
+    $this->artisan('novfora:trust:recompute')->assertSuccessful();
     expect((int) $user->fresh()->trust_level)->toBe(1);
 });
 

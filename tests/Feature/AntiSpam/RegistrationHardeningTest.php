@@ -24,8 +24,8 @@ beforeEach(function () {
 
 it('throttles registration per IP with a 429 once the cap is exceeded', function () {
     config([
-        'hearth.antispam.registration.rate_limit.enabled' => true,
-        'hearth.antispam.registration.rate_limit.per_ip_per_hour' => 2,
+        'novfora.antispam.registration.rate_limit.enabled' => true,
+        'novfora.antispam.registration.rate_limit.per_ip_per_hour' => 2,
     ]);
 
     // Invalid bodies still reach (and count toward) the throttle, and keep the client a guest.
@@ -37,7 +37,7 @@ it('throttles registration per IP with a 429 once the cap is exceeded', function
 });
 
 it('rejects a registration that omits the timing token when it is required', function () {
-    config(['hearth.antispam.registration.honeypot.required' => true]);
+    config(['novfora.antispam.registration.honeypot.required' => true]);
 
     $this->post('/register', [
         'username' => 'notoken', 'email' => 'notoken@example.test',
@@ -49,7 +49,7 @@ it('rejects a registration that omits the timing token when it is required', fun
 });
 
 it('accepts a registration carrying a valid, old-enough timing token', function () {
-    config(['hearth.antispam.registration.honeypot.required' => true]);
+    config(['novfora.antispam.registration.honeypot.required' => true]);
 
     $this->post('/register', [
         'username' => 'oktoken', 'email' => 'oktoken@example.test',
@@ -62,8 +62,8 @@ it('accepts a registration carrying a valid, old-enough timing token', function 
 
 it('rejects a replayed single-use Q&A nonce (a captured answer cannot be reused)', function () {
     config([
-        'hearth.antispam.registration.captcha.qa.answers' => ['blue'],
-        'hearth.antispam.registration.captcha.qa.single_use' => true,
+        'novfora.antispam.registration.captcha.qa.answers' => ['blue'],
+        'novfora.antispam.registration.captcha.qa.single_use' => true,
     ]);
 
     $qa = new QaCaptchaProvider;

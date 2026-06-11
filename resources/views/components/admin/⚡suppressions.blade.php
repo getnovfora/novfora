@@ -66,7 +66,7 @@ new class extends Component
 
     public function dormant(): bool
     {
-        return ! (bool) config('hearth.deliverability.enabled');
+        return ! (bool) config('novfora.deliverability.enabled');
     }
 
     private function ensureAdmin(): void

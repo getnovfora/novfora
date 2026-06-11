@@ -4,7 +4,7 @@ Copyright 2026 The NovFora Authors
 -->
 # Architecture Decision Records (ADRs)
 
-Decision log for **Hearth** (working codename). Each ADR is the short, durable record; the linked Stage A doc
+Decision log for **NovFora**. Each ADR is the short, durable record; the linked Stage A doc
 holds the full rationale, tradeoffs, and detail. New significant decisions are added here via the RFC/ADR
 process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed · Superseded · Revises-brief
 (flagged for sign-off)**.
@@ -35,10 +35,10 @@ process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed
 | 0018 | **Strict clean-room** vs all reference forums; copy *data* (importers), never *program* | Accepted (brief) | [CONTRIBUTING](CONTRIBUTING.md) |
 | 0019 | **Auth = Laravel Fortify (headless) + our own Blade views**; **argon2id**; **2FA/TOTP mandatory for staff**, opt-in for users; passkeys deferred | Accepted | [security §1](docs/architecture/security-and-permissions.md) |
 | 0020 | **No-SSH web installer** with a **post-install file-marker lock** (no re-trigger / admin-reset vector); one shared `InstallRunner` for web + CLI; pre-install boot hardening; **portable backup/restore** (manifest + SHA-256 integrity) | Accepted | [getting-started](docs/getting-started.md) |
-| 0021 | **No-SSH automatic upgrade** — cron-driven, backup-first, maintenance-safe migration; cheap cached schema-state detection (release-fingerprint, O(cache-read) request path); `NEVO_AUTO_UPGRADE` default-on with a manual admin/CLI path; held-not-looping failure policy | Accepted | [getting-started §5](docs/getting-started.md) · [RH-10](docs/product/real-host-findings.md) |
+| 0021 | **No-SSH automatic upgrade** — cron-driven, backup-first, maintenance-safe migration; cheap cached schema-state detection (release-fingerprint, O(cache-read) request path); `NOVFORA_AUTO_UPGRADE` default-on with a manual admin/CLI path; held-not-looping failure policy | Accepted | [getting-started §5](docs/getting-started.md) · [RH-10](docs/product/real-host-findings.md) |
 | 0024 | **Project name = NevoBB** — single brand; "NevoBB" codename retired; NevoForums parked as redirect/future hosted tier | **Superseded by ADR-0026** | [§ADR-0024](#adr-0024--project-name-nevobb-2026-06-07) |
 | 0025 | **Account deletion + content-cascade policy** — posts pseudonymised (`[Deleted]`); reactions / poll votes / tags hard-deleted; owner-confirmable cascade; voluntary + admin-forced paths share one service | Accepted | [§ADR-0025](#adr-0025--account-deletion-and-content-cascade-policy-2026-06-10) |
-| 0026 | **Project name = NovFora** (supersedes ADR-0024) — domains `novfora.com` + `novfora.net` registered; Hearth/NevoBB are retired codenames; in-code rename is the immediate next task | Accepted | [§ADR-0026](#adr-0026--project-name-novfora-2026-06-10) |
+| 0026 | **Project name = NovFora** (supersedes ADR-0024) — domains `novfora.com` + `novfora.net` registered; Hearth/NevoBB are retired codenames; in-code rename complete | Accepted | [§ADR-0026](#adr-0026--project-name-novfora-2026-06-10) |
 
 ---
 
@@ -73,7 +73,7 @@ truth-table tests; anti-spam gating reuses it (ADR-0007). **NO semantics (owner-
 by the truth-table suite.
 
 ### ADR-0007 — First-class anti-spam
-**Context:** spam is the #1 evidenced operator burden and Hearth's differentiator. **Decision:** layered
+**Context:** spam is the #1 evidenced operator burden and NovFora's differentiator. **Decision:** layered
 defense (registration blocklist + CAPTCHA abstraction + honeypot + velocity; trust levels as ACL groups;
 post-time scanning + rate limits + moderation queue; Spam Cleaner), **gating expressed through the
 permission-mask engine** (NEVER = hard gate, NO = soft gate), all baseline-safe/graceful. **Consequences:**
@@ -81,8 +81,8 @@ unified with permissions + inspectable; external services optional; documented t
 retention on registration checks.
 
 **M3 implementation notes (2026-06-03):** TL gating is seeded as `acl_entries` on the TL groups from a
-config matrix (`config/nevo.php`), enforced by link/image **suppression at the shared sanitize step** (the
-canonical stays lossless, ADR-0005); auto promotion/demotion runs via the idempotent `nevo:trust:recompute`
+config matrix (`config/novfora.php`), enforced by link/image **suppression at the shared sanitize step** (the
+canonical stays lossless, ADR-0005); auto promotion/demotion runs via the idempotent `novfora:trust:recompute`
 cron. Registration is a tri-state screener (StopForumSpam live→cron-cached→no-signal; disposable-email;
 honeypot+timing; IP velocity) + a `CaptchaProvider` abstraction that **degrades to Q&A** when an external
 provider is absent. Post-time moderation = a `ContentScanner` **contract** (local heuristics now; **Akismet is
@@ -131,11 +131,11 @@ slice), not seeded. Dedicated feature tests cover registration, throttling, rese
 2FA enable/confirm/challenge flow, and the staff-2FA gate.
 
 ### ADR-0020 — No-SSH web installer, lock, and backups (M5)
-**Context:** Hearth must be installable by ordinary operators on a shared host with no SSH, and the
+**Context:** NovFora must be installable by ordinary operators on a shared host with no SSH, and the
 installer is an **unauthenticated pre-install surface** that writes secrets, runs migrations, and creates
 the admin — the highest-risk code path in the project. **Decision:** a browser wizard (requirement/tier
 probes → DB → site & admin → run) backed by a single `App\Install\InstallRunner` shared with a
-`nevo:install` CLI, so there is exactly one audited install sequence. The **lock** is a `storage/installed`
+`novfora:install` CLI, so there is exactly one audited install sequence. The **lock** is a `storage/installed`
 **file marker** (not a DB flag — checkable before the DB exists, survives a DB wipe), written **last**; once
 present, `EnsureNotInstalled` returns 403 and **no web route clears it** (reset is a deliberate filesystem
 action = shell trust). A pre-install boot hook forces zero-dependency drivers (file session/cache, sync
@@ -143,7 +143,7 @@ queue) + an ensured APP_KEY so a fresh upload boots with no DB. **Backups** are 
 + storage mirror + a manifest carrying a **SHA-256** of the dump); restore validates the manifest + verifies
 the hash before overwriting. **Consequences:** input validated server-side; secrets never rendered back nor
 logged; the lock has no re-trigger/admin-reset vector; the upgrade safety net (reversible migrations +
-backup→restore) is proven by a round-trip test. Tests opt out of enforcement (`NEVO_INSTALL_ENFORCE=false`)
+backup→restore) is proven by a round-trip test. Tests opt out of enforcement (`NOVFORA_INSTALL_ENFORCE=false`)
 so the M0–M4 suite is untouched.
 
 ### ADR-0021 — No-SSH automatic upgrade (RH-10)
@@ -174,8 +174,8 @@ that is the gate.) A beta gate.
   MySQL DDL is not transactional); stay in maintenance; **hold** (`schema.stuck`) after at most
   `max_auto_attempts` (default 2) — **no retry loop**. The hold self-clears when the operator re-uploads the
   previous release (drift resolved).
-- **Operator controls.** `NEVO_AUTO_UPGRADE=true` by default (the promise). `false` = manual: nothing
-  auto-runs and *Admin → System → Upgrade* / `php artisan nevo:upgrade` apply on demand. **Asymmetry
+- **Operator controls.** `NOVFORA_AUTO_UPGRADE=true` by default (the promise). `false` = manual: nothing
+  auto-runs and *Admin → System → Upgrade* / `php artisan novfora:upgrade` apply on demand. **Asymmetry
   (documented):** auto mode is what shields signed-in pages during the window; manual mode keeps the site
   reachable so the admin can apply, so those pages may error on new columns until they do.
 
@@ -188,7 +188,7 @@ schema · 503-not-SQL during the window · auto-off + manual apply). See
 [real-host-findings RH-10](docs/product/real-host-findings.md).
 
 ### ADR-0022 — No-SSH panel restore (RH-11)
-**Context:** `nevo:restore` existed only as a CLI command; *Admin → System → Backups* could create/download
+**Context:** `novfora:restore` existed only as a CLI command; *Admin → System → Backups* could create/download
 but **not restore**, so a no-SSH operator had no recovery path — the same documented-but-unimplemented class as
 RH-10. The kickoff: add a safe, no-SSH restore to the panel, reusing the RH-10 machinery (maintenance gate,
 audit, health surfacing).
@@ -202,7 +202,7 @@ audit, health surfacing).
   therefore a **file** (`RestoreState` → outside `storage/app`, so it survives the DB swap), and the run is
   drained by the **single cron line** (`RestoreRunner::runPending`) in CLI context. The flock lock — not a
   cache lock, which the restore would wipe — is the real double-run guard. `runNow()` is the synchronous CLI
-  path; CLI (`nevo:restore`) and panel share one `execute()`.
+  path; CLI (`novfora:restore`) and panel share one `execute()`.
 - **Choreography:** validate the archive (manifest + streamed dump SHA-256 — **refuse before touching
   anything**) → take a **pre-restore safety snapshot** (so the restore is itself reversible) → restore DB +
   storage from a private temp copy of the target → flush caches + `SchemaState::refresh()` → exit maintenance
@@ -220,7 +220,7 @@ audit, health surfacing).
   detected next tick because the file lock is free yet the state still says `running` — HOLDS the site
   (`restore.stuck`); the scheduler also skips every DB-touching job during the window. No-SSH recovery: delete
   the restore-state file via the host file manager, then re-restore from the panel / the named pre-restore
-  safety snapshot (or `php artisan nevo:restore` with a shell). This is the one operability state that needs
+  safety snapshot (or `php artisan novfora:restore` with a shell). This is the one operability state that needs
   a deliberate operator action — the fail-safe choice for a destructive op.
 
 **Consequences:** a no-SSH operator finally has a recovery path, on the baseline tier, with zero new
@@ -248,7 +248,7 @@ group, label) as the single source of truth.
 - **Defaults are NOT seeded as rows.** Seeding would shadow the env/config fallback and defeat the override's
   whole point. "Seeded defaults" therefore means the registry's in-code defaults; an unset key tracks
   env/config until an admin explicitly sets a value, after which the DB row wins and survives the next release.
-  (`NEVO_NEW_USER_HOLD_POSTS` is wired into `config/nevo.php` so it participates in the chain.)
+  (`NOVFORA_NEW_USER_HOLD_POSTS` is wired into `config/novfora.php` so it participates in the chain.)
 - **Caching (RH-9):** the whole bag is read **once per request** and cached as **primitives only** (the raw
   string column + type + encrypted flag — never an Eloquent model, never a decrypted secret). Decryption and
   typing happen after the cache boundary, in-process; a failed/empty read (pre-install, table missing) is
@@ -304,10 +304,10 @@ project lead registered `novfora.com` and `novfora.net` and decided NovFora bett
 product's identity — evocative, distinct, and free of the "BB" suffix that signals legacy forum
 software to new audiences.
 **Decision:** **NovFora** is the final, permanent brand name for the engine, repo, site, packages,
-and docs. ADR-0024 is superseded. "Hearth" and "NevoBB" are both retired codenames. The immediate
-next task is a single reviewed rename commit (`refactor(rename): Hearth/NevoBB → NovFora per ADR-0026`)
-covering `config/`, Artisan command signatures, `NOVFORA_*` env keys, SPDX headers, and user-facing
-strings — executed before any feature branches fork, so no operator contract is broken.
+and docs. ADR-0024 is superseded. "Hearth" and "NevoBB" are both retired codenames. The in-code rename
+commit (`refactor(rename): Hearth/NevoBB → NovFora per ADR-0026`) covered `config/`, Artisan command
+signatures, `NOVFORA_*` env keys, SPDX headers, and user-facing strings — executed before any public
+release so no operator contract was broken.
 **Availability (verified 2026-06-10):** `novfora.com` and `novfora.net` registered by project lead.
 Packagist vendor `novfora` and GitHub org `novfora` to be claimed at repo publish.
 **Consequences:** one identity to build equity in; update all docs, SPDX headers, and code references
@@ -455,7 +455,7 @@ Avatars/covers use the `public` disk (needs `storage:link`, an installer step). 
 **M5 — operability & the runnable MVP (2026-06-03):** **No new dependencies.** The installer, backups,
 restore, health endpoint, demo seed, and scheduler are built on the framework: `symfony/process` (DB dump/
 restore via `mysqldump`/`mysql`/`pg_dump`/`pg_restore`) and PHP's `ZipArchive` were already present (the M0
-`nevo:backup` skeleton used them); the wizard is a single-file Livewire component; the perf budgets are a
+`novfora:backup` skeleton used them); the wizard is a single-file Livewire component; the perf budgets are a
 Pest `Performance` suite + shell asset checks in CI. The Dusk editor journey was **executed for real** in a
 new `docker/dusk/` Chrome image + a CI job (php:8.3 + system Chromium/ChromeDriver) — `laravel/dusk` (M0
 dev-dep) and `@tiptap/*` (M2) are unchanged. **M5 implementation notes:** the install lock is a filesystem
@@ -463,7 +463,7 @@ marker, not a DB row (ADR-0020); `wire:model.blur` on the create-topic title (a 
 validation-error morph reliably syncs on resubmit — found by running Dusk); the demo seed pins mail to the
 array transport so it never hits SMTP during install.
 
-**SPDX policy:** Hearth-authored source carries an `SPDX-License-Identifier: Apache-2.0` header. Laravel's
+**SPDX policy:** NovFora-authored source carries an `SPDX-License-Identifier: Apache-2.0` header. Laravel's
 scaffolded stubs are left as-is and gain a header when meaningfully edited — retrofitting every stub adds
 noise without value.
 
@@ -504,14 +504,14 @@ topics) — no ceiling change, no ADR needed. Prefix/tag listings are eager-load
 
 **oEmbed — provider allowlist, the dedicated embed policy & SSRF (amendment #2 + security §3).** A post stores
 the URL ONLY; a client never supplies embed HTML.
-- **Provider allowlist** (`config('nevo.oembed.providers')`): `youtube` and `vimeo`. Each is a host-anchored
+- **Provider allowlist** (`config('novfora.oembed.providers')`): `youtube` and `vimeo`. Each is a host-anchored
   regex capturing the id → a constructed iframe `src` on an **allowlisted embed host**
   (`www.youtube-nocookie.com`, `player.vimeo.com`). The provider's own returned HTML is never used.
 - **Dedicated embed policy** (`App\Content\Oembed\EmbedPolicy`, SEPARATE from the post `ContentSanitizer`,
   which keeps forbidding iframes): an allowlisted match → ONE `<iframe>` with a fixed
   `sandbox="allow-scripts allow-same-origin allow-popups allow-presentation"` (no allow-top-navigation/-forms/
   -modals) + a minimal `allow`, `loading=lazy`, `referrerpolicy=strict-origin-when-cross-origin`; the src is
-  escaped and pinned to the allowlisted host. A non-allowlisted (or failed) URL → a **NevoBB link-card facade**
+  escaped and pinned to the allowlisted host. A non-allowlisted (or failed) URL → a **NovFora link-card facade**
   (a safe `http(s)` link, never a provider iframe). The CSP `frame-src` lists the SAME embed hosts (defence in
   depth — keep in sync with the provider allowlist).
 - **Render path**: the canonical `embed` node renders to a sanitizer-surviving placeholder span (class carries
@@ -573,6 +573,6 @@ volume caps stay conservative. New dependencies: none. Reversible migration only
   (`reviewCandidate()` returns null while VERP is enabled, so a forged/absent-VERP bounce can't flood the queue
   — the same DoS class the VERP-only-identity rule closed). Transient `4.x.x` self-heals and is never queued.
   A new ACP card (Admin → System → Email) lets staff suppress by hand (the authentication) or dismiss.
-- **Activation.** `.env.example` ships `NEVO_DELIVERABILITY=true` + `NEVO_DIGEST=true`; graceful absence is
+- **Activation.** `.env.example` ships `NOVFORA_DELIVERABILITY=true` + `NOVFORA_DIGEST=true`; graceful absence is
   unchanged (no provider/webhook/VERP/IMAP → VERP/manual floor, `NullBounceMailbox`, never an error). The
   operator SPF/DKIM/DMARC + on-domain-`From` checklist (memo §5) is surfaced on the ACP Email page.

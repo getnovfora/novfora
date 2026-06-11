@@ -1,6 +1,6 @@
 # Phase 1 Plan — Core MVP (plan-before-code)
 
-> **Project:** Hearth (working codename). **Status: DRAFT for owner approval — NO application code is written
+> **Project:** NovFora (working codename). **Status: DRAFT for owner approval — NO application code is written
 > until this plan is signed off.** **Date:** 2026-06-01.
 > **Stack (locked, ADR-0001/0002):** Laravel 13 · Livewire 4 · Alpine · Blade · PHP 8.3 · MySQL 8/MariaDB.
 > **MVP framing (gate decision):** **Full MVP** — the Lean descopes are *not* applied (see §3).
@@ -12,7 +12,7 @@
 ## 1. Goal & definition of done
 
 **Goal:** a genuinely usable forum that **installs and runs on the baseline tier** (a shared PHP host: PHP 8.3
-+ MySQL + cron, no SSH required, no daemons) and already embodies Hearth's differentiators — phpBB-grade
++ MySQL + cron, no SSH required, no daemons) and already embodies NovFora's differentiators — phpBB-grade
 permissions, a modern WYSIWYG editor, first-class anti-spam, and no-core-edit theming.
 
 **Definition of done (Phase 1 exit criteria):**
@@ -142,7 +142,7 @@ starts until this memo says GO on a specific mechanism.**
 **Spike 0 result — GO (2026-06-02).** All six criteria passed with executed evidence (Pest 10 tests / 82
 assertions incl. the #4 XSS battery; Playwright 6/6 incl. the #1a state-survival GO-blocker, both paths). No
 fallback needed; **ADR-0012 stands.** Memo: [spike-0-memo.md](spike-0-memo.md); reference scaffold under
-`hearth-spike/`. **Binding M2 editor implementation notes (carry these forward):**
+`nevo-spike/`. **Binding M2 editor implementation notes (carry these forward):**
 
 1. **The editor lives in per-instance closure state — never a reactive Alpine property.** A reactive proxy wraps
    ProseMirror's state and makes programmatic commands throw *"Applying a mismatched transaction."* This is the
@@ -157,7 +157,7 @@ fallback needed; **ADR-0012 stands.** Memo: [spike-0-memo.md](spike-0-memo.md); 
    separate MIT packages.
 6. **`CanonicalRenderer` is the security boundary** — JSON→HTML mapper with per-value escaping + a
    symfony/html-sanitizer allowlist backstop; **port it from the spike**
-   (`hearth-spike/app/Support/CanonicalRenderer.php`, proven by `CanonicalRendererTest`).
+   (`nevo-spike/app/Support/CanonicalRenderer.php`, proven by `CanonicalRendererTest`).
 7. **Drag-drop + paste both call one `uploadAndInsert`;** automate the upload→insert pipeline via the file picker
    (synthetic native file-drops are unreliable headless — a test-harness limitation, not an integration gap).
 

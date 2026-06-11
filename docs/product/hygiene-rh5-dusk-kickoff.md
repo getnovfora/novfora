@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # Hygiene closeout (RH-5 + Dusk enforce-ON split) — Claude Code kickoff
 
@@ -36,7 +36,7 @@ PART 1 — RH-5: rebuild committed assets + a CI guard so drift can't recur
     extend rather than duplicate).
 
 PART 2 — Dusk enforce-ON split (the RH-7 follow-up, currently noted in the findings doc)
-  CONTEXT: docker/dusk serves ONE app with HEARTH_INSTALL_ENFORCE=false because EditorJourneyTest needs a
+  CONTEXT: docker/dusk serves ONE app with NOVFORA_INSTALL_ENFORCE=false because EditorJourneyTest needs a
   reachable installed app — so InstallerWizardTest never exercises real pre-install enforcement in a browser.
   The enforcement-ON feature tests (InstallerEnforcedLivewireTest) remain the authoritative regression; this
   adds the real-browser belt to the suspenders.
@@ -52,7 +52,7 @@ PART 2 — Dusk enforce-ON split (the RH-7 follow-up, currently noted in the fin
 DELIVER:
   • Full Pest suite + gates green (Pint / Larastan / composer audit). Dusk passes if runnable here.
   • Since public/build changed: rebuild scripts/build-release.sh + run scripts/verify-release.sh (cold boot →
-    302 /install); report the new hearth-release.zip size + sha256 and surface the artifact (stays gitignored).
+    302 /install); report the new novfora-release.zip size + sha256 and surface the artifact (stays gitignored).
   • Docs: real-host-findings.md → RH-5 FIXED (and note the Dusk split landed under the RH-7 entry);
     PROJECT-STATE.md updated.
   • Small conventional commits, DCO-signed AS TOMMY (see STEP 0), pushed.

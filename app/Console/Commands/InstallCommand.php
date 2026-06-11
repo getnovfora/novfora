@@ -16,7 +16,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 /**
- * `php artisan hearth:install` — the CLI install path for VPS / SSH operators (M5). Runs the exact same
+ * `php artisan novfora:install` — the CLI install path for VPS / SSH operators (M5). Runs the exact same
  * App\Install\InstallRunner as the web wizard, so both entry points share one audited sequence.
  *
  * Already-installed is refused unless `--force` (CLI access already implies host trust — this is also
@@ -24,14 +24,14 @@ use Illuminate\Validation\Rules\Password;
  */
 class InstallCommand extends Command
 {
-    protected $signature = 'hearth:install
+    protected $signature = 'novfora:install
         {--name= : Community name}
         {--url= : Site URL (e.g. https://forum.example.com)}
         {--db-driver=mysql : mysql|mariadb|pgsql|sqlite}
         {--db-host=127.0.0.1}
         {--db-port=3306}
-        {--db-database=hearth}
-        {--db-username=hearth}
+        {--db-database=novfora}
+        {--db-username=novfora}
         {--db-password= : DB password (omit to be prompted; empty allowed)}
         {--admin-username=}
         {--admin-email=}
@@ -41,12 +41,12 @@ class InstallCommand extends Command
         {--skip-checks : Skip the host requirement checks (not recommended)}
         {--force : Re-run even if already installed}';
 
-    protected $description = 'Install Hearth from the command line (the VPS counterpart to the web installer).';
+    protected $description = 'Install NovFora from the command line (the VPS counterpart to the web installer).';
 
     public function handle(Installer $installer, RequirementChecker $checker, InstallRunner $runner): int
     {
         if ($installer->isInstalled() && ! $this->option('force')) {
-            $this->components->error('Hearth is already installed. Re-run with --force (after removing '.$installer->markerPath().' if you mean to reinstall).');
+            $this->components->error('NovFora is already installed. Re-run with --force (after removing '.$installer->markerPath().' if you mean to reinstall).');
 
             return self::FAILURE;
         }
@@ -60,7 +60,7 @@ class InstallCommand extends Command
             return self::FAILURE;
         }
 
-        $this->components->info('Installing Hearth…');
+        $this->components->info('');
 
         try {
             // --force re-run: clear the marker so the runner's own guard passes.
@@ -91,7 +91,7 @@ class InstallCommand extends Command
             return self::FAILURE;
         }
 
-        $this->components->info('✓ Hearth is installed and locked.');
+        $this->components->info('✓ NovFora is installed and locked.');
         if ($result->demoSeeded) {
             $this->line('  • Demo community seeded.');
         }

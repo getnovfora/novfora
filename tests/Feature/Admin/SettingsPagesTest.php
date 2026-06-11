@@ -53,11 +53,11 @@ it('blocks sign-up when registration is disabled', function () {
 
     $this->get('/register')->assertOk()->assertSee('Registration closed');
     $this->post('/register', [
-        'username' => 'newbie', 'email' => 'newbie@hearth.test',
+        'username' => 'newbie', 'email' => 'newbie@novfora.test',
         'password' => 'Sup3rSecret!23', 'password_confirmation' => 'Sup3rSecret!23',
     ])->assertSessionHasErrors('email');
 
-    expect(User::where('email', 'newbie@hearth.test')->exists())->toBeFalse();
+    expect(User::where('email', 'newbie@novfora.test')->exists())->toBeFalse();
 });
 
 it('auto-verifies new users when email verification is turned off', function () {
@@ -65,7 +65,7 @@ it('auto-verifies new users when email verification is turned off', function () 
     bag()->set('registration.require_email_verification', false);
 
     $user = app(CreateNewUser::class)->create([
-        'username' => 'verified', 'email' => 'verified@hearth.test',
+        'username' => 'verified', 'email' => 'verified@novfora.test',
         'password' => 'Sup3rSecret!23', 'password_confirmation' => 'Sup3rSecret!23',
     ]);
 
@@ -108,7 +108,7 @@ it('overrides the live moderation config when saved', function () {
     expect(bag()->int('moderation.new_user_hold_posts'))->toBe(0);
 
     bag()->applyToConfig();
-    expect(config('hearth.antispam.new_user_moderation.posts'))->toBe(0);
+    expect(config('novfora.antispam.new_user_moderation.posts'))->toBe(0);
 });
 
 // ── Anti-spam ────────────────────────────────────────────────────────────────────────────────────────
@@ -122,7 +122,7 @@ it('saves the anti-spam captcha + SFS settings', function () {
     expect(bag()->bool('antispam.sfs_use_api'))->toBeFalse();
 
     bag()->applyToConfig();
-    expect(config('hearth.antispam.registration.captcha.provider'))->toBe('none');
+    expect(config('novfora.antispam.registration.captcha.provider'))->toBe('none');
 });
 
 // ── Appearance ───────────────────────────────────────────────────────────────────────────────────────

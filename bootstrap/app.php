@@ -17,7 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Until Hearth is installed, force every web request to the no-SSH installer (M5). Appended so it
+        // Until NovFora is installed, force every web request to the no-SSH installer (M5). Appended so it
         // runs after the session has started — the wizard is a Livewire component and needs the session.
         $middleware->web(append: [
             RedirectIfNotInstalled::class,
@@ -35,7 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // The installer lock — applied to the installer routes so they 403 once installed.
         $middleware->alias([
-            'hearth.not-installed' => EnsureNotInstalled::class,
+            'novfora.not-installed' => EnsureNotInstalled::class,
         ]);
 
         // Spike P2 (deliverability): the inbound provider bounce/complaint webhook and the RFC 8058

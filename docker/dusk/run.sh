@@ -5,7 +5,7 @@
 # follow-up — the enforce-ON harness split):
 #
 #   PASS 1 — INSTALLER (enforcement ON, no install marker, fresh DB): drives the FULL web installer wizard
-#            (tests/Browser/InstallerWizardTest.php) against a served app with HEARTH_INSTALL_ENFORCE=true, so
+#            (tests/Browser/InstallerWizardTest.php) against a served app with NOVFORA_INSTALL_ENFORCE=true, so
 #            every wire:click's Livewire POST flows through RedirectIfNotInstalled exactly like production —
 #            the real-browser belt for RH-7. (The enforcement-ON FEATURE tests, InstallerEnforcedLivewireTest,
 #            remain the authoritative regression; this adds the genuine in-browser proof.)
@@ -69,17 +69,17 @@ dump_logs() {
 }
 
 # ── PASS 1 — INSTALLER (enforcement ON) ──────────────────────────────────────────────────────────────
-# The served app enforces install (HEARTH_INSTALL_ENFORCE=true) with NO marker, so the wizard's own AJAX
+# The served app enforces install (NOVFORA_INSTALL_ENFORCE=true) with NO marker, so the wizard's own AJAX
 # flows through the enforce middleware like production. Every install side effect (.env, marker, token,
 # public-storage) points at a throwaway sandbox so the wizard never clobbers THIS .env, the dusk.sqlite, or a
 # real marker; the wizard installs into a DISPOSABLE MySQL database (prepared empty below).
 cat > .env <<EOF
-APP_NAME=HearthDusk
+APP_NAME=NovForaDusk
 APP_ENV=local
 APP_KEY=${APP_KEY}
 APP_DEBUG=true
 APP_URL=http://127.0.0.1:8000
-HEARTH_INSTALL_ENFORCE=true
+NOVFORA_INSTALL_ENFORCE=true
 DB_CONNECTION=sqlite
 DB_DATABASE=/app/database/dusk.sqlite
 CACHE_STORE=file
@@ -88,15 +88,15 @@ QUEUE_CONNECTION=sync
 MAIL_MAILER=array
 SCOUT_DRIVER=database
 BROADCAST_CONNECTION=log
-HEARTH_INSTALL_REQUIRE_TOKEN=true
-HEARTH_INSTALL_TOKEN_PATH=${SANDBOX}/install-token.txt
-HEARTH_INSTALL_ENV_PATH=${SANDBOX}/installed.env
-HEARTH_INSTALL_MARKER=${SANDBOX}/installed
-HEARTH_PUBLIC_LINK=${SANDBOX}/public-storage
-HEARTH_DUSK_INSTALL_DB_HOST=mysql
-HEARTH_DUSK_INSTALL_DB_NAME=hearth_install
-HEARTH_DUSK_INSTALL_DB_USER=root
-HEARTH_DUSK_INSTALL_DB_PASS=secret
+NOVFORA_INSTALL_REQUIRE_TOKEN=true
+NOVFORA_INSTALL_TOKEN_PATH=${SANDBOX}/install-token.txt
+NOVFORA_INSTALL_ENV_PATH=${SANDBOX}/installed.env
+NOVFORA_INSTALL_MARKER=${SANDBOX}/installed
+NOVFORA_PUBLIC_LINK=${SANDBOX}/public-storage
+NOVFORA_DUSK_INSTALL_DB_HOST=mysql
+NOVFORA_DUSK_INSTALL_DB_NAME=novfora_install
+NOVFORA_DUSK_INSTALL_DB_USER=root
+NOVFORA_DUSK_INSTALL_DB_PASS=secret
 EOF
 
 # Fresh installer sandbox (no marker → un-installed). InstallerWizardTest mints its own setup token at the
@@ -105,8 +105,8 @@ rm -rf "$SANDBOX"; mkdir -p "$SANDBOX/public-storage"
 
 # A clean, empty MySQL database for the wizard to install INTO. Retry until the service answers.
 for _ in $(seq 1 30); do
-  if php -r '$pdo=new PDO("mysql:host=mysql","root","secret",[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); $pdo->exec("DROP DATABASE IF EXISTS hearth_install"); $pdo->exec("CREATE DATABASE hearth_install CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");' 2>/tmp/dbprep.log; then
-    echo "prepared install database: hearth_install"; break
+  if php -r '$pdo=new PDO("mysql:host=mysql","root","secret",[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); $pdo->exec("DROP DATABASE IF EXISTS novfora_install"); $pdo->exec("CREATE DATABASE novfora_install CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");' 2>/tmp/dbprep.log; then
+    echo "prepared install database: novfora_install"; break
   fi
   sleep 2
 done
@@ -127,12 +127,12 @@ stop_serve
 # (enforcement off) for the editor journey — its unchanged config.
 rm -rf "$SANDBOX"
 cat > .env <<EOF
-APP_NAME=HearthDusk
+APP_NAME=NovForaDusk
 APP_ENV=local
 APP_KEY=${APP_KEY}
 APP_DEBUG=true
 APP_URL=http://127.0.0.1:8000
-HEARTH_INSTALL_ENFORCE=false
+NOVFORA_INSTALL_ENFORCE=false
 DB_CONNECTION=sqlite
 DB_DATABASE=/app/database/dusk.sqlite
 CACHE_STORE=file

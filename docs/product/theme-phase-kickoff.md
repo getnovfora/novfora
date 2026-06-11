@@ -1,17 +1,17 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # Default theme / UI polish phase — Claude Code kickoff
 
-> The engine is proven on real hosting (RH-1…RH-9 closed); this phase makes Hearth *look* like the product
+> The engine is proven on real hosting (RH-1…RH-9 closed); this phase makes NovFora *look* like the product
 > the brief promised. The taste contract is [theme-design-brief.md](theme-design-brief.md) — read it first
 > and treat it as binding. Appearance only: no behavior changes beyond the two user settings named below.
 
 ---
 
 ```
-Implement Hearth's default theme per docs/product/theme-design-brief.md. Work on a BRANCH and open a PR —
+Implement NovFora's default theme per docs/product/theme-design-brief.md. Work on a BRANCH and open a PR —
 this change is reviewed visually (screenshots) before merge. Appearance/presentation only.
 
 STEP 0: read PROJECT-STATE.md, docs/product/theme-design-brief.md (the binding taste contract),
@@ -43,7 +43,7 @@ PART 2 — APPEARANCE SETTINGS (the only behavior additions, per the brief):
   • Both live in user settings with tests (persistence + rendering effect).
 
 PART 3 — PAGES & COMPONENTS (scope checklist from the brief §4):
-  • Global shell: header (text wordmark "Hearth", search, notification bell, user menu, sign-in), mobile
+  • Global shell: header (text wordmark "NovFora", search, notification bell, user menu, sign-in), mobile
     nav, breadcrumbs, footer, flash notices.
   • Core: forum index · forum view (topic list w/ pinned/locked badges, pagination) · topic view (post
     stream: avatar, author meta, body typography, signatures, attachments, reply editor) · search results ·
@@ -95,5 +95,5 @@ somewhere, choose the lower-churn reading and note it in the PR.
 ## After this
 
 Owner reviews the PR screenshots against the brief, iterates if needed, merges, and deploys the themed
-bundle to the live host — the first deploy that *looks* like Hearth. Then: **RH-4** (subdirectory install —
+bundle to the live host — the first deploy that *looks* like NovFora. Then: **RH-4** (subdirectory install —
 design spike + ADR), and Phase 2 (Community) per the roadmap.

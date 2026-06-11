@@ -3,7 +3,7 @@
 > **Decision: GO** — the `wire:ignore` + Alpine-island pattern (canonical TipTap JSON synced via
 > `$wire.set`, HTML rendered + sanitized server-side) is validated as the editor↔Livewire-4 mechanism.
 > **Date:** 2026-06-02. **Run env:** Docker `php:8.3-cli` (`.spike-docker/Dockerfile`) for PHP/Composer/Pest;
-> host Node 24 for Vite; Playwright 1.60 + Chromium driving the live app. Scaffold in `hearth-spike/`.
+> host Node 24 for Vite; Playwright 1.60 + Chromium driving the live app. Scaffold in `nevo-spike/`.
 > **No fallback (§5) was needed.** ADR-0012 stands as written.
 
 ## Resolved versions (all MIT unless noted)
@@ -38,11 +38,11 @@ Full PHP suite: **10 passed (82 assertions)**. Full browser suite: **6 passed**.
 The editor is a TipTap instance mounted inside a **`wire:ignore`** Alpine island; it emits **canonical TipTap
 JSON only** (never HTML), synced to the Livewire component via a **deferred `$wire.set`**; on save the server
 turns canonical JSON into **sanitized HTML** via `CanonicalRenderer`. Reference files (committed under
-`hearth-spike/`, heavy artifacts git-ignored):
+`nevo-spike/`, heavy artifacts git-ignored):
 
 - `app/Support/CanonicalRenderer.php` — **the security boundary** (JSON→HTML mapper with per-value escaping + an
   allowlist sanitizer backstop). `tests/Unit/CanonicalRendererTest.php` proves criterion #4.
-- `resources/js/editor/hearth-editor.js` — TipTap factory (StarterKit + Placeholder + Mention + Image; paste/drop
+- `resources/js/editor/novfora-editor.js` — TipTap factory (StarterKit + Placeholder + Mention + Image; paste/drop
   upload handlers).
 - `resources/js/editor/island.js` — the Alpine island (closure-state editor; deferred sync). **Read the header
   note here — it encodes the #1 finding below.**
@@ -76,10 +76,10 @@ turns canonical JSON into **sanitized HTML** via `CanonicalRenderer`. Reference 
 ## Reproduce
 
 ```bash
-docker build -t hearth-spike-env -f .spike-docker/Dockerfile .spike-docker
+docker build -t nevo-spike-env -f .spike-docker/Dockerfile .spike-docker
 # PHP/Pest (in container, bind-mounted):  php artisan test
-# JS build + bundle sizes (host):          npm run build   (in hearth-spike/)
-# Browser criteria (host, app served on :8000): playwright test -c hearth-spike/playwright.config.js
+# JS build + bundle sizes (host):          npm run build   (in nevo-spike/)
+# Browser criteria (host, app served on :8000): playwright test -c nevo-spike/playwright.config.js
 ```
 
 ## Next (per the plan — owner gate)
@@ -87,4 +87,4 @@ docker build -t hearth-spike-env -f .spike-docker/Dockerfile .spike-docker
 GO confirms the editor mechanism. **The pattern now folds into Phase 1 M0→M5** (port `CanonicalRenderer`, the
 island closure pattern, and the SFC composer into the real app at the repo root), per
 [phase-1-plan.md](phase-1-plan.md). No change to ADR-0012; findings #1–#7 above become M2 implementation notes.
-The `hearth-spike/` scaffold stays as a reference until M0 supersedes it.
+The `nevo-spike/` scaffold stays as a reference until M0 supersedes it.

@@ -1,6 +1,6 @@
 # Technical Stack Recommendation
 
-> **Project:** Hearth (working codename). **Stage A deliverable** (Section 8 #3). **Date:** 2026-06-01.
+> **Project:** NovFora (working codename). **Stage A deliverable** (Section 8 #3). **Date:** 2026-06-01.
 > Justifies the chosen stack against the brief's locked constraints, records the rejected alternative, the
 > baseline-vs-enhanced tier strategy, and the honest weaknesses Laravel does **not** solve for free.
 > Versions are **live-validated as of June 2026**. Related ADRs: **ADR-0001** (stack), **ADR-0002** (PHP
@@ -146,7 +146,7 @@ mistake that sinks the project — so they are tracked as first-class risks in t
   applies to *reference forums*, not to ordinary well-licensed libraries (Laravel & Livewire are MIT).
 - **Per-dependency check** recorded in [DECISIONS.md](../../DECISIONS.md) when non-obvious, *before* merge.
 - **Specific note — TipTap:** TipTap's **core and standard extensions are MIT** and may be used directly;
-  its **Pro extensions and collaboration server are commercial**. Hearth depends on the **MIT-licensed parts
+  its **Pro extensions and collaboration server are commercial**. NovFora depends on the **MIT-licensed parts
   only**; any premium-tier capability (e.g. real-time collaborative editing) must be reimplemented or sourced
   from an Apache-compatible alternative, never by pulling a commercial TipTap package.
 - **Other watch-items:** Meilisearch (MIT) and Typesense (GPL-3 server, but used **out-of-process over HTTP**,

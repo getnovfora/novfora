@@ -47,7 +47,7 @@ final class DigestMail extends Mailable
     public function envelope(): Envelope
     {
         $count = count($this->items);
-        $site = (string) config('app.name', 'Hearth');
+        $site = (string) config('app.name', 'NovFora');
 
         return new Envelope(subject: "Your {$site} digest — {$count} ".Str::plural('update', $count));
     }

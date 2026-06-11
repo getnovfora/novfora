@@ -37,8 +37,8 @@ beforeEach(function () {
 it('caches the tally as a primitive array — never a model or Collection (RH-9)', function () {
     $this->service->countsForTopic($this->topic->id, [$this->post->id]);
 
-    $version = (int) Cache::get("hearth.reactions.ver.t{$this->topic->id}", 0);
-    $cached = Cache::store('database')->get("hearth.reactions.counts.t{$this->topic->id}.v{$version}");
+    $version = (int) Cache::get("novfora.reactions.ver.t{$this->topic->id}", 0);
+    $cached = Cache::store('database')->get("novfora.reactions.counts.t{$this->topic->id}.v{$version}");
 
     expect($cached)->toBeArray()
         ->and($cached[$this->post->id])->toBeArray()

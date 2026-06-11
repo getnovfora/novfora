@@ -29,7 +29,7 @@ final class EmbedRenderer
             // attributes/content) and swap in the trusted HTML. preg_replace's replacement is a literal here
             // (no backrefs in $trusted are interpreted because we pass it as the replacement of a callback-free
             // call) — but to be safe against '$'/'\\' in the embed HTML, use a callback.
-            $pattern = '~<span class="hearth-embed embed-'.preg_quote($token, '~').'"[^>]*>.*?</span>~s';
+            $pattern = '~<span class="novfora-embed embed-'.preg_quote($token, '~').'"[^>]*>.*?</span>~s';
             $html = preg_replace_callback($pattern, fn (): string => $trusted, $html) ?? $html;
         }
 

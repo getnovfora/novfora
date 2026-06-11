@@ -1,6 +1,6 @@
 # Forum Platform Comparison & Competitive Matrix
 
-> **Project:** Hearth (working codename) — open-source self-hosted forum platform (Laravel + Livewire).
+> **Project:** NovFora (working codename) — open-source self-hosted forum platform (Laravel + Livewire).
 > **Stage A deliverable** for Section 5.1 (tech-stack comparison), 5.3 (best ideas to emulate), and 5.5
 > (competitive matrix).
 > **Date:** 2026-06-01. **Research method:** hybrid — established knowledge + live web verification of
@@ -12,9 +12,9 @@
 
 ---
 
-## 1. Executive summary — what this means for Hearth
+## 1. Executive summary — what this means for NovFora
 
-The six reference platforms split cleanly into two groups, and Hearth's opportunity sits in the gap
+The six reference platforms split cleanly into two groups, and NovFora's opportunity sits in the gap
 between them:
 
 - **The open-source incumbents (phpBB, MyBB, SMF)** own *shared-hosting reach* and *permission depth*
@@ -27,7 +27,7 @@ between them:
   warning-point automation, reactions/trophies, Clubs, Commerce, PWA/push, REST/GraphQL APIs — but are
   closed, paid, and (for Invision) increasingly resented over pricing and feature removal.
 
-**Hearth's thesis:** deliver the commercial-grade product surface (XenForo/Invision polish) on the
+**NovFora's thesis:** deliver the commercial-grade product surface (XenForo/Invision polish) on the
 open-source incumbents' hosting floor (runs on a shared PHP host), with phpBB-grade permissions, modern
 Laravel architecture, and an explicit anti-fragility stance on the four things every incumbent gets
 wrong — **spam, search, upgrades-that-break-customization, and migration fidelity**. The
@@ -42,7 +42,7 @@ ProBoards.**
 
 ## 2. Tech-stack comparison — open-source incumbents (Section 5.1)
 
-The OSS trio are the platforms Hearth is most directly compared to on hosting and architecture. Verified
+The OSS trio are the platforms NovFora is most directly compared to on hosting and architecture. Verified
 facts as of June 2026.
 
 | Dimension | **phpBB** | **MyBB** | **SMF** |
@@ -66,20 +66,20 @@ facts as of June 2026.
 
 **Sources:** phpBB — [endoflife.date](https://endoflife.date/phpbb) · [3.3.16 release](https://www.phpbb.com/community/viewtopic.php?t=2671024) · [permission system](https://area51.phpbb.com/docs/dev/3.3.x/extensions/permission_system.html) · [events tutorial](https://area51.phpbb.com/docs/dev/3.3.x/extensions/tutorial_events.html). MyBB — [versions](https://mybb.com/versions/) · [plugin hooks](https://docs.mybb.com/1.8/development/plugins/hooks/) · [template modification](https://docs.mybb.com/1.8/development/plugins/creating-modifying-templates/) · [license](https://mybb.com/about/license/) · [BBCode→RCE chain (dayzerosec, 2023)](https://dayzerosec.com/vulns/2023/01/30/mybb-bbcode-xss-to-admin-sql-injection-to-code-injection-chain.html). SMF — [GitHub releases](https://github.com/SimpleMachines/SMF/releases) · [permissions wiki](https://wiki.simplemachines.org/smf/SMF2.1:Permissions) · [package manager](https://wiki.simplemachines.org/smf/SMF2.1:Package_manager) · [3.0 announcement](https://blogs.simplemachines.org/dev/587334/Announcing+the+start+of+SMF+3.0+development.html).
 
-### 2.1 Design implications for Hearth (from the OSS trio)
+### 2.1 Design implications for NovFora (from the OSS trio)
 
 - **Adopt phpBB's permission concepts, modernized.** The three-state allow/deny/**never** resolution with
   global→category→forum→thread scope and role presets is the most expressive model and is a brief primary
   requirement. We reimplement it from scratch in Eloquent (clean-room). See
   [security-and-permissions](../architecture/security-and-permissions.md).
 - **Never use `eval()` templates or patch-the-core mods.** MyBB's and SMF's worst structural traits cause
-  both their security and their upgrade-breakage problems. Hearth's module system uses **events/hooks +
+  both their security and their upgrade-breakage problems. NovFora's module system uses **events/hooks +
   declarative slot injection + reversible migrations** (no core edits), and theming uses **Blade override
   layers** (no core edits) — see [plugin-and-theme-system](../architecture/plugin-and-theme-system.md).
 - **Keep the shared-host floor the incumbents have.** Their one durable advantage is "runs anywhere." Our
   tiered architecture preserves this (baseline tier) while adding a modern enhanced tier.
 - **Cautionary note on rewrites.** MyBB 2.0 (a Laravel rewrite) and SMF 3.0 both stalled for years —
-  evidence that *resourcing and incrementalism* matter more than framework choice. Hearth's roadmap is
+  evidence that *resourcing and incrementalism* matter more than framework choice. NovFora's roadmap is
   deliberately phased and always-runnable to avoid the same fate (see [roadmap](../product/roadmap.md)).
 
 ---
@@ -127,7 +127,7 @@ $55). Pricing is the most drift-prone data in this doc; re-verify before relying
 - **Forum-as-OAuth2-provider** (2.3) + scoped ACP-issued API keys + webhooks; **automatic bounced-email
   handler**; **bot-visible content suppression** (lean HTML to crawlers).
 - Editor moving to **Tiptap** in 2.4 — note Tiptap's **core and standard extensions are MIT** (usable
-  directly), but its *Pro* extensions and collaboration server are commercial; Hearth would rely **only on
+  directly), but its *Pro* extensions and collaboration server are commercial; NovFora would rely **only on
   the MIT-licensed parts** (recorded in [technical-stack-recommendation](../architecture/technical-stack-recommendation.md)
   dependency-license discipline).
 
@@ -164,14 +164,14 @@ re-verify before relying on it.* The depth benchmark for monetization and breadt
 
 **Do-not-copy:** IPS Commerce storefront/invoice templates, "Clubs" branding & screens, Marketplace listing
 format. **Weakness to avoid:** v5's **pricing increases + feature removal** triggered documented churn —
-Hearth's answer is open-source + a non-gatekept ecosystem. **Sources:**
+NovFora's answer is open-source + a non-gatekept ecosystem. **Sources:**
 [warnings](https://invisioncommunity.com/4guides/staff-and-moderation/warnings-restrictions-r84/) ·
 [conversions/import](https://invisioncommunity.com/4guides/getting-started/migrating-from-another-platform/running-the-conversion-r211/)
 · [web push](https://invisioncommunity.com/news/invision-community/web-push-notifications-native-sharing-offline-support-r1222/)
 · [new editor](https://invisioncommunity.com/news/invision-community/invision-community-5-the-all-new-editor-r1301/)
 · [pricing backlash](https://www.theadminzone.com/threads/price-hike-no-more-ticket-support-enough-signals-from-invision.154028/page-3).
 
-### 3.4 Prioritized "steal-the-concept" list for Hearth
+### 3.4 Prioritized "steal-the-concept" list for NovFora
 
 In rough leverage order (all reimplemented clean-room; phase tags reference the [roadmap](../product/roadmap.md)):
 
@@ -216,9 +216,9 @@ inputs to prioritization.
 | Import / export | 4 | 4 | 4 | 1 | 3 | 5 |
 | **Best-fit use case** | Traditional free community w/ big extension catalog | Lightweight hobby forum on cheap shared hosting | Simple familiar forum; permissive BSD license | Zero-maintenance hosted hobby community | Self-hosted enthusiast/power-user forum | Full-stack community suite + commerce |
 
-### 4.1 Where Hearth aims to land
+### 4.1 Where NovFora aims to land
 
-Hearth's target profile (to be earned, not assumed): **install ease 4–5** (web installer on shared hosts),
+NovFora's target profile (to be earned, not assumed): **install ease 4–5** (web installer on shared hosts),
 **permission flexibility 5** (phpBB-grade), **moderation 5** (XF/IPS-grade inline + queue), **theme
 customization 5** (visual + developer), **mobile 5** (mobile-first), **architecture modernity 5** (Laravel),
 **import/export 5** (verifying importers), **upgrade experience 5** (reversible migrations + semver'd
@@ -227,14 +227,14 @@ platforms' polish**, while beating all six on upgrades and openness.
 
 ---
 
-## 5. The gap all six share (Hearth's wedge)
+## 5. The gap all six share (NovFora's wedge)
 
 No reviewed platform delivers *all* of: shared-host-installable **and** modern (real-time, API-first,
 mobile-first) **and** open-source **and** phpBB-grade permissions **and** non-fragile customization/upgrades
 **and** strong out-of-the-box anti-spam/search/SEO/migration. The open-source trio lack the modern product
 surface; the commercial trio lack openness and (mostly) the shared-host story. **That intersection is
-Hearth.** The next document quantifies the specific pain points with operator evidence and maps each to a
-concrete Hearth design response.
+NovFora.** The next document quantifies the specific pain points with operator evidence and maps each to a
+concrete NovFora design response.
 
 → Continue to [community-complaints-and-feature-requests.md](community-complaints-and-feature-requests.md).
 

@@ -1,5 +1,5 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => ($user->display_name ?? $user->username).' · '.config('app.name', 'Hearth')])
+@extends('layouts.app', ['title' => ($user->display_name ?? $user->username).' · '.config('app.name', 'NovFora')])
 
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[
@@ -61,7 +61,7 @@
         @if ($user->signature_html)
             <x-ui.card class="space-y-2">
                 <h2 class="text-sm font-semibold text-ink">Signature</h2>
-                <div class="hearth-prose text-ink-muted">{!! $user->signature_html !!}</div>
+                <div class="novfora-prose text-ink-muted">{!! $user->signature_html !!}</div>
             </x-ui.card>
         @endif
     </x-ui.container>

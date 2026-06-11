@@ -10,14 +10,14 @@ use App\Install\HostDoctor;
 use Illuminate\Console\Command;
 
 /**
- * `php artisan hearth:doctor` — a preflight that diagnoses shared-host gotchas before (and after) install:
+ * `php artisan novfora:doctor` — a preflight that diagnoses shared-host gotchas before (and after) install:
  * PHP version + extensions, writable paths, disabled functions, open_basedir, the session/cache/queue
  * drivers, outbound mail, whether symlinks work (and the copy fallback), the backup method, and whether the
  * cron line is firing. `fail` items must be fixed; `warn` items are advisories the baseline tolerates.
  */
 class DoctorCommand extends Command
 {
-    protected $signature = 'hearth:doctor';
+    protected $signature = 'novfora:doctor';
 
     protected $description = 'Diagnose host compatibility (extensions, writable paths, disabled functions, symlink, cron, mail).';
 
@@ -26,7 +26,7 @@ class DoctorCommand extends Command
         $result = $doctor->run();
 
         $this->newLine();
-        $this->line('  <options=bold>Hearth host check</>');
+        $this->line('  <options=bold></>');
         $this->newLine();
 
         foreach ($result['checks'] as $c) {
@@ -46,7 +46,7 @@ class DoctorCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->components->error('Some required checks failed (✕). Fix them on your host, then re-run `php artisan hearth:doctor`.');
+        $this->components->error('Some required checks failed (✕). Fix them on your host, then re-run `php artisan novfora:doctor`.');
 
         return self::FAILURE;
     }

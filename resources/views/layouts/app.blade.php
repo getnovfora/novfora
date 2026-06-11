@@ -18,7 +18,7 @@
     $density = $serverDensity ?: $siteDefaultDensity;
     $htmlTheme = in_array($colorMode, ['light', 'dark'], true) ? $colorMode : null;
     $nonce = \Illuminate\Support\Facades\Vite::cspNonce();
-    $wordmark = ($site['wordmark'] ?? '') !== '' ? $site['wordmark'] : config('app.name', 'Hearth');
+    $wordmark = ($site['wordmark'] ?? '') !== '' ? $site['wordmark'] : config('app.name', 'NovFora');
 
     // Accent + forum-width overrides emitted as CSS variables (AA-safe, light+dark). Width comes from a
     // fixed map; accent is validated hex (AccentPalette returns null otherwise) — safe to inline.
@@ -43,8 +43,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    @auth <meta name="hearth-auth" content="1"> @endauth
-    <title>{{ $title ?? config('app.name', 'Hearth') }}</title>
+    @auth <meta name="novfora-auth" content="1"> @endauth
+    <title>{{ $title ?? config('app.name', 'NovFora') }}</title>
 
     {{-- No-flash-of-wrong-theme: apply the stored colour-mode/density BEFORE first paint. nonce-aware for the
          strict CSP (phase-1.5 F-M3); harmless under the baseline policy. --}}
@@ -57,10 +57,10 @@
                 var dm = @json($siteDefaultMode); // site-level visitor default (ACP appearance)
                 var dd = @json($siteDefaultDensity);
                 var mode, den;
-                if (sm) { mode = sm; try { localStorage.setItem('hearth-color-mode', sm); } catch (e) {} }
-                else { try { mode = localStorage.getItem('hearth-color-mode'); } catch (e) {} if (['auto','light','dark'].indexOf(mode) < 0) mode = dm; }
-                if (sd) { den = sd; try { localStorage.setItem('hearth-density', sd); } catch (e) {} }
-                else { try { den = localStorage.getItem('hearth-density'); } catch (e) {} if (den !== 'compact' && den !== 'comfortable') den = dd; }
+                if (sm) { mode = sm; try { localStorage.setItem('novfora-color-mode', sm); } catch (e) {} }
+                else { try { mode = localStorage.getItem('novfora-color-mode'); } catch (e) {} if (['auto','light','dark'].indexOf(mode) < 0) mode = dm; }
+                if (sd) { den = sd; try { localStorage.setItem('novfora-density', sd); } catch (e) {} }
+                else { try { den = localStorage.getItem('novfora-density'); } catch (e) {} if (den !== 'compact' && den !== 'comfortable') den = dd; }
                 if (mode === 'light' || mode === 'dark') d.setAttribute('data-theme', mode); else d.removeAttribute('data-theme');
                 d.setAttribute('data-color-mode', mode);
                 d.setAttribute('data-density', den);
@@ -137,8 +137,8 @@
                 {{-- Colour-mode toggle (auto → light → dark). Works for everyone; persists server-side when signed in. --}}
                 <button type="button"
                         x-data="{ mode: document.documentElement.getAttribute('data-color-mode') || 'auto' }"
-                        x-on:hearth:color-mode.window="mode = $event.detail"
-                        @click="window.Hearth.cycleColorMode()"
+                        x-on:novfora:color-mode.window="mode = $event.detail"
+                        @click="window.NovFora.cycleColorMode()"
                         :aria-label="'Theme: ' + mode + ' (click to change)'" :title="'Theme: ' + mode"
                         class="inline-flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink">
                     <span x-show="mode === 'auto'" @if ($colorMode !== 'auto') x-cloak @endif><x-ui.icon name="monitor" /></span>
@@ -225,15 +225,15 @@
 
     <footer class="border-t border-line bg-surface-raised">
         <x-ui.container size="xl" class="flex flex-col sm:flex-row items-center justify-between gap-3 py-6 text-sm text-ink-muted">
-            <p>{{ config('app.name', 'Hearth') }} — open-source community platform.</p>
+            <p>{{ config('app.name', 'NovFora') }} — open-source community platform.</p>
             {{-- Density quick-switch (available to everyone; persists server-side when signed in). --}}
             <div x-data="{ d: document.documentElement.getAttribute('data-density') || 'comfortable' }"
-                 x-on:hearth:density.window="d = $event.detail"
+                 x-on:novfora:density.window="d = $event.detail"
                  class="inline-flex items-center rounded-md border border-line p-0.5" role="group" aria-label="Display density">
-                <button type="button" @click="window.Hearth.setDensity('comfortable')"
+                <button type="button" @click="window.NovFora.setDensity('comfortable')"
                         :class="d === 'comfortable' ? 'bg-accent text-accent-ink' : 'text-ink-muted hover:text-ink'"
                         class="px-3 min-h-9 rounded text-xs font-medium">Comfortable</button>
-                <button type="button" @click="window.Hearth.setDensity('compact')"
+                <button type="button" @click="window.NovFora.setDensity('compact')"
                         :class="d === 'compact' ? 'bg-accent text-accent-ink' : 'text-ink-muted hover:text-ink'"
                         class="px-3 min-h-9 rounded text-xs font-medium">Compact</button>
             </div>

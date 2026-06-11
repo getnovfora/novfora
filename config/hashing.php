@@ -9,7 +9,7 @@ return [
     | Default Hash Driver
     |--------------------------------------------------------------------------
     |
-    | Hearth hashes passwords with argon2id by default (OWASP's recommended
+    |  by default (OWASP's recommended
     | memory-hard KDF). The "hashed" cast and Fortify both honour this driver, so
     | every password — registration, reset, factory — is argon2id. bcrypt stays
     | configured as a fallback for hosts whose PHP lacks libargon2.

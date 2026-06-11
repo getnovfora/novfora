@@ -7,7 +7,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('code') · {{ config('app.name', 'Hearth') }}</title>
+    <title>@yield('code') · {{ config('app.name', 'NovFora') }}</title>
     <style>
         :root { --bg:#f6f8fc; --raised:#fff; --ink:#141a2b; --muted:#555d72; --line:#e3e7f0; --accent:#4f46e5; --accent-ink:#fff; }
         @media (prefers-color-scheme: dark) { :root { --bg:#0d111a; --raised:#161c28; --ink:#e8eaf2; --muted:#9aa3b8; --line:#28303f; --accent:#818cf8; --accent-ink:#131826; } }
@@ -30,7 +30,7 @@
         <p class="code">@yield('code')</p>
         <h1>@yield('title')</h1>
         <p class="msg">@yield('message')</p>
-        <a class="btn" href="{{ url('/') }}">Back to {{ config('app.name', 'Hearth') }}</a>
+        <a class="btn" href="{{ url('/') }}">Back to {{ config('app.name', 'NovFora') }}</a>
     </main>
 </body>
 </html>

@@ -16,7 +16,7 @@ use Throwable;
 use ZipArchive;
 
 /**
- * Creates portable backup archives (M5, phase-1-plan §5; completes the M0 hearth:backup skeleton).
+ * Creates portable backup archives (M5, phase-1-plan §5; completes the M0 novfora:backup skeleton).
  *
  * A backup is ONE self-describing `.zip` containing the database dump, a mirror of storage/app, and a
  * `manifest.json` carrying the app version, the DB kind/driver, and a SHA-256 of the dump (so restore
@@ -31,13 +31,13 @@ final class BackupService
 
     public function destination(): string
     {
-        return rtrim((string) config('hearth.backup.path', storage_path('backups')), '/\\');
+        return rtrim((string) config('novfora.backup.path', storage_path('backups')), '/\\');
     }
 
     /**
      * Create a backup archive, then prune older ones beyond the retention count.
      *
-     * @param  int|null  $keep  retain the N newest archives (default: config hearth.backup.keep)
+     * @param  int|null  $keep  retain the N newest archives (default: config novfora.backup.keep)
      */
     public function create(?int $keep = null): BackupResult
     {
@@ -53,13 +53,13 @@ final class BackupService
             $storageIncluded = $this->copyStorage($work);
             $this->writeManifest($work, $db, $storageIncluded);
 
-            $archive = $dir.DIRECTORY_SEPARATOR.'hearth-'.$stamp.'.zip';
+            $archive = $dir.DIRECTORY_SEPARATOR.'novfora-'.$stamp.'.zip';
             $this->zipDirectory($work, $archive);
         } finally {
             $this->rmrf($work);
         }
 
-        $this->prune($keep ?? (int) config('hearth.backup.keep', 7));
+        $this->prune($keep ?? (int) config('novfora.backup.keep', 7));
 
         return new BackupResult($archive, (int) (@filesize($archive) ?: 0), $db['kind']);
     }
@@ -69,7 +69,7 @@ final class BackupService
     {
         $dir = $this->destination();
         $items = [];
-        foreach (glob($dir.DIRECTORY_SEPARATOR.'hearth-*.zip') ?: [] as $path) {
+        foreach (glob($dir.DIRECTORY_SEPARATOR.'novfora-*.zip') ?: [] as $path) {
             $items[] = ['name' => basename($path), 'path' => $path, 'size' => (int) (@filesize($path) ?: 0), 'created' => (int) (@filemtime($path) ?: 0)];
         }
         usort($items, fn ($a, $b) => $b['created'] <=> $a['created']);
@@ -119,7 +119,7 @@ final class BackupService
             // ship without the mysqldump binary, so shelling out is NOT baseline-safe. When the process
             // tools aren't usable we fall back to a pure-PHP dump over the live PDO connection — same .sql
             // format, fully interoperable with the mysql client on restore. Forced via
-            // config('hearth.backup.db_method') = php|shell|auto (default auto).
+            // config('novfora.backup.db_method') = php|shell|auto (default auto).
             if ($this->canShellOut()) {
                 try {
                     $this->runDump(
@@ -190,7 +190,7 @@ final class BackupService
      */
     public function canShellOut(): bool
     {
-        return match ((string) config('hearth.backup.db_method', 'auto')) {
+        return match ((string) config('novfora.backup.db_method', 'auto')) {
             'php' => false,
             'shell' => true,
             default => self::processFunctionsAvailable(),
@@ -224,7 +224,7 @@ final class BackupService
 
         try {
             $pdo = DB::connection()->getPdo();
-            fwrite($handle, "-- Hearth pure-PHP MySQL backup\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n");
+            fwrite($handle, "-- NovFora pure-PHP MySQL backup\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n");
 
             /** @var list<string> $tables */
             $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
@@ -232,7 +232,7 @@ final class BackupService
                 $q = '`'.str_replace('`', '``', (string) $table).'`';
 
                 $create = $pdo->query("SHOW CREATE TABLE {$q}")->fetch(PDO::FETCH_ASSOC);
-                $ddl = $create['Create Table'] ?? null; // views are unused in Hearth's schema
+                $ddl = $create['Create Table'] ?? null; // views are unused in NovFora's schema
                 if (! is_string($ddl)) {
                     continue;
                 }
@@ -309,7 +309,7 @@ final class BackupService
     {
         $manifest = [
             'format' => self::FORMAT,
-            'app' => config('app.name', 'Hearth'),
+            'app' => config('app.name', 'NovFora'),
             'version' => config('app.version', '1.0.0-mvp'),
             'created_at' => now()->toIso8601String(),
             'db' => [

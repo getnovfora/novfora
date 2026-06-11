@@ -42,7 +42,7 @@ final class DashboardData
      */
     public function stats(): array
     {
-        return Cache::remember('hearth:admin:dashboard_stats', now()->addSeconds(60), fn (): array => [
+        return Cache::remember('novfora:admin:dashboard_stats', now()->addSeconds(60), fn (): array => [
             'members' => User::count(),
             'topics' => Topic::count(),
             'posts' => Post::count(),
@@ -102,7 +102,7 @@ final class DashboardData
     private function checkCache(): array
     {
         try {
-            $token = 'hearth:admin:health:'.bin2hex(random_bytes(4));
+            $token = 'novfora:admin:health:'.bin2hex(random_bytes(4));
             Cache::put($token, '1', 10);
             $ok = Cache::get($token) === '1';
             Cache::forget($token);

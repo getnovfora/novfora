@@ -13,7 +13,7 @@ use Tests\Support\Acl;
 use Tests\Support\Users;
 
 /*
-| The "why can / can't X?" inspector (security §1.4): the service report, the hearth:why CLI, and the
+| The "why can / can't X?" inspector (security §1.4): the service report, the novfora:why CLI, and the
 | ACP Livewire panel. All three read the same resolution the engine uses — never a re-implementation.
 */
 
@@ -59,20 +59,20 @@ it('reports deny-by-default with no candidate entries', function () {
     expect($report['entries'])->toBe([]);
 });
 
-it('explains a decision through the hearth:why command', function () {
+it('explains a decision through the novfora:why command', function () {
     $acl = Acl::make();
-    $u = $acl->user(['members'], ['email' => 'mod@hearth.test']);
+    $u = $acl->user(['members'], ['email' => 'mod@novfora.test']);
     $acl->grant('members', PI, $acl->forumScope, V::Allow);
 
-    $this->artisan('hearth:why', [
-        'user' => 'mod@hearth.test',
+    $this->artisan('novfora:why', [
+        'user' => 'mod@novfora.test',
         'permission' => PI,
         'scope' => 'forum:'.$acl->forum->id,
     ])->assertSuccessful();
 });
 
-it('fails the hearth:why command cleanly for an unknown user', function () {
-    $this->artisan('hearth:why', ['user' => 'ghost@nowhere.test', 'permission' => PI, 'scope' => 'global'])
+it('fails the novfora:why command cleanly for an unknown user', function () {
+    $this->artisan('novfora:why', ['user' => 'ghost@nowhere.test', 'permission' => PI, 'scope' => 'global'])
         ->assertFailed();
 });
 

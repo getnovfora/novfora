@@ -1,12 +1,12 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # M5 — Claude Code kickoff prompt (Phase 1 FINAL — Operability & the runnable MVP)
 
 > Paste the block below into the **Claude Code** session to begin **M5 — the last Phase 1 milestone.** On
 > completion, Phase 1 / the **Core MVP is done** and the repo is shippable. M0–M4 are complete.
-> M5 is **operability**, not new features: the no-SSH web installer is the headline (it's what makes Hearth
+> M5 is **operability**, not new features: the no-SSH web installer is the headline (it's what makes NovFora
 > actually self-hostable by ordinary operators), and the milestone must satisfy the **full Phase 1 exit
 > criteria** in [phase-1-plan.md](phase-1-plan.md) §1. The installer is **security-sensitive** (unauthenticated
 > pre-install endpoint that writes `.env`, sets up the DB, and creates the admin) — deep-reasoning territory.
@@ -27,7 +27,7 @@ STEP 0 — IDEMPOTENCY GUARD (before any build):
 START OF SESSION: read PROJECT-STATE.md, CLAUDE.md, docs/PROJECT-BRIEF.md (standing rule). Then the M5 spec:
 phase-1-plan §1 (the 6 exit criteria — M5 must satisfy ALL of them) + §5 (M5); PROJECT-BRIEF §6 (Operability);
 system-architecture §7 (the performance budgets to enforce in CI); reuse M0's ServiceTier (ADR-0003) and the
-hearth:backup skeleton.
+novfora:backup skeleton.
 
 MODEL/EFFORT: Opus 4.8 at xhigh on (a) the web installer — it's an unauthenticated, pre-install surface that
 writes secrets, runs migrations, and creates the admin, so it MUST lock after install (refuse to re-run),
@@ -44,7 +44,7 @@ BUILD M5:
    marker; the installer refuses to run once installed — no re-trigger, no admin-reset vector). Provide a
    Composer/artisan CLI install path too (for VPS). Security-test the lock + input validation.
 
-2) BACKUPS + RESTORE: complete the M0 `hearth:backup` skeleton — DB dump + storage archive, scheduled via cron
+2) BACKUPS + RESTORE: complete the M0 `novfora:backup` skeleton — DB dump + storage archive, scheduled via cron
    AND an admin-UI trigger/download; a RESTORE path (CLI + documented). Prove an upgrade rehearsal on the
    baseline tier: reversible-migration upgrade + a backup→restore round-trip, asserted green.
 

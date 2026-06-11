@@ -1,8 +1,8 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
-# Hearth — Adversarial Security Review (Phase 1.5)
+# NovFora — Adversarial Security Review (Phase 1.5)
 
 > **Date:** 2026-06-03 · **Scope:** the complete Phase-1 codebase, reviewed as untrusted (installer,
 > permission engine, anti-spam, cross-cutting OWASP, supply chain). **Specs reviewed against:**
@@ -20,7 +20,7 @@ Copyright 2026 The Hearth Authors
 
 ## 1. Summary
 
-Hearth's security fundamentals are **strong**: the permission engine matches its spec (NEVER is absolute,
+NovFora's security fundamentals are **strong**: the permission engine matches its spec (NEVER is absolute,
 deny-by-default, group-merge is most-permissive, bans evaluated first); the XSS canonical→sanitize boundary
 is a genuine allowlist with an escaping renderer; CSRF is on for every state-changing route; SQLi surface is
 effectively nil (one constant `orderByRaw`, everything else Eloquent); the install lock is a file marker
@@ -96,7 +96,7 @@ client binaries, so the cron-driven backup (exit criterion 6) would silently fai
 **Fix** ([BackupService.php](../app/Backup/BackupService.php),
 [RestoreService.php](../app/Backup/RestoreService.php)): a **pure-PHP MySQL/MariaDB dump+restore** over the
 live PDO connection (`SHOW TABLES`/`SHOW CREATE TABLE`/batched `INSERT`s; restore via `PDO::exec`). Selected
-automatically when `proc_open` is unavailable (`config hearth.backup.db_method = auto|php|shell`), and falls
+automatically when `proc_open` is unavailable (`config novfora.backup.db_method = auto|php|shell`), and falls
 back if the binary is missing. The `.sql` is interoperable with the `mysql` client. PostgreSQL stays on
 `pg_dump` (enhanced-tier, where tools exist). **Test:** `tests/Feature/Operability/PhpBackupTest.php`
 (MySQL-gated round-trip forcing `db_method=php`) + a new CI job step (`ci.yml`) exercising it on MySQL.
@@ -130,7 +130,7 @@ The app emitted **no** CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referr
 `Permissions-Policy`, although the brief §4 lists "strict CSP" as a hard rule.
 
 **Fix** ([SecurityHeaders.php](../app/Http/Middleware/SecurityHeaders.php), wired in `bootstrap/app.php`,
-configurable in `config/hearth.php`): a baseline **non-breaking** CSP plus the standard headers on every web
+configurable in `config/novfora.php`): a baseline **non-breaking** CSP plus the standard headers on every web
 response. The CSP keeps `script-src`/`style-src` permissive (`'unsafe-inline'`/`'unsafe-eval'`) because
 Livewire + Alpine + the inline-styled views + JSON-LD currently require them, **but** locks down
 `object-src 'none'`, `base-uri 'self'`, `frame-ancestors 'self'`, `form-action 'self'`, and constrains
@@ -180,7 +180,7 @@ the window (install immediately) closes this too; post-install the Livewire comp
 Three weaknesses compound to make scripted mass-registration cheap (results land as `pending`, never blocked):
 (1) **no rate-limit on `/register`** — Fortify throttles only login/2FA; (2) the timing trap is **skipped when
 `hp_ts` is absent** (`CreateNewUser::looksAutomated`), so a bot just omits it; (3) the Q&A answer is **static,
-public, case-insensitive, and replayable** (`config/hearth.php` → `'blue'`). All "work as the flag-don't-block
+public, case-insensitive, and replayable** (`config/novfora.php` → `'blue'`). All "work as the flag-don't-block
 philosophy intends", but registration is the highest-value abuse target and the one auth route with no
 throttle. **Recommendation:** add a per-IP `register` throttle; make the timing token mandatory (reject when
 absent); add a per-render nonce to the Q&A. (Changes registration behaviour → owner call.)
@@ -243,7 +243,7 @@ hardening pass to respect the no-new-features fence.)
 The shipped CSP is non-breaking but keeps `'unsafe-inline'`/`'unsafe-eval'` for scripts. A strict policy
 (`script-src 'self' 'nonce-…'`) needs: Livewire nonce configuration, the Alpine CSP build, moving the views'
 inline `style="…"` to classes, and a nonce on the JSON-LD block. **Recommendation:** schedule for the pre-1.0
-hardening pass; the config (`hearth.security.csp.policy`) makes it a one-line swap once the app is nonce-ready.
+hardening pass; the config (`novfora.security.csp.policy`) makes it a one-line swap once the app is nonce-ready.
 
 ---
 
@@ -283,11 +283,11 @@ hardening pass; the config (`hearth.security.csp.policy`) makes it a one-line sw
 `app/Models/User.php`, `app/Actions/Fortify/CreateNewUser.php`, `app/Install/InstallRunner.php`,
 `app/Install/EnvWriter.php`, `app/Providers/AppServiceProvider.php`, `app/Http/Middleware/SecurityHeaders.php`
 (new), `app/Backup/BackupService.php`, `app/Backup/RestoreService.php`, `bootstrap/app.php`,
-`config/hearth.php`, `.env.example`.
+`config/novfora.php`, `.env.example`.
 
 **Real-host tooling (Part 2):** `app/Install/HostDoctor.php` (new), `app/Console/Commands/DoctorCommand.php`
-(new, `hearth:doctor`), `app/Install/PublicStorageLinker.php` (new),
-`app/Console/Commands/StoragePublishCommand.php` (new, `hearth:storage:publish`), `routes/console.php`.
+(new, `novfora:doctor`), `app/Install/PublicStorageLinker.php` (new),
+`app/Console/Commands/StoragePublishCommand.php` (new, `novfora:storage:publish`), `routes/console.php`.
 
 **Tests:** `tests/Feature/Security/{AttachmentAuthorization,MassAssignment,SecurityHeaders,SignatureSuppression}Test.php`,
 `tests/Feature/Operability/{HostDoctor,PhpBackup}Test.php`, extended `tests/Feature/Install/InstallerTest.php`,
@@ -299,12 +299,12 @@ plus a MySQL pure-PHP backup step in `.github/workflows/ci.yml`.
 
 > Owner-approved follow-up: all flagged items fixed (hardening only, no new product features; the spec's
 > "flag-don't-block on uncertainty" was preserved — nothing was turned into a false-positive hard-block).
-> Each strict control has a test-env opt-out (mirroring the existing `HEARTH_CAPTCHA`/`HEARTH_SFS_API`
+> Each strict control has a test-env opt-out (mirroring the existing `NOVFORA_CAPTCHA`/`NOVFORA_SFS_API`
 > pattern) so the M0–M5 + P1.5 suites stay frictionless; dedicated tests opt the control back in.
 
 - **F‑A · Install setup token.** The pre-install boot writes a random `storage/install-token.txt` (0600);
-  the wizard (step 1, gating the DB-test SSRF too) and `hearth:install` require it; it is consumed on a
-  successful install. `config: hearth.install.require_token` (off in tests). *Files:* `Installer`,
+  the wizard (step 1, gating the DB-test SSRF too) and `novfora:install` require it; it is consumed on a
+  successful install. `config: novfora.install.require_token` (off in tests). *Files:* `Installer`,
   `InstallRunner`, `InstallInput`, the wizard, `InstallCommand`, `AppServiceProvider`. *Test:* `InstallerTest`
   (refuses without the token / installs + consumes with it / wizard step-1 blocked). *Runbook updated.*
 - **F‑B · Registration anti-abuse.** A per-IP `/register` throttle (429), a **mandatory** honeypot timing
@@ -312,7 +312,7 @@ plus a MySQL pure-PHP backup step in `.github/workflows/ci.yml`.
   captured answer can't be replayed). *Files:* `CreateNewUser`, `QaCaptchaProvider`, `register.blade.php`,
   config. *Test:* `RegistrationHardeningTest`.
 - **F‑C · StopForumSpam fail-safe + warm cron.** A degraded check (API down, cold cache) now **flags →
-  pending** instead of allowing (still never a hard-block), and `hearth:antispam:warm` (daily) downloads a
+  pending** instead of allowing (still never a hard-block), and `novfora:antispam:warm` (daily) downloads a
   toxic-domains list into `blocklist_cache` so it's never cold. *Files:* `RegistrationGuard`,
   `WarmBlocklistCommand`, `routes/console.php`. *Tests:* `RegistrationGuardTest` (degrade→flag, toxic-domain,
   warm populates the cache).
@@ -335,9 +335,9 @@ plus a MySQL pure-PHP backup step in `.github/workflows/ci.yml`.
 - **F‑I · Auth-event audit logging.** A subscriber records login / failed login / logout / lockout /
   password-reset / 2FA-enable·confirm·disable to the append-only `audit_log` (actor, event, ip, ua). *Files:*
   `AuditAuthEvents`, `AppServiceProvider`. *Test:* `AuthAuditTest`.
-- **F‑M3 · Strict nonce-based CSP — shipped behind a toggle (`HEARTH_CSP_STRICT`, default OFF).** When on,
+- **F‑M3 · Strict nonce-based CSP — shipped behind a toggle (`NOVFORA_CSP_STRICT`, default OFF).** When on,
   the middleware emits a per-request nonce (which `@vite` and Livewire pick up automatically via
-  `Vite::cspNonce()`, and Hearth's two inline `<script>` blocks carry), so **`script-src` drops
+  `Vite::cspNonce()`, and NovFora's two inline `<script>` blocks carry), so **`script-src` drops
   `'unsafe-inline'`** — inline-script injection is blocked. *Test:* `SecurityHeadersTest` (strict mode).
   **Why a toggle, not default-on:** two things still need `unsafe-*` and so block a fully-strict default — (1)
   **Alpine v3** evaluates expressions with `new Function`, needing `'unsafe-eval'` until the Alpine *CSP

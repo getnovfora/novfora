@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 /**
- * `hearth:doctor` preflight (phase-1.5). Extends {@see RequirementChecker} with the shared-host gotchas a
+ * `novfora:doctor` preflight (phase-1.5). Extends {@see RequirementChecker} with the shared-host gotchas a
  * baseline operator actually hits: disabled functions (proc_open/exec/symlink), open_basedir, the
  * session/cache/queue drivers, outbound-mail capability, whether symlink() really works (with the
  * copy-based public-storage fallback when it doesn't), and coarse-cron liveness.
@@ -62,8 +62,8 @@ final class HostDoctor
             'name' => 'Disabled PHP functions',
             'status' => $relevant === [] ? 'pass' : 'warn',
             'detail' => $relevant === []
-                ? 'None of the functions Hearth can optionally use are disabled.'
-                : 'Disabled: '.implode(', ', $relevant).'. Fine on the baseline — Hearth falls back to '
+                ? 'None of the functions NovFora can optionally use are disabled.'
+                : 'Disabled: '.implode(', ', $relevant).'. Fine on the baseline — NovFora falls back to '
                     .'pure-PHP backups and a copied public/storage. No baseline feature requires them.',
         ];
     }
@@ -78,21 +78,21 @@ final class HostDoctor
             'status' => $works ? 'pass' : 'warn',
             'detail' => $works
                 ? 'symlink() works — public/storage will be a live symlink.'
-                : 'symlink() is unavailable. Hearth will serve public files from a COPY at public/storage '
-                    .'(the cron line refreshes it; or run `php artisan hearth:storage:publish`).',
+                : 'symlink() is unavailable. NovFora will serve public files from a COPY at public/storage '
+                    .'(the cron line refreshes it; or run `php artisan novfora:storage:publish`).',
         ];
     }
 
     /** @return array{name:string, status:'pass'|'warn'|'fail', detail:string} */
     private function publicStorageCheck(): array
     {
-        $link = (string) config('hearth.storage.public_link', public_path('storage'));
+        $link = (string) config('novfora.storage.public_link', public_path('storage'));
         if (is_link($link)) {
             $state = ['warn' => false, 'detail' => 'Published as a symlink (live).'];
         } elseif (is_dir($link)) {
             $state = ['warn' => false, 'detail' => 'Published as a copy mirror (refreshed by the cron line).'];
         } else {
-            $state = ['warn' => true, 'detail' => 'Not published yet. Run `php artisan hearth:storage:publish` '
+            $state = ['warn' => true, 'detail' => 'Not published yet. Run `php artisan novfora:storage:publish` '
                 .'(the installer does this automatically) so avatars and images display.'];
         }
 
@@ -128,7 +128,7 @@ final class HostDoctor
      */
     private function worldWritableCheck(): array
     {
-        // POSIX permission bits are meaningless on Windows (and Hearth's baseline target is a Linux host).
+        // POSIX permission bits are meaningless on Windows (and NovFora's baseline target is a Linux host).
         if (\DIRECTORY_SEPARATOR === '\\') {
             return [
                 'name' => 'File permissions (group/world-writable)',
@@ -266,7 +266,7 @@ final class HostDoctor
         return match ($mailer) {
             'log' => ['name' => 'Outbound mail', 'status' => 'warn', 'detail' => "Mailer is 'log' — email is written to the log, not sent. Configure SMTP for real delivery."],
             'array' => ['name' => 'Outbound mail', 'status' => 'warn', 'detail' => "Mailer is 'array' (testing only) — no email is sent."],
-            default => ['name' => 'Outbound mail', 'status' => 'pass', 'detail' => "Mailer is '{$mailer}'. Verify real delivery with `php artisan hearth:mail:test you@example.com`."],
+            default => ['name' => 'Outbound mail', 'status' => 'pass', 'detail' => "Mailer is '{$mailer}'. Verify real delivery with `php artisan novfora:mail:test you@example.com`."],
         };
     }
 

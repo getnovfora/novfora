@@ -24,8 +24,8 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     config([
-        'hearth.deliverability.enabled' => true,
-        'hearth.deliverability.verp.enabled' => false, // the non-VERP regime
+        'novfora.deliverability.enabled' => true,
+        'novfora.deliverability.verp.enabled' => false, // the non-VERP regime
     ]);
 });
 
@@ -114,9 +114,9 @@ it('queues an ARF complaint for review', function () {
 
 it('does NOT queue a review while VERP IS enabled (forged-bounce flood guard)', function () {
     config([
-        'hearth.deliverability.verp.enabled' => true,
-        'hearth.deliverability.verp.domain' => 'bounce.example.com',
-        'hearth.deliverability.verp.key' => 'a-test-verp-key',
+        'novfora.deliverability.verp.enabled' => true,
+        'novfora.deliverability.verp.domain' => 'bounce.example.com',
+        'novfora.deliverability.verp.key' => 'a-test-verp-key',
     ]);
 
     expect(app(BounceParser::class)->reviewCandidate(reviewDsn('victim@example.com', '5.0.0')))->toBeNull();

@@ -20,7 +20,7 @@ final class LocalHeuristicsScanner implements ContentScanner
         $reasons = [];
         $lower = mb_strtolower($text);
 
-        foreach ((array) config('hearth.antispam.content.suspicious_phrases', []) as $phrase) {
+        foreach ((array) config('novfora.antispam.content.suspicious_phrases', []) as $phrase) {
             $phrase = (string) $phrase;
             if ($phrase !== '' && str_contains($lower, mb_strtolower($phrase))) {
                 $score += 2;
@@ -29,12 +29,12 @@ final class LocalHeuristicsScanner implements ContentScanner
         }
 
         $links = (int) preg_match_all('~https?://~i', $text);
-        if ($links >= (int) config('hearth.antispam.content.max_links', 3)) {
+        if ($links >= (int) config('novfora.antispam.content.max_links', 3)) {
             $score += 2;
             $reasons[] = 'many_links';
         }
 
-        $threshold = (int) config('hearth.antispam.content.suspicious_score', 2);
+        $threshold = (int) config('novfora.antispam.content.suspicious_score', 2);
 
         return new ScanResult($score >= $threshold, $score, $reasons);
     }

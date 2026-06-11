@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # M0 — Claude Code kickoff prompt (Phase 1, Skeleton & guardrails)
 
@@ -31,7 +31,7 @@ FIRST — commit the pending Cowork doc edits (clean baseline before scaffolding
 kickoff doc — the Cowork session folded the Spike 0 GO + findings into them. Review, then:
   git add -A
   git commit -s -m "docs: fold Spike 0 GO + findings into ADR-0012, phase-1-plan, PROJECT-STATE"
-(HEAD's .gitignore already excludes hearth-spike/ heavy artifacts + runtime dirs. Leave hearth-spike/
+(HEAD's .gitignore already excludes nevo-spike/ heavy artifacts + runtime dirs. Leave nevo-spike/
 as the reference scaffold; it is retired later in M2 once the real editor lands.)
 
 THEN scaffold M0 at the REPO ROOT (this is production code, not the throwaway):
@@ -55,7 +55,7 @@ THEN scaffold M0 at the REPO ROOT (this is production code, not the throwaway):
 
 DO NOT build in M0: auth (M1), the permission-mask engine (M1), forum CRUD (M2), or the editor /
 CanonicalRenderer (M2). Keep M0 to the skeleton + guardrails. The validated editor pattern ports in M2
-per phase-1-plan §4 — do not carry hearth-spike/ in wholesale.
+per phase-1-plan §4 — do not carry nevo-spike/ in wholesale.
 
 DEFINITION OF DONE (phase-1-plan §1, M0 slice): the app runs on the baseline tier (PHP 8.3 + MySQL +
 cron, no daemons); the identical code path runs on the enhanced tier; CI guards are green; .env.example

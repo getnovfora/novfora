@@ -1,15 +1,15 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
-# Developing Hearth — local environment setup (macOS & Linux)
+# Developing NovFora — local environment setup (macOS & Linux)
 
-This guide gets a **full Hearth dev environment** running on a fresh machine, so you can work from any
+This guide gets a **full NovFora dev environment** running on a fresh machine, so you can work from any
 computer. The layout: the **native PHP/Node toolchain on the host** (so Claude Code, `artisan`,
 `composer`, and the test suite run directly) plus **MySQL 8 in Docker** (identical on every machine,
 matches the shared-host baseline, disposable).
 
-> Deploying Hearth to a *production* host is a different document: [getting-started.md](getting-started.md).
+> Deploying NovFora to a *production* host is a different document: [getting-started.md](getting-started.md).
 > Contribution standards (DCO, conventional commits, tests-with-every-feature): [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ---
@@ -18,7 +18,7 @@ matches the shared-host baseline, disposable).
 
 ```bash
 gh auth login                                   # first time on a new machine
-gh repo clone echo5tech/hearth && cd hearth     # or: git clone https://github.com/echo5tech/hearth.git
+gh repo clone echo5tech/novfora && cd novfora     # or: git clone https://github.com/echo5tech/novfora.git
 
 ./scripts/dev-setup-macos.sh                    # MacBook (Homebrew)
 ./scripts/dev-setup-linux.sh                    # Ubuntu/Debian laptop (apt)
@@ -40,7 +40,7 @@ missing — never rotates an existing one), migrate, and build assets.
 | Composer | latest | PHP dependencies |
 | Node.js | 22 LTS | Vite 8 asset builds (dev only — production ships prebuilt assets) |
 | Docker | latest | runs MySQL 8 (`docker compose up -d mysql`); macOS uses [colima](https://github.com/abiosoft/colima) (no Docker Desktop needed) |
-| MySQL | 8 (container) | the baseline database — db `hearth`, user `hearth`, password `secret`, `127.0.0.1:3306` |
+| MySQL | 8 (container) | the baseline database — db `nevo`, user `nevo`, password `secret`, `127.0.0.1:3306` |
 | GitHub CLI | latest | clone, push, PRs (`gh auth login` once per machine) |
 | Claude Code | latest | the coding agent (`claude`, then `/login` once per machine) |
 
@@ -76,7 +76,7 @@ sudo usermod -aG docker "$USER"                 # then log out/in once
 **Then, on either OS (from the repo root):**
 
 ```bash
-docker compose up -d mysql        # MySQL 8 on 127.0.0.1:3306 (hearth / hearth / secret)
+docker compose up -d mysql        # MySQL 8 on 127.0.0.1:3306 (nevo / nevo / secret)
 cp .env.example .env              # then set DB_PASSWORD=secret
 composer install && npm install
 php artisan key:generate          # only on a fresh .env
@@ -94,18 +94,18 @@ composer dev      # php artisan serve + queue:listen + vite + pail, together →
 ```
 
 A fresh dev site **redirects to `/install`** — the app enforces the web installer until installed
-(`HEARTH_INSTALL_ENFORCE`, default on). That is the *real pre-install state*, which is exactly what you
+(`NOVFORA_INSTALL_ENFORCE`, default on). That is the *real pre-install state*, which is exactly what you
 want when working on installer bugs (e.g. RH-7). To get a usable forum instead, pick one:
 
 - **Install it** (exercises the real install path, recommended):
 
   ```bash
-  php artisan hearth:install --name="Dev" --url="http://localhost:8000" \
-    --db-database=hearth --db-username=hearth --db-password=secret \
+  php artisan novfora:install --name="Dev" --url="http://localhost:8000" \
+    --db-database=nevo --db-username=nevo --db-password=secret \
     --admin-username=admin --admin-email=dev@example.com --demo
   ```
 
-- **Skip the installer** for a quick loop: set `HEARTH_INSTALL_ENFORCE=false` in `.env`, then
+- **Skip the installer** for a quick loop: set `NOVFORA_INSTALL_ENFORCE=false` in `.env`, then
   `php artisan migrate:fresh --seed` for the demo community.
 
 To re-test the installer later, remove the lock: `rm storage/installed` (CLI-only by design).
@@ -132,10 +132,10 @@ work only needs `composer test`; run Dusk before merging anything that touches t
 ```bash
 docker compose up -d mysql    # start
 docker compose stop mysql     # stop (keeps data)
-docker compose down -v        # destroy (wipes the hearth-dbdata volume)
+docker compose down -v        # destroy (wipes the nevo-dbdata volume)
 ```
 
-Credentials live in `docker-compose.yml` and `.env`: db `hearth`, user `hearth`, password `secret`,
+Credentials live in `docker-compose.yml` and `.env`: db `nevo`, user `nevo`, password `secret`,
 `127.0.0.1:3306`. Want a zero-dependency quick loop instead? SQLite works:
 `DB_CONNECTION=sqlite`, `DB_DATABASE=/absolute/path/database.sqlite`, `touch` the file, migrate. (MySQL
 stays the parity target — run the suite against MySQL before merging DB-touching changes.)
@@ -144,7 +144,7 @@ stays the parity target — run the suite against MySQL before merging DB-touchi
 
 ## Working across machines
 
-GitHub (`echo5tech/hearth`) is the source of truth:
+GitHub (`echo5tech/novfora`) is the source of truth:
 
 ```bash
 git pull       # when you sit down at any machine

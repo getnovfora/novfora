@@ -1,10 +1,10 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # Governance
 
-How **Hearth** (working codename) is governed: who decides what, how contributions are reviewed and accepted,
+How **NovFora** is governed: who decides what, how contributions are reviewed and accepted,
 and how decisions are made. This is a working model for an early-stage project, with an explicit path to a
 broader structure as the community grows. It is intentionally **concrete, not aspirational**.
 
@@ -68,7 +68,7 @@ The PR author does **not** merge their own change; a reviewing Maintainer (or th
 ## 5. Licensing & contributor sign-off
 
 - All contributions are licensed under **Apache-2.0** (project license). New files carry an SPDX header.
-- Hearth uses the **Developer Certificate of Origin (DCO)** — a per-commit `Signed-off-by:` line — **not a
+- NovFora uses the **Developer Certificate of Origin (DCO)** — a per-commit `Signed-off-by:` line — **not a
   CLA**. The DCO is lighter-weight, keeps copyright with contributors, and suits a permissive Apache-2.0 project
   while still asserting provenance. (Recorded as a governance decision; revisitable via RFC.)
 - **Clean-room is mandatory and reviewable:** no code/text/assets from any reference forum (commercial **or**
@@ -84,5 +84,5 @@ the documented enforcement ladder. Conduct decisions are appealable to the full 
 ## 7. Changing this document
 
 Governance changes go through the **RFC process** and require a **two-thirds majority of Maintainers** (and,
-once formed, the TSC). The current model errs toward simplicity; it is expected to formalize as Hearth grows,
+once formed, the TSC). The current model errs toward simplicity; it is expected to formalize as NovFora grows,
 and that evolution is itself governed by this section.

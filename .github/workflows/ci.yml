@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0
+﻿# SPDX-License-Identifier: Apache-2.0
 name: CI
 
 on:
@@ -37,7 +37,7 @@ jobs:
       mysql:
         image: mysql:8
         env:
-          MYSQL_DATABASE: hearth_test
+          MYSQL_DATABASE: nevo_test
           MYSQL_ROOT_PASSWORD: secret
         ports: ['3306:3306']
         options: >-
@@ -62,7 +62,7 @@ jobs:
           DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
-          DB_DATABASE: hearth_test
+          DB_DATABASE: nevo_test
           DB_USERNAME: root
           DB_PASSWORD: secret
         run: php artisan migrate --force && php artisan migrate:rollback --force
@@ -72,23 +72,23 @@ jobs:
           DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
-          DB_DATABASE: hearth_test
+          DB_DATABASE: nevo_test
           DB_USERNAME: root
           DB_PASSWORD: secret
         run: |
           set -euo pipefail
           php artisan migrate --force
           php artisan db:seed --force
-          BEFORE=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' hearth_test)
+          BEFORE=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' nevo_test)
           test "$BEFORE" -gt 0
-          php artisan hearth:backup --path=storage/citest
-          ARCHIVE=$(ls -1t storage/citest/hearth-*.zip | head -1)
+          php artisan novfora:backup --path=storage/citest
+          ARCHIVE=$(ls -1t storage/citest/novfora-*.zip | head -1)
           echo "archive = $ARCHIVE"
           php artisan migrate:fresh --force          # simulate a wipe / bad upgrade
-          DURING=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' hearth_test)
+          DURING=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' nevo_test)
           test "$DURING" -eq 0
-          php artisan hearth:restore "$ARCHIVE" --force
-          AFTER=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' hearth_test)
+          php artisan novfora:restore "$ARCHIVE" --force
+          AFTER=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' nevo_test)
           echo "groups before=$BEFORE during=$DURING after=$AFTER"
           test "$BEFORE" = "$AFTER"
 
@@ -97,21 +97,21 @@ jobs:
           DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
-          DB_DATABASE: hearth_test
+          DB_DATABASE: nevo_test
           DB_USERNAME: root
           DB_PASSWORD: secret
-          HEARTH_BACKUP_DB_METHOD: php   # force the pure-PHP dumper + PDO restore (no mysqldump/proc_open)
+          NOVFORA_BACKUP_DB_METHOD: php   # force the pure-PHP dumper + PDO restore (no mysqldump/proc_open)
         run: |
           set -euo pipefail
           php artisan migrate:fresh --force
           php artisan db:seed --force
-          BEFORE=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' hearth_test)
+          BEFORE=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' nevo_test)
           test "$BEFORE" -gt 0
-          php artisan hearth:backup --path=storage/citest-php
-          ARCHIVE=$(ls -1t storage/citest-php/hearth-*.zip | head -1)
+          php artisan novfora:backup --path=storage/citest-php
+          ARCHIVE=$(ls -1t storage/citest-php/novfora-*.zip | head -1)
           php artisan migrate:fresh --force                 # wipe
-          php artisan hearth:restore "$ARCHIVE" --force      # restore via PDO (no mysql client)
-          AFTER=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' hearth_test)
+          php artisan novfora:restore "$ARCHIVE" --force      # restore via PDO (no mysql client)
+          AFTER=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' nevo_test)
           echo "pure-php groups before=$BEFORE after=$AFTER"
           test "$BEFORE" = "$AFTER"
 
@@ -171,7 +171,7 @@ jobs:
     name: Dusk (installer enforce-ON + editor journeys, headless Chrome)
     runs-on: ubuntu-latest
     # Two serve passes (the RH-7 follow-up — enforce-ON harness split): PASS 1 drives the FULL installer
-    # wizard under REAL pre-install enforcement (HEARTH_INSTALL_ENFORCE=true, no marker, fresh DB), so every
+    # wizard under REAL pre-install enforcement (NOVFORA_INSTALL_ENFORCE=true, no marker, fresh DB), so every
     # wire:click flows through RedirectIfNotInstalled like production; PASS 2 drives the editor journey against
     # a reachable app (enforcement off). The disposable MySQL is the wizard's install target (PASS 1 only);
     # the editor journey uses SQLite. The InstallerEnforcedLivewireTest feature tests remain the authoritative
@@ -180,7 +180,7 @@ jobs:
       mysql:
         image: mysql:8
         env:
-          MYSQL_DATABASE: hearth_install
+          MYSQL_DATABASE: nevo_install
           MYSQL_ROOT_PASSWORD: secret
         ports: ['3306:3306']
         options: >-
@@ -219,22 +219,22 @@ jobs:
 
           # ── PASS 1 — INSTALLER (enforcement ON; installs into the disposable MySQL) ──
           rm -rf "$SANDBOX"; mkdir -p "$SANDBOX/public-storage"
-          php -r '$p=new PDO("mysql:host=127.0.0.1;port=3306","root","secret",[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); $p->exec("DROP DATABASE IF EXISTS hearth_install"); $p->exec("CREATE DATABASE hearth_install CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");'
+          php -r '$p=new PDO("mysql:host=127.0.0.1;port=3306","root","secret",[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); $p->exec("DROP DATABASE IF EXISTS nevo_install"); $p->exec("CREATE DATABASE nevo_install CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");'
           {
-            echo "APP_NAME=HearthDusk"; echo "APP_ENV=local"; echo "APP_KEY=$APP_KEY"
+            echo "APP_NAME=NovForaDusk"; echo "APP_ENV=local"; echo "APP_KEY=$APP_KEY"
             echo "APP_DEBUG=true"; echo "APP_URL=http://127.0.0.1:8000"
-            echo "HEARTH_INSTALL_ENFORCE=true"
+            echo "NOVFORA_INSTALL_ENFORCE=true"
             echo "DB_CONNECTION=sqlite"; echo "DB_DATABASE=$WS/database/dusk.sqlite"
             echo "CACHE_STORE=file"; echo "SESSION_DRIVER=file"; echo "QUEUE_CONNECTION=sync"
             echo "MAIL_MAILER=array"; echo "SCOUT_DRIVER=database"; echo "BROADCAST_CONNECTION=log"
-            echo "HEARTH_INSTALL_REQUIRE_TOKEN=true"
-            echo "HEARTH_INSTALL_TOKEN_PATH=$SANDBOX/install-token.txt"
-            echo "HEARTH_INSTALL_ENV_PATH=$SANDBOX/installed.env"
-            echo "HEARTH_INSTALL_MARKER=$SANDBOX/installed"
-            echo "HEARTH_PUBLIC_LINK=$SANDBOX/public-storage"
-            echo "HEARTH_DUSK_INSTALL_DB_HOST=127.0.0.1"
-            echo "HEARTH_DUSK_INSTALL_DB_NAME=hearth_install"
-            echo "HEARTH_DUSK_INSTALL_DB_USER=root"; echo "HEARTH_DUSK_INSTALL_DB_PASS=secret"
+            echo "NOVFORA_INSTALL_REQUIRE_TOKEN=true"
+            echo "NOVFORA_INSTALL_TOKEN_PATH=$SANDBOX/install-token.txt"
+            echo "NOVFORA_INSTALL_ENV_PATH=$SANDBOX/installed.env"
+            echo "NOVFORA_INSTALL_MARKER=$SANDBOX/installed"
+            echo "NOVFORA_PUBLIC_LINK=$SANDBOX/public-storage"
+            echo "NOVFORA_DUSK_INSTALL_DB_HOST=127.0.0.1"
+            echo "NOVFORA_DUSK_INSTALL_DB_NAME=nevo_install"
+            echo "NOVFORA_DUSK_INSTALL_DB_USER=root"; echo "NOVFORA_DUSK_INSTALL_DB_PASS=secret"
           } > .env
           : > "$WS/database/dusk.sqlite"
           php artisan migrate:fresh --force
@@ -245,9 +245,9 @@ jobs:
           # ── PASS 2 — APP / editor (enforcement OFF, app reachable) ──
           rm -rf "$SANDBOX"
           {
-            echo "APP_NAME=HearthDusk"; echo "APP_ENV=local"; echo "APP_KEY=$APP_KEY"
+            echo "APP_NAME=NovForaDusk"; echo "APP_ENV=local"; echo "APP_KEY=$APP_KEY"
             echo "APP_DEBUG=true"; echo "APP_URL=http://127.0.0.1:8000"
-            echo "HEARTH_INSTALL_ENFORCE=false"
+            echo "NOVFORA_INSTALL_ENFORCE=false"
             echo "DB_CONNECTION=sqlite"; echo "DB_DATABASE=$WS/database/dusk.sqlite"
             echo "CACHE_STORE=file"; echo "SESSION_DRIVER=file"; echo "QUEUE_CONNECTION=sync"
             echo "MAIL_MAILER=array"; echo "SCOUT_DRIVER=database"; echo "BROADCAST_CONNECTION=log"

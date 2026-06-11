@@ -15,20 +15,20 @@ uses(RefreshDatabase::class);
 
 it('emails a reset link', function () {
     Notification::fake();
-    $user = User::factory()->create(['email' => 'ada@hearth.test']);
+    $user = User::factory()->create(['email' => 'ada@novfora.test']);
 
-    $this->post('/forgot-password', ['email' => 'ada@hearth.test']);
+    $this->post('/forgot-password', ['email' => 'ada@novfora.test']);
 
     Notification::assertSentTo($user, ResetPassword::class);
 });
 
 it('resets the password with a valid token (argon2id)', function () {
-    $user = User::factory()->create(['email' => 'ada@hearth.test']);
+    $user = User::factory()->create(['email' => 'ada@novfora.test']);
     $token = Password::createToken($user);
 
     $this->post('/reset-password', [
         'token' => $token,
-        'email' => 'ada@hearth.test',
+        'email' => 'ada@novfora.test',
         'password' => 'a brand new passphrase',
         'password_confirmation' => 'a brand new passphrase',
     ])->assertSessionHasNoErrors();

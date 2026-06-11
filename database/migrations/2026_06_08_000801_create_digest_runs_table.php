@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Schema;
 // overlapping, or killed cron ticks (no lock is relied upon for correctness). The `status` lifecycle
 // (claimed → built → sent) doubles as the send-job dedup guard; `mailed_at` is the two-phase self-heal flag
 // (a `built` run with mailed_at IS NULL was committed but never enqueued → safely re-queued next tick).
-// Reversible. Dormant until config('hearth.deliverability.enabled').
+// Reversible. Dormant until config('novfora.deliverability.enabled').
 return new class extends Migration
 {
     public function up(): void

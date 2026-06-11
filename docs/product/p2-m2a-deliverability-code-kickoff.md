@@ -1,11 +1,11 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # P2-M2 Half-A — Deliverability light-up & rich notifications — Claude Code kickoff
 
 > Paste the block below into **Claude Code** to begin **Phase 2 · M2 Half-A**. The digest + tri-path bounce
-> pipeline is **already merged and dormant** (Spike P2 → GO, PR #8) behind `HEARTH_DELIVERABILITY=false`. **This
+> pipeline is **already merged and dormant** (Spike P2 → GO, PR #8) behind `NOVFORA_DELIVERABILITY=false`. **This
 > milestone is LIGHT-UP + WIRE-IN, not a build — do not rebuild the pipeline.** The lone intentional gap is
 > wiring `Notifier::send()` → `DigestQueue::enqueue()`, plus three memo follow-ups. Parallel-safe with P2-M1.
 > Authoritative specs: [phase-2-implementation-plan.md](phase-2-implementation-plan.md) §2 (M2 Half-A) + §1;
@@ -17,7 +17,7 @@ Copyright 2026 The Hearth Authors
 
 ```
 Begin Phase 2 — M2 Half-A (Deliverability light-up & rich notifications). The pipeline is MERGED + DORMANT
-(HEARTH_DELIVERABILITY=false). This is a LIGHT-UP + WIRE-IN, not a build — do NOT rebuild DigestAssembler,
+(NOVFORA_DELIVERABILITY=false). This is a LIGHT-UP + WIRE-IN, not a build — do NOT rebuild DigestAssembler,
 the bounce paths, Suppressor, VERP, etc. They exist (spike-p2-memo §7 file map). You wire them on and close
 three follow-ups.
 
@@ -43,9 +43,9 @@ THE 5 CONSTRAINTS YOU INHERIT (spike-p2-memo §4 — do NOT violate):
 
 BUILD — light-up + wire-in + 3 follow-ups:
 
-1) ACTIVATE (Sonnet): set HEARTH_DELIVERABILITY=true + HEARTH_DIGEST=true in .env.example with the operator
+1) ACTIVATE (Sonnet): set NOVFORA_DELIVERABILITY=true + NOVFORA_DIGEST=true in .env.example with the operator
    checklist (SPF / DKIM / DMARC + the From-must-be-on-your-sending-domain lesson, memo §5). Surface that
-   checklist in the ACP email page next to the existing suppressions list (hearth:mail:test already prints it).
+   checklist in the ACP email page next to the existing suppressions list (novfora:mail:test already prints it).
 
 2) WIRE Notifier→DigestQueue (⚙): in App\Notifications\Notifier::send(), for batched-cadence recipients call
    DigestQueue::enqueue() FIRST (returns null for immediate/off → fall through to the unchanged live path).

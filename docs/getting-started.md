@@ -1,10 +1,10 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
-# Getting started with Hearth
+# Getting started with NovFora
 
-Hearth is a self-hosted forum that runs on an ordinary **shared PHP host** — no SSH, no Node runtime, no
+NovFora is a self-hosted forum that runs on an ordinary **shared PHP host** — no SSH, no Node runtime, no
 background daemons. This guide takes you from an empty host to a running community, then shows how to
 light up the optional "enhanced" services when you outgrow the baseline.
 
@@ -24,16 +24,16 @@ light up the optional "enhanced" services when you outgrow the baseline.
 | Cron | one entry | drives the queue, email, search, trust levels, and backups |
 | Image thumbnails | **GD or Imagick** | optional but recommended — without it, uploaded images aren't resized into thumbnails |
 
-You do **not** need Node.js on the host — Hearth ships prebuilt assets.
+You do **not** need Node.js on the host — NovFora ships prebuilt assets.
 
 ---
 
 ## 2. Install with the web installer (no SSH)
 
-1. Upload the Hearth files to your web root (or a subdirectory) via your host's file manager or FTP.
-2. Point your domain's document root at Hearth's **`public/`** directory.
+1. Upload the NovFora files to your web root (or a subdirectory) via your host's file manager or FTP.
+2. Point your domain's document root at NovFora's **`public/`** directory.
 3. Create an empty database in your host's control panel and note its name, user, and password.
-4. Visit your site in a browser. Hearth detects it isn't installed yet and sends you to the **installer
+4. Visit your site in a browser. NovFora detects it isn't installed yet and sends you to the **installer
    wizard** (`/install`), which walks you through:
    - a **system check** (PHP version, extensions, writable paths) + your detected deployment tier;
    - the **database** connection (with a "Test connection" button);
@@ -50,9 +50,9 @@ You do **not** need Node.js on the host — Hearth ships prebuilt assets.
 On a host with shell access you can install from the command line instead:
 
 ```bash
-php artisan hearth:install \
+php artisan novfora:install \
   --name="My Community" --url="https://forum.example.com" \
-  --db-database=hearth --db-username=hearth --db-password=secret \
+  --db-database=nevo --db-username=nevo --db-password=secret \
   --admin-username=admin --admin-email=you@example.com \
   --demo
 ```
@@ -66,7 +66,7 @@ Omit any option to be prompted (the password prompts are hidden). Both paths run
 Add **one** cron entry in your host's control panel (ADR-0011):
 
 ```cron
-* * * * * cd /path/to/hearth && php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /path/to/novfora && php artisan schedule:run >> /dev/null 2>&1
 ```
 
 That single line drives everything on the baseline tier:
@@ -93,7 +93,7 @@ the dashboard, **Settings** (general, registration, email + a test-send, moderat
 **audit log**, scheduled **tasks**, and the System tools (service tier, backups & restore, upgrade). A panel
 setting persists across deploys, while anything you leave unset keeps following your `.env`/`config`.
 
-> **Tip:** if you set `HEARTH_NEW_USER_HOLD_POSTS` (or any setting) in `.env` to tide you over before a
+> **Tip:** if you set `NOVFORA_NEW_USER_HOLD_POSTS` (or any setting) in `.env` to tide you over before a
 > deploy, set it again from **Settings → Moderation** once you're live — the panel value sticks across the
 > next release, where the `.env` edit would be overwritten.
 
@@ -102,11 +102,11 @@ setting persists across deploys, while anything you leave unset keeps following 
 ## 5. Backups & restore
 
 Backups run automatically from the cron line (daily by default — configurable via
-`HEARTH_BACKUP_SCHEDULE=daily|weekly|off`). Each backup is a single `.zip` containing a database dump, a
-copy of your uploaded files, and an integrity manifest. They're kept to the newest `HEARTH_BACKUP_KEEP`
+`NOVFORA_BACKUP_SCHEDULE=daily|weekly|off`). Each backup is a single `.zip` containing a database dump, a
+copy of your uploaded files, and an integrity manifest. They're kept to the newest `NOVFORA_BACKUP_KEEP`
 (default 7).
 
-- **Create one now / download:** *Admin → System → Backups*, or `php artisan hearth:backup`. Download a copy
+- **Create one now / download:** *Admin → System → Backups*, or `php artisan novfora:backup`. Download a copy
   off-host every so often — that's your insurance if the whole server is lost.
 - **Restore — no SSH needed.** In *Admin → System → Backups*, click **Restore** on a backup. Because this
   overwrites the current database and uploaded files, it asks you to **type the backup's name** to confirm
@@ -122,22 +122,22 @@ copy of your uploaded files, and an integrity manifest. They're kept to the newe
 - **Restore from the command line** (if you have shell access) — the same safety pipeline:
 
   ```bash
-  php artisan hearth:restore storage/backups/hearth-YYYYmmdd-HHMMSS.zip
+  php artisan novfora:restore storage/backups/novfora-YYYYmmdd-HHMMSS.zip
   ```
 
   A restore is **single-attempt and fail-safe**: if it can't finish, the site stays in maintenance
   (`/health` → `restore.stuck: true`) rather than serving a half-restored database — it is never
   auto-retried. **To recover without a shell** (the panel is gated while held): delete
-  `storage/hearth-restore.json` via FTP / your host file manager (the same kind of deliberate filesystem
+  `storage/novfora-restore.json` via FTP / your host file manager (the same kind of deliberate filesystem
   action that resets the installer), then sign in and restore a known-good backup — or the pre-restore safety
   snapshot named on the maintenance page — from *Admin → System → Backups*. With a shell, `php artisan
-  hearth:restore <archive>` does it directly and clears the hold.
+  novfora:restore <archive>` does it directly and clears the hold.
 
 ### Upgrading (no SSH needed)
 
-To upgrade, **extract the new release zip over your existing install — that's the only step.** Hearth
+To upgrade, **extract the new release zip over your existing install — that's the only step.** NovFora
 notices the new code carries database changes and migrates itself from the same cron line that runs
-everything else. Concretely, with `HEARTH_AUTO_UPGRADE=true` (the default):
+everything else. Concretely, with `NOVFORA_AUTO_UPGRADE=true` (the default):
 
 1. You upload/extract the new version. For up to ~2 minutes the site may show a brief, branded
    **"Just a moment…"** maintenance page (it refreshes itself). This window is what stops a half-upgraded
@@ -150,9 +150,9 @@ You can watch it happen without logging in: **`GET /health`** has a `schema` blo
 `{"pending": …, "upgrading": …, "stuck": …}` — and `schema.pending` flips `true → false` as the upgrade
 completes (no secrets, so it's safe to poll from a monitor).
 
-**Manual mode.** Set `HEARTH_AUTO_UPGRADE=false` to apply upgrades yourself instead — via
+**Manual mode.** Set `NOVFORA_AUTO_UPGRADE=false` to apply upgrades yourself instead — via
 *Admin → System → Upgrade* (**Apply pending migrations**, admin + 2FA + confirm) or
-`php artisan hearth:upgrade`. **Note the asymmetry:** automatic mode applies the upgrade behind one clean
+`php artisan novfora:upgrade`. **Note the asymmetry:** automatic mode applies the upgrade behind one clean
 maintenance window; manual mode keeps the site live on a **partly-migrated schema**, so actions that touch
 the new schema can error **until** you apply (e.g. saving a setting the new release adds, or — for a release
 that drops/renames a column — pages that read it). The admin panel itself stays reachable so you can get
@@ -163,7 +163,7 @@ loop) — `GET /health` shows `schema.stuck: true` and the maintenance page name
 recover, no SSH required: **re-upload the previous release zip** (the code then matches the rolled-back
 schema and the site comes back on its own within a cron tick). Once it's back, you can **restore the
 pre-upgrade snapshot from *Admin → System → Backups*** (no SSH) — or, with shell access, restore it directly
-with `php artisan hearth:restore storage/backups/hearth-…zip`. Because migrations are **reversible**, none of
+with `php artisan novfora:restore storage/backups/novfora-…zip`. Because migrations are **reversible**, none of
 these paths requires manual database surgery. *(The whole-site maintenance gate also covers a backup restore
 in progress; the two never collide — and a restored older schema is migrated forward automatically by the
 same auto-upgrade above.)*
@@ -183,7 +183,7 @@ secrets.
 
 When your community outgrows a shared host, move to a VPS/Docker host and enable services by editing
 `.env` — **no application code changes**. Each one is detected automatically (see *Admin → System →
-Service Tier*, or `php artisan hearth:tier`).
+Service Tier*, or `php artisan novfora:tier`).
 
 | Service | What it unlocks | How to enable |
 |---|---|---|

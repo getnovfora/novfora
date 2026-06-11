@@ -26,11 +26,11 @@ const PROV_WEBHOOK_SECRET = 'a-long-random-per-install-secret-prov';
 
 beforeEach(function () {
     config([
-        'hearth.deliverability.enabled' => true,
-        'hearth.deliverability.webhook.enabled' => true,
-        'hearth.deliverability.webhook.secret' => PROV_WEBHOOK_SECRET,
-        'hearth.deliverability.webhook.max_body_bytes' => 262144,
-        'hearth.deliverability.webhook.tolerance_seconds' => 300,
+        'novfora.deliverability.enabled' => true,
+        'novfora.deliverability.webhook.enabled' => true,
+        'novfora.deliverability.webhook.secret' => PROV_WEBHOOK_SECRET,
+        'novfora.deliverability.webhook.max_body_bytes' => 262144,
+        'novfora.deliverability.webhook.tolerance_seconds' => 300,
     ]);
 });
 
@@ -43,10 +43,10 @@ function provWebhookCall(string $raw, ?string $sig, ?string $ts, string $provide
 {
     $request = Request::create("/webhooks/mail/{$provider}", 'POST', [], [], [], [], $raw);
     if ($sig !== null) {
-        $request->headers->set('X-Hearth-Signature', $sig);
+        $request->headers->set('X-NovFora-Signature', $sig);
     }
     if ($ts !== null) {
-        $request->headers->set('X-Hearth-Timestamp', $ts);
+        $request->headers->set('X-NovFora-Timestamp', $ts);
     }
 
     return app(MailWebhookController::class)->__invoke(
@@ -176,7 +176,7 @@ it('Mailgun: a valid-HMAC permanent failure suppresses, and a replay applies it 
 });
 
 it('SES: an oversize body is rejected 413 before parsing', function () {
-    config(['hearth.deliverability.webhook.max_body_bytes' => 32]);
+    config(['novfora.deliverability.webhook.max_body_bytes' => 32]);
     $raw = json_encode(['notificationType' => 'Bounce', 'pad' => str_repeat('x', 200)]);
     [$ts, $sig] = provSign($raw);
 

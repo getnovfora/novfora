@@ -1,6 +1,6 @@
 # Initial Data Model
 
-> **Project:** Hearth (working codename). **Stage A deliverable** (Section 8 #8). **Date:** 2026-06-01.
+> **Project:** NovFora (working codename). **Stage A deliverable** (Section 8 #8). **Date:** 2026-06-01.
 > The initial relational design: identity, structure (categories→forums→topics→posts), the **permission-mask
 > ACL**, moderation/audit, anti-spam, messaging/notifications, engagement, extensibility (modules/themes),
 > settings, and the **monetization seam**. Includes the **canonical content-storage decision (ADR-0005)**, the

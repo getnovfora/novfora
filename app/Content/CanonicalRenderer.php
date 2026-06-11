@@ -187,7 +187,7 @@ final class CanonicalRenderer
         $token = EmbedRenderer::token($url);
         $safe = $this->esc($url);
 
-        return '<span class="hearth-embed embed-'.$token.'"><a href="'.$safe.'">'.$safe.'</a></span>';
+        return '<span class="novfora-embed embed-'.$token.'"><a href="'.$safe.'">'.$safe.'</a></span>';
     }
 
     /** @param array<string,mixed> $node */

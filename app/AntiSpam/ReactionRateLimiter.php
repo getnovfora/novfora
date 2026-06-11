@@ -30,7 +30,7 @@ final class ReactionRateLimiter
 
     private function limitFor(User $user): int
     {
-        $limits = (array) config('hearth.reactions.rate_limits', []);
+        $limits = (array) config('novfora.reactions.rate_limits', []);
         $slugs = $user->groups->pluck('slug')->all(); // one read of the (usually eager-loaded) relation, not a query per level
 
         foreach (['tl0', 'tl1', 'tl2', 'tl3'] as $slug) {

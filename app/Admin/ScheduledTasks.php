@@ -34,7 +34,7 @@ final class ScheduledTasks
     public function list(): array
     {
         $heartbeat = $this->cacheEpoch(HealthController::QUEUE_HEARTBEAT);
-        $backupCadence = (string) config('hearth.backup.schedule', 'daily');
+        $backupCadence = (string) config('novfora.backup.schedule', 'daily');
 
         return [
             ['name' => 'Queue drain', 'detail' => 'Drains the database queue (emails, search indexing)', 'cadence' => 'Every minute', 'last' => $heartbeat],
@@ -54,7 +54,7 @@ final class ScheduledTasks
     /** Append a "(dormant)" hint to a deliverability task's detail while the pipeline is off. */
     private function deliverabilityDetail(string $detail): string
     {
-        return (bool) config('hearth.deliverability.enabled') ? $detail : $detail.' — dormant';
+        return (bool) config('novfora.deliverability.enabled') ? $detail : $detail.' — dormant';
     }
 
     private function cacheEpoch(string $key): ?int

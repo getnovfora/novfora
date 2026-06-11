@@ -52,11 +52,11 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->prepareForInstaller();
 
-        // Use Hearth's own token-styled pagination views (resources/views/vendor/pagination). Owning these
+        //  (resources/views/vendor/pagination). Owning these
         // lets resources/css/app.css drop its @source on the framework's pagination Blade in vendor/, so the
         // asset build needs no Composer and stays deterministic (PART 5 / CONTRIBUTING.md).
-        Paginator::defaultView('pagination::hearth');
-        Paginator::defaultSimpleView('pagination::simple-hearth');
+        Paginator::defaultView('pagination::novfora');
+        Paginator::defaultSimpleView('pagination::simple-novfora');
 
         // Audit-log authentication events (phase-1.5 F-I): login / logout / failed / lockout / reset / 2FA.
         // (A subscriber — needs explicit registration; plain handle()-listeners in app/Listeners, e.g.
@@ -77,7 +77,7 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Before Hearth is installed, harden the app so a freshly-uploaded tree boots with NO database and
+     * Before NovFora is installed, harden the app so a freshly-uploaded tree boots with NO database and
      * NO pre-set APP_KEY: force zero-dependency drivers (file session/cache, synchronous queue) and
      * generate + persist an APP_KEY so sessions/encryption — and thus the Livewire installer wizard —
      * work. Runs in boot(), before StartSession reads the session driver. A no-op once installed, and in

@@ -53,9 +53,9 @@ new class extends Component
         return [
             'CAPTCHA' => ($p = $settings->string('antispam.captcha_provider')) !== '' ? strtoupper($p) : 'None',
             'StopForumSpam' => $settings->bool('antispam.sfs_use_api') ? 'Live API + cached blocklist' : 'Cached blocklist only',
-            'Honeypot + timing trap' => (bool) config('hearth.antispam.registration.honeypot.required') ? 'Required' : 'Best-effort',
-            'Per-IP rate limit' => (bool) config('hearth.antispam.registration.rate_limit.enabled')
-                ? ((int) config('hearth.antispam.registration.rate_limit.per_ip_per_hour')).' / hour'
+            'Honeypot + timing trap' => (bool) config('novfora.antispam.registration.honeypot.required') ? 'Required' : 'Best-effort',
+            'Per-IP rate limit' => (bool) config('novfora.antispam.registration.rate_limit.enabled')
+                ? ((int) config('novfora.antispam.registration.rate_limit.per_ip_per_hour')).' / hour'
                 : 'Off',
         ];
     }

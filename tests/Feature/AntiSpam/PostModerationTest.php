@@ -87,7 +87,7 @@ it('rewrites text via a replace word filter (display only)', function () {
 });
 
 it('holds a post the content scanner finds suspicious', function () {
-    config(['hearth.antispam.content.suspicious_phrases' => ['buy now cheap']]);
+    config(['novfora.antispam.content.suspicious_phrases' => ['buy now cheap']]);
     $member = Users::inGroups(['members']);
 
     $topic = posts()->createTopic($member, moderationForum(), 'A topic', 'tiptap_json', Content::doc('hey buy now cheap deals'));

@@ -129,7 +129,7 @@ return [
     | storage. By default, no PHP classes will be unserialized from your
     | cache to prevent gadget chain attacks if your APP_KEY is leaked.
     |
-    | HEARTH HARDENING (keep `false`): this closes the object-injection / gadget-chain surface an APP_KEY
+    | NOVFORA HARDENING (keep `false`): this closes the object-injection / gadget-chain surface an APP_KEY
     | leak would otherwise expose. The corollary is a HARD RULE for every caller — CACHED VALUES MUST BE
     | SCALARS OR ARRAYS. On a serializing store (database/file/redis — i.e. every real deployment) ANY
     | cached object (Eloquent model, Collection, Carbon, even a plain value object) deserializes to a

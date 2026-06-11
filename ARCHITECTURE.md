@@ -1,10 +1,10 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # Architecture Overview
 
-Top-level map of **Hearth** (working codename), a self-hosted forum platform. This is the living index; the
+Top-level map of **NovFora**, a self-hosted forum platform. This is the living index; the
 authoritative depth lives in `docs/architecture/` and the decision log in [DECISIONS.md](DECISIONS.md).
 
 ## The shape in one picture

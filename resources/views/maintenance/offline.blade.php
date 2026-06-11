@@ -3,7 +3,7 @@
      inline critical CSS on the theme palette with a prefers-color-scheme dark block, so it renders robustly
      for guests/members while an admin has the board offline. Admins never see it (they pass the gate). No
      auto-refresh: being offline is a deliberate, admin-controlled state, not a transient one. --}}
-@php($name = config('app.name', 'Hearth'))
+@php($name = config('app.name', 'NovFora'))
 @php($msg = trim((string) ($message ?? '')) !== '' ? $message : 'The board is temporarily offline for maintenance. Please check back soon.')
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">

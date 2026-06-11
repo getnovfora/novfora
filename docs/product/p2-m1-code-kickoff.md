@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # P2-M1 — Engagement & content depth — Claude Code kickoff
 
@@ -35,7 +35,7 @@ DCO -s, no AI attribution). Suite green before starting.
 VERIFIED SEAMS YOU BUILD ON (do not re-create):
   • topics.poll_id, topics.prefix_id (bare nullable FK seams — the target tables are yours to add).
   • post_revisions table is live, written by PostService::editPost (diff VIEWER only remains).
-  • PermissionCatalogSeeder::catalog(), RoleSeeder presets, TrustGateSeeder + config/hearth.php
+  • PermissionCatalogSeeder::catalog(), RoleSeeder presets, TrustGateSeeder + config/novfora.php
     antispam.trust_gates (never|no|allow), $user->canDo('key', $scope) via Gate::before → PermissionResolver
     over acl_entries. NO second permission system.
   • ContentRenderer::render() is the SINGLE rich-text path; ContentModerator::review() for free text.
@@ -90,7 +90,7 @@ BUILD P2-M1 — 7 INDEPENDENT PR SLICES (each lands runnable + tested on baselin
    • OEmbedService: host allowlist → server fetch → AMENDMENT #2: the provider HTML goes through a DEDICATED
      EMBED POLICY (a fixed allowlist of embed hosts + a single <iframe> with forced sandbox + minimal allow)
      — NOT the post ContentSanitizer (that allowlist forbids iframes and would strip the embed). A
-     non-allowlisted host renders a NevoBB LINK-CARD FACADE, never raw provider HTML. Cache the result.
+     non-allowlisted host renders a NovFora LINK-CARD FACADE, never raw provider HTML. Cache the result.
    • Record the embed-host allowlist + sandbox policy in DECISIONS.md.
    • Tests (SSRF battery, permanent): IP-literal, DNS→private, redirect-to-internal, oversize, timeout,
      non-allowlist → facade; PLUS an embed-policy test asserting the sandboxed iframe renders AND that the

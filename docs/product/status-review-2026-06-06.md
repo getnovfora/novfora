@@ -1,8 +1,8 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
-# Hearth — Status Review & Updated Roadmap (2026-06-06)
+# NovFora — Status Review & Updated Roadmap (2026-06-06)
 
 > Owner-facing retrospective + forward plan, written while the theme phase runs. Canonical phase detail
 > stays in [roadmap.md](roadmap.md) / [ROADMAP.md](../../ROADMAP.md); the live status ledger stays in
@@ -13,19 +13,19 @@ Copyright 2026 The Hearth Authors
 
 ## 1. Where we are — one paragraph
 
-**Hearth is a real, installed, working forum on a real $5 shared host.** The riskiest promises of the
+**NovFora is a real, installed, working forum on a real $5 shared host.** The riskiest promises of the
 brief are proven, not claimed: one codebase detected and adapted to a baseline cPanel host (PHP 8.4 +
 MySQL + a single cron line), a no-SSH web installer took a non-technical path from "uploaded a zip" to a
 seeded community, and the engine underneath — phpBB-grade permission masks, WYSIWYG editor, anti-spam,
 search, backups, queued email — passed both CI and live-host validation. Nine real-host findings
-(RH-1…RH-9) were found, root-caused, fixed, and turned into permanent regression guards. What Hearth does
+(RH-1…RH-9) were found, root-caused, fixed, and turned into permanent regression guards. What NovFora does
 not yet have is its face (the default theme is placeholder-grade — the theme phase is in flight right
 now), its community depth (Phase 2), or its ecosystem (Phase 3).
 
 **Snapshot:** Phase 1 (Core MVP) ✅ complete & live-validated · Phase 1.5 (security) ✅ · Real-host
 validation ✅ (RH-4 subdirectory remains open by design) · Hygiene/CI guards ✅ · **Theme phase ▶ in
 flight** · Phases 2–5 ahead. Suite: **Pest 333 green / Dusk 2 journeys (incl. installer under real
-enforcement) / Pint / Larastan / audit clean**. Live: `hearth.adorablespider.com` (installed, cron
+enforcement) / Pint / Larastan / audit clean**. Live: `nevo.adorablespider.com` (installed, cron
 running, health green).
 
 ## 2. What we accomplished
@@ -49,7 +49,7 @@ running, health green).
 - **Real-host validation (the decisive phase).** Deployed to actual cPanel/CloudLinux/LiteSpeed and
   fixed what no container could surface — nine findings, every one now guarded by a test or CI step
   (§3). Outcome: **full wizard install completed live; forum browsing, health, cron, queue all green.**
-- **Project infrastructure.** Private GitHub repo (`echo5tech/hearth`) as single source of truth;
+- **Project infrastructure.** Private GitHub repo (`echo5tech/novfora`) as single source of truth;
   authorship policy (sole-author history, AI attribution off, enforced via CLAUDE.md + committed
   settings); reproducible dev environments for macOS + Ubuntu (one-command setup scripts + Docker MySQL);
   CI: lint/static analysis, Pest on MySQL, asset budget + **assets-fresh drift guard**, **two-pass Dusk**
@@ -65,7 +65,7 @@ twice silently.
 | Roadblock | Root cause | What it became |
 |---|---|---|
 | **RH-1** "Target class [view] does not exist" on first boot | bundle built `--no-scripts` shipped no package manifest; the old verify masked it by running artisan first | manifest ships; **cold-boot verify** that can never be masked |
-| **RH-2** 500s on CloudLinux | 0777 files from panel extraction vs suEXEC strictness | `hearth:doctor` check + runbook step |
+| **RH-2** 500s on CloudLinux | 0777 files from panel extraction vs suEXEC strictness | `novfora:doctor` check + runbook step |
 | **RH-6 → RH-7** "Continue does nothing" (the long one) | misdiagnosed as front-end boot timing; live-browser replay proved the truth: Livewire 4's **hashed endpoint** (`livewire-<hash>/update`) missed the install-enforce allowlist → every wizard POST 302'd to HTML | hash-agnostic allowlist + runtime-derived path; **enforcement-ON tests against the real middleware stack** (the suite had been blind: enforce-off + `Livewire::test()` bypasses middleware) |
 | **RH-8** root URL showed Laravel's welcome page | scaffold route never replaced; invisible pre-install; no test asserted `/` | `/` → community home; root-route test; **public-route smoke test** |
 | **RH-9** `/forums` 500 every other minute | P1.5 hardening (`serializable_classes => false`) × the one place caching **live Eloquent objects** → `__PHP_Incomplete_Class` on every cache hit; invisible because tests use the array store (never serializes) | cache primitives only + rehydrate; repo-wide cache-write sweep; **serializing-store cache-HIT tests** |
@@ -121,7 +121,7 @@ Module/plugin API + hooks/events/UI-slots (semver'd) with pre-upgrade compatibil
 configurator atop the override layer · versioned REST API + webhooks · **resumable phpBB/MyBB/SMF
 importers** (dry-run → verify → 301 maps; password rehash-on-login) · admin analytics.
 *Importers are the single biggest adoption lever for "best forum software ever" — every aging phpBB board
-is a prospective Hearth community, and clean-room importers are our bridge.*
+is a prospective NovFora community, and clean-room importers are our bridge.*
 
 **THEN — Phase 4: Advanced / competitive**
 SSO (OAuth2/OIDC/SAML, forum-as-provider) · paid memberships/subscriptions · Clubs · advanced anti-spam

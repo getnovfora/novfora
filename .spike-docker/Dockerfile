@@ -1,4 +1,4 @@
-# Throwaway Spike 0 PHP environment for Hearth — NOT production.
+﻿# Throwaway Spike 0 PHP environment for NevoBB — NOT production.
 # PHP 8.3 + Composer + the extensions Laravel 13 needs for the SQLite spike.
 # JS/Vite runs on the host (Node 24); this image is the PHP/Composer/Artisan/Pest side.
 FROM php:8.3-cli-bookworm

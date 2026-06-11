@@ -15,7 +15,7 @@ beforeEach(fn () => $this->seed(GroupSeeder::class)); // default groups must exi
 it('registers a user, hashes with argon2id, and assigns the default groups', function () {
     $response = $this->post('/register', [
         'username' => 'ada',
-        'email' => 'ada@hearth.test',
+        'email' => 'ada@novfora.test',
         'password' => 'correct horse battery staple',
         'password_confirmation' => 'correct horse battery staple',
     ]);
@@ -23,7 +23,7 @@ it('registers a user, hashes with argon2id, and assigns the default groups', fun
     $response->assertRedirect();
     $this->assertAuthenticated();
 
-    $user = User::where('email', 'ada@hearth.test')->firstOrFail();
+    $user = User::where('email', 'ada@novfora.test')->firstOrFail();
     expect($user->username)->toBe('ada');
     expect(str_starts_with($user->password, '$argon2id$'))->toBeTrue(); // argon2id, not bcrypt
     expect($user->groups->pluck('slug')->all())->toContain('members', 'tl0');
@@ -34,7 +34,7 @@ it('registers a user, hashes with argon2id, and assigns the default groups', fun
 it('requires a username', function () {
     $this->post('/register', [
         'username' => '',
-        'email' => 'x@hearth.test',
+        'email' => 'x@novfora.test',
         'password' => 'correct horse battery staple',
         'password_confirmation' => 'correct horse battery staple',
     ])->assertSessionHasErrors('username');
@@ -47,7 +47,7 @@ it('rejects a duplicate username', function () {
 
     $this->post('/register', [
         'username' => 'taken',
-        'email' => 'new@hearth.test',
+        'email' => 'new@novfora.test',
         'password' => 'correct horse battery staple',
         'password_confirmation' => 'correct horse battery staple',
     ])->assertSessionHasErrors('username');
@@ -56,7 +56,7 @@ it('rejects a duplicate username', function () {
 it('rejects a mismatched password confirmation', function () {
     $this->post('/register', [
         'username' => 'bob',
-        'email' => 'bob@hearth.test',
+        'email' => 'bob@novfora.test',
         'password' => 'correct horse battery staple',
         'password_confirmation' => 'nope',
     ])->assertSessionHasErrors('password');

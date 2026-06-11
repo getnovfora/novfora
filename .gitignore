@@ -1,4 +1,4 @@
-# Hearth — repo baseline .gitignore (Cowork, 2026-06-02)
+# NovFora — repo baseline .gitignore (Cowork, 2026-06-02)
 # Laravel/Node-specific ignores (vendor/, node_modules/, .env, public/build, etc.) are added
 # by the Code session at M0 when the app is scaffolded. For now: OS / editor cruft only.
 
@@ -10,17 +10,17 @@ Thumbs.db
 .vscode/
 
 # Spike 0 (throwaway scaffold) — keep the source files as a reference for M0; exclude heavy/generated artifacts.
-hearth-spike/vendor/
-hearth-spike/node_modules/
-hearth-spike/public/build/
-hearth-spike/public/spike-uploads/
-hearth-spike/public/hot
-hearth-spike/storage/framework/
-hearth-spike/bootstrap/cache/
-hearth-spike/database/*.sqlite
-hearth-spike/.env
-hearth-spike/test-results/
-hearth-spike/playwright-report/
+nevo-spike/vendor/
+nevo-spike/node_modules/
+nevo-spike/public/build/
+nevo-spike/public/spike-uploads/
+nevo-spike/public/hot
+nevo-spike/storage/framework/
+nevo-spike/bootstrap/cache/
+nevo-spike/database/*.sqlite
+nevo-spike/.env
+nevo-spike/test-results/
+nevo-spike/playwright-report/
 
 # Laravel / Node — repo-root app (M0). IMPORTANT: /public/build is intentionally NOT ignored;
 # prebuilt assets are committed so the baseline shared host needs no Node runtime.
@@ -36,6 +36,8 @@ hearth-spike/playwright-report/
 /storage/*.key
 /storage/installed
 /storage/install-token.txt
+/storage/novfora-restore.json
+/storage/novfora-restore.lock
 /storage/hearth-restore.json
 /storage/hearth-restore.lock
 /storage/backups
@@ -49,6 +51,8 @@ yarn-error.log
 /.zed
 
 # Deployable release bundle — build artifact; never commit the binary (see docs/REAL-HOST-VALIDATION.md §2).
+/novfora-release.zip
+/nevo-release.zip
 /hearth-release.zip
 
 # Owner's local visual-feedback drops (round screenshots) + the scratch PR-body draft — local-only.

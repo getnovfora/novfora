@@ -1,10 +1,10 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
-# Hearth
+# NovFora
 
-> **Hearth** *(working codename — to be renamed before 1.0)* is an open-source, **self-hosted** forum and
+> **NovFora** is an open-source, **self-hosted** forum and
 > community platform on a modern PHP stack. It combines the proven fundamentals of phpBB/MyBB/SMF with the
 > polish of XenForo/Invision and the accessible customization of ProBoards — and deliberately fixes the pain
 > points all of them share: **spam, weak search, dated mobile UX, upgrade-breaking add-ons, theming that needs
@@ -13,7 +13,7 @@ Copyright 2026 The Hearth Authors
 **License:** [Apache-2.0](LICENSE) · **Status:** pre-code — Stage A (discovery & architecture) complete,
 pending the Phase 0 gate. First code lands in **Phase 1** (see [ROADMAP.md](ROADMAP.md)).
 
-## Why Hearth
+## Why NovFora
 
 It runs on the hosting ordinary forum operators actually have **and** feels modern:
 

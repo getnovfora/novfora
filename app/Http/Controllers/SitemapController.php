@@ -21,7 +21,7 @@ class SitemapController extends Controller
 {
     public function index(): Response
     {
-        $xml = Cache::remember('hearth.sitemap', now()->addHour(), fn () => $this->build());
+        $xml = Cache::remember('novfora.sitemap', now()->addHour(), fn () => $this->build());
 
         return response($xml, 200)->header('Content-Type', 'application/xml');
     }

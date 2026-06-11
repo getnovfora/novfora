@@ -27,7 +27,7 @@ function suggestionPopup(label, pick) {
     items.forEach((item, i) => {
       const b = document.createElement('button')
       b.type = 'button'
-      b.className = 'hearth-suggest-item' + (i === active ? ' is-active' : '')
+      b.className = 'novfora-suggest-item' + (i === active ? ' is-active' : '')
       b.setAttribute('role', 'option')
       b.setAttribute('aria-selected', i === active ? 'true' : 'false')
       b.textContent = label(item)
@@ -49,7 +49,7 @@ function suggestionPopup(label, pick) {
       items = props.items
       active = 0
       el = document.createElement('div')
-      el.className = 'hearth-suggest'
+      el.className = 'novfora-suggest'
       el.setAttribute('role', 'listbox')
       document.body.appendChild(el)
       paint()
@@ -93,7 +93,7 @@ const EmbedNode = Node.create({
   },
   renderHTML({ HTMLAttributes }) {
     const url = HTMLAttributes.url || ''
-    return ['div', { 'data-embed-url': url, class: 'hearth-embed-edit' }, `▶ Embed — ${url}`]
+    return ['div', { 'data-embed-url': url, class: 'novfora-embed-edit' }, `▶ Embed — ${url}`]
   },
 })
 
@@ -196,7 +196,7 @@ export function runCommand(editor, name) {
   ;(commands[name] ?? (() => {}))()
 }
 
-export function createHearthEditor({ element, content, placeholder, uploadUrl, mentionUrl, onUpdate }) {
+export function createNovForaEditor({ element, content, placeholder, uploadUrl, mentionUrl, onUpdate }) {
   const editor = new Editor({
     element,
     extensions: [
@@ -213,7 +213,7 @@ export function createHearthEditor({ element, content, placeholder, uploadUrl, m
     onUpdate: ({ editor }) => onUpdate?.(editor.getJSON()),
     editorProps: {
       attributes: {
-        class: 'hearth-prose',
+        class: 'novfora-prose',
         role: 'textbox',
         'aria-multiline': 'true',
         'aria-label': 'Post editor',

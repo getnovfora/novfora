@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # ACP v1 — admin shell, dashboard, structure manager, settings — Claude Code kickoff
 
@@ -14,7 +14,7 @@ Copyright 2026 The Hearth Authors
 ---
 
 ```
-Build Hearth's ACP v1: a settings infrastructure, an admin shell with dashboard, a forum structure
+Build NovFora's ACP v1: a settings infrastructure, an admin shell with dashboard, a forum structure
 manager, six settings pages, and the existing System panels migrated into the shell. Branch + PR with
 screenshots (this is a visual cycle). THINK HARD throughout — admin surface is security-sensitive.
 
@@ -65,7 +65,7 @@ PART 3 — SETTINGS PAGES (forms on PART 0; each page = one focused Livewire SFC
      EMAIL button (queued send to a typed address; result surfaced). Reads current env as initial values;
      DB overrides take precedence per PART 0.
   4. Moderation defaults — new-user first-post hold count (0 = auto-post; also honor a
-     HEARTH_NEW_USER_HOLD_POSTS env fallback — the owner's live preference), suspicious-score threshold,
+     NOVFORA_NEW_USER_HOLD_POSTS env fallback — the owner's live preference), suspicious-score threshold,
      edit-time/flood limits if existing knobs map cleanly.
   5. Anti-spam — captcha provider (qa/turnstile + keys), SFS live-API toggle, blocklist info read-only.
   6. Appearance (site-level; distinct from per-user) — active theme select (themes dir scan), accent

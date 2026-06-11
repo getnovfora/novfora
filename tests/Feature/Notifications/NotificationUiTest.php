@@ -74,5 +74,5 @@ it('polls the unread count via the bell island', function () {
 });
 
 it('runs the email deliverability self-test command', function () {
-    $this->artisan('hearth:mail:test', ['email' => 'admin@example.com'])->assertSuccessful();
+    $this->artisan('novfora:mail:test', ['email' => 'admin@example.com'])->assertSuccessful();
 });

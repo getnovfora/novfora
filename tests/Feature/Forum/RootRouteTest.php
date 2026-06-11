@@ -44,12 +44,12 @@ it('serves the real community home at the canonical /forums', function () {
 it('still redirects the root to the installer pre-install (enforcement ON, unchanged)', function () {
     // The RH-8 change must not weaken installer enforcement: an un-installed site sends '/' to the wizard,
     // exactly as before — the 301-to-/forums only applies once installed / when enforcement is off.
-    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'hearth-rh8-'.bin2hex(random_bytes(6));
+    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'novfora-rh8-'.bin2hex(random_bytes(6));
     @mkdir($dir, 0775, true);
 
     config([
-        'hearth.install.enforce' => true,
-        'hearth.install.marker' => $dir.DIRECTORY_SEPARATOR.'installed', // absent path → not installed
+        'novfora.install.enforce' => true,
+        'novfora.install.marker' => $dir.DIRECTORY_SEPARATOR.'installed', // absent path → not installed
     ]);
 
     $this->get('/')->assertRedirect(route('install'));

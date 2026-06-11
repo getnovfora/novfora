@@ -1,10 +1,10 @@
 <!--
 SPDX-License-Identifier: Apache-2.0
-Copyright 2026 The Hearth Authors
+Copyright 2026 The NovFora Authors
 -->
 # Deployable Bundle — REBUILD with real-host fixes — Claude Code kickoff prompt
 
-> First real-host install surfaced a blocker: the prior `hearth-release.zip` fails on a fresh shared host with
+> First real-host install surfaced a blocker: the prior `novfora-release.zip` fails on a fresh shared host with
 > **`Target class [view] does not exist`** because it shipped **without** Laravel's package manifest
 > (`bootstrap/cache/packages.php`) — a side effect of building with `--no-scripts`. The previous bundle
 > verification masked it by running `php artisan route:list` (which regenerates the manifest) *before* its boot
@@ -14,7 +14,7 @@ Copyright 2026 The Hearth Authors
 ---
 
 ```
-Rebuild the deployable hearth-release.zip so it boots on a fresh no-SSH shared host with ZERO commands, and
+Rebuild the deployable novfora-release.zip so it boots on a fresh no-SSH shared host with ZERO commands, and
 fold in the real-host findings below. Investigate → REPRODUCE → fix → verify. No new product features.
 
 STEP 0: read PROJECT-STATE.md; confirm the suite is green (Pest 310) and the tree is clean.
@@ -55,7 +55,7 @@ PART 3 — FIX THE VERIFICATION (so RH-1 can never slip through again):
   runs artisan before booting.
 
 PART 4 — DOCTOR + RUNBOOK (the other findings):
-  • hearth:doctor: add a check that flags world/group-writable (0777-style) app files/dirs — the CloudLinux 500
+  • novfora:doctor: add a check that flags world/group-writable (0777-style) app files/dirs — the CloudLinux 500
     cause — with the chmod hint. Add a test.
   • docs/REAL-HOST-VALIDATION.md:
     – Add a prominent PERMISSIONS step for CloudLinux/suEXEC hosts: after extract, set 755 dirs / 644 files
@@ -69,9 +69,9 @@ PART 4 — DOCTOR + RUNBOOK (the other findings):
     – Note: do NOT copy docs/*.md into the web folder.
 
 DELIVER:
-  • Write the corrected artifact to D:\Forum\hearth-release.zip; report path, size, sha256, and the PART 1 (old,
+  • Write the corrected artifact to D:\Forum\novfora-release.zip; report path, size, sha256, and the PART 1 (old,
     fails) vs PART 3 (new, passes) cold-boot results side by side.
-  • Keep /hearth-release.zip gitignored (don't commit the binary). Commit the code + doc + verify changes
+  • Keep /novfora-release.zip gitignored (don't commit the binary). Commit the code + doc + verify changes
     (conventional, DCO). Full M0–M5 suite STAYS green + any new tests pass; Pint/Larastan/audit clean.
 
 REPORT BACK: the reproduce/fix/verify evidence (cold boot now → 302 /install with zero commands), the new
@@ -85,5 +85,5 @@ storage publisher targets a subfolder web root automatically — for owner decis
 
 ## After this
 
-The owner re-downloads `D:\Forum\hearth-release.zip` and resumes the real-host install (the subfolder recipe +
+The owner re-downloads `D:\Forum\novfora-release.zip` and resumes the real-host install (the subfolder recipe +
 permissions step are now in the runbook). Cowork triages whatever the live host surfaces next.
