@@ -1,4 +1,4 @@
-# CLAUDE.md — NevoBB (open-source forum platform)
+# CLAUDE.md — NovFora (open-source forum platform)
 
 > Standing instructions for Claude Code on this repo. **Read every session.** This is the distilled
 > operating contract; the full rationale and complete spec live in `@docs/PROJECT-BRIEF.md` — consult
@@ -11,11 +11,12 @@ proven fundamentals of phpBB/MyBB/SMF with the polish of XenForo/Invision/ProBoa
 pain points all of them share (spam, weak search, dated mobile UX, painful upgrades, core-edit
 theming, weak real-time, install friction).
 
-**Name: NevoBB** (decided 2026-06-07 — ADR-0024). Single brand: no separate "NevoForums" identity;
-`nevoforums.com` is parked as a redirect, reserved for a possible future hosted tier. "Hearth" is the
-**retired working codename** — it still appears throughout the code (`config/hearth.php`, `hearth:*`
-commands, `HEARTH_*` env keys, SPDX lines); the rename is a **separate planned task** to be executed as
-one reviewed change. Do not rename ad-hoc; flag stragglers.
+**Name: NovFora** (finalised 2026-06-10 — ADR-0026, supersedes ADR-0024). Single brand; domains
+`novfora.com` and `novfora.net` registered. "Hearth" and "NevoBB" are **retired codenames** — they
+still appear throughout the code (`config/hearth.php` or `config/nevo.php`, `hearth:*`/`nevo:*`
+commands, `HEARTH_*`/`NEVO_*` env keys, SPDX lines); the **Hearth/NevoBB → NovFora rename is the
+immediate next task** (ADR-0026), to be executed as one reviewed change. Do not rename ad-hoc; flag
+stragglers.
 
 **Status: Stage B (active implementation).** Phase 1 / Core MVP complete; Phase 1.5 hardening complete;
 real-host fixes merged; ACP v1 + Spike P2 merged. See `PROJECT-STATE.md` for the current handoff state.

@@ -1,4 +1,4 @@
-# ACP v3 — Full Design Spec
+# NovFora — ACP v3 Full Design Spec
 
 > **Status:** Handoff-ready for Opus 4.8 (xhigh) implementation planning  
 > **Compiled:** 2026-06-10  
@@ -369,4 +369,4 @@ Slices are suggested — Opus should validate ordering against DB migration depe
 
 Study Invision Community v4's ACP layout (publicly documented) for UX pattern only:
 - Icon rail → Section sidebar → Per-section customizable dashboard
-- Do not copy markup, CSS, JS, or assets — reimplement in Blade/Alpine/Tailwind
+- Do not copy markup, CSS, JS, or assets — reimplement in Blade/Alpine/Tailwind per NovFora's clean-room rule
