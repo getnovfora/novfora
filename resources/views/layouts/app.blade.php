@@ -105,6 +105,7 @@
                         @auth
                             <a href="{{ route('whats-new') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">What's new</a>
                             <a href="{{ route('notifications.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Notifications</a>
+                            <a href="{{ route('pm.inbox') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Messages</a>
                             <a href="{{ route('settings.profile') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Profile &amp; settings</a>
                         @endauth
                     </nav>
@@ -148,6 +149,7 @@
 
                 @auth
                     <livewire:notification-bell />
+                    <livewire:pm.inbox-badge />
 
                     <x-ui.dropdown align="right" width="w-60">
                         <x-slot:trigger>

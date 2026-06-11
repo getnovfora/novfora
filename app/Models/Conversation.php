@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * A multi-participant private conversation (P2-M2 Half-B). Participants live in the `conversation_user` pivot;
@@ -41,6 +42,17 @@ class Conversation extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class)->orderBy('created_at');
+    }
+
+    /**
+     * The most recent message — for inbox snippets. A hasOne subquery (latestOfMany) so it can be eager-loaded
+     * per-conversation without the eager-load `limit(1)` pitfall (which caps the result set globally).
+     *
+     * @return HasOne<Message, $this>
+     */
+    public function lastMessage(): HasOne
+    {
+        return $this->hasOne(Message::class)->latestOfMany();
     }
 
     /**

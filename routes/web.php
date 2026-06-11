@@ -25,6 +25,7 @@ use App\Http\Controllers\WarningController;
 use App\Http\Controllers\WhatsNewController;
 use App\Http\Middleware\EnsureSystemPanelAccess;
 use App\Http\Middleware\RequireTwoFactorForStaff;
+use App\Models\Conversation;
 use App\Models\Forum;
 use App\Models\Post;
 use Illuminate\Support\Facades\Response;
@@ -152,6 +153,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Profile (signature, custom fields, avatar/cover) — own account.
     Route::get('/settings/profile', [ProfileController::class, 'edit'])->name('settings.profile');
     Route::post('/settings/profile', [ProfileController::class, 'update'])->name('settings.profile.save');
+
+    // Private messages (P2-M2 Half-B). The /messages/new route MUST be registered before {conversation}
+    // so the literal "new" segment is never captured as a conversation id.
+    Route::get('/messages', fn () => view('pm.inbox'))->name('pm.inbox');
+    Route::get('/messages/new', fn () => view('pm.new'))->name('pm.create');
+    Route::get('/messages/{conversation}', fn (Conversation $conversation) => view('pm.conversation', ['conversation' => $conversation]))->name('pm.show');
 });
 
 // Admin → System panels. Requires an authenticated admin (admin.access via the permission engine);
