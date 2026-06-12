@@ -30,6 +30,10 @@
                         </p>
                     </div>
                 </div>
+
+                <div class="mt-4">
+                    <livewire:community.follow-button :user-id="$user->id" />
+                </div>
             </div>
         </x-ui.card>
 

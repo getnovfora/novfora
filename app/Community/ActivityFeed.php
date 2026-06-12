@@ -46,13 +46,45 @@ final class ActivityFeed
      */
     public function for(User $viewer): array
     {
+        return $this->page($viewer, fn (): array => $this->window());
+    }
+
+    /**
+     * The FOLLOWING variant (P2-M5): the same feed restricted to activity whose actor is one of the
+     * viewer's followed users — and STILL passed through the same VisibleForumIds filter, so a followed
+     * user's activity in a forum the viewer cannot see stays hidden (one permission path, never bypassed).
+     * The caller resolves the followed ids (FollowService::followingIds) and handles the empty-set case
+     * (the UI falls back to the global feed with a hint — recorded decision).
+     *
+     * @param  list<int>  $followedIds
+     * @return list<ActivityFeedItem>
+     */
+    public function forFollowing(User $viewer, array $followedIds): array
+    {
+        $followedIds = array_values(array_unique(array_map('intval', $followedIds)));
+        if ($followedIds === []) {
+            return [];
+        }
+
+        return $this->page($viewer, fn (): array => $this->followingWindow($followedIds));
+    }
+
+    /**
+     * Shared read path: short-circuit a sees-no-forum viewer BEFORE touching the window, then apply the
+     * per-viewer permission filter and rehydrate — both strictly AFTER the cache boundary (RH-9).
+     *
+     * @param  \Closure(): list<array<string, mixed>>  $window
+     * @return list<ActivityFeedItem>
+     */
+    private function page(User $viewer, \Closure $window): array
+    {
         // Per-viewer permission filter (NOT cached). [] = sees no forum → no forum-scoped activity at all.
         $visibleIds = VisibleForumIds::for($viewer);
         if ($visibleIds === []) {
             return [];
         }
 
-        $rows = $this->window();
+        $rows = $window();
 
         if ($visibleIds !== null) {
             $allowed = array_flip($visibleIds);
@@ -83,10 +115,34 @@ final class ActivityFeed
         }
     }
 
-    /** @return list<array<string, mixed>> */
-    private function loadWindow(): array
+    /**
+     * The cached FOLLOWING window (P2-M5): the latest activities by the followed actors, as primitive rows.
+     * The key carries a HASH OF THE SORTED FOLLOWED-ID SET — a follow/unfollow changes the key (so the
+     * window can never serve a stale follow graph) and viewers with the same follow set share the entry;
+     * the activity version + short TTL behave exactly like the global window. A pseudonymised (deleted)
+     * actor is NULL and naturally never matches the IN list.
+     *
+     * @param  list<int>  $followedIds
+     * @return list<array<string, mixed>>
+     */
+    private function followingWindow(array $followedIds): array
+    {
+        sort($followedIds);
+        $setHash = md5(implode(',', $followedIds));
+        $key = "novfora.activities.feed.following.{$setHash}.v".$this->version->current();
+
+        try {
+            return Cache::remember($key, now()->addSeconds(self::TTL_SECONDS), fn (): array => $this->loadWindow($followedIds));
+        } catch (\Throwable) {
+            return $this->loadWindow($followedIds); // correctness never depends on the cache
+        }
+    }
+
+    /** @param list<int>|null $actorIds null = the global window @return list<array<string, mixed>> */
+    private function loadWindow(?array $actorIds = null): array
     {
         return Activity::query()
+            ->when($actorIds !== null, fn ($q) => $q->whereIn('actor_id', $actorIds))
             ->orderByDesc('id')
             ->limit(self::WINDOW)
             ->get(['id', 'actor_id', 'verb', 'subject_type', 'subject_id', 'object_type', 'object_id', 'scope_forum_id', 'created_at'])
