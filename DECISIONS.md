@@ -816,3 +816,16 @@ rank-guard bypass and a Meili-staleness defect — both shown unreachable). Fixe
   asserts it). The quick-merge modal lists same-forum candidates as a UI default only — clarified in the SFC.
 Each behavioural fix carries a regression test (category-destination skip; redirect 404-not-301 for a blind
 viewer; A→B→C terminus collapse; empty-universe sees-none).
+
+**Bulk-select client wiring (Dusk-discovered; reusable for future interactive UI).** The Dusk journey caught
+four client-side defects invisible to the service-level Pest suite: (1) Alpine stores are read as a PROPERTY
+`$store.bulkSelect`, never a function call `$store('bulkSelect')` (the latter throws "$store is not a
+function"); (2) Alpine only initialises directives inside an `x-data` tree, so a toggle/checkbox in plain Blade
+(outside a Livewire component, which Livewire scopes for you) needs an `x-data="{}"` ancestor or it is silently
+ignored — wrapping the page container fixes it (nested Livewire components keep their own scopes); (3) `bottom-0`
+is NOT in the prebuilt CSS, so a `fixed bottom-0` bar must be pinned with an inline `style` (assets-fresh: no
+Node rebuild here); (4) a fixed bottom bar overlaps lower content — reserve bottom space in select mode. The
+moderator action redirects with `navigate:false` (full reload) so the Alpine store resets and the session flash
+renders. The Dusk journey asserts the rank-guard OUTCOME (eligible deleted, higher-ranked survives), not a flash
+string, with generous waits for the slow local docker env (≈9 s page loads — the same env flakiness recorded for
+the M2B/installer journeys; validate in clean CI).
