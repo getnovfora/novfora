@@ -157,7 +157,7 @@ set +e
 # Editor journey (RH-7 regression) + the default-theme screenshot gate (writes tests/Browser/screenshots/
 # theme-*.png) + the ACP v1 admin journey & screenshot gate (acp-*.png: dashboard/structure/settings/audit
 # in light/dark × mobile/desktop).
-php artisan dusk --without-tty tests/Browser/EditorJourneyTest.php tests/Browser/ThemeScreenshotTest.php tests/Browser/AdminJourneyTest.php tests/Browser/ContentDepthJourneyTest.php tests/Browser/PmJourneyTest.php tests/Browser/AccountDeletionJourneyTest.php tests/Browser/ActivityFeedJourneyTest.php tests/Browser/ModerationJourneyTest.php
+php artisan dusk --without-tty tests/Browser/EditorJourneyTest.php tests/Browser/ThemeScreenshotTest.php tests/Browser/AdminJourneyTest.php tests/Browser/ContentDepthJourneyTest.php tests/Browser/PmJourneyTest.php tests/Browser/AccountDeletionJourneyTest.php tests/Browser/ActivityFeedJourneyTest.php tests/Browser/ModerationJourneyTest.php tests/Browser/SocialPackJourneyTest.php
 EDITOR_CODE=$?
 set -e
 [ "$EDITOR_CODE" -ne 0 ] && dump_logs
