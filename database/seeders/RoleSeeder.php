@@ -34,6 +34,11 @@ class RoleSeeder extends Seeder
             'react.create' => $allow,  // reacting is ungated participation; abuse handled by ReactionRateLimiter
             'poll.vote' => $allow,     // voting is ungated participation
             'tag.apply' => $allow,     // applying an EXISTING tag is ungated participation; mint is separately gated
+            // follow.delete is ungated (undoing your own follow is always allowed); follow.create is
+            // deliberately withheld here — like poll.create it is TL-gated soft (no) at TL0 and granted
+            // from TL1 via config/novfora.php trust_gates (a member-preset ALLOW would lift the TL0 NO
+            // under the most-permissive group merge, defeating the gate).
+            'follow.delete' => $allow,
         ];
 
         $moderator = $member + [
@@ -55,6 +60,9 @@ class RoleSeeder extends Seeder
             // preset and granted progressively from TL1 — see config/novfora.php trust_gates). tag.apply is
             // already inherited from the member preset.
             'tag.create' => $allow,
+            // Staff follow regardless of trust level (follow.create is withheld from the base member preset
+            // and granted progressively from TL1 — see config/novfora.php trust_gates).
+            'follow.create' => $allow,
         ];
 
         $administrator = $moderator + [
