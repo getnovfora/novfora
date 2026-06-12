@@ -39,15 +39,30 @@ class Post extends Model
     }
 
     /**
-     * Search projection (ADR-0010). The baseline Scout `database` engine searches this model's `body_text`
-     * column (MySQL FULLTEXT / LIKE); the enhanced Meilisearch engine indexes the same field. Only the
-     * tags-stripped text projection is exposed — never raw HTML.
+     * Search projection (ADR-0010; P2-M4 facets). The baseline Scout `database` engine LIKE-matches over the
+     * keys of this array as real columns, so on the DB tier it stays the tags-stripped `body_text` projection
+     * ALONE — never raw HTML, and never a numeric column that would pollute keyword matching. The enhanced
+     * Meilisearch engine additionally needs the facet fields as filterable attributes (forum_id lives on the
+     * topic, so it is computed via the relation); these are added ONLY for that driver, where they are
+     * filtered, not LIKE-matched. The DB tier resolves the same facets through SearchService's topic join.
      *
      * @return array<string, mixed>
      */
     public function toSearchableArray(): array
     {
-        return ['body_text' => (string) $this->body_text];
+        $data = ['body_text' => (string) $this->body_text];
+
+        if (in_array(config('scout.driver'), ['meilisearch', 'typesense'], true)) {
+            // forum_id lives on the topic; resolve withTrashed so a post under a soft-deleted topic still
+            // indexes a forum (index-time only, on the enhanced tier — the DB tier never reaches here). The
+            // driver set matches MeilisearchProbe::configured() so Typesense indexes the facet fields too.
+            $data['user_id'] = (int) $this->user_id;
+            $data['topic_id'] = (int) $this->topic_id;
+            $data['forum_id'] = (int) (Topic::withTrashed()->whereKey($this->topic_id)->value('forum_id') ?? 0);
+            $data['created_at'] = $this->created_at?->getTimestamp();
+        }
+
+        return $data;
     }
 
     /** Only approved content is discoverable (pending/rejected posts stay out of search). */

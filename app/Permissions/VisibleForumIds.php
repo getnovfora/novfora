@@ -38,6 +38,12 @@ final class VisibleForumIds
         // per-node can() calls resolve through the memo + ACL cache (0 DB on a warm request).
         $forums = Forum::query()->get();
 
+        // Empty universe (no forum rows — e.g. all soft-deleted) must resolve to sees-NONE, not collapse into
+        // the sees-all sentinel below (count([]) === count([]) would wrongly return null and drop every filter).
+        if ($forums->isEmpty()) {
+            return self::$memo[$key] = [];
+        }
+
         $visible = [];
         foreach ($forums as $forum) {
             if ($resolver->can($viewer, 'forum.view', $forum->permissionScope())) {
