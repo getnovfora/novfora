@@ -71,8 +71,11 @@ Add **one** cron entry in your host's control panel (ADR-0011):
 
 That single line drives everything on the baseline tier:
 
-- **Queued email** (reply/mention/moderation notifications) — drained in bounded batches;
+- **Queued email** (reply/mention/reaction/follow/moderation notifications) — drained in bounded batches;
 - **Search indexing** and the **trust-level** recompute;
+- **Reputation & badges** (`nevo:reputation:recompute` hourly, `nevo:badges:recompute` daily) — the
+  self-heal sweeps that reconcile the points total to its ledger and award any badge a missed event
+  dropped; both idempotent;
 - **Anti-spam** retention/cleanup;
 - **Automated backups** (see below).
 
