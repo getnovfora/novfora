@@ -33,6 +33,14 @@ class User extends Authenticatable implements MustVerifyEmail
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, TwoFactorAuthenticatable;
 
+    /** Display-preference vocabulary (P2-M4). posts_per_page/thread_sort are written ONLY by the
+     *  ⚡user-preferences SFC (validated against these sets), never mass-assigned — they stay out of #[Fillable]. */
+    public const POSTS_PER_PAGE_OPTIONS = [15, 30, 50];
+
+    public const POSTS_PER_PAGE_DEFAULT = 15;
+
+    public const THREAD_SORTS = ['oldest', 'newest'];
+
     protected function casts(): array
     {
         return [
@@ -41,6 +49,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'trust_level' => 'integer',
             'signature_doc' => 'array',
+            'posts_per_page' => 'integer',
         ];
     }
 
@@ -108,6 +117,20 @@ class User extends Authenticatable implements MustVerifyEmail
         $last = $this->last_active_at;
 
         return $last !== null && Carbon::parse($last)->gt(now()->subMinutes(15));
+    }
+
+    /** The viewer's chosen posts-per-thread-page (P2-M4), clamped to the allowed set; null → the default (15). */
+    public function postsPerPage(): int
+    {
+        $value = (int) ($this->posts_per_page ?? self::POSTS_PER_PAGE_DEFAULT);
+
+        return in_array($value, self::POSTS_PER_PAGE_OPTIONS, true) ? $value : self::POSTS_PER_PAGE_DEFAULT;
+    }
+
+    /** Whether the viewer reads threads newest-first (P2-M4); null/anything-else → oldest-first (the default). */
+    public function threadSortNewestFirst(): bool
+    {
+        return $this->thread_sort === 'newest';
     }
 
     /**
