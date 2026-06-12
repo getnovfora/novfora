@@ -77,7 +77,7 @@ it('renders a busy thread within the query budget (≤30, no N+1)', function () 
     expect($queries)->toBeLessThanOrEqual(30);
 });
 
-it('renders the forum index within the query budget (≤15, no N+1)', function () {
+it('renders the forum index (now hosting the activity feed) within the query budget (≤20, no N+1)', function () {
     $this->seed();
 
     // A category with several forums — a per-forum query (N+1) would push well past the budget.
@@ -95,5 +95,7 @@ it('renders the forum index within the query budget (≤15, no N+1)', function (
     $this->actingAs($viewer)->get(route('forums.index'))->assertOk();
     $queries = queriesFor(fn () => $this->actingAs($viewer)->get(route('forums.index'))->assertOk());
 
-    expect($queries)->toBeLessThanOrEqual(15);
+    // ≤20 (was ≤15): the P2-M3 activity feed adds the permission filter (VisibleForumIds, memoised) + the
+    // post-cache rehydration (batched actor/subject loads). Recorded in DECISIONS per amendment #6.
+    expect($queries)->toBeLessThanOrEqual(20);
 });
