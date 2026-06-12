@@ -101,6 +101,14 @@ Schedule::command('nevo:reputation:recompute')
     ->withoutOverlapping(10)
     ->skip($duringRestore);
 
+// Badge catch-up sweep (P2-M5 ⚙): award anything a missed event dropped. Awards are permanent +
+// UNIQUE-keyed, so the sweep only ever adds — idempotent by construction. Daily is enough latency for a
+// missed badge; same short-mutex discipline. `nevo:` naming as above (rename surface #8, ADR-0028).
+Schedule::command('nevo:badges:recompute')
+    ->daily()
+    ->withoutOverlapping(10)
+    ->skip($duringRestore);
+
 // Privacy/GDPR retention (ADR-0007 §2.6): purge aged registration checks + expired blocklist cache.
 Schedule::command('novfora:antispam:purge')->daily()->skip($duringRestore);
 

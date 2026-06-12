@@ -25,17 +25,20 @@ it('schedules the queue drain, backups, and the trust/anti-spam jobs', function 
     expect($commands)->toContain('novfora:antispam:purge');
     // P2-M5 social-pack self-heals (the `nevo:` names are the Phase-5 rename surface #8 — ADR-0028).
     expect($commands)->toContain('nevo:reputation:recompute');
+    expect($commands)->toContain('nevo:badges:recompute');
 });
 
-it('registers the reputation self-heal, overlap-guarded with a short bounded mutex', function () {
-    $event = collect(app(Schedule::class)->events())
-        ->first(fn ($event) => str_contains((string) $event->command, 'nevo:reputation:recompute'));
+it('registers the reputation and badge self-heals, overlap-guarded with short bounded mutexes', function () {
+    foreach (['nevo:reputation:recompute', 'nevo:badges:recompute'] as $command) {
+        $event = collect(app(Schedule::class)->events())
+            ->first(fn ($event) => str_contains((string) $event->command, $command));
 
-    expect($event)->not->toBeNull();
-    // withoutOverlapping so a long recompute on a large board never doubles up on a coarse/overlapping
-    // tick — with a SHORT expiry (not Laravel's 24h default) so a hard-killed run can't strand the heal.
-    expect($event->withoutOverlapping)->toBeTrue();
-    expect($event->expiresAt)->toBeLessThan(60);
+        expect($event)->not->toBeNull();
+        // withoutOverlapping so a long recompute on a large board never doubles up on a coarse/overlapping
+        // tick — with a SHORT expiry (not Laravel's 24h default) so a hard-killed run can't strand the heal.
+        expect($event->withoutOverlapping)->toBeTrue();
+        expect($event->expiresAt)->toBeLessThan(60);
+    }
 });
 
 it('registers a liveness heartbeat callback for the health endpoint', function () {

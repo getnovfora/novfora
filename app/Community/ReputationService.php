@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Community;
 
+use App\Events\ReputationAwarded;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -42,8 +43,8 @@ final class ReputationService
             return false;
         }
 
-        return DB::transaction(function () use ($recipient, $source, $points): bool {
-            $inserted = DB::table('reputation_events')->insertOrIgnore([
+        $inserted = DB::transaction(function () use ($recipient, $source, $points): bool {
+            $landed = DB::table('reputation_events')->insertOrIgnore([
                 'user_id' => (int) $recipient->getKey(),
                 'source_type' => $source->getMorphClass(),
                 'source_id' => (int) $source->getKey(),
@@ -51,14 +52,22 @@ final class ReputationService
                 'created_at' => now(),
             ]) > 0;
 
-            if ($inserted) {
+            if ($landed) {
                 // Atomic in-place increment — never read-modify-write (concurrent awards to the same
                 // recipient from different sources must both land).
                 User::whereKey($recipient->getKey())->increment('reputation_points', $points);
             }
 
-            return $inserted;
+            return $landed;
         });
+
+        // The rep-threshold badge trigger (P2-M5) — only a REAL insert fires it, so a replayed award
+        // never re-triggers; only an upward move matters (badges are permanent, negatives award nothing).
+        if ($inserted && $points > 0) {
+            ReputationAwarded::dispatch($recipient);
+        }
+
+        return $inserted;
     }
 
     /**
