@@ -29,7 +29,7 @@ PostgreSQL on Docker/VPS. Vite, prebuilt assets (no host Node). Approved — ADR
 - **Two stages, gated:** Stage A (Discovery) → Phase 0 gate **passed** → Stage B phased implementation
   (plan-before-code, wait for approval per phase).
 
-## Status (as of 2026-06-11)
+## Status (as of 2026-06-12)
 
 > **▶ Phase 1 / Core MVP COMPLETE · Phase 1.5 Hardening COMPLETE · RH-6–RH-11 FIXED · Default theme MERGED ·
 > ACP v1 + v1.1 MERGED · Spike P2 deliverability → GO (PR #8 merged) · ACP v2 MERGED (PR #9) ·
@@ -42,7 +42,26 @@ PostgreSQL on Docker/VPS. Vite, prebuilt assets (no host Node). Approved — ADR
 > (10 service/cascade + 9 confirm-flow/route + 2 Dusk) all green, full suite **813 passed / 1 skipped
 > (2643 assertions)**; branch
 > `claude/p2-account-deletion` off `main` — **push pending** (sandbox has no interactive git credentials; user
-> pushes, then opens the PR).**
+> pushes, then opens the PR). ·
+> ▶ P2-M3 ACTIVITY FEED & COMMUNITY-FEEL PACK (Core) — **BUILT**: the global, per-viewer permission-filtered
+> activity feed (`VisibleForumIds` seam + version-keyed primitive cache + rehydrate-after-boundary), verb
+> logging (topic/post/react, approved-only, no PM), the ADR-0025 `activities.actor_id` addendum, throttled
+> `last_active_at`/online + view-count, forum stats. Pint · Larastan **L5 clean** · assets-fresh · **+20
+> dedicated tests** (18 feature: feed/cache-HIT/resolver/logging/community/addendum + 2 Dusk) green, full suite
+> **831 passed / 1 skipped (2701 assertions)**. Held: follow,
+> reputation, badges, staff notes. Branch `claude/p2-m3-activity` **stacked on `claude/p2-account-deletion`**
+> — **rebase onto `main` after account-deletion merges**, then push + PR. ·
+> ▶ P2-M4 MODERATION DEPTH, SEARCH FACETS & PREFERENCES (Core) — **BUILT**: merge/split topics (`TopicCounters`
+> authoritative recount, raw-UPDATE move bypassing `syncAggregates`, one-txn rollback-proven, `moved_to_topic_id`
+> 301 redirect shell over a `withTrashed` binding); cross-page bulk select with a per-item rank guard
+> (silent-skip + audit); search facets (author/forum/date/tag/type) wired onto the M3 `VisibleForumIds` seam
+> (DB-driver baseline + Meili filter translation); consolidated `posts_per_page`/`thread_sort` preferences. Pint ·
+> Larastan **L5 clean** · composer audit clean · no dependency drift · assets-fresh (no new utility classes) ·
+> **+37 dedicated feature tests** (merge/split, bulk, facets, prefs, empty-universe, budgets) + a Dusk moderation
+> journey, full suite **868 passed / 1 skipped (2821 assertions)**. **Post-build adversarial review (26 agents,
+> 6 dimensions): 9 confirmed (1 MEDIUM + 8 LOW), all fixed/accepted; 11 refuted.** Held: staff notes; no full ACP
+> member page. Branch `claude/p2-m4-moderation` **stacked on `claude/p2-m3-activity`** (M4 hard-depends on the M3
+> `VisibleForumIds` class) — **rebase the chain onto `main` after account-deletion → M3 merge**, then push + PR.**
 
 **`main` carries:** M0–M5, P1.5 hardening, real-host fixes RH-6–RH-11, default theme + theme polish R1,
 ACP v1 + v1.1 patch, Spike P2 deliverability pipeline, NovFora rename (ADR-0024/0026), **ACP v2**, **P2-M1
@@ -182,7 +201,55 @@ review-queue forgery-flood guard.
      withTrashed / logout-re-insert / sole-admin / forced-gate reasoning.
    - **Scope fence — NOT here:** a full ACP member list/detail page (only the minimal forced-delete trigger),
      GDPR data-export, any soft-delete/grace-period/undo (this is hard, immediate, confirmed deletion).
-5. **Design-first items still queued (do not build without a plan):**
+5. **Activity feed & community-feel pack (P2-M3, Core) — BUILT (2026-06-11), branch `claude/p2-m3-activity`
+   STACKED on `claude/p2-account-deletion` — REBASE onto `main` after account-deletion merges, then push + PR.**
+   Built per [`docs/product/p2-m3-activity-code-kickoff.md`](docs/product/p2-m3-activity-code-kickoff.md):
+   - **`VisibleForumIds`** (⚙) — query-level `forum.view` filter; `null` = sees-all sentinel, `[]` = sees-none.
+     **`ActivityFeed`** (⚙) — version-keyed global primitive-row cache (`ActivityVersion`, mirrors `AclVersion`),
+     per-viewer filter + batch rehydrate AFTER the boundary; `[Deleted]`-actor + removed-subject tombstones.
+   - **Verb logging** — auto-discovered listeners on `TopicCreated`/`PostCreated` (post-commit, **approved-only**)
+     and `Reacted`; **PMs log nothing**. **ADR-0025 addendum** — one line pseudonymises `activities.actor_id` in
+     the cascade (same txn, before the users row drops).
+   - **Community pack** — `ThrottledLastActive` (≤1 raw write/user/5min) + `User::isOnline()` (15-min) +
+     `x-ui.online-badge`; **throttled** `topics.view_count` (Cache::add, 1/viewer/topic/hr, replaces the
+     unconditional increment); forum `topic_count`/`post_count` already maintained + displayed (added tests).
+   - **Gates:** Pint · Larastan **L5 clean** · composer audit clean · assets-fresh (no new utility classes) ·
+     forum-index query budget **15 → 20** (amendment #6, documented) · full suite **831 passed / 1 skipped** ·
+     **+20 tests** (18 feature: resolver/logging/feed cache-HIT/community/addendum + 2 Dusk `p2m3-feed-*`
+     screenshots). **DECISIONS.md** records the cache-key design, the `null` sentinel, the
+     `scope_forum_id` nullOnDelete edge-case, the cache-window limitation, and the approved-only/PM-exclusion gate.
+   - **Scope fence / HELD:** follow-half of `user_relationships`, reputation/points, badges, staff notes, a 2nd
+     theme; `VisibleForumIds` is the M4 search-facet seam but is NOT wired to search here.
+6. **Moderation depth, search facets & preferences (P2-M4, Core) — BUILT (2026-06-12), branch
+   `claude/p2-m4-moderation` STACKED on `claude/p2-m3-activity` — REBASE the chain onto `main` after
+   account-deletion → M3 merge, then push + PR.** Built per
+   [`docs/product/p2-m4-moderation-code-kickoff.md`](docs/product/p2-m4-moderation-code-kickoff.md):
+   - **Merge / split (⚙)** — `MergeTopicsService` / `SplitTopicService` move posts with a single raw `UPDATE`
+     (bypassing `Post::syncAggregates`; merge offsets positions to APPEND after the target's OP), then re-derive
+     topic + forum counters **authoritatively** (`TopicCounters`, COUNT/MAX not ±delta, overwriting observer
+     deltas) in ONE transaction (rollback-proven). Merged source soft-deletes to a `moved_to_topic_id` **301
+     redirect shell** over a `withTrashed` `topics.show` binding — resolved transitively to the chain terminus
+     and 404-gated on target `forum.view`. OP can't be split away; per-post rank gate refuses the whole split.
+   - **Cross-page bulk select (◐)** — `BulkModerationService` (delete posts; lock/unlock/move/delete topics) with
+     the **rank guard**: every item gated by `canActOn` + the forum permission, ineligible items **silently
+     skipped**, applied+skipped sets audited; the SERVICE is the trust boundary (client ids never trusted). UI:
+     an Alpine `bulkSelect` store (survives `wire:navigate`) + per-row checkboxes + a `⚡bulk-actions` floating bar.
+   - **Search facets (◐)** — `SearchService::search(SearchQuery)` adds author/forum/date/tag/type as a direct
+     Eloquent query joined to the topic; **every path threads `VisibleForumIds`** (reused, not rebuilt) so a
+     restricted viewer can't reach an invisible forum via any facet. Baseline = DB driver (tested + forced-absence);
+     `meiliFilter()` translates to Meili native filters (unit-tested, unwired). `toSearchableArray` adds facet
+     fields only on `['meilisearch','typesense']`. Bookmarkable GET facet form.
+   - **Consolidated preferences (◻)** — `posts_per_page` + `thread_sort` (two nullable `users` columns; null →
+     site default 15/oldest) written by the own-account `⚡user-preferences` SFC (validated, out of `#[Fillable]`),
+     honoured in `TopicController`. A new **Preferences** settings tab.
+   - **Gates:** Pint · Larastan **L5 clean** · composer audit clean · no dependency drift · assets-fresh (no new
+     utility classes) · budgets search **≤25** / moderator-thread **≤35** · full suite **868 passed / 1 skipped
+     (2821 assertions)** · **+37 feature tests** + a Dusk moderation journey (`p2m4-*` screenshots). **Post-build
+     adversarial review (26 agents, 6 dimensions): 9 confirmed (1 MEDIUM bulk-move destination gate + 8 LOW) all
+     fixed/accepted, 11 refuted** — see DECISIONS.md P2-M4.
+   - **Scope fence / HELD:** staff notes (`staff_notes`/`StaffNote`), a full ACP member-management page, GDPR
+     data-export, bulk hide/unhide (no post-level hide status — recorded). `VisibleForumIds` used, not extended.
+7. **Design-first items still queued (do not build without a plan):**
    - RH-4: subdirectory install (ADR needed)
    - Layman "simple-mode" permissions UX (ACP v3, separate cycle)
    - ~~Hearth/NevoBB→NovFora in-code rename~~ — **DONE** (commit `b0cc294`, 2026-06-11, ADR-0026)

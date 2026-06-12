@@ -12,6 +12,8 @@ use App\AntiSpam\WordFilterService;
 use App\Content\ContentRenderer;
 use App\Content\Mentions;
 use App\Content\Oembed\EmbedRenderer;
+use App\Events\PostCreated;
+use App\Events\TopicCreated;
 use App\Models\Forum;
 use App\Models\Post;
 use App\Models\PostRevision;
@@ -92,6 +94,12 @@ final class PostService
             $this->dispatchPostNotifications($op);
         }
 
+        // Activity feed (P2-M3): log topic.created post-commit, only for an APPROVED topic (a held topic is
+        // visible to author+mods only and must not leak into the public feed).
+        if ($topic->approved_state === 'approved') {
+            TopicCreated::dispatch($topic);
+        }
+
         return $topic;
     }
 
@@ -101,6 +109,12 @@ final class PostService
         Audit::log('post.created', $post);
 
         $this->dispatchPostNotifications($post);
+
+        // Activity feed (P2-M3): log post.created post-commit, only for an APPROVED reply (a held reply must
+        // not leak into the public feed).
+        if ($post->approved_state === 'approved') {
+            PostCreated::dispatch($post);
+        }
 
         return $post;
     }

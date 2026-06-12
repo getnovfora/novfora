@@ -6,9 +6,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Forum;
 use App\Models\Post;
 use App\Models\User;
 use App\Permissions\Scope;
+use App\Search\SearchQuery;
 use App\Search\SearchService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -24,13 +26,23 @@ class SearchController extends Controller
 {
     public function index(Request $request, SearchService $search): View
     {
-        $q = trim((string) $request->query('q', ''));
         $viewer = $request->user() ?? User::guest();
+        $query = SearchQuery::fromRequest($request, $viewer, 25);
 
-        $results = $q === '' ? collect()
-            : $search->posts($q, 25)->filter(fn (Post $p) => $this->visible($viewer, $p))->values();
+        // A search runs when there's a keyword OR any facet narrows it; visibility is enforced inside search().
+        $results = ($query->term === '' && ! $query->hasFacets()) ? collect() : $search->search($query);
 
-        return view('search.index', ['q' => $q, 'results' => $results]);
+        // Forums the viewer can see, for the forum-facet dropdown (categories excluded — only postable nodes).
+        $forums = Forum::query()->where('type', 'forum')->orderBy('title')->get()
+            ->filter(fn (Forum $f) => $viewer->canDo('forum.view', $f->permissionScope()))
+            ->values();
+
+        return view('search.index', [
+            'q' => $query->term,
+            'query' => $query,
+            'results' => $results,
+            'forums' => $forums,
+        ]);
     }
 
     public function suggest(Request $request, SearchService $search): JsonResponse

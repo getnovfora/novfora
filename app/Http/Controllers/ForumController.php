@@ -87,6 +87,6 @@ class ForumController extends Controller
             ->orderBy('position')->orderBy('label')
             ->get();
 
-        return view('forum.show', compact('forum', 'topics', 'viewer', 'canPost', 'children', 'prefixes'));
+        return view('forum.show', compact('forum', 'topics', 'viewer', 'canPost', 'canModerate', 'children', 'prefixes'));
     }
 }

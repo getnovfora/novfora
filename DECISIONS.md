@@ -676,3 +676,156 @@ deletion cascade are the load-bearing parts (Opus `xhigh`). New dependencies: no
   `thread_id` so repeat unread PMs **merge** into one notification. M2 Half-A had already seeded the
   `pm.received` vocabulary, renderers and prefs — this is its first live emitter. Forced-absence: the in-app DB
   notification always lands even when mail is down (the Notifier swallows transport errors).
+
+## P2-M3 — activity feed & community-feel pack (2026-06-11)
+
+Core items only; the Should-tier (follow-based personalisation, reputation, badges, staff notes) stays HELD.
+The two load-bearing seams are the per-viewer permission filter and the feed cache boundary (Opus `xhigh`); the
+rest is scaffolding. New dependencies: none. Reversible migrations only (one new table + a one-line addendum).
+
+- **`VisibleForumIds` — the query-level generalisation of the per-row `forum.view` check.** `ForumController`
+  filters forums view-side per node via `$viewer->canDo('forum.view', $forum->permissionScope())`; the feed
+  needs the SAME decision as a `WHERE scope_forum_id IN (…)`. `VisibleForumIds::for(User): ?array` loads every
+  forum once and reuses `PermissionResolver` (its request memo + 30-min ACL cache make the per-node checks ~free
+  on a warm request). **Sentinel:** returns **`null` when the viewer can see EVERY forum** (the common case) so
+  the consumer omits the filter entirely instead of building a forum-wide `IN` list; **`[]`** means "sees no
+  forum" and the consumer MUST short-circuit to an empty result (never run `IN ()`). Per-request static memo
+  (keyed by viewer id; guest = 0) — never cached across requests, since permissions change. Built as the M4
+  search-facet seam too, but **not** wired to search here.
+- **Feed cache boundary — global window, primitives only, rehydrate + permission-filter AFTER.** The cache key
+  is **viewer-independent and version-keyed** (`novfora.activities.feed.v{ActivityVersion}`, mirroring
+  `AclVersion`; bumped on every `Activity::created`, 60 s belt-and-braces TTL). It holds the latest **100**
+  activities as **scalar rows only** — never a model, related object, or the permission-filter result. After the
+  boundary: `VisibleForumIds` filters per viewer, the page is sliced to **50**, then actors + subjects are
+  batch-rehydrated (`User`/`Topic`/`Post`, `withTrashed`) — no per-row lazy loads. A cache-HIT test proves the
+  second load re-queries **zero** `activities` rows. The forum-index budget rises **15 → 20** (amendment #6) for
+  the feed's permission-filter + rehydration; the cache keeps it from being an N+1.
+  - **Known limitation (cache-then-filter window).** Because the window is global-then-filtered, a heavily
+    restricted viewer whose only visible forum is low-traffic can see an **empty feed** if every one of the
+    latest 100 activities is from forums they cannot see. Acceptable for M3 (most activity is in forums most
+    viewers can see). The fix — paginate past the window, or cache per visible-scope set — is an M4-era
+    optimisation.
+- **Verbs logged post-commit; held content and PMs are excluded.** `topic.created` / `post.created` /
+  `react.given` are recorded by **auto-discovered listeners** (handle-typed, like `SendReactionNotification`).
+  `Reacted` already fires post-commit; new `TopicCreated` / `PostCreated` events are dispatched from
+  `PostService` after the write commits **and only for `approved` content** — a held (pending-moderation) topic
+  or reply is author-+-mods-only and must never leak into the public feed. The opening post emits `topic.created`
+  (never also `post.created`). **PMs log nothing** — they are private, carry no `scope_forum_id`, and must not
+  appear in any feed.
+- **`activities.actor_id` has no FK; `scope_forum_id` is `nullOnDelete`.** `actor_id` mirrors `posts.user_id` so
+  the ADR-0025 cascade pseudonymises it (a one-line addendum in step (b), same transaction, before the users row
+  drops → the actor renders `[Deleted]`, verb/subject intact). **Edge case:** a **hard** forum delete nulls
+  `scope_forum_id` (`nullOnDelete`), so those activities then read as unscoped (visible to all). Acceptable for
+  M3; a future `ForumObserver` can delete-cascade them. The feed renders a **tombstone** (no link) for any
+  null/soft-deleted subject, and `[Deleted]` + the guest avatar for a null actor.
+- **Community-feel pack.** `users.last_active_at` is stamped by `ThrottledLastActive` (web group) as a **raw DB
+  update, ≤ 1 write / user / 5 min** (no model hydration → no events); `User::isOnline()` uses a wider **15-min**
+  window so a user never flickers between throttled writes. `topics.view_count` increment is throttled via
+  `Cache::add` to **once per viewer (or guest session) per topic per hour** (no F5 write-storm), replacing the
+  prior unconditional increment. `forums.topic_count` / `post_count` were **already** maintained by
+  `Topic::booted` / `Post::syncAggregates` and already displayed on the index — M3 only adds tests.
+
+## P2-M4 — moderation depth, search facets & consolidated preferences (2026-06-12)
+
+Four Core items; staff notes stay HELD. The load-bearing seams (Opus `xhigh`) are the merge/split transaction +
+authoritative recount and the bulk-select rank guard; the rest is scaffolding wired onto the M3 `VisibleForumIds`
+seam. New dependencies: none. One additive, reversible migration (two nullable `users` columns).
+
+- **Merge/split bypass `Post::syncAggregates`, then recompute authoritatively (`TopicCounters`).** Bulk-moving
+  posts via `$post->save()` would fire the per-post `syncAggregates` observer N times — an N+1 write storm AND a
+  double-count (each per-row recompute sees a half-moved set). So both services move posts with a **single raw
+  `DB::table('posts')->update()`** (observer-free), then re-derive the affected topics' + forums' denormalised
+  counters **once**, from direct SQL aggregates, in the same transaction. Every counter is a `COUNT`/`MAX` over
+  the live set — never an incremental ±delta — so a recompute is drift-free and **OVERWRITES** any observer delta
+  that fired during the structural change (e.g. the source topic's soft-delete `-1`). **Counter definitions:**
+  `topic_count` = non-trashed topics in the forum; `post_count` = non-trashed posts whose (non-trashed) topic is
+  in the forum (posts under a soft-deleted topic don't count). The whole mutation is **one `DB::transaction`** —
+  a rollback test injects a throwing `TopicCounters` double (hence `TopicCounters` is non-`final`) and proves a
+  mid-merge/-split failure commits nothing.
+- **Merge appends, keeping the target's opening post.** The source's positions (`1..n`) collide with the target's,
+  so the same raw UPDATE **offsets** the moved posts past the target's current max position (`position + offset`,
+  `offset` an int — safe to inline): the source posts fold in **after** the target's, relative order preserved, no
+  clash, and the **target keeps its OP** as `first_post_id`. `last_post_*` follow chronology (`created_at`), as
+  `syncAggregates` does.
+- **`moved_to_topic_id` 301 redirect over a `withTrashed` route binding.** Merge **soft-deletes** the source
+  (never hard — the redirect must survive) and stamps `moved_to_topic_id` + `status='merged'`. The `topics.show`
+  route resolves **`->withTrashed()`** so the soft-deleted shell still binds; `TopicController::show` 301s to the
+  target when `moved_to_topic_id` is set, and 404s any **other** trashed topic (recycle-bin semantics preserved).
+  `moved_to_topic_id` stays a **bare nullable column, no FK** — it is a redirect pointer, not a relational
+  invariant, and an FK would block the source's eventual hard purge.
+- **Bulk-select rank guard: silent-skip + audit, deliberately non-transactional.** `BulkModerationService`
+  eager-loads authors (`whereIn` + `with('author')`) and, for every selected item, checks the forum gate
+  (`post.delete.any` / `topic.moderate`) AND `ActorRank::canActOn($actor, $item->author)`. An item the actor
+  cannot act on (higher-ranked author) is **silently skipped** — never actioned, never an error — and BOTH the
+  `applied` and `skipped` id sets are returned and **audited** (one entry per bulk action, with both arrays).
+  Partial success is the design — the **opposite** of merge/split's all-or-nothing — so there is intentionally NO
+  outer transaction. A null author (pseudonymised account) has no rank to out-rank → eligible. The gate is
+  enforced in the SERVICE, so the ids arriving from the client (the Alpine `bulkSelect` store, passed to a
+  `$wire` method) are never trusted — only the server verdict acts.
+- **No post-level "hide" status → bulk hide/unhide skipped.** A post's only moderation axes are `approved_state`
+  (approved/pending/rejected) + soft-delete; there is no `is_hidden`/`visibility` column. Per the kickoff's
+  "check before implementing", **bulk hide/unhide is NOT built**; bulk post actions are delete + split-off only.
+- **Search facets: DB-driver query is the tested baseline; Meilisearch gets a filter-string translation.** The
+  Scout `database` engine LIKE-matches over every `toSearchableArray()` key as a real column, so adding
+  `forum_id` (which lives on topics, not posts) or numeric facet columns there would break keyword matching on
+  the baseline. So `toSearchableArray()` stays **`body_text`-only on the DB tier**, and the facet fields
+  (`user_id`/`topic_id`/`forum_id`/`created_at`) are added **only when `scout.driver === 'meilisearch'`** (where
+  they are filtered, not LIKE-matched). The faceted `SearchService::search(SearchQuery)` runs as a direct,
+  controllable Eloquent query joined to the topic for forum/tag/type/visibility — fully correct on the baseline
+  with **no external engine** (the baseline IS the DB). `meiliFilter()` translates the same `SearchQuery` into
+  Meili native filter clauses for the enhanced tier (unit-tested at the string level). The original keyword-only
+  `posts()` path (typeahead + Scout-first degrade) is unchanged.
+- **`VisibleForumIds` threads through EVERY search path — reused, not rebuilt.** `search()` resolves
+  `VisibleForumIds::for($viewer)` and intersects it with the optional forum facet: `null` (sees all) → no forum
+  constraint; `[]` (sees none) → empty result immediately (never `IN ()`); the chosen forum not in the visible
+  set → empty. A restricted viewer therefore cannot retrieve a post from an inaccessible forum via the forum
+  facet or any other combination. The M3 class is used as-is; no second resolver.
+- **Consolidated preferences = `posts_per_page` + `thread_sort` (the only meaningful, wireable prefs).**
+  Signatures aren't rendered in the topic view, so a show-signatures toggle would control nothing (dropped);
+  appearance/notifications stay in their own tabs (no reshuffle). The two prefs were **hardcoded** in
+  `TopicController` (`paginate(15)`, position-asc), so they are genuinely behaviour-changing and end-to-end
+  testable. Stored in two **nullable** `users` columns (null → site default 15 / oldest; reversible migration,
+  no backfill); written ONLY by the own-account `⚡user-preferences` SFC, **validated against `User`
+  vocabulary**, and kept OUT of `#[Fillable]` (no mass-assignment). `TopicController` honours both for the viewer
+  (a guest resolves to the defaults). Budget: the moderator topic view (merge modal + bulk bar) holds **≤ 35**;
+  the faceted search page holds **≤ 25**.
+
+**Post-build adversarial review (P2-M4 · 26 agents · 6 dimensions · per-finding verify-then-refute).** 20 raw
+findings → **9 confirmed real** (1 MEDIUM, 8 LOW), all fixed or consciously accepted; 11 refuted (incl. a claimed
+rank-guard bypass and a Meili-staleness defect — both shown unreachable). Fixes applied:
+- **MEDIUM — bulk move destination gate.** `moveTopics` resolved its destination scope as `Scope::forum($id)`
+  over the **client-writable, un-Locked** `moveTarget` prop; a forged id pointing at a **category** passes (mods
+  hold `topic.moderate` at global, inherited everywhere) and would re-parent topics under a non-postable
+  container. Fixed: load `Forum::where('type','forum')->find($id)`, derive the gate from the real node, **skip
+  all** when it is not a postable forum.
+- **LOW — merge redirect authz + chain.** The 301 fired before any visibility check and followed only one hop.
+  Fixed: resolve `moved_to_topic_id` **transitively to the terminus** (a chain of merges collapses to one 301,
+  never an N-hop chain) and **404 unless the viewer can see the target's forum** (no target-id existence leak).
+- **LOW — `VisibleForumIds` empty universe.** Zero forum rows (e.g. all soft-deleted) collapsed into the
+  **sees-all** sentinel (`count([]) === count([])`), dropping the filter and over-returning feed/search rows
+  keyed on a since-removed forum. Fixed: an empty universe resolves to **sees-none (`[]`)** — a one-line internal
+  guard, interface unchanged (not an M3 re-implementation).
+- **LOW — facet-index driver set + honesty.** `toSearchableArray` now gates facet fields on
+  `['meilisearch','typesense']` (matching `MeilisearchProbe::configured()`), and the `meiliFilter` docstring no
+  longer claims a tag/type pre-resolution that does not exist (the faceted page stays on the DB engine; the Meili
+  translation is unit-tested but unwired).
+- **LOW (accepted) — audit actor under non-web callers.** `Audit::log` stamps `actor_id` from `auth()->id()`
+  (null in queue/CLI); merge/split already record the actor in the `by` field and all real callers are
+  authenticated Livewire components — a pre-existing helper limitation, documented, not re-plumbed here.
+- **LOW (no change) — cross-forum merge.** Intended (kickoff step e recomputes BOTH forums; a dedicated test
+  asserts it). The quick-merge modal lists same-forum candidates as a UI default only — clarified in the SFC.
+Each behavioural fix carries a regression test (category-destination skip; redirect 404-not-301 for a blind
+viewer; A→B→C terminus collapse; empty-universe sees-none).
+
+**Bulk-select client wiring (Dusk-discovered; reusable for future interactive UI).** The Dusk journey caught
+four client-side defects invisible to the service-level Pest suite: (1) Alpine stores are read as a PROPERTY
+`$store.bulkSelect`, never a function call `$store('bulkSelect')` (the latter throws "$store is not a
+function"); (2) Alpine only initialises directives inside an `x-data` tree, so a toggle/checkbox in plain Blade
+(outside a Livewire component, which Livewire scopes for you) needs an `x-data="{}"` ancestor or it is silently
+ignored — wrapping the page container fixes it (nested Livewire components keep their own scopes); (3) `bottom-0`
+is NOT in the prebuilt CSS, so a `fixed bottom-0` bar must be pinned with an inline `style` (assets-fresh: no
+Node rebuild here); (4) a fixed bottom bar overlaps lower content — reserve bottom space in select mode. The
+moderator action redirects with `navigate:false` (full reload) so the Alpine store resets and the session flash
+renders. The Dusk journey asserts the rank-guard OUTCOME (eligible deleted, higher-ranked survives), not a flash
+string, with generous waits for the slow local docker env (≈9 s page loads — the same env flakiness recorded for
+the M2B/installer journeys; validate in clean CI).

@@ -10,6 +10,7 @@ use App\Forum\ReactionService;
 use App\Models\Forum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\Content;
 use Tests\Support\Users;
 
 uses(RefreshDatabase::class);
@@ -77,7 +78,7 @@ it('renders a busy thread within the query budget (≤30, no N+1)', function () 
     expect($queries)->toBeLessThanOrEqual(30);
 });
 
-it('renders the forum index within the query budget (≤15, no N+1)', function () {
+it('renders the forum index (now hosting the activity feed) within the query budget (≤20, no N+1)', function () {
     $this->seed();
 
     // A category with several forums — a per-forum query (N+1) would push well past the budget.
@@ -95,5 +96,57 @@ it('renders the forum index within the query budget (≤15, no N+1)', function (
     $this->actingAs($viewer)->get(route('forums.index'))->assertOk();
     $queries = queriesFor(fn () => $this->actingAs($viewer)->get(route('forums.index'))->assertOk());
 
-    expect($queries)->toBeLessThanOrEqual(15);
+    // ≤20 (was ≤15): the P2-M3 activity feed adds the permission filter (VisibleForumIds, memoised) + the
+    // post-cache rehydration (batched actor/subject loads). Recorded in DECISIONS per amendment #6.
+    expect($queries)->toBeLessThanOrEqual(20);
+});
+
+it('renders a faceted search results page within the query budget (≤25, no N+1)', function () {
+    $this->seed();
+
+    // A category with several forums so the visible-forum resolution + the forum-facet dropdown are exercised;
+    // many matching posts so a per-result query (N+1) would be obvious.
+    $category = Forum::create(['slug' => 'cat', 'title' => 'Category', 'type' => 'category']);
+    $posts = app(PostService::class);
+    $forums = collect(range(1, 4))->map(fn ($n) => Forum::create(['slug' => "f{$n}", 'title' => "Forum {$n}", 'type' => 'forum', 'parent_id' => $category->id]));
+    $author = Users::inGroups(['members', 'tl2'], ['username' => 'searchauthor', 'email' => 'sa@budget.test']);
+    foreach ($forums as $forum) {
+        for ($i = 0; $i < 4; $i++) {
+            $posts->createTopic($author, $forum, "Searchable {$forum->slug} {$i}", 'tiptap_json', Content::doc("budget keyword zonk {$i}"));
+        }
+    }
+
+    $viewer = Users::inGroups(['members', 'tl2'], ['username' => 'searchviewer', 'email' => 'sv@budget.test']);
+    $url = route('search.index', ['q' => 'zonk', 'forum' => $forums->first()->id, 'from' => now()->subWeek()->toDateString()]);
+
+    $this->actingAs($viewer)->get($url)->assertOk();
+    $queries = queriesFor(fn () => $this->actingAs($viewer)->get($url)->assertOk());
+
+    expect($queries)->toBeLessThanOrEqual(25);
+});
+
+it('renders a moderator’s thread (bulk-select + merge UI) within the query budget (≤35, no N+1)', function () {
+    $this->seed();
+    $forum = Forum::create(['slug' => 'modforum', 'title' => 'Mod forum', 'type' => 'forum']);
+
+    $posts = app(PostService::class);
+    $authors = collect(['tl2', 'tl3', 'tl4'])
+        ->map(fn ($tl, $i) => Users::inGroups(['members', $tl], ['username' => "bauthor{$i}", 'email' => "bauthor{$i}@budget.test"]));
+    $topic = $posts->createTopic($authors[0], $forum, 'A thread a mod will moderate', 'tiptap_json', Content::doc('Opening post.'));
+    // A few sibling topics so the merge-modal candidate query has rows to return (a per-candidate N+1 would show).
+    foreach (range(1, 4) as $n) {
+        $posts->createTopic($authors[$n % 3], $forum, "Sibling {$n}", 'tiptap_json', Content::doc("Sibling body {$n}."));
+    }
+    for ($i = 0; $i < 16; $i++) {
+        $posts->reply($authors[$i % 3], $topic, 'tiptap_json', Content::doc("Reply number {$i}."));
+    }
+
+    $mod = Users::inGroups(['moderators'], ['username' => 'budgetmod', 'email' => 'budgetmod@budget.test']);
+
+    // The moderator view renders the merge-topic modal (candidate query) + the bulk-actions bar + per-post
+    // checkboxes — the bulk-select worst case. Warm, then measure the steady state.
+    $this->actingAs($mod)->get(route('topics.show', $topic))->assertOk();
+    $queries = queriesFor(fn () => $this->actingAs($mod)->get(route('topics.show', $topic))->assertOk());
+
+    expect($queries)->toBeLessThanOrEqual(35);
 });

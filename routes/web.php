@@ -51,7 +51,9 @@ Route::get('/health', HealthController::class)->name('health');
 // ── Forums (M2) — public read, per-node authorized; anonymous resolves as the Guests group ─────────────
 Route::get('/forums', [ForumController::class, 'index'])->name('forums.index');
 Route::get('/forums/{forum}', [ForumController::class, 'show'])->name('forums.show');
-Route::get('/topics/{topic}', [TopicController::class, 'show'])->name('topics.show');
+// withTrashed: a merged topic is soft-deleted but its URL must still resolve so show() can 301 it to the
+// merge target (P2-M4). An ordinary soft-deleted topic is re-checked and 404s inside the controller.
+Route::get('/topics/{topic}', [TopicController::class, 'show'])->name('topics.show')->withTrashed();
 Route::get('/attachments/{attachment}', [AttachmentController::class, 'show'])->name('attachments.show');
 
 // Tags (P2-M1) — public: all tags + topics carrying a tag (filtered by forum.view).
@@ -140,6 +142,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('/home', 'home')->name('home');
     Route::view('/settings/two-factor', 'settings.two-factor')->name('settings.two-factor');
+
+    // Consolidated display preferences (P2-M4): posts-per-page + thread sort order. The ⚡user-preferences SFC
+    // reads/writes the authenticated user only.
+    Route::view('/settings/preferences', 'settings.preferences')->name('settings.preferences');
 
     // Appearance: colour mode (auto/light/dark) + density (comfortable/compact). The form POST works with
     // no JS; the header quick-toggle posts a single field via fetch (default-theme phase, PART 2).

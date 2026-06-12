@@ -9,7 +9,10 @@
 @endsection
 
 @section('content')
-    <x-ui.container size="lg" class="space-y-5">
+    {{-- x-data scopes the page so Alpine initialises the bulk-select toggle + per-topic checkboxes (P2-M4),
+         which read the global $store.bulkSelect; nested rows/components keep their own Alpine scopes. --}}
+    <x-ui.container size="lg" class="space-y-5" x-data="{}"
+        x-bind:style="$store.bulkSelect.active ? 'padding-bottom: 7rem' : ''">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="min-w-0">
                 <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ $forum->title }}</h1>
@@ -17,12 +20,27 @@
                     <p class="mt-1 text-sm text-ink-muted">{{ $forum->description }}</p>
                 @endif
             </div>
-            @if ($canPost)
-                <x-ui.button :href="route('topics.create', $forum)">
-                    <x-ui.icon name="plus" class="h-4 w-4" /> New topic
-                </x-ui.button>
-            @endif
+            <div class="flex items-center gap-2">
+                @if ($canModerate)
+                    {{-- Bulk-select toggle (P2-M4): turns on per-topic checkboxes wired to the Alpine bulkSelect store. --}}
+                    <x-ui.button type="button" variant="ghost" size="sm" dusk="bulk-select-toggle"
+                                 x-on:click="$store.bulkSelect.toggleMode()"
+                                 x-bind:class="$store.bulkSelect.active ? 'border-accent text-accent' : ''">
+                        <span x-text="$store.bulkSelect.active ? 'Done' : 'Select'"></span>
+                    </x-ui.button>
+                @endif
+                @if ($canPost)
+                    <x-ui.button :href="route('topics.create', $forum)">
+                        <x-ui.icon name="plus" class="h-4 w-4" /> New topic
+                    </x-ui.button>
+                @endif
+            </div>
         </div>
+
+        @if ($canModerate)
+            @include('partials.bulk-select-store')
+            <livewire:forum.bulk-actions context="topics" :forum-id="$forum->id" />
+        @endif
 
         {{-- Sub-boards (ProBoards-style) — child forums above the topic table, reusing the shared forum row. --}}
         @if ($children->isNotEmpty())
@@ -79,6 +97,14 @@
                             <tr class="align-top hover:bg-surface-sunken">
                                 <td class="px-4 py-3">
                                     <div class="flex items-start gap-2.5">
+                                        @if ($canModerate)
+                                            <label x-show="$store.bulkSelect.active" x-cloak class="mt-0.5">
+                                                <input type="checkbox" :checked="$store.bulkSelect.has({{ $topic->id }})"
+                                                       x-on:change="$store.bulkSelect.toggle({{ $topic->id }})"
+                                                       dusk="bulk-topic-{{ $topic->id }}"
+                                                       class="h-4 w-4 rounded-sm border-line-strong text-accent focus-visible:ring-accent">
+                                            </label>
+                                        @endif
                                         <x-ui.avatar :user="$topic->author" size="sm" class="mt-0.5 hidden shrink-0 lg:inline-flex" />
                                         <div class="min-w-0">
                                             @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix || $topic->tags->isNotEmpty())
@@ -128,6 +154,15 @@
                     @foreach ($topics as $topic)
                         @php($lastPage = max(1, (int) ceil(($topic->reply_count + 1) / 15)))
                         <div class="p-4 hover:bg-surface-sunken">
+                            @if ($canModerate)
+                                <label x-show="$store.bulkSelect.active" x-cloak class="mb-2 inline-flex items-center gap-2 text-xs text-ink-muted">
+                                    <input type="checkbox" :checked="$store.bulkSelect.has({{ $topic->id }})"
+                                           x-on:change="$store.bulkSelect.toggle({{ $topic->id }})"
+                                           dusk="bulk-topic-{{ $topic->id }}"
+                                           class="h-4 w-4 rounded-sm border-line-strong text-accent focus-visible:ring-accent">
+                                    Select
+                                </label>
+                            @endif
                             @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix || $topic->tags->isNotEmpty())
                                 <div class="mb-0.5 flex flex-wrap items-center gap-1.5">
                                     <x-forum.prefix-badge :prefix="$topic->prefix" />

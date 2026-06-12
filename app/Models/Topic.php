@@ -50,6 +50,7 @@ class Topic extends Model
         return $this->belongsTo(Forum::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
