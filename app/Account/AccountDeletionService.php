@@ -179,6 +179,9 @@ final class AccountDeletionService
             Attachment::where('user_id', $userId)->update(['user_id' => null]);
             Report::where('reporter_id', $userId)->update(['reporter_id' => null]);
             Report::where('handled_by', $userId)->update(['handled_by' => null]);
+            // Activity-feed actor (P2-M3 addendum) — pseudonymise like the rest of the authored content
+            // (activities.actor_id has no FK; verb/subject stay intact, the actor renders "[Deleted]").
+            DB::table('activities')->where('actor_id', $userId)->update(['actor_id' => null]);
 
             // (c) EXPLICIT-DELETE participation, THEN recount authoritatively from the survivors (ids captured
             //     in (a); the recount is absolute, not a delta, so a concurrent reaction by another user is

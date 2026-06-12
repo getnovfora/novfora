@@ -14,6 +14,7 @@ use App\Models\TopicRead;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class TopicController extends Controller
@@ -23,7 +24,14 @@ class TopicController extends Controller
         $viewer = $request->user() ?? User::guest();
         abort_unless($viewer->canDo('forum.view', $topic->permissionScope()), 403);
 
-        Topic::whereKey($topic->getKey())->increment('view_count'); // quiet: no model events
+        // View count (P2-M3) — throttled per viewer (or guest session) to one count per topic per hour, so a
+        // refresh/F5 storm can't inflate it. A raw increment, no model hydration → no events fire.
+        $viewKey = $viewer->exists
+            ? "topic.viewed.u{$viewer->getKey()}.t{$topic->getKey()}"
+            : 'topic.viewed.s'.$request->session()->getId().'.t'.$topic->getKey();
+        if (Cache::add($viewKey, 1, now()->addHour())) {
+            Topic::whereKey($topic->getKey())->increment('view_count');
+        }
 
         // The view reads the topic's parent forum (breadcrumbs), author (JSON-LD), prefix (badge), and tags;
         // load them once here so none lazy-loads at render time.

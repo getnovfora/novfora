@@ -42,7 +42,15 @@ PostgreSQL on Docker/VPS. Vite, prebuilt assets (no host Node). Approved — ADR
 > (10 service/cascade + 9 confirm-flow/route + 2 Dusk) all green, full suite **813 passed / 1 skipped
 > (2643 assertions)**; branch
 > `claude/p2-account-deletion` off `main` — **push pending** (sandbox has no interactive git credentials; user
-> pushes, then opens the PR).**
+> pushes, then opens the PR). ·
+> ▶ P2-M3 ACTIVITY FEED & COMMUNITY-FEEL PACK (Core) — **BUILT**: the global, per-viewer permission-filtered
+> activity feed (`VisibleForumIds` seam + version-keyed primitive cache + rehydrate-after-boundary), verb
+> logging (topic/post/react, approved-only, no PM), the ADR-0025 `activities.actor_id` addendum, throttled
+> `last_active_at`/online + view-count, forum stats. Pint · Larastan **L5 clean** · assets-fresh · **+20
+> dedicated tests** (18 feature: feed/cache-HIT/resolver/logging/community/addendum + 2 Dusk) green, full suite
+> **831 passed / 1 skipped (2701 assertions)**. Held: follow,
+> reputation, badges, staff notes. Branch `claude/p2-m3-activity` **stacked on `claude/p2-account-deletion`**
+> — **rebase onto `main` after account-deletion merges**, then push + PR.**
 
 **`main` carries:** M0–M5, P1.5 hardening, real-host fixes RH-6–RH-11, default theme + theme polish R1,
 ACP v1 + v1.1 patch, Spike P2 deliverability pipeline, NovFora rename (ADR-0024/0026), **ACP v2**, **P2-M1
@@ -182,7 +190,26 @@ review-queue forgery-flood guard.
      withTrashed / logout-re-insert / sole-admin / forced-gate reasoning.
    - **Scope fence — NOT here:** a full ACP member list/detail page (only the minimal forced-delete trigger),
      GDPR data-export, any soft-delete/grace-period/undo (this is hard, immediate, confirmed deletion).
-5. **Design-first items still queued (do not build without a plan):**
+5. **Activity feed & community-feel pack (P2-M3, Core) — BUILT (2026-06-11), branch `claude/p2-m3-activity`
+   STACKED on `claude/p2-account-deletion` — REBASE onto `main` after account-deletion merges, then push + PR.**
+   Built per [`docs/product/p2-m3-activity-code-kickoff.md`](docs/product/p2-m3-activity-code-kickoff.md):
+   - **`VisibleForumIds`** (⚙) — query-level `forum.view` filter; `null` = sees-all sentinel, `[]` = sees-none.
+     **`ActivityFeed`** (⚙) — version-keyed global primitive-row cache (`ActivityVersion`, mirrors `AclVersion`),
+     per-viewer filter + batch rehydrate AFTER the boundary; `[Deleted]`-actor + removed-subject tombstones.
+   - **Verb logging** — auto-discovered listeners on `TopicCreated`/`PostCreated` (post-commit, **approved-only**)
+     and `Reacted`; **PMs log nothing**. **ADR-0025 addendum** — one line pseudonymises `activities.actor_id` in
+     the cascade (same txn, before the users row drops).
+   - **Community pack** — `ThrottledLastActive` (≤1 raw write/user/5min) + `User::isOnline()` (15-min) +
+     `x-ui.online-badge`; **throttled** `topics.view_count` (Cache::add, 1/viewer/topic/hr, replaces the
+     unconditional increment); forum `topic_count`/`post_count` already maintained + displayed (added tests).
+   - **Gates:** Pint · Larastan **L5 clean** · composer audit clean · assets-fresh (no new utility classes) ·
+     forum-index query budget **15 → 20** (amendment #6, documented) · full suite **831 passed / 1 skipped** ·
+     **+20 tests** (18 feature: resolver/logging/feed cache-HIT/community/addendum + 2 Dusk `p2m3-feed-*`
+     screenshots). **DECISIONS.md** records the cache-key design, the `null` sentinel, the
+     `scope_forum_id` nullOnDelete edge-case, the cache-window limitation, and the approved-only/PM-exclusion gate.
+   - **Scope fence / HELD:** follow-half of `user_relationships`, reputation/points, badges, staff notes, a 2nd
+     theme; `VisibleForumIds` is the M4 search-facet seam but is NOT wired to search here.
+6. **Design-first items still queued (do not build without a plan):**
    - RH-4: subdirectory install (ADR needed)
    - Layman "simple-mode" permissions UX (ACP v3, separate cycle)
    - ~~Hearth/NevoBB→NovFora in-code rename~~ — **DONE** (commit `b0cc294`, 2026-06-11, ADR-0026)

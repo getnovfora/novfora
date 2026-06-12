@@ -13,6 +13,7 @@ use App\Forum\ReactionService;
 use App\Listeners\SendReactionNotification;
 use App\Messaging\PmAccountCascade;
 use App\Models\AclEntry;
+use App\Models\Activity;
 use App\Models\Attachment;
 use App\Models\AuditLog;
 use App\Models\Ban;
@@ -383,4 +384,23 @@ it('no-ops a queued reaction notification whose target was just deleted', functi
 
     expect(fn () => $listener->handle(new Reacted($reactor, $post->fresh(), 'like')))->not->toThrow(Exception::class);
     expect(DB::table('notifications')->count())->toBe($before);
+});
+
+it('pseudonymises the deleted user\'s activity-feed rows (P2-M3 addendum), leaving others intact', function () {
+    delForum();
+    $admin = Users::inGroups(['admins']);
+    grantBansManage($admin);
+    $target = Users::inGroups(['members', 'tl1']);
+    $other = Users::inGroups(['members', 'tl1']);
+
+    $targetAct = Activity::factory()->by((int) $target->id)->create();
+    $otherAct = Activity::factory()->by((int) $other->id)->create();
+
+    $this->actingAs($admin);
+    app(AccountDeletionService::class)->deleteAccountAsAdmin($admin, $target);
+
+    expect(Activity::find($targetAct->id)->actor_id)->toBeNull()              // actor pseudonymised
+        ->and(Activity::find($targetAct->id)->verb)->toBe($targetAct->verb)   // verb/subject intact
+        ->and((int) Activity::find($targetAct->id)->subject_id)->toBe((int) $targetAct->subject_id)
+        ->and((int) Activity::find($otherAct->id)->actor_id)->toBe((int) $other->id); // others untouched
 });

@@ -676,3 +676,51 @@ deletion cascade are the load-bearing parts (Opus `xhigh`). New dependencies: no
   `thread_id` so repeat unread PMs **merge** into one notification. M2 Half-A had already seeded the
   `pm.received` vocabulary, renderers and prefs — this is its first live emitter. Forced-absence: the in-app DB
   notification always lands even when mail is down (the Notifier swallows transport errors).
+
+## P2-M3 — activity feed & community-feel pack (2026-06-11)
+
+Core items only; the Should-tier (follow-based personalisation, reputation, badges, staff notes) stays HELD.
+The two load-bearing seams are the per-viewer permission filter and the feed cache boundary (Opus `xhigh`); the
+rest is scaffolding. New dependencies: none. Reversible migrations only (one new table + a one-line addendum).
+
+- **`VisibleForumIds` — the query-level generalisation of the per-row `forum.view` check.** `ForumController`
+  filters forums view-side per node via `$viewer->canDo('forum.view', $forum->permissionScope())`; the feed
+  needs the SAME decision as a `WHERE scope_forum_id IN (…)`. `VisibleForumIds::for(User): ?array` loads every
+  forum once and reuses `PermissionResolver` (its request memo + 30-min ACL cache make the per-node checks ~free
+  on a warm request). **Sentinel:** returns **`null` when the viewer can see EVERY forum** (the common case) so
+  the consumer omits the filter entirely instead of building a forum-wide `IN` list; **`[]`** means "sees no
+  forum" and the consumer MUST short-circuit to an empty result (never run `IN ()`). Per-request static memo
+  (keyed by viewer id; guest = 0) — never cached across requests, since permissions change. Built as the M4
+  search-facet seam too, but **not** wired to search here.
+- **Feed cache boundary — global window, primitives only, rehydrate + permission-filter AFTER.** The cache key
+  is **viewer-independent and version-keyed** (`novfora.activities.feed.v{ActivityVersion}`, mirroring
+  `AclVersion`; bumped on every `Activity::created`, 60 s belt-and-braces TTL). It holds the latest **100**
+  activities as **scalar rows only** — never a model, related object, or the permission-filter result. After the
+  boundary: `VisibleForumIds` filters per viewer, the page is sliced to **50**, then actors + subjects are
+  batch-rehydrated (`User`/`Topic`/`Post`, `withTrashed`) — no per-row lazy loads. A cache-HIT test proves the
+  second load re-queries **zero** `activities` rows. The forum-index budget rises **15 → 20** (amendment #6) for
+  the feed's permission-filter + rehydration; the cache keeps it from being an N+1.
+  - **Known limitation (cache-then-filter window).** Because the window is global-then-filtered, a heavily
+    restricted viewer whose only visible forum is low-traffic can see an **empty feed** if every one of the
+    latest 100 activities is from forums they cannot see. Acceptable for M3 (most activity is in forums most
+    viewers can see). The fix — paginate past the window, or cache per visible-scope set — is an M4-era
+    optimisation.
+- **Verbs logged post-commit; held content and PMs are excluded.** `topic.created` / `post.created` /
+  `react.given` are recorded by **auto-discovered listeners** (handle-typed, like `SendReactionNotification`).
+  `Reacted` already fires post-commit; new `TopicCreated` / `PostCreated` events are dispatched from
+  `PostService` after the write commits **and only for `approved` content** — a held (pending-moderation) topic
+  or reply is author-+-mods-only and must never leak into the public feed. The opening post emits `topic.created`
+  (never also `post.created`). **PMs log nothing** — they are private, carry no `scope_forum_id`, and must not
+  appear in any feed.
+- **`activities.actor_id` has no FK; `scope_forum_id` is `nullOnDelete`.** `actor_id` mirrors `posts.user_id` so
+  the ADR-0025 cascade pseudonymises it (a one-line addendum in step (b), same transaction, before the users row
+  drops → the actor renders `[Deleted]`, verb/subject intact). **Edge case:** a **hard** forum delete nulls
+  `scope_forum_id` (`nullOnDelete`), so those activities then read as unscoped (visible to all). Acceptable for
+  M3; a future `ForumObserver` can delete-cascade them. The feed renders a **tombstone** (no link) for any
+  null/soft-deleted subject, and `[Deleted]` + the guest avatar for a null actor.
+- **Community-feel pack.** `users.last_active_at` is stamped by `ThrottledLastActive` (web group) as a **raw DB
+  update, ≤ 1 write / user / 5 min** (no model hydration → no events); `User::isOnline()` uses a wider **15-min**
+  window so a user never flickers between throttled writes. `topics.view_count` increment is throttled via
+  `Cache::add` to **once per viewer (or guest session) per topic per hour** (no F5 write-storm), replacing the
+  prior unconditional increment. `forums.topic_count` / `post_count` were **already** maintained by
+  `Topic::booted` / `Post::syncAggregates` and already displayed on the index — M3 only adds tests.
