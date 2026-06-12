@@ -25,6 +25,7 @@ use App\Models\Report;
 use App\Models\RoleAssignment;
 use App\Models\Topic;
 use App\Models\User;
+use App\Models\UserRelationship;
 use App\Models\Warning;
 use App\Permissions\Scope;
 use App\Support\ActorRank;
@@ -206,6 +207,13 @@ final class AccountDeletionService
 
             // warnings.issued_by has no FK → NULL it; warnings.user_id (a real FK) cascades with the row.
             Warning::where('issued_by', $userId)->update(['issued_by' => null]);
+
+            // Relationship edges (follow + ignore) drop in BOTH directions — who the user followed/ignored
+            // AND who followed/ignored them (P2-M5). Both endpoint FKs do cascadeOnDelete with the users row,
+            // but the explicit delete keeps the cascade self-contained and testable on any driver.
+            UserRelationship::where('user_id', $userId)
+                ->orWhere('related_user_id', $userId)
+                ->delete();
 
             // email_suppressions is keyed on the address, not the user — delete the user's row(s) so the freed
             // address is deliverable again (recorded decision; see DECISIONS ADR-0025 follow-up).
