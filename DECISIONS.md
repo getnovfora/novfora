@@ -39,6 +39,7 @@ process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed
 | 0024 | **Project name = NevoBB** — single brand; "NevoBB" codename retired; NevoForums parked as redirect/future hosted tier | **Superseded by ADR-0026** | [§ADR-0024](#adr-0024--project-name-nevobb-2026-06-07) |
 | 0025 | **Account deletion + content-cascade policy** — posts pseudonymised (`[Deleted]`); reactions / poll votes / tags hard-deleted; owner-confirmable cascade; voluntary + admin-forced paths share one service | Accepted | [§ADR-0025](#adr-0025--account-deletion-and-content-cascade-policy-2026-06-10) |
 | 0026 | **Project name = NovFora** (supersedes ADR-0024) — domains `novfora.com` + `novfora.net` registered; Hearth/NevoBB are retired codenames; in-code rename complete | Accepted | [§ADR-0026](#adr-0026--project-name-novfora-2026-06-10) |
+| 0027 | **Model routing = `ultracode` default, Fable@max apex** — every turn starts at Fable max-effort and downgrades (Opus `xhigh`/`high` → Sonnet → Haiku) as work proves pattern-replication, not correctness-load-bearing; supersedes Opus-`xhigh`-as-apex | Accepted | [§ADR-0027](#adr-0027--model-routing-ultracode-default--fablemax-apex-2026-06-12) |
 
 ---
 
@@ -312,6 +313,18 @@ release so no operator contract was broken.
 Packagist vendor `novfora` and GitHub org `novfora` to be claimed at repo publish.
 **Consequences:** one identity to build equity in; update all docs, SPDX headers, and code references
 via the rename task; formal trademark search before 1.0.
+
+### ADR-0027 — Model routing: `ultracode` default + Fable@max apex (2026-06-12)
+**Context:** the model/effort routing in `CLAUDE.md` had **Opus 4.8 `xhigh`** as the apex for the
+correctness-load-bearing core (permission masks, concurrency/idempotency, untrusted-input boundaries,
+adversarial-review synthesis, spike GO/NO-GO, plugin/theme API design). **Decision:** **`ultracode`** is the
+default mode — every turn **starts at Fable @ max effort** and **downgrades as it deems fit** the moment work is
+clearly pattern-replication, not correctness-load-bearing. Rungs, top→bottom: **Fable@max** (apex) → **Opus 4.8
+`xhigh`/`high`** → **Sonnet 4.6** → **Haiku 4.5**. The dividing line (correctness load-bearing vs. pattern
+replication) is unchanged; only the apex rung and the start-high-then-downgrade default are new.
+**Consequences:** the load-bearing core routes to Fable@max; Opus `xhigh`/`high` becomes the heavy rung below
+the apex; Sonnet (scaffold/CRUD/sweeps) and Haiku (trivial) unchanged. Recorded in `CLAUDE.md §Model routing` +
+the `PROJECT-STATE.md §Model & effort` mirror. Operating/workflow decision — not a stack or architecture change.
 
 ### ADR-0025 — Account deletion and content-cascade policy (2026-06-10)
 

@@ -42,7 +42,11 @@ real-host fixes merged; ACP v1 + Spike P2 merged. See `PROJECT-STATE.md` for the
 
 The dividing line is **correctness load-bearing vs. pattern replication**, not hard vs. easy.
 
-### Opus 4.8 `xhigh` — required for:
+**Default mode: `ultracode`** — start every turn at the top of the stack (**Fable @ max**) and **downgrade as it
+deems fit** the moment the work is clearly pattern-replication, not correctness-load-bearing. Rungs, top to
+bottom: **Fable @ max** (apex) → **Opus 4.8 `xhigh`/`high`** → **Sonnet 4.6** → **Haiku 4.5**.
+
+### Fable @ max — the apex (ultracode starts here), required for:
 - Permission-mask reasoning: anything touching `acl_entries`, `PermissionResolver`, the ALLOW/NO/NEVER
   semantics, rank guards, or the inspector.
 - Concurrency / idempotency on the cron-only baseline: the digest transactional claim,
@@ -52,9 +56,14 @@ The dividing line is **correctness load-bearing vs. pattern replication**, not h
 - Adversarial review workflows themselves — the per-finding verify-then-refute step.
 - Spike GO/NO-GO calls, clean-room judgment, plugin/theme API design decisions.
 
-**Tells you've crossed into Opus territory:** the word "NEVER" in a permission context; anything
+**Tells you've hit the apex (Fable @ max):** the word "NEVER" in a permission context; anything
 touching `PermissionResolver/acl_entries`; a DB transaction whose correctness depends on kill-timing;
 an endpoint receiving bytes from the internet.
+
+### Opus 4.8 — the heavy rung below the apex
+`xhigh` for permission/security/concurrency-adjacent work that didn't quite warrant the apex; `high` (default)
+for all other Opus turns. Where ultracode lands after the first downgrade — correctness still matters, but the
+apex's full muscle isn't needed.
 
 ### Sonnet 4.6 — safe for:
 - CRUD/SFC scaffolding that mirrors an existing pattern once the design is locked.
@@ -76,9 +85,14 @@ Prefer "write → run gate → read tail → fix" over "reason carefully, then w
 Never re-read a file you just edited — the harness tracks state.
 
 ### Effort defaults
-- `xhigh`: permission/security/concurrency core + adversarial review synthesis.
-- `high` (default): all other Opus turns.
-- Haiku 4.5: trivial single-file edits with no reasoning required.
+- **`ultracode` (DEFAULT mode):** start at the top of the stack — **Fable @ max** — and **downgrade as it deems
+  fit** once a turn is clearly pattern-replication, not correctness-load-bearing. Same dividing line as model routing.
+- **Fable @ max — apex rung:** permission-mask / `acl_entries` / `PermissionResolver`, concurrency-idempotency,
+  untrusted-input boundaries, adversarial-review synthesis, spike GO/NO-GO, plugin/theme API design.
+- **`xhigh` (Opus 4.8):** heavy Opus turns below the apex.
+- **`high`:** all other Opus turns.
+- **Sonnet 4.6:** CRUD / scaffolding / view boilerplate, mechanical breadth, multi-site sweeps (sub-agents).
+- **Haiku 4.5:** trivial single-file edits, no reasoning required.
 - `opusplan` (Opus plans, Sonnet implements): mirrors plan-then-build; optional given Max headroom.
 
 ## Hard rules (never violate)
