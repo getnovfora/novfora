@@ -245,6 +245,9 @@ final class AccountDeletionService
                 ->orWhere('related_user_id', $userId)
                 ->delete();
 
+            // Badge awards die with the account (P2-M5) — same explicit-plus-FK belt-and-braces.
+            DB::table('user_badges')->where('user_id', $userId)->delete();
+
             // email_suppressions is keyed on the address, not the user — delete the user's row(s) so the freed
             // address is deliverable again (recorded decision; see DECISIONS ADR-0025 follow-up).
             if ($email !== '') {
