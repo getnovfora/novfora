@@ -32,11 +32,11 @@ PostgreSQL on Docker/VPS. Vite, prebuilt assets (no host Node). Approved — ADR
 ## Status (as of 2026-06-12)
 
 **Phase 1 / Core MVP · Phase 1.5 hardening · real-host fixes RH-6–RH-11 — all COMPLETE.** Default theme +
-polish R1, ACP v1/v1.1, Spike P2 deliverability (GO), and **ACP v2** all merged. **Phase 2 (Community) is
-CODE-COMPLETE** — P2-M1 through P2-M4 merged to `main`; **P2-M5 (the Phase-2 closer: the ADR-0028 social
-pack — follow + reputation + badges — beta polish, and the FULL regression incl. executed RH-10/RH-11
-rehearsals) is BUILT and green on branch `claude/p2-m5-beta-social`**, awaiting the owner push → PR →
-merge → push of the Public Beta tag (see Immediate next actions).
+polish R1, ACP v1/v1.1, Spike P2 deliverability (GO), and **ACP v2** all merged. **Phase 2 (Community) —
+COMPLETE.** P2-M1 through **P2-M5** are all merged to `main`: the M5 ADR-0028 **social pack (follow +
+reputation + badges)** + beta polish + the full regression (executed RH-10/RH-11 rehearsals) shipped, and
+**`v1.0.0-beta.1` is tagged → 🚩 Public Beta**. **Next: build + deploy the beta to the live host, gather
+feedback, then open Phase 3 (Extensibility) — see Immediate next actions.**
 
 > Per-milestone build detail (gates, test counts, adversarial-review findings, scope fences) →
 > [`PROJECT-HISTORY.md`](PROJECT-HISTORY.md).
@@ -45,8 +45,9 @@ merge → push of the Public Beta tag (see Immediate next actions).
 ACP v1 + v1.1 patch, Spike P2 deliverability pipeline, NovFora rename (ADR-0024/0026), **ACP v2** (PR #9,
 `30bc466`), **P2-M1** engagement/content-depth, **P2-M2 Half-A** deliverability light-up, **P2-M2 Half-B**
 multi-participant PMs (PR #17, `535a924`), **P2 account deletion** (ADR-0025, `b006163`), **P2-M3** activity
-feed & community-feel core (`ae9bba3`), and **P2-M4** moderation depth / search facets / preferences (PR #19,
-`c56126e`). **Origin `main` is the source of truth; nothing is left unpushed.**
+feed & community-feel core (`ae9bba3`), **P2-M4** moderation depth / search facets / preferences (PR #19,
+`c56126e`), and **P2-M5** the social pack (follow / reputation / badges) + beta polish + full regression —
+**tagged `v1.0.0-beta.1` (🚩 Public Beta)**. **Origin `main` is the source of truth; nothing is left unpushed.**
 
 **HELD (deferred to fast-follow / Phase 3):** staff notes · reputation leaderboard / top-members ·
 trust-level auto-promotion · a 2nd example theme (the M5 Should, carried — recorded). *Follow +
@@ -54,28 +55,24 @@ reputation/points + badges shipped in M5 Core per ADR-0028.*
 
 ## Immediate next actions
 
-1. **▶ OWNER — land P2-M5 and tag the 🚩 Public Beta.** The full milestone (4 slices, 19 commits) sits on
-   **`claude/p2-m5-beta-social`** — built, adversarially reviewed (62 agents; 2 HIGH + 4 MEDIUM + 4 LOW
-   fixed), all gates green, **RH-10/RH-11 rehearsals EXECUTED** (not paper-checked). Owner steps: push the
-   branch → open the PR (slice boundaries are clean commit groups if four PRs are preferred) → merge →
-   push the local annotated tag (`v1.0.0-beta.1`, created on the branch tip — if the merge is a squash,
-   re-tag the squash commit instead). Build detail → [`PROJECT-HISTORY.md`](PROJECT-HISTORY.md) §P2-M5;
-   decisions → `DECISIONS.md` (ADR-0028 implementation + review notes).
+1. **▶ NEXT — ship & validate the 🚩 Public Beta.** Build the deployable upgrade package from `main` and
+   deploy it live (in-place, no-SSH RH-10 upgrade) per
+   [`docs/product/live-deploy-kickoff.md`](docs/product/live-deploy-kickoff.md) — back up off-host, extract
+   over the running install, watch `GET /health` `schema.pending` flip true→false. Then gather
+   private/public-beta feedback (product-plan §8 may reorder later work).
 
-2. **Shipped on `main` — full detail in [`PROJECT-HISTORY.md`](PROJECT-HISTORY.md).** P2-M1 engagement/content
-   depth · P2-M2 Half-A deliverability light-up · P2-M2 Half-B multi-participant PMs (PR #17) · account
-   deletion / ADR-0025 (`b006163`) · P2-M3 activity feed + community-feel (`ae9bba3`) · P2-M4 moderation
-   depth + search facets + preferences (PR #19, `c56126e`).
+2. **Phase 3 — Extensibility — the next major phase (its own discovery + plan-before-code gate).**
+   Module/plugin API + hook/event/slot system (semver'd public contract) + compatibility check; visual
+   theming + layout configurator; REST API + webhooks; phpBB/MyBB/SMF importers (verify + 301 redirects);
+   admin analytics.
 
 3. **Fast-follows queued by M5** (post-beta, small): staff notes · reputation leaderboard / top-members ·
    TL auto-promotion by reputation · 2nd example theme (the carried Should) · `isSoleAdmin` TOCTOU +
-   `ActivityVersion` lost-bump hardenings (pre-existing, flagged in the M5 review).
+   `ActivityVersion` lost-bump hardenings (pre-existing, flagged in the M5 review, recorded in `DECISIONS.md`).
 
 4. **Design-first items still queued (do not build without a plan):**
    - RH-4: subdirectory install (ADR needed)
    - Layman "simple-mode" permissions UX (ACP v3, separate cycle)
-   - **Phase 3 — Extensibility** (plugin/module API, REST + webhooks, importers, theme configurator,
-     analytics): its own discovery + plan-before-code gate.
 
 ## Working rules
 
