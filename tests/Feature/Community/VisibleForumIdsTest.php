@@ -66,6 +66,19 @@ it('returns an empty array when the viewer can see no forum', function () {
     expect(VisibleForumIds::for($member))->toBe([]);
 });
 
+it('resolves to sees-none (not sees-all) when the forum universe is empty', function () {
+    // No forum rows at all (e.g. every forum soft-deleted) must NOT collapse into the null sees-all sentinel,
+    // which would drop the visibility filter and over-return rows keyed on a since-removed forum.
+    $a = Forum::create(['slug' => 'a', 'title' => 'A', 'type' => 'forum']);
+    $member = Users::inGroups(['members', 'tl1']);
+    expect(VisibleForumIds::for($member))->toBeNull(); // sees the one forum → sees-all
+
+    $a->delete(); // soft-delete the only forum → empty universe
+    VisibleForumIds::flush();
+
+    expect(VisibleForumIds::for($member))->toBe([]); // sees none, never null
+});
+
 it('memoises per request and can be flushed', function () {
     Forum::create(['slug' => 'a', 'title' => 'A', 'type' => 'forum']);
     $member = Users::inGroups(['members', 'tl1']);
