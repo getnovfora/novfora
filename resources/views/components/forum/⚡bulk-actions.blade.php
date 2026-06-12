@@ -109,7 +109,9 @@ new class extends Component
         $skipped = count($result['skipped']);
         session()->flash('status', "Applied to {$applied} item(s)".($skipped > 0 ? ", skipped {$skipped} (insufficient rank or scope)" : '').'.');
 
-        $this->redirect($url); // full reload → the Alpine bulkSelect store resets
+        // navigate:false forces a FULL reload (not an SPA navigate): the Alpine bulkSelect store resets so the
+        // selection + bar clear, and the session flash renders on the fresh page.
+        $this->redirect($url, navigate: false);
     }
 
     private function actor(): User
@@ -122,24 +124,25 @@ new class extends Component
 };
 ?>
 
-<div x-cloak x-show="$store('bulkSelect').active && $store('bulkSelect').ids.length > 0"
-     class="fixed left-0 right-0 bottom-0 z-40 border-t border-line bg-surface-raised shadow-md">
+<div x-cloak x-show="$store.bulkSelect.active && $store.bulkSelect.ids.length > 0"
+     style="bottom:0;left:0;right:0"
+     class="fixed z-40 border-t border-line bg-surface-raised shadow-md">
     <x-ui.container size="lg" class="flex flex-wrap items-center gap-2 py-3">
-        <span class="text-sm font-medium text-ink"><span x-text="$store('bulkSelect').ids.length"></span> selected</span>
+        <span class="text-sm font-medium text-ink"><span x-text="$store.bulkSelect.ids.length"></span> selected</span>
 
         @if ($context === 'posts')
             <x-ui.button size="sm" variant="danger-ghost" dusk="bulk-delete"
-                         x-on:click="$wire.deletePosts($store('bulkSelect').ids)">Delete</x-ui.button>
+                         x-on:click="$wire.deletePosts($store.bulkSelect.ids)">Delete</x-ui.button>
             <div class="flex items-center gap-1">
                 <input type="text" wire:model="splitTitle" placeholder="New topic title…" dusk="bulk-split-title"
                        class="min-h-9 px-2 rounded-md bg-surface border border-line text-sm text-ink placeholder:text-ink-subtle">
                 <x-ui.button size="sm" variant="ghost" dusk="bulk-split"
-                             x-on:click="$wire.splitPosts($store('bulkSelect').ids)">Split off</x-ui.button>
+                             x-on:click="$wire.splitPosts($store.bulkSelect.ids)">Split off</x-ui.button>
             </div>
         @else
-            <x-ui.button size="sm" variant="ghost" dusk="bulk-lock" x-on:click="$wire.lockTopics($store('bulkSelect').ids, true)">Lock</x-ui.button>
-            <x-ui.button size="sm" variant="ghost" dusk="bulk-unlock" x-on:click="$wire.lockTopics($store('bulkSelect').ids, false)">Unlock</x-ui.button>
-            <x-ui.button size="sm" variant="danger-ghost" dusk="bulk-delete" x-on:click="$wire.deleteTopics($store('bulkSelect').ids)">Delete</x-ui.button>
+            <x-ui.button size="sm" variant="ghost" dusk="bulk-lock" x-on:click="$wire.lockTopics($store.bulkSelect.ids, true)">Lock</x-ui.button>
+            <x-ui.button size="sm" variant="ghost" dusk="bulk-unlock" x-on:click="$wire.lockTopics($store.bulkSelect.ids, false)">Unlock</x-ui.button>
+            <x-ui.button size="sm" variant="danger-ghost" dusk="bulk-delete" x-on:click="$wire.deleteTopics($store.bulkSelect.ids)">Delete</x-ui.button>
             @if (count($this->moveTargets()) > 0)
                 <div class="flex items-center gap-1">
                     <select wire:model="moveTarget" dusk="bulk-move-target"
@@ -149,12 +152,12 @@ new class extends Component
                             <option value="{{ $f->id }}">{{ $f->title }}</option>
                         @endforeach
                     </select>
-                    <x-ui.button size="sm" variant="ghost" dusk="bulk-move" x-on:click="$wire.moveTopics($store('bulkSelect').ids)">Move</x-ui.button>
+                    <x-ui.button size="sm" variant="ghost" dusk="bulk-move" x-on:click="$wire.moveTopics($store.bulkSelect.ids)">Move</x-ui.button>
                 </div>
             @endif
         @endif
 
         <button type="button" class="ml-auto min-h-9 px-2 text-sm text-ink-muted hover:text-ink"
-                x-on:click="$store('bulkSelect').clear()">Clear</button>
+                x-on:click="$store.bulkSelect.clear()">Clear</button>
     </x-ui.container>
 </div>

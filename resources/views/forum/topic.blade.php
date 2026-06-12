@@ -41,7 +41,10 @@
 @section('content')
     {{-- size="lg" follows the site Appearance "Forum width" (--layout-max-width) — the same shared
          container the forum index and board views use, so the width setting governs the topic view too. --}}
-    <x-ui.container size="lg" class="space-y-5">
+    {{-- x-data scopes the page so Alpine initialises the bulk-select toggle + per-post checkboxes (P2-M4),
+         which read the global $store.bulkSelect; nested Livewire components keep their own Alpine scopes. --}}
+    <x-ui.container size="lg" class="space-y-5" x-data="{}"
+        x-bind:style="$store.bulkSelect.active ? 'padding-bottom: 7rem' : ''">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 space-y-2">
                 @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix || $topic->tags->isNotEmpty())
@@ -77,9 +80,9 @@
                     <livewire:forum.merge-topic :topic-id="$topic->id" />
                     {{-- Bulk-select toggle (P2-M4): turns on per-post checkboxes wired to the Alpine bulkSelect store. --}}
                     <x-ui.button type="button" variant="ghost" size="sm" dusk="bulk-select-toggle"
-                                 x-on:click="$store('bulkSelect').toggleMode()"
-                                 x-bind:class="$store('bulkSelect').active ? 'border-accent text-accent' : ''">
-                        <span x-text="$store('bulkSelect').active ? 'Done selecting' : 'Select posts'"></span>
+                                 x-on:click="$store.bulkSelect.toggleMode()"
+                                 x-bind:class="$store.bulkSelect.active ? 'border-accent text-accent' : ''">
+                        <span x-text="$store.bulkSelect.active ? 'Done selecting' : 'Select posts'"></span>
                     </x-ui.button>
                     <form method="POST" action="{{ route('topics.destroy', $topic) }}" onsubmit="return confirm('Move this topic to the recycle bin?')">@csrf @method('DELETE')
                         <x-ui.button type="submit" variant="danger-ghost" size="sm">Delete</x-ui.button>
@@ -115,9 +118,9 @@
                 <x-ui.card id="post-{{ $post->id }}" :class="$post->approved_state === 'pending' ? 'ring-1 ring-warn-soft' : ''">
                     @if ($canModerate)
                         {{-- Bulk-select checkbox (P2-M4): shown only in select mode, bound to the Alpine store. --}}
-                        <label x-show="$store('bulkSelect').active" x-cloak class="mb-2 inline-flex items-center gap-2 text-xs text-ink-muted">
-                            <input type="checkbox" :checked="$store('bulkSelect').has({{ $post->id }})"
-                                   x-on:change="$store('bulkSelect').toggle({{ $post->id }})"
+                        <label x-show="$store.bulkSelect.active" x-cloak class="mb-2 inline-flex items-center gap-2 text-xs text-ink-muted">
+                            <input type="checkbox" :checked="$store.bulkSelect.has({{ $post->id }})"
+                                   x-on:change="$store.bulkSelect.toggle({{ $post->id }})"
                                    dusk="bulk-post-{{ $post->id }}"
                                    class="h-4 w-4 rounded-sm border-line-strong text-accent focus-visible:ring-accent">
                             Select this post

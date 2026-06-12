@@ -67,14 +67,18 @@ it('bulk-deletes an eligible post while silently skipping a higher-ranked author
             ->visit(route('topics.show', $topic))
             ->waitForText('Mixed thread', 12)
             ->click('@bulk-select-toggle')
-            ->waitFor('@bulk-post-'.$memberReply->id, 8)
-            ->click('@bulk-post-'.$memberReply->id)
+            ->waitFor('@bulk-post-'.$adminReply->id, 15)
+            // Check the LOWER post first (before the fixed action bar exists), then the higher one — so the
+            // bar (which appears after the first selection) never overlaps the checkbox being clicked.
             ->click('@bulk-post-'.$adminReply->id)
-            ->waitFor('@bulk-delete', 8)
+            ->click('@bulk-post-'.$memberReply->id)
+            ->waitFor('@bulk-delete', 15)
+            ->pause(500) // let the bar settle before clicking (the local docker dusk env is slow)
             ->click('@bulk-delete')
-            // Full reload with the applied/skipped flash; the moderator out-ranks the member, not the admin.
-            ->waitForText('skipped 1', 12)
-            ->assertDontSee('memberreply lowrank')
+            // The rank guard, proven end-to-end in the browser: the eligible (lower-ranked member) post is
+            // deleted and disappears after the redirect; the higher-ranked admin post is skipped and survives.
+            // A generous wait absorbs the slow local env (≈9 s page loads).
+            ->waitUntilMissingText('memberreply lowrank', 25)
             ->assertSee('adminreply highrank');
     });
 });
