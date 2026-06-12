@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
 // The mass-assignable set is intentionally NARROW (security by default). Privilege/state columns
@@ -98,6 +99,15 @@ class User extends Authenticatable implements MustVerifyEmail
     public function rankPriority(): int
     {
         return (int) ($this->groups->max('priority') ?? 0);
+    }
+
+    /** Activity heuristic (P2-M3): "online" = active within the last 15 minutes (last_active_at is written
+     *  by the throttled ThrottledLastActive middleware, at most once per 5 minutes per user). */
+    public function isOnline(): bool
+    {
+        $last = $this->last_active_at;
+
+        return $last !== null && Carbon::parse($last)->gt(now()->subMinutes(15));
     }
 
     /**

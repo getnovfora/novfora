@@ -40,5 +40,8 @@
                 </x-ui.empty>
             </x-ui.card>
         @endforelse
+
+        {{-- Community activity feed (P2-M3): global, per-viewer permission-filtered, cached primitives. --}}
+        <livewire:community.activity-feed />
     </x-ui.container>
 @endsection
