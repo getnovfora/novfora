@@ -23,6 +23,19 @@ it('schedules the queue drain, backups, and the trust/anti-spam jobs', function 
     expect($commands)->toContain('novfora:backup');
     expect($commands)->toContain('novfora:trust:recompute');
     expect($commands)->toContain('novfora:antispam:purge');
+    // P2-M5 social-pack self-heals (the `nevo:` names are the Phase-5 rename surface #8 — ADR-0028).
+    expect($commands)->toContain('nevo:reputation:recompute');
+});
+
+it('registers the reputation self-heal, overlap-guarded with a short bounded mutex', function () {
+    $event = collect(app(Schedule::class)->events())
+        ->first(fn ($event) => str_contains((string) $event->command, 'nevo:reputation:recompute'));
+
+    expect($event)->not->toBeNull();
+    // withoutOverlapping so a long recompute on a large board never doubles up on a coarse/overlapping
+    // tick — with a SHORT expiry (not Laravel's 24h default) so a hard-killed run can't strand the heal.
+    expect($event->withoutOverlapping)->toBeTrue();
+    expect($event->expiresAt)->toBeLessThan(60);
 });
 
 it('registers a liveness heartbeat callback for the health endpoint', function () {

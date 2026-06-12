@@ -92,6 +92,15 @@ Schedule::call(fn () => app(RestoreRunner::class)->runPending())
 // long run on a large board never doubles up on a coarse interval. Skipped during a restore (writes users).
 Schedule::command('novfora:trust:recompute')->hourly()->withoutOverlapping()->skip($duringRestore);
 
+// Reputation denorm self-heal (P2-M5 ⚙): reconcile users.reputation_points to the reputation_events
+// ledger — belt-and-braces under any missed/reordered queue event. Idempotent + bounded, with a SHORT
+// overlap mutex (not Laravel's 24h default) so a hard-killed run can't strand the heal (RH-10 lesson).
+// The `nevo:` name is deliberate — Phase-5 rename surface #8 (ADR-0028); do not pre-rename.
+Schedule::command('nevo:reputation:recompute')
+    ->hourly()
+    ->withoutOverlapping(10)
+    ->skip($duringRestore);
+
 // Privacy/GDPR retention (ADR-0007 §2.6): purge aged registration checks + expired blocklist cache.
 Schedule::command('novfora:antispam:purge')->daily()->skip($duringRestore);
 
