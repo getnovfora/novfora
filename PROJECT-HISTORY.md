@@ -433,3 +433,56 @@ Built per [`docs/product/p2-m4-moderation-code-kickoff.md`](docs/product/p2-m4-m
   fixed/accepted, 11 refuted** — see DECISIONS.md P2-M4.
 - **Scope fence / HELD:** staff notes (`staff_notes`/`StaffNote`), a full ACP member-management page, GDPR
   data-export, bulk hide/unhide (no post-level hide status — recorded). `VisibleForumIds` used, not extended.
+
+### P2-M5 — Beta polish, full regression & the social pack (Core) → 🚩 Public Beta (2026-06-12, branch `claude/p2-m5-beta-social`)
+Built per [`docs/product/p2-m5-beta-social-code-kickoff.md`](docs/product/p2-m5-beta-social-code-kickoff.md)
+(ADR-0028 pulled follow + reputation/points + badges from HELD into M5 Core):
+- **Follow (◐)** — the follow half of `user_relationships` wired: idempotent `FollowService` (DB-UNIQUE
+  `insertOrIgnore`; `Followed` fires only on a real insert; **self-follow = hard service refuse no ACL lifts**);
+  `follow.create` TL0-**soft**-gated via the poll.create pattern (withheld from the member preset, `$trusted`
+  from TL1, staff exempt, admin-liftable) + per-TL `FollowRateLimiter`; `follow.delete` ungated (a demoted user
+  can always unfollow). The REAL `follow` notification emitter lands on the M2-A vocab (queued, ignore-graph
+  honoured at delivery, **one unread notification per follower** — cycling can't flood). Following feed =
+  `ActivityFeed::forFollowing`, **still threaded through `VisibleForumIds`**, RH-9 window keyed on a hash of
+  the sorted followed-id set + activity version (self-invalidating); empty follow set → global feed + hint.
+  Profile follow button + follower/following counts.
+- **Reputation (⚙)** — the `reputation_events` ledger (UNIQUE(source) idempotency; signed points;
+  `users.reputation_points` flipped signed in a reversible migration) + `ReputationService` (insertOrIgnore
+  award with atomic increment; stored-points revoke gated on the actual delete; `syncSourceAward` for the
+  single-choice type-change path; authoritative `recomputeFor` with drift-only writes). **Amendment #4 lights
+  up:** queued `Reacted`/`ReactionRemoved` listeners award/revoke the config score weights — react action
+  pinned **≤15** steady-state; self-reaction awards nothing; optional creation awards ship OFF (env, default 0).
+  **The extended ADR-0025 cascade:** affected third-party authors captured with a locking current read AFTER
+  the reaction delete, sourced + own ledger rows pruned, authors recomputed authoritatively in the same
+  transaction — headline test proves each author drops by exactly the revoked weight, zero orphans.
+- **Badges (⚙/◻)** — `badges` + `user_badges` (UNIQUE(user,badge)); a **closed-set** criteria engine
+  (join | post_count | reputation — matched, never evaluated; APPROVED posts only); awards idempotent +
+  **permanent**; queued triggers (Registered, PostCreated + TopicCreated, the new `ReputationAwarded` signal);
+  ACP `⚡badges` manager (mirrors `⚡prefixes`; `badge.manage`, walk-test auto-covered); profile chips
+  (palette-validated tokens); the badges **migration seeds the starter set into an empty catalog** so an
+  UPGRADED board matches a fresh install (RH-10 rehearsal finding); starter set: Welcome / First Post /
+  Conversationalist / Well-Regarded.
+- **Crons** — `nevo:reputation:recompute` (hourly) + `nevo:badges:recompute` (daily, catalog loaded once),
+  both idempotent, bounded, short-mutexed (SchedulerTest-pinned); plus a daily `novfora-cache-prune` for the
+  DB cache store (version-keyed entries never self-evict). The `nevo:` names are the Phase-5 rename surface #8.
+- **Beta polish** — DemoSeeder demonstrates the whole beta through the real write paths (reactions, a poll,
+  PMs, follows, banked reputation, swept badges; idempotent, with a permanent regression test);
+  getting-started cron block + `.env.example` refreshed; prebuilt assets rebuilt.
+- **Regression (the beta gate)** — **RH-10 EXECUTED**: scratch board migrated → the 3 M5 migrations rolled
+  BACK (down() reversibility proven, incl. the unsigned-restore clamp) → pre-M5 data + a queued backlog →
+  `novfora:upgrade` (backup-first) → 49 migrations, data intact, backlog drained post-migration, both new
+  crons green, starter badges present, negative rep round-trips. **RH-11 EXECUTED**: backup → vandalise
+  (rename a user, delete a badge) → `novfora:restore` → round-trip verified (pre-restore safety snapshot
+  taken). Budgets HOLD: react ≤15 (new pin) · forum index ≤20 · search ≤25 · moderator thread ≤35 ·
+  **profile ≤20 (new documented ceiling)**. Truth tables extended (follow.create soft gate, follow.delete,
+  badge.manage); cascade truth tables extended (follow both directions, reputation third-party recompute,
+  user_badges). Dusk `SocialPackJourneyTest` (follow → following feed → react → points rise → badge on
+  profile) **executed green** with 8 `p2m5-*` screenshots.
+- **Gates:** Pint · Larastan **L5 clean** · composer + npm audit clean · assets-fresh (rebuilt + committed) ·
+  full suite **955 passed / 1 skipped (3,116 assertions)** · **+87 feature tests** + the 5-test Dusk journey.
+  **Post-build adversarial review (62 agents, 6 dimensions, verify-then-refute): 2 HIGH (orphan-ledger
+  TOCTOU; moved-topic feed leak) + 4 MEDIUM + 4 LOW fixed; accepted races + 2 pre-existing fast-follows
+  recorded; refuted findings discarded** — see DECISIONS.md P2-M5.
+- **Scope fence / HELD (fast-follows):** staff notes · reputation leaderboard / top-members · TL
+  auto-promotion by reputation · the 2nd example theme (the one Should item carried, recorded) · GDPR export ·
+  ACP member management. `isSoleAdmin` TOCTOU + `ActivityVersion` lost-bump (both pre-existing) flagged.

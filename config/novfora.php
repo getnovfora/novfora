@@ -25,14 +25,16 @@ $trusted = [
     'tag.create' => 'allow',         // hard-gated at TL0 (never) — a new tag enters the durable site-wide
     // tag namespace; a spam tag pollutes listings globally, independent of
     // the post. Same class of vector as links/images. Granted from TL1.
+    'follow.create' => 'allow',      // soft gate at TL0 (no, deny-by-default); granted from TL1 (P2-M5)
 ];
 
 return [
 
     // Post reactions (P2-M1). XF-style single-choice typed reactions: a user picks at most one type per post.
-    // Each type carries a `score` weight that is CONFIG-ONLY AND INERT this milestone — the reputation ledger
-    // that would consume it is P2-M3 (held), so reactions accrue no reputation yet (Phase-2 amendment #4).
-    // Reactions are fully functional with zero reputation dependency; tune the type set freely.
+    // Each type carries a `score` weight — LIVE since P2-M5 (the amendment-#4 light-up): a received reaction
+    // awards the post author that many reputation points via the idempotent ledger (ReputationService);
+    // negative weights subtract. Changing a weight affects FUTURE awards only — already-banked ledger rows
+    // keep the points they were awarded at (revoke undoes the stored value, not the live config).
     'reactions' => [
         'types' => [
             'like' => ['label' => 'Like', 'emoji' => '👍', 'score' => 1],
@@ -68,6 +70,31 @@ return [
         // Mass-PM cap: the maximum recipients (excluding the sender) a single conversation may be started with
         // or grown to. Bounds the blast radius of a compromised/abusive trusted account.
         'max_recipients' => (int) env('NOVFORA_PM_MAX_RECIPIENTS', 10),
+    ],
+
+    // Reputation (P2-M5, ADR-0028). The ledger is reputation_events (UNIQUE per source = idempotent);
+    // users.reputation_points is the denormalised sum, reconciled hourly by nevo:reputation:recompute.
+    // Reaction weights live on novfora.reactions.types.*.score above. These are the OPTIONAL fixed awards
+    // for creating content — owner-tunable, DEFAULT 0 = off (no ledger row, no queue job is even staged).
+    'reputation' => [
+        'awards' => [
+            'post_created' => (int) env('NOVFORA_REP_POST_CREATED', 0),
+            'topic_created' => (int) env('NOVFORA_REP_TOPIC_CREATED', 0),
+        ],
+    ],
+
+    // Follow (P2-M5, ADR-0028). The follow.create soft gate lives in antispam.trust_gates below (tl0 = no,
+    // deny-by-default, admin-liftable; tl1+ = allow). These are the POST-gate abuse controls: each follow
+    // notifies the followee, so mass-follow is a notification-spam vector — the per-trust follows/minute cap
+    // (FollowRateLimiter, cache-backed → tier-graceful) bounds the blast radius once a user may follow at all.
+    'follow' => [
+        'rate_limits' => [
+            // tl0 is moot in practice — follow.create is deny-by-default at TL0 before the limiter is
+            // consulted — but kept tight as defence-in-depth (mirrors the pm.rate_limits posture).
+            'tl0' => 2,
+            'tl1' => 10,
+            'default' => 30,
+        ],
     ],
 
     // oEmbed / rich embeds (P2-M1). SECURITY: the canonical post stores ONLY the URL (a client never supplies
@@ -128,6 +155,13 @@ return [
                 // tag therefore pollutes the whole community, not just one topic. Same vector class as links and
                 // images. The hard NEVER means an admin ALLOW grant cannot lift it for TL0 (NEVER is absolute).
                 'tag.create' => 'never',
+                // follow.create: SOFT gate, not NEVER (P2-M5). Mass-follow is a notification-spam vector (each
+                // follow notifies the followee), but its blast radius is bounded by the FollowRateLimiter + the
+                // followee's ignore graph and prefs — unlike links/tags it leaves no durable public artefact.
+                // Per the §2.3 doctrine ("NEVER only for true spam vectors") TL0 is denied-by-default here
+                // (withheld from the member preset, granted from TL1 via $trusted) and an admin MAY lift it
+                // for a controlled community. Self-follow is a hard refuse in FollowService regardless of ACL.
+                'follow.create' => 'no',
             ],
             'tl1' => $trusted,
             'tl2' => $trusted,

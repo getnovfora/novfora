@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Account;
 
+use App\Community\ReputationService;
 use App\Forum\PollService;
 use App\Forum\ReactionService;
 use App\Messaging\PmAccountCascade;
@@ -25,6 +26,7 @@ use App\Models\Report;
 use App\Models\RoleAssignment;
 use App\Models\Topic;
 use App\Models\User;
+use App\Models\UserRelationship;
 use App\Models\Warning;
 use App\Permissions\Scope;
 use App\Support\ActorRank;
@@ -59,6 +61,7 @@ final class AccountDeletionService
     public function __construct(
         private readonly ReactionService $reactions,
         private readonly PollService $polls,
+        private readonly ReputationService $reputation,
     ) {}
 
     /**
@@ -168,6 +171,17 @@ final class AccountDeletionService
             $votedOptionIds = PollVote::where('user_id', $userId)
                 ->pluck('poll_option_id')->map(fn ($i): int => (int) $i)->unique()->values()->all();
 
+            // (a2) CAPTURE the ids of U's OWN reactions (P2-M5, the ADR-0025 extension) — those reactions
+            //      awarded points to OTHER authors, and the rows are about to drop. The AFFECTED-AUTHOR set
+            //      is deliberately captured later, AFTER the reaction delete (see c2): deleting the rows
+            //      takes their locks, so any in-flight award job is ordered around the cascade (its own
+            //      source lock — ReputationService::award — aborts it once the rows are gone), and a
+            //      LOCKING current read then sees every award that actually landed, not this transaction's
+            //      start snapshot.
+            $reactionMorph = (new Reaction)->getMorphClass();
+            $userReactionIds = Reaction::where('user_id', $userId)
+                ->pluck('id')->map(fn ($i): int => (int) $i)->all();
+
             // (b) PSEUDONYMISE authored content — anonymise the attribution pointer only, keep the body.
             //     withTrashed() is REQUIRED: posts/topics use SoftDeletes, and the default scope would skip a
             //     soft-deleted row, leaving it pointing at the deleted user (a dangling id + privacy leak).
@@ -189,6 +203,32 @@ final class AccountDeletionService
             Reaction::where('user_id', $userId)->delete();
             $this->reactions->recomputeForPosts($reactedPostIds);
 
+            // (c2) REPUTATION (P2-M5 ⚙, the ADR-0025 extension). Order matters:
+            //      1. capture the AFFECTED third-party recipients with a LOCKING current read — now that
+            //         the reaction rows are deleted (their locks held by this txn), an in-flight award for
+            //         one of them has either committed (visible here) or will abort on its source check;
+            //      2. prune the ledger rows SOURCED from U's just-deleted reactions (they awarded OTHERS);
+            //      3. prune U's own received rep wholesale (creation awards + reactions TO U's posts — the
+            //         surviving reaction rows stay as participation, their ledger rows die with U);
+            //      4. recompute the affected third-party authors AUTHORITATIVELY from what survives —
+            //         absolute SUMs, mirroring recomputeForPosts; never ±deltas through a half-deleted graph.
+            $affectedAuthorIds = [];
+            if ($userReactionIds !== []) {
+                $affectedAuthorIds = DB::table('reputation_events')
+                    ->where('source_type', $reactionMorph)
+                    ->whereIn('source_id', $userReactionIds)
+                    ->where('user_id', '!=', $userId) // U's own rows die wholesale below; no recompute needed
+                    ->lockForUpdate()
+                    ->pluck('user_id')->map(fn ($i): int => (int) $i)->unique()->values()->all();
+
+                DB::table('reputation_events')
+                    ->where('source_type', $reactionMorph)
+                    ->whereIn('source_id', $userReactionIds)
+                    ->delete();
+            }
+            DB::table('reputation_events')->where('user_id', $userId)->delete();
+            $this->reputation->recomputeFor($affectedAuthorIds);
+
             PollVote::where('user_id', $userId)->delete();
             $this->polls->recomputeForOptions($votedOptionIds);
 
@@ -206,6 +246,16 @@ final class AccountDeletionService
 
             // warnings.issued_by has no FK → NULL it; warnings.user_id (a real FK) cascades with the row.
             Warning::where('issued_by', $userId)->update(['issued_by' => null]);
+
+            // Relationship edges (follow + ignore) drop in BOTH directions — who the user followed/ignored
+            // AND who followed/ignored them (P2-M5). Both endpoint FKs do cascadeOnDelete with the users row,
+            // but the explicit delete keeps the cascade self-contained and testable on any driver.
+            UserRelationship::where('user_id', $userId)
+                ->orWhere('related_user_id', $userId)
+                ->delete();
+
+            // Badge awards die with the account (P2-M5) — same explicit-plus-FK belt-and-braces.
+            DB::table('user_badges')->where('user_id', $userId)->delete();
 
             // email_suppressions is keyed on the address, not the user — delete the user's row(s) so the freed
             // address is deliverable again (recorded decision; see DECISIONS ADR-0025 follow-up).

@@ -10,6 +10,7 @@ use App\Upgrade\UpgradeRunner;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -91,6 +92,35 @@ Schedule::call(fn () => app(RestoreRunner::class)->runPending())
 // Anti-spam trust automation (ADR-0007 §2.3): auto promotion/demotion. Idempotent + overlap-guarded so a
 // long run on a large board never doubles up on a coarse interval. Skipped during a restore (writes users).
 Schedule::command('novfora:trust:recompute')->hourly()->withoutOverlapping()->skip($duringRestore);
+
+// Reputation denorm self-heal (P2-M5 ⚙): reconcile users.reputation_points to the reputation_events
+// ledger — belt-and-braces under any missed/reordered queue event. Idempotent + bounded, with a SHORT
+// overlap mutex (not Laravel's 24h default) so a hard-killed run can't strand the heal (RH-10 lesson).
+// The `nevo:` name is deliberate — Phase-5 rename surface #8 (ADR-0028); do not pre-rename.
+Schedule::command('nevo:reputation:recompute')
+    ->hourly()
+    ->withoutOverlapping(10)
+    ->skip($duringRestore);
+
+// Badge catch-up sweep (P2-M5 ⚙): award anything a missed event dropped. Awards are permanent +
+// UNIQUE-keyed, so the sweep only ever adds — idempotent by construction. Daily is enough latency for a
+// missed badge; same short-mutex discipline. `nevo:` naming as above (rename surface #8, ADR-0028).
+Schedule::command('nevo:badges:recompute')
+    ->daily()
+    ->withoutOverlapping(10)
+    ->skip($duringRestore);
+
+// Baseline-tier cache hygiene (P2-M5 adversarial-review finding): version-keyed cache entries (feeds,
+// reaction tallies, ACL) are never read again after a version bump, and the DATABASE store only evicts
+// an expired row when that exact key is next read — so superseded rows accumulate forever. Prune expired
+// rows daily. A no-op on the enhanced tier (Redis evicts itself) and during a restore.
+Schedule::call(function (): void {
+    if (config('cache.default') === 'database') {
+        DB::table((string) config('cache.stores.database.table', 'cache'))
+            ->where('expiration', '<', now()->getTimestamp())
+            ->delete();
+    }
+})->daily()->name('novfora-cache-prune')->skip($duringRestore);
 
 // Privacy/GDPR retention (ADR-0007 §2.6): purge aged registration checks + expired blocklist cache.
 Schedule::command('novfora:antispam:purge')->daily()->skip($duringRestore);

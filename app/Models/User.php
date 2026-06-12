@@ -48,6 +48,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'last_active_at' => 'datetime',
             'password' => 'hashed',
             'trust_level' => 'integer',
+            'reputation_points' => 'integer',
             'signature_doc' => 'array',
             'posts_per_page' => 'integer',
         ];
@@ -71,6 +72,12 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->belongsToMany(Conversation::class, 'conversation_user')
             ->withPivot(['last_read_at', 'left_at', 'can_invite'])
             ->withTimestamps();
+    }
+
+    /** Earned badges (P2-M5) — awards are permanent; written only by BadgeService. @return BelongsToMany<Badge, $this> */
+    public function badges(): BelongsToMany
+    {
+        return $this->belongsToMany(Badge::class, 'user_badges')->withPivot('awarded_at');
     }
 
     /** @return list<int> the user's group ids (primary + secondary) */

@@ -4,6 +4,8 @@
 
 declare(strict_types=1);
 
+use App\Community\BadgeService;
+use App\Community\FollowService;
 use App\Forum\PollService;
 use App\Forum\PostService;
 use App\Forum\ReactionService;
@@ -123,6 +125,36 @@ it('renders a faceted search results page within the query budget (≤25, no N+1
     $queries = queriesFor(fn () => $this->actingAs($viewer)->get($url)->assertOk());
 
     expect($queries)->toBeLessThanOrEqual(25);
+});
+
+it('renders a member profile (follow + reputation + badges) within the query budget (≤20, no N+1)', function () {
+    $this->seed();
+    $forum = Forum::create(['slug' => 'profforum', 'title' => 'Profile forum', 'type' => 'forum']);
+    $posts = app(PostService::class);
+
+    // A profile owner with the full P2-M5 social surface: posts (badge triggers), received reactions
+    // (reputation), followers, and earned badges — the worst-case profile render.
+    $owner = Users::inGroups(['members', 'tl3'], ['username' => 'profowner', 'email' => 'po@budget.test']);
+    $topic = $posts->createTopic($owner, $forum, 'Profile owner topic', 'markdown', ['source' => 'Body.']);
+
+    $fans = collect(range(1, 3))
+        ->map(fn ($n) => Users::inGroups(['members', 'tl2'], ['username' => "fan{$n}", 'email' => "fan{$n}@budget.test"]));
+    $reactions = app(ReactionService::class);
+    $follows = app(FollowService::class);
+    foreach ($fans as $fan) {
+        $reactions->toggle($fan, $topic->posts()->first(), 'helpful');
+        $follows->follow($fan, $owner);
+    }
+    app(BadgeService::class)->evaluate($owner);
+
+    $viewer = Users::inGroups(['members', 'tl2'], ['username' => 'profviewer', 'email' => 'pv@budget.test']);
+
+    $this->actingAs($viewer)->get(route('profiles.show', $owner))->assertOk();
+    $queries = queriesFor(fn () => $this->actingAs($viewer)->get(route('profiles.show', $owner))->assertOk());
+
+    // ≤20: the P2-M5 surfaces add the follow panel (target + edge check + two COUNTs) and the earned-badge
+    // chips (one badge query) on top of the custom-field/profile base. New documented ceiling (DECISIONS).
+    expect($queries)->toBeLessThanOrEqual(20);
 });
 
 it('renders a moderator’s thread (bulk-select + merge UI) within the query budget (≤35, no N+1)', function () {

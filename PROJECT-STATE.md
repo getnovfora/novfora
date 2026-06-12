@@ -33,10 +33,10 @@ PostgreSQL on Docker/VPS. Vite, prebuilt assets (no host Node). Approved — ADR
 
 **Phase 1 / Core MVP · Phase 1.5 hardening · real-host fixes RH-6–RH-11 — all COMPLETE.** Default theme +
 polish R1, ACP v1/v1.1, Spike P2 deliverability (GO), and **ACP v2** all merged. **Phase 2 (Community) is
-~80% landed** — P2-M1 (engagement/content depth), P2-M2 Half-A (deliverability light-up + rich notifications)
-and Half-B (multi-participant PMs), P2 account deletion (ADR-0025), P2-M3 (activity feed + community-feel), and
-P2-M4 (moderation depth + search facets + preferences) are **all merged to `main`**. **Next: P2-M5 — the Phase 2
-closer → 🚩 Public Beta** (see Immediate next actions).
+CODE-COMPLETE** — P2-M1 through P2-M4 merged to `main`; **P2-M5 (the Phase-2 closer: the ADR-0028 social
+pack — follow + reputation + badges — beta polish, and the FULL regression incl. executed RH-10/RH-11
+rehearsals) is BUILT and green on branch `claude/p2-m5-beta-social`**, awaiting the owner push → PR →
+merge → push of the Public Beta tag (see Immediate next actions).
 
 > Per-milestone build detail (gates, test counts, adversarial-review findings, scope fences) →
 > [`PROJECT-HISTORY.md`](PROJECT-HISTORY.md).
@@ -49,32 +49,33 @@ feed & community-feel core (`ae9bba3`), and **P2-M4** moderation depth / search 
 `c56126e`). **Origin `main` is the source of truth; nothing is left unpushed.**
 
 **HELD (deferred to fast-follow / Phase 3):** staff notes · reputation leaderboard / top-members ·
-trust-level auto-promotion · a 2nd example theme (optional M5 stretch). *Follow + reputation/points + badges
-were pulled into M5 Core — ADR-0028.*
+trust-level auto-promotion · a 2nd example theme (the M5 Should, carried — recorded). *Follow +
+reputation/points + badges shipped in M5 Core per ADR-0028.*
 
 ## Immediate next actions
 
-1. **Shipped on `main` — full detail in [`PROJECT-HISTORY.md`](PROJECT-HISTORY.md).** P2-M1 engagement/content
-   depth (reactions → polls → prefixes → tags → drafts → edit-history → oembed) · P2-M2 Half-A deliverability
-   light-up · P2-M2 Half-B multi-participant PMs (PR #17) · account deletion / ADR-0025 (`b006163`) · P2-M3
-   activity feed + community-feel (`ae9bba3`) · P2-M4 moderation depth + search facets + preferences (PR #19,
-   `c56126e`). The account-deletion → M3 → M4 chain landed 2026-06-12. Build sources:
-   `docs/product/*-code-kickoff.md` + [`phase-2-implementation-plan.md`](docs/product/phase-2-implementation-plan.md).
+1. **▶ OWNER — land P2-M5 and tag the 🚩 Public Beta.** The full milestone (4 slices, 19 commits) sits on
+   **`claude/p2-m5-beta-social`** — built, adversarially reviewed (62 agents; 2 HIGH + 4 MEDIUM + 4 LOW
+   fixed), all gates green, **RH-10/RH-11 rehearsals EXECUTED** (not paper-checked). Owner steps: push the
+   branch → open the PR (slice boundaries are clean commit groups if four PRs are preferred) → merge →
+   push the local annotated tag (`v1.0.0-beta.1`, created on the branch tip — if the merge is a squash,
+   re-tag the squash commit instead). Build detail → [`PROJECT-HISTORY.md`](PROJECT-HISTORY.md) §P2-M5;
+   decisions → `DECISIONS.md` (ADR-0028 implementation + review notes).
 
-2. **▶ NEXT — P2-M5: Phase 2 closer → 🚩 Public Beta — APPROVED 2026-06-12 (ADR-0028). Build source:
-   [`docs/product/p2-m5-beta-social-code-kickoff.md`](docs/product/p2-m5-beta-social-code-kickoff.md).** Scope =
-   beta polish (`DemoSeeder` / `getting-started.md` / `.env.example` refresh) + the **social pack pulled from
-   HELD — follow + reputation/points + badges** + the full Phase-2 regression (perf/asset/query budgets ·
-   forced-absence · **RH-10 auto-upgrade + RH-11 restore rehearsal** · permission-mask + **extended
-   deletion-cascade** truth tables); optional 2nd example theme stretch. **Apex (Fable@max) pieces:** idempotent
-   reputation/badge award · the extended ADR-0025 cascade (revoke rep from a deleted user's reactions →
-   recompute affected authors) · `follow.create` anti-spam. **4 PR slices** (follow → reputation → badges →
-   closer), built by Code on the real machine (Cowork writes no app code). Owner-tunable before/at build: rep
-   weights, default badge set/thresholds, empty-following-feed behaviour (defaults proposed in the kickoff).
+2. **Shipped on `main` — full detail in [`PROJECT-HISTORY.md`](PROJECT-HISTORY.md).** P2-M1 engagement/content
+   depth · P2-M2 Half-A deliverability light-up · P2-M2 Half-B multi-participant PMs (PR #17) · account
+   deletion / ADR-0025 (`b006163`) · P2-M3 activity feed + community-feel (`ae9bba3`) · P2-M4 moderation
+   depth + search facets + preferences (PR #19, `c56126e`).
 
-3. **Design-first items still queued (do not build without a plan):**
+3. **Fast-follows queued by M5** (post-beta, small): staff notes · reputation leaderboard / top-members ·
+   TL auto-promotion by reputation · 2nd example theme (the carried Should) · `isSoleAdmin` TOCTOU +
+   `ActivityVersion` lost-bump hardenings (pre-existing, flagged in the M5 review).
+
+4. **Design-first items still queued (do not build without a plan):**
    - RH-4: subdirectory install (ADR needed)
    - Layman "simple-mode" permissions UX (ACP v3, separate cycle)
+   - **Phase 3 — Extensibility** (plugin/module API, REST + webhooks, importers, theme configurator,
+     analytics): its own discovery + plan-before-code gate.
 
 ## Working rules
 

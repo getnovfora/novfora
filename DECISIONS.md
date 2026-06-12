@@ -341,6 +341,91 @@ Build source: [`docs/product/p2-m5-beta-social-code-kickoff.md`](docs/product/p2
 A scoping override of plan §5 for these three items — recorded, not silent; no locked stack/architecture
 decision changes.
 
+**P2-M5 implementation notes (2026-06-12, build).** Decisions taken where the kickoff left a choice open,
+plus the mechanism records it mandates:
+
+- **Reputation idempotency = `UNIQUE(source_type, source_id)`.** One polymorphic source awards at most
+  once; `award()` is an `insertOrIgnore` against it and adjusts the denorm ONLY on a real insert, via an
+  atomic SQL increment (never read-modify-write). `revoke()` decrements by the **stored** points (immune
+  to later config-weight changes), gated on this caller having actually deleted the row — two concurrent
+  revokes can never double-decrement. `recomputeFor()` overwrites the denorm with the authoritative ledger
+  SUM (the self-heal); the hourly `nevo:reputation:recompute` cron sweeps it board-wide. Single-choice
+  reactions reuse one row across type changes, so the type-change path is `syncSourceAward()` — re-point
+  the UNIQUE slot (revoke stored → award new), a pure no-op when already aligned (the double-fire case).
+- **`users.reputation_points` went signed.** The M0 column was `unsignedInteger`; negative reaction
+  weights (e.g. `disagree` = −1) make the ledger SUM signable. Reversible migration; the `down()` clamps
+  negatives to 0 before restoring unsigned so a rollback can't die mid-ALTER on strict MySQL.
+- **The extended ADR-0025 cascade (the subtle one).** A deleted user's reactions awarded rep to OTHER
+  authors. The cascade now captures the affected third-party recipients BEFORE the reaction rows drop
+  (alongside the existing reacted-post-id capture), prunes the ledger rows sourced from those reactions,
+  prunes the user's own received rep wholesale, then `recomputeFor()`s the affected authors from the
+  surviving ledger — absolute SUMs inside the same transaction, mirroring the `post_reaction_counts`
+  recompute; never ±deltas through a half-deleted graph. A queued award committing concurrently with the
+  cascade can leave a transient residue — healed by the hourly recompute (same class of accepted race as
+  the existing reaction recount note). `user_relationships` (both directions) and `user_badges` rows are
+  deleted explicitly in the same transaction (their FKs cascade too — belt-and-braces).
+- **Ledger-vs-source edges (accepted + documented):** a SOFT-deleted post keeps its banked rep (reversible
+  moderation shouldn't destroy rep history; restore needs no re-award). A HARD-deleted post would
+  FK-cascade its reactions away without events, stranding their ledger rows — no current flow hard-deletes
+  posts (everything soft-deletes), so this is theoretical; revisit if a purge flow ever ships. On an
+  UPGRADED board, pre-beta reactions grant **no retroactive reputation** — the ledger is the truth and
+  awards flow only from events going forward (deliberate: recompute reconciles denorm↔ledger, it never
+  invents history). Badge post-count criteria DO count historical posts (live COUNT), so the badge sweep
+  awards those on upgrade.
+- **`follow.create` is a soft gate via the `poll.create` pattern.** Withheld from the member preset
+  (a member-preset ALLOW would lift the TL0 `no` under the most-permissive merge), granted from TL1 via
+  `$trusted`, staff get it in the moderator preset, admin-liftable. `follow.delete` IS in the member
+  preset — undoing your own follow is always allowed, even after demotion. Self-follow is a hard refuse in
+  `FollowService` no ACL can lift. Mass-follow (a notification-spam vector) is bounded by the per-TL
+  `FollowRateLimiter`; the followee's ignore graph is honoured at notification-delivery time (the edge
+  still forms — ignore hides the person, it does not forbid the follow).
+- **Following-feed cache key = hash of the sorted followed-id set + activity version.** Self-invalidating
+  (a follow/unfollow changes the key immediately — no version counter to maintain) and shared between
+  viewers with identical follow sets; primitives only, VisibleForumIds filter + rehydration strictly after
+  the cache boundary (RH-9). The following window is its OWN bounded query (not a filter of the global
+  window), so it does not inherit the M3 global-window starvation limitation. **Empty follow set → the
+  global feed plus a "follow people to personalise this" hint** (the kickoff's proposed default, adopted).
+- **Badge criteria are a closed set** (`join` | `post_count` | `reputation` + threshold), matched — never
+  evaluated (no expression engine on admin input; deliberate M5 security fence). Awards are
+  `insertOrIgnore` on `UNIQUE(user_id, badge_id)` and **permanent** — a lapsed criterion never revokes;
+  the daily `nevo:badges:recompute` sweep only ever adds (catch-up for missed events). `post_count`
+  criteria COUNT live posts — **`users.post_count` is an unmaintained M0 seam** (nothing writes it; the
+  live references are all forum counters). Flagged for either wiring or removal in a later cleanup.
+  Badge slugs are the stable identity (suffix-deduped on create, never changed on update).
+- **`nevo:` cron names are deliberate** (`nevo:reputation:recompute`, `nevo:badges:recompute`) — they join
+  the Phase-5 rename surface (#8) per the kickoff/this ADR; do NOT pre-rename them to the novfora: scheme.
+- **Budgets:** react action ≤15 (steady-state, now pinned by a dedicated test — the rep award is a queued
+  jobs-row insert off the hot path); forum index ≤20 holds with the feed tabs; **new documented ceiling:
+  member profile ≤20** (follow panel: target + edge check + two COUNTs; badge chips: one query).
+- **Optional creation awards ship OFF** (`NOVFORA_REP_POST_CREATED` / `NOVFORA_REP_TOPIC_CREATED`,
+  default 0); `shouldQueue()` keeps even the jobs-row insert off the write path until an owner opts in.
+- **2nd example theme: SKIPPED** (the one Should item carried to a fast-follow, per the kickoff's
+  explicit carve-out) — the override layer remains covered by `ThemeOverrideTest` + the fixture theme.
+
+**P2-M5 post-build adversarial review (2026-06-12; 62 finder/verifier agents, 6 dimensions,
+verify-then-refute).** Fixed: **HIGH** orphan-ledger TOCTOU — an in-flight reaction-award job racing the
+unreact/deletion-cascade source delete could land a permanent phantom ledger row; `award()` now takes a
+LOCKING current read of the live source row inside its transaction (gone → abort; present → the delete is
+ordered after the award and its revoke/prune sees the row), and the cascade captures the affected-author
+set AFTER the reaction delete with `lockForUpdate` (current read, not the txn-start snapshot). **HIGH**
+feed leak — a topic MOVED into a restricted forum escaped the row-level filter via its frozen
+`scope_forum_id`; the feed now re-checks every rehydrated subject's LIVE forum against the same visible
+set (zero extra queries). **MEDIUMs:** follow/unfollow cycling flooded the victim (one unread follow
+notification per follower now — re-follow notifies again only after it is read); the badge sweep counted
+moderation-held/rejected posts (now `approved_state = 'approved'`, matching the event bar); the hourly
+reputation recompute rewrote every users row (now drift-only writes); ACP badge form join/threshold
+validation deadlock + the 255-column/500-rule mismatch + a delete-confirm copy inversion. **LOWs:** badge
+slug empty-name guard + create-race catch; profile chips render colour via the palette-validated
+`GroupColor::cssVar`; a daily `novfora-cache-prune` task (DB store only — version-keyed entries are never
+re-read and the database driver only evicts on read). **Accepted + documented:** recompute-vs-concurrent-
+award snapshot races (healed by the hourly sweep — the accepted-race class already noted above); the
+lost-revoke-job orphan (requires an exhausted-retries job; same failure class as any lost notification);
+prolific-user cascade transaction length (mirrors the existing capture pattern); the following feed's
+O(follow-set) render cost (human-bounded; churn-minted cache rows now pruned daily). **Fast-follows
+flagged:** `isSoleAdmin` check-then-act under two concurrent self-deletions (pre-existing, pre-dates M5);
+`ActivityVersion::bump` read-then-write lost bumps (pre-existing M3; 60s TTL backstop). Refuted findings
+discarded after two-verifier review.
+
 ### ADR-0025 — Account deletion and content-cascade policy (2026-06-10)
 
 **Context:** P2-M1 introduced per-account reactions, poll votes, and applied tags — participation data whose

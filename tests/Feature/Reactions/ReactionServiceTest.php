@@ -5,6 +5,7 @@
 declare(strict_types=1);
 
 use App\Events\Reacted;
+use App\Events\ReactionRemoved;
 use App\Forum\PostService;
 use App\Forum\ReactionService;
 use App\Models\Forum;
@@ -17,7 +18,7 @@ use Tests\Support\Users;
 /*
 | Reaction write-path integrity (P2-M1). Single-choice typed reactions: a user holds at most one reaction per
 | post; the per-type tally is recomputed authoritatively from `reactions`, so it can never drift. The score
-| weight is config-only and inert until reputation lands (amendment #4).
+| weights went LIVE in P2-M5 (amendment-#4 light-up) — deep reputation coverage: tests/Feature/Reputation.
 */
 
 uses(RefreshDatabase::class);
@@ -72,18 +73,22 @@ it('rejects an unknown reaction type', function () {
     $this->service->toggle($this->reactor, $this->post, 'rocket');
 })->throws(InvalidArgumentException::class);
 
-it('dispatches the Reacted event on add and change, but not on toggle-off', function () {
-    Event::fake([Reacted::class]);
+it('dispatches Reacted on add and change, and ReactionRemoved on toggle-off', function () {
+    Event::fake([Reacted::class, ReactionRemoved::class]);
     $this->service->toggle($this->reactor, $this->post, 'like'); // add
     $this->service->toggle($this->reactor, $this->post, 'love'); // change
     Event::assertDispatchedTimes(Reacted::class, 2);
-    $this->service->toggle($this->reactor, $this->post, 'love'); // toggle off → no event
+    Event::assertNotDispatched(ReactionRemoved::class);
+    $this->service->toggle($this->reactor, $this->post, 'love'); // toggle off → the removal event (P2-M5)
     Event::assertDispatchedTimes(Reacted::class, 2);
+    Event::assertDispatchedTimes(ReactionRemoved::class, 1);
     Event::assertDispatched(Reacted::class, fn (Reacted $e) => $e->type === 'love' && $e->post->is($this->post));
+    Event::assertDispatched(ReactionRemoved::class, fn (ReactionRemoved $e) => $e->post->is($this->post));
 });
 
-it('keeps the score weight inert — no reputation accrues (amendment #4)', function () {
+it('awards the author the score weight — the amendment-#4 light-up (P2-M5)', function () {
+    // M1 pinned this as INERT; P2-M5 is where the weights go live (full coverage: ReactionReputationTest).
     $before = (int) $this->author->fresh()->reputation_points;
-    $this->service->toggle($this->reactor, $this->post, 'helpful'); // score 2, but no reputation listener exists
-    expect((int) $this->author->fresh()->reputation_points)->toBe($before);
+    $this->service->toggle($this->reactor, $this->post, 'helpful'); // score 2 → awarded via the ledger
+    expect((int) $this->author->fresh()->reputation_points)->toBe($before + 2);
 });

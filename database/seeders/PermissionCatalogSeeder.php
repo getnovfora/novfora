@@ -27,6 +27,7 @@ class PermissionCatalogSeeder extends Seeder
             'users.manage' => ['Manage user accounts', 'global', 'Administration', 'Edit, suspend, or delete users.'],
             'groups.manage' => ['Manage groups & memberships', 'global', 'Administration', 'Create groups and assign members.'],
             'prefix.manage' => ['Manage topic prefixes', 'global', 'Administration', 'Create, edit, reorder and delete topic prefixes.'],
+            'badge.manage' => ['Manage badges', 'global', 'Administration', 'Create, edit, deactivate and delete badges and their award criteria.'],
             'permissions.manage' => ['Manage roles & permissions', 'global', 'Administration', 'Edit ACL entries and role presets.'],
             'bans.manage' => ['Issue & lift bans', 'global', 'Moderation', 'Ban or unban users, globally or per scope.'],
 
@@ -55,6 +56,14 @@ class PermissionCatalogSeeder extends Seeder
             // tag.create: durable site-wide namespace write — hard-gated at TL0 like links/images.
             'tag.apply' => ['Apply tags to topics', 'forum', 'Posting', 'Attach an existing tag to a topic. Ungated participation; abuse handled by tag.create gating.'],
             'tag.create' => ['Create new tags', 'global', 'Posting', 'Mint a brand-new tag. Hard anti-spam gate: a new tag enters the durable site-wide namespace, so TL0 can never mint tags (NEVER); earned at TL1. Admins can lift tag.apply per-forum but cannot lift this NEVER for TL0.'],
+
+            // Social (P2-M5, ADR-0028)
+            // follow.create: soft-gated at TL0 (each follow notifies the followee → mass-follow is a
+            // notification-spam vector); granted from TL1; rate-limited per trust level on top.
+            // follow.delete: ungated member participation — a user may always undo their own follow,
+            // even after a demotion takes follow.create away.
+            'follow.create' => ['Follow members', 'global', 'Community', 'Start following another member (they are notified). Trust-gated (soft): TL0 cannot by default; granted from TL1 — an admin may lift it. Rate-limited per trust level.'],
+            'follow.delete' => ['Unfollow members', 'global', 'Community', 'Stop following a member you follow. Ungated participation — undoing your own follow is always allowed.'],
         ];
     }
 

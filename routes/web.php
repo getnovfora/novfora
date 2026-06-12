@@ -221,6 +221,9 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         // Topic-prefix manager (P2-M1) — the <livewire:admin.prefixes /> manager.
         Route::view('/prefixes', 'admin.prefixes')->name('prefixes');
 
+        // Badge manager (P2-M5 Slice 3) — the <livewire:admin.badges /> manager.
+        Route::view('/badges', 'admin.badges')->name('badges');
+
         // Settings pages (PART 3) — each a focused Livewire SFC on the Settings store.
         Route::view('/settings/general', 'admin.settings.general')->name('settings.general');
         Route::view('/settings/registration', 'admin.settings.registration')->name('settings.registration');
