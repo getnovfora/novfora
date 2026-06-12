@@ -268,3 +268,168 @@
 > Self-verified green in Docker `nevo-dev`: **Pest 518 passed / 1 skipped (1930 assertions)**; Pint PASS
 > (361 files); Larastan level-5 clean; composer/npm audit clean; CSS 8.54 KB gz; assets rebuilt.
 > Branch `claude/acp-v2-groups` pushed; PR pending. ADR-0024 (NovFora name) already on main.
+
+---
+
+## Phase 2 (Community) milestone detail — relocated from PROJECT-STATE.md (2026-06-12)
+
+> Full build detail (gates, test counts, adversarial-review findings, scope fences) for the Phase-2 milestones
+> that landed 2026-06-09 → 06-12, moved here to keep `PROJECT-STATE.md` lean. All on `main`. (ACP v2 detail is in
+> the 2026-06-08 update above.)
+
+### P2-M1 — Engagement & content depth — MERGED on `main` (2026-06-11)
+Pint PASS (418 files) · Larastan L5 clean · **Pest 711 passed / 1 skipped (2324 assertions)** ·
+`composer audit` + `npm audit` clean · CSS 9.08 KB gz (budget 50) · assets-fresh (no drift) · query budgets
+hold (thread ≤30 with reactions **and** a poll; index/board ≤15/≤25). Each slice security/integrity-reviewed
+(reactions, polls, **oEmbed** via dedicated adversarial-review workflows). 7 PR slices, stack order:
+1. `claude/p2-m1-reactions` — single-choice typed reactions; `post_reaction_counts` (authoritative recount);
+   RH-9 version-keyed page cache; `react.create` (member, ungated, rate-limited); `Reacted` event seam.
+2. `claude/p2-m1-polls` — polls/options/votes; **locked-poll-row vote integrity** (amendment #5); `poll.create`
+   soft-TL-gated, `poll.vote` ungated; `⚡poll` + create-topic block; RH-9 result cache.
+3. `claude/p2-m1-prefixes` — ACP CRUD (mirror `⚡groups`); `prefix.manage` (admin); AA-token badges; board filter.
+4. `claude/p2-m1-tags` — tags + polymorphic taggables; `tag.create` **hard NEVER at TL0** (durable namespace),
+   `tag.apply` ungated; usage_count authoritative; tag listing + chips.
+5. `claude/p2-m1-drafts` — `post_drafts` own-only; debounced `$wire.saveDraft` (Spike #3), closure-local editor
+   (Spike #1); DB-backed restore-on-mount.
+6. `claude/p2-m1-edit-history` — format-aware diff (amendment #3; NOT body_text) + dependency-free LCS;
+   `post.history.view` (author+staff); `⚡post-history` modal.
+7. `claude/p2-m1-oembed` (⚙) — `SsrfGuard` (DNS-resolve + block private/6to4/NAT64/mapped, redirect-revalidate,
+   IP-pin, caps, fail-closed) + dedicated sandboxed-iframe `EmbedPolicy` (allowlist) / link-card facade,
+   injected post-sanitization; `oembed_cache`; CSP frame-src. The integration tip carries `.env.example`,
+   the PROJECT-STATE update, and a one-line fix to slice 6's modal (FQ `Carbon` — caught by the integrated suite).
+**DECISIONS.md** records the diff source/extraction, the oEmbed allowlist+sandbox policy, and the
+NEVER/trust-gate reasoning per new key (budget held → no ceiling-change ADR needed).
+**Post-build adversarial DoD audit (15 agents · 7 dimensions · per-gap verify):** 5/7 dimensions PASS with zero
+confirmed gaps (permission wiring, RH-9 cache discipline, content-pipeline/SFC, docs/commits, ACP-render/Dusk).
+Five LOW/MEDIUM **test/doc-coverage** gaps — all on already-correct code — were closed on the oembed tip: the
+SSRF empty-DNS + missing/CRLF-`Location` guards and `EmbedPolicy` src/allow/sandbox escaping now carry permanent
+tests (`locationIsUnsafe` extracted so the response-splitting branch is directly asserted); the prefix/tag/
+`tags.show` board budgets (≤25/≤25/≤45) are recorded in `system-architecture.md §7`. No behavioural defects,
+security holes, or permission/cache/commit issues found.
+**Carried forward to M2 (NOT in this packet):** the §6 account-deletion/privacy-cascade ADR (reactions/poll-
+votes/tags hard-delete with their owner; the cascade is owner-confirmable before PMs land) and the Dusk
+browser-journey screenshots for react/poll/prefix/tag/draft (wired into the dusk harness; run in CI).
+
+### P2-M2 Half-A — Deliverability light-up & rich notifications — MERGED on `main` (2026-06-11)
+A LIGHT-UP + WIRE-IN of the dormant Spike-P2 pipeline (no rebuild), per
+[`p2-m2a-deliverability-code-kickoff.md`](docs/product/p2-m2a-deliverability-code-kickoff.md). Six items, small
+DCO commits:
+1. **Activate** — `.env.example` `NOVFORA_DELIVERABILITY=true`/`NOVFORA_DIGEST=true`; the SPF/DKIM/DMARC +
+   on-domain-`From` operator checklist surfaced on the ACP Email page (memo §5).
+2. **`Notifier`→`DigestQueue` wiring (⚙)** — the mail channel routes by digest cadence: immediate = unchanged
+   live path; daily/weekly = staged into the cron digest; `off` = no notification mail. Idempotency stays on
+   the committed UNIQUE row (no lock). In-app channel unaffected; its id seeds the digest dedupe.
+3. **One shared `SuppressionGate` (⚙)** — `Notifier::suppressed()` delegates to it (single send-time gate).
+4. **Event vocab + reaction end-to-end** — `reaction`/`pm.received`/`follow` across `EVENTS`, mail/in-app/digest
+   renderers and the prefs UI. Only `reaction` has a live emitter: a QUEUED, **auto-discovered**
+   `SendReactionNotification` (P2-M1 `Reacted` → notify the post author); kept off the hot react action (≤15
+   budget held). `pm.received` (M2 Half-B) / `follow` (M3) get emitters there — no fake emitters.
+5. **`⚡notification-preferences` SFC** — per-event×channel toggles + an off/immediate/daily/weekly cadence
+   picker over `DigestPreference`; own-prefs-only.
+6. **Memo follow-ups (⚙)** — unsubscribe **GET-confirm / POST-apply** split; **SES + Mailgun** webhook parsers
+   (total + conservative; SNS-unwrap); **non-VERP manual-review queue** (`bounce_reviews`, reversible; populated
+   only when VERP is off so a forged bounce can't flood it; ACP card to suppress-by-hand / dismiss).
+**Gates:** the deliverability suite stays green and EXTENDS to the wiring (Deliverability 73, Notifications 23,
+Reactions all green); Pint PASS (whole repo) · Larastan **L5 clean (0 errors)** · assets rebuilt fresh (CSS
+**9.09 KB gz**, budget 50) · no new dependencies · reversible migration only. Full local suite **738/751 passed,
+1 skipped**; the 12 non-passing are PRE-EXISTING sandbox **filesystem-permission** failures
+(`storage/framework/testing/disks` is root-owned → `Storage::fake()` mkdir errors in the attachment/avatar tests;
+`InstallerTest`/`HostDoctorTest` writable-path probes) — **zero** in notification/deliverability/reaction code;
+green on CI's clean filesystem (the authoritative full gate, per the spike caveat). **DECISIONS.md** records the
+`off`-cadence semantics, the auto-discovered+queued reaction listener, the SES/Mailgun shapes, and the non-VERP
+review-queue forgery-flood guard.
+
+### P2-M2 Half-B — Multi-participant PMs — MERGED (PR #17, commit `535a924`)
+Built per [`docs/product/p2-m2b-pms-code-kickoff.md`](docs/product/p2-m2b-pms-code-kickoff.md), 10 small DCO
+commits: schema → **TL0 mass-PM NEVER pin** + PmRateLimiter + ConversationPolicy → send spine (pm.send re-check /
+rate / cap / **ignore** / single ContentRenderer path / report-on-PM) → live **`pm.received`** emitter →
+**ADR-0025 deletion cascade** → inbox/conversation/composer UI + nav unread badge → DECISIONS → adversarial-review
+hardening → Dusk journey + harness fix. **Gates:** Pint · Larastan **L5** · **full suite 794 passed / 1
+skipped (2542 assertions)** · query budgets inbox ≤15 / conversation ≤30 · PM Dusk journey green +
+light·dark × mobile·desktop screenshots (`tests/Browser/screenshots/p2m2b-*.png`). **Adversarial review**
+(7 finder dims × 2 verifiers, Opus): 3 confirmed defects FIXED — **HIGH** ignore-at-delivery (the
+notification fan-out now drops ignorers, so ignoring after joining / being force-added stops the sender),
+**MEDIUM** invite recipient-cap TOCTOU (lock + re-count inside the txn), **LOW** unread same-second miss
+(ms-precision watermark); 2 LOWs accepted + documented (ignore-graph inference; 403-vs-404 = app-wide norm).
+**DECISIONS.md** records the design (anonymisable-author vs cascade-FK split; `string`-not-`ENUM`;
+participant-only Policy; deferred full multi-table AccountDeletionService).
+- **Scope fence — NOT in this milestone:** the FOLLOW half of `user_relationships` (table built; wired in
+  M3), reputation/points/badges/staff notes (Should-tier — HELD), the full multi-table account-deletion
+  service + confirmation UI, a PM moderation queue (M4). No second permission or render path.
+- **Known (pre-existing, not from M2B):** the react/poll/prefix/tag/draft + installer-wizard Dusk journeys
+  are flaky (timeouts) in the LOCAL docker dusk env; the PM journey + editor/theme/admin journeys pass.
+  Validate the flaky ones in clean CI.
+
+### P2 account deletion (ADR-0025) — MERGED (2026-06-12, commit `b006163`)
+Built per [`docs/product/p2-account-deletion-code-kickoff.md`](docs/product/p2-account-deletion-code-kickoff.md).
+The M1-deferred forced-cascade integration tests, now that PMs have landed. Closes ADR-0025 end-to-end:
+- **`App\Account\AccountDeletionService`** — ONE audited cascade in a single `DB::transaction` for both paths:
+  capture reacted-post/voted-option ids → pseudonymise authored content (`withTrashed`, attribution → NULL,
+  bodies kept) → hard-delete participation + **authoritative recount** (`post_reaction_counts` /
+  `poll_options.vote_count` via new `ReactionService::recomputeForPosts` / `PollService::recomputeForOptions`
+  batch seams) → purge PII (notifications/sessions/registration_checks/acl+role holders) → **delegate the PM
+  slice to `PmAccountCascade`** (not re-implemented) → delete the users row LAST → audit. `summary()` powers
+  both confirm screens; `canForceDelete()` is the single admin gate (bans.manage + rank + no-equal/higher-admin
+  + no-self); `isSoleAdmin()` blocks deleting the last admin on both paths.
+- **Voluntary UI** — a new **Account** settings tab → `⚡delete-account` SFC (own-only; password re-auth +
+  explicit confirm; deletes, flushes the session — NOT `Auth::logout()`, which would re-INSERT the just-deleted
+  user — and redirects home). **Admin-forced UI** — `BanController::confirmDelete`/`forceDelete`
+  (`GET /users/{user}/delete` + `DELETE /users/{user}`, gated) with the same summary + an explicit confirm,
+  surfaced as a **Staff tools** trigger on the profile (visible only when `canForceDelete`).
+- **`[Deleted]` render** — null author → `[Deleted]` name (`:fallback`) + a neutral guest avatar (opt-in
+  `:guest` silhouette, generic null default unchanged) at post + PM author sites; `/users/{id}` 404s.
+- **Gates:** Pint · Larastan **L5 clean** · composer audit clean · assets-fresh (no new utility classes) ·
+  **+21 dedicated tests** (10 service/cascade incl. single-transaction rollback + recount correctness; 9
+  confirm-flow/route/guard incl. wrong-password & sole-admin; 2 Dusk) + queued-job-no-op + profile-404 +
+  `[Deleted]`-render. Dusk voluntary journey + `p2-acct-delete-*` light·dark × mobile·desktop screenshots.
+  **DECISIONS.md** records the FLAGged calls (audit actor → NULL; email_suppressions deleted) + the
+  withTrashed / logout-re-insert / sole-admin / forced-gate reasoning.
+- **Scope fence — NOT here:** a full ACP member list/detail page (only the minimal forced-delete trigger),
+  GDPR data-export, any soft-delete/grace-period/undo (this is hard, immediate, confirmed deletion).
+
+### P2-M3 — Activity feed & community-feel pack (Core) — MERGED (2026-06-12, commit `ae9bba3`)
+Built per [`docs/product/p2-m3-activity-code-kickoff.md`](docs/product/p2-m3-activity-code-kickoff.md):
+- **`VisibleForumIds`** (⚙) — query-level `forum.view` filter; `null` = sees-all sentinel, `[]` = sees-none.
+  **`ActivityFeed`** (⚙) — version-keyed global primitive-row cache (`ActivityVersion`, mirrors `AclVersion`),
+  per-viewer filter + batch rehydrate AFTER the boundary; `[Deleted]`-actor + removed-subject tombstones.
+- **Verb logging** — auto-discovered listeners on `TopicCreated`/`PostCreated` (post-commit, **approved-only**)
+  and `Reacted`; **PMs log nothing**. **ADR-0025 addendum** — one line pseudonymises `activities.actor_id` in
+  the cascade (same txn, before the users row drops).
+- **Community pack** — `ThrottledLastActive` (≤1 raw write/user/5min) + `User::isOnline()` (15-min) +
+  `x-ui.online-badge`; **throttled** `topics.view_count` (Cache::add, 1/viewer/topic/hr, replaces the
+  unconditional increment); forum `topic_count`/`post_count` already maintained + displayed (added tests).
+- **Gates:** Pint · Larastan **L5 clean** · composer audit clean · assets-fresh (no new utility classes) ·
+  forum-index query budget **15 → 20** (amendment #6, documented) · full suite **831 passed / 1 skipped** ·
+  **+20 tests** (18 feature: resolver/logging/feed cache-HIT/community/addendum + 2 Dusk `p2m3-feed-*`
+  screenshots). **DECISIONS.md** records the cache-key design, the `null` sentinel, the
+  `scope_forum_id` nullOnDelete edge-case, the cache-window limitation, and the approved-only/PM-exclusion gate.
+- **Scope fence / HELD:** follow-half of `user_relationships`, reputation/points, badges, staff notes, a 2nd
+  theme; `VisibleForumIds` is the M4 search-facet seam but is NOT wired to search here.
+
+### P2-M4 — Moderation depth, search facets & preferences (Core) — MERGED (2026-06-12, PR #19, commit `c56126e`)
+Built per [`docs/product/p2-m4-moderation-code-kickoff.md`](docs/product/p2-m4-moderation-code-kickoff.md):
+- **Merge / split (⚙)** — `MergeTopicsService` / `SplitTopicService` move posts with a single raw `UPDATE`
+  (bypassing `Post::syncAggregates`; merge offsets positions to APPEND after the target's OP), then re-derive
+  topic + forum counters **authoritatively** (`TopicCounters`, COUNT/MAX not ±delta, overwriting observer
+  deltas) in ONE transaction (rollback-proven). Merged source soft-deletes to a `moved_to_topic_id` **301
+  redirect shell** over a `withTrashed` `topics.show` binding — resolved transitively to the chain terminus
+  and 404-gated on target `forum.view`. OP can't be split away; per-post rank gate refuses the whole split.
+- **Cross-page bulk select (◐)** — `BulkModerationService` (delete posts; lock/unlock/move/delete topics) with
+  the **rank guard**: every item gated by `canActOn` + the forum permission, ineligible items **silently
+  skipped**, applied+skipped sets audited; the SERVICE is the trust boundary (client ids never trusted). UI:
+  an Alpine `bulkSelect` store (survives `wire:navigate`) + per-row checkboxes + a `⚡bulk-actions` floating bar.
+- **Search facets (◐)** — `SearchService::search(SearchQuery)` adds author/forum/date/tag/type as a direct
+  Eloquent query joined to the topic; **every path threads `VisibleForumIds`** (reused, not rebuilt) so a
+  restricted viewer can't reach an invisible forum via any facet. Baseline = DB driver (tested + forced-absence);
+  `meiliFilter()` translates to Meili native filters (unit-tested, unwired). `toSearchableArray` adds facet
+  fields only on `['meilisearch','typesense']`. Bookmarkable GET facet form.
+- **Consolidated preferences (◻)** — `posts_per_page` + `thread_sort` (two nullable `users` columns; null →
+  site default 15/oldest) written by the own-account `⚡user-preferences` SFC (validated, out of `#[Fillable]`),
+  honoured in `TopicController`. A new **Preferences** settings tab.
+- **Gates:** Pint · Larastan **L5 clean** · composer audit clean · no dependency drift · assets-fresh (no new
+  utility classes) · budgets search **≤25** / moderator-thread **≤35** · full suite **868 passed / 1 skipped
+  (2821 assertions)** · **+37 feature tests** + a Dusk moderation journey (`p2m4-*` screenshots). **Post-build
+  adversarial review (26 agents, 6 dimensions): 9 confirmed (1 MEDIUM bulk-move destination gate + 8 LOW) all
+  fixed/accepted, 11 refuted** — see DECISIONS.md P2-M4.
+- **Scope fence / HELD:** staff notes (`staff_notes`/`StaffNote`), a full ACP member-management page, GDPR
+  data-export, bulk hide/unhide (no post-level hide status — recorded). `VisibleForumIds` used, not extended.
