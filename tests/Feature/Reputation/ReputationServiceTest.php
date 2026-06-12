@@ -5,10 +5,13 @@
 declare(strict_types=1);
 
 use App\Community\ReputationService;
+use App\Forum\PostService;
+use App\Models\Forum;
 use App\Models\Reaction;
 use App\Models\ReputationEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\Support\Users;
 
 /*
@@ -24,19 +27,21 @@ beforeEach(function () {
 });
 
 /**
- * A fresh, unique polymorphic source for the ledger. The service reads only getMorphClass() + getKey()
- * (reputation_events carries no source FK), so an in-memory model with a unique id is the exact contract —
- * no post/topic scaffolding needed at the service layer (the wiring tests use the real reaction path).
+ * A fresh, unique LIVE polymorphic source for the ledger. award() verifies the source row exists at award
+ * time (the adversarial-review orphan-ledger guard), so the source must be a real persisted reaction —
+ * built on a real post through the real write path (no Post factory exists).
  */
 function repSource(): Reaction
 {
-    static $id = 1000000;
+    $forum = Forum::firstOrCreate(['slug' => 'rep-src'], ['title' => 'Rep src', 'type' => 'forum']);
+    $author = Users::inGroups(['members', 'tl1']);
+    $topic = app(PostService::class)->createTopic($author, $forum, 'Src '.Str::random(8), 'markdown', ['source' => 'x']);
 
-    $reaction = new Reaction;
-    $reaction->id = ++$id;
-    $reaction->exists = true;
-
-    return $reaction;
+    return Reaction::create([
+        'post_id' => $topic->posts()->first()->id,
+        'user_id' => Users::inGroups(['members', 'tl1'])->id,
+        'type' => 'like',
+    ]);
 }
 
 it('awards once: a second award for the same source is a no-op for ledger and denorm', function () {

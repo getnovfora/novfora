@@ -44,6 +44,24 @@ final class ReputationService
         }
 
         $inserted = DB::transaction(function () use ($recipient, $source, $points): bool {
+            // TOCTOU guard (adversarial-review HIGH): an in-flight award racing the source row's deletion
+            // (an unreact, or the account-deletion cascade pruning a departing user's reactions) could land
+            // a ledger row AFTER the prune — a permanent orphan nothing would ever revoke. A LOCKING read
+            // of the live source row inside this transaction closes both orderings: if the row is gone, the
+            // delete already committed and we abort; if it is present, we hold its lock until our commit,
+            // so the delete (and the revoke/prune that follows it) is ordered strictly after our row lands
+            // and removes it. SoftDeletes count as present — reversible moderation keeps banked rep.
+            // withoutGlobalScopes() drops the SoftDeletes scope where the model has one (a trashed source
+            // still counts — reversible moderation keeps banked rep) and is a no-op where it doesn't.
+            $sourceExists = $source->newQuery()
+                ->withoutGlobalScopes()
+                ->whereKey($source->getKey())
+                ->lockForUpdate()
+                ->exists();
+            if (! $sourceExists) {
+                return false; // the source vanished — nothing to award
+            }
+
             $landed = DB::table('reputation_events')->insertOrIgnore([
                 'user_id' => (int) $recipient->getKey(),
                 'source_type' => $source->getMorphClass(),
@@ -152,7 +170,11 @@ final class ReputationService
                 ->pluck('total', 'user_id');
 
             foreach ($chunk as $id) {
-                User::whereKey($id)->update(['reputation_points' => (int) ($sums[$id] ?? 0)]);
+                // Write only on real drift — the hourly board-wide sweep must not rewrite (and bump
+                // updated_at on) every users row when nothing changed (adversarial-review finding).
+                User::whereKey($id)
+                    ->where('reputation_points', '!=', (int) ($sums[$id] ?? 0))
+                    ->update(['reputation_points' => (int) ($sums[$id] ?? 0)]);
             }
         }
     }

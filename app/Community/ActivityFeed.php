@@ -95,8 +95,27 @@ final class ActivityFeed
         }
 
         $rows = array_slice($rows, 0, self::LIMIT);
+        if ($rows === []) {
+            return [];
+        }
 
-        return $rows === [] ? [] : $this->rehydrate($rows);
+        $items = $this->rehydrate($rows);
+
+        // SECOND, CURRENT-STATE permission pass (adversarial-review HIGH): activities.scope_forum_id is
+        // frozen at creation, so a topic later MOVED into a restricted forum would leak its title/link
+        // through the row-level filter above. The rehydrated subjects carry their LIVE forum — re-check it
+        // against the same visible set, at zero extra queries. A tombstone (gone subject) has no forum and
+        // renders title-less, so it stays.
+        if ($visibleIds !== null) {
+            $allowed = array_flip($visibleIds);
+            $items = array_values(array_filter($items, function (ActivityFeedItem $item) use ($allowed): bool {
+                $forumId = $item->topic()?->forum_id;
+
+                return $forumId === null || isset($allowed[(int) $forumId]);
+            }));
+        }
+
+        return $items;
     }
 
     /**

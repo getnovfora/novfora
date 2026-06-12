@@ -40,9 +40,11 @@
                 @if ($earned->isNotEmpty())
                     <div class="mt-4 flex flex-wrap items-center gap-1.5" dusk="profile-badges" aria-label="Badges">
                         @foreach ($earned as $badge)
+                            {{-- cssVar palette-validates the token (defence in depth — never interpolate a raw DB value into CSS). --}}
+                            @php($badgeColor = \App\Support\GroupColor::cssVar($badge->color_token))
                             <span dusk="profile-badge-{{ $badge->slug }}"
                                   class="inline-flex items-center gap-1 rounded-full border border-line px-2 py-0.5 text-xs font-medium"
-                                  @if ($badge->color_token) style="color: var(--group-{{ $badge->color_token }});" @endif
+                                  @if ($badgeColor) style="color: {{ $badgeColor }};" @endif
                                   title="{{ $badge->description }}">
                                 @if ($badge->icon_token)<x-ui.icon :name="$badge->icon_token" class="h-3.5 w-3.5" />@endif
                                 {{ $badge->name }}

@@ -9,6 +9,7 @@ namespace App\Community;
 use App\Models\Badge;
 use App\Models\Post;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -38,17 +39,20 @@ final class BadgeService
      * Evaluate the active badges for $user — all of them, or only those whose criteria type matches
      * $trigger (the event listeners scope to their own trigger; the cron sweep passes null).
      * Returns how many NEW awards were made.
+     *
+     * @param  Collection<int, Badge>|null  $badges  prefetched ACTIVE badge catalog —
+     *                                               the cron sweep passes it once per run instead of re-querying the invariant catalog per user
      */
-    public function evaluate(User $user, ?string $trigger = null): int
+    public function evaluate(User $user, ?string $trigger = null, $badges = null): int
     {
         if (! $user->getKey()) {
             return 0;
         }
 
-        $badges = Badge::query()
-            ->where('is_active', true)
-            ->when($trigger !== null, fn ($q) => $q->where('criteria->type', $trigger))
-            ->get();
+        $badges ??= self::activeBadges();
+        if ($trigger !== null) {
+            $badges = $badges->filter(fn (Badge $b): bool => (($b->criteria['type'] ?? null) === $trigger));
+        }
 
         if ($badges->isEmpty()) {
             return 0;
@@ -58,7 +62,9 @@ final class BadgeService
         $held = DB::table('user_badges')->where('user_id', $user->getKey())
             ->pluck('badge_id')->map(fn ($i): int => (int) $i)->flip();
 
-        // Lazily counted only when a post_count badge is actually in play (live COUNT — see class doc).
+        // Lazily counted only when a post_count badge is actually in play. APPROVED posts only — the
+        // PostCreated/TopicCreated emitters fire for approved content only, and the cron sweep must apply
+        // the same bar, or held/rejected spam would earn permanent badges (adversarial-review finding).
         $postCount = null;
 
         $awarded = 0;
@@ -72,7 +78,8 @@ final class BadgeService
 
             $meets = match ($criteria['type'] ?? null) {
                 self::TRIGGER_JOIN => true, // the user exists — welcome aboard
-                self::TRIGGER_POST_COUNT => ($postCount ??= Post::where('user_id', $user->getKey())->count()) >= $threshold,
+                self::TRIGGER_POST_COUNT => ($postCount ??= Post::where('user_id', $user->getKey())
+                    ->where('approved_state', 'approved')->count()) >= $threshold,
                 self::TRIGGER_REPUTATION => (int) $user->reputation_points >= $threshold,
                 default => false, // closed set: an unknown type matches nothing
             };
@@ -83,6 +90,12 @@ final class BadgeService
         }
 
         return $awarded;
+    }
+
+    /** The active badge catalog, freshly queried. @return \Illuminate\Support\Collection<int, Badge> */
+    public static function activeBadges()
+    {
+        return Badge::query()->where('is_active', true)->get();
     }
 
     /** Idempotent award: true only when a NEW user_badges row was written (UNIQUE(user_id, badge_id)). */

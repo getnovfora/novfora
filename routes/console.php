@@ -10,6 +10,7 @@ use App\Upgrade\UpgradeRunner;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -108,6 +109,18 @@ Schedule::command('nevo:badges:recompute')
     ->daily()
     ->withoutOverlapping(10)
     ->skip($duringRestore);
+
+// Baseline-tier cache hygiene (P2-M5 adversarial-review finding): version-keyed cache entries (feeds,
+// reaction tallies, ACL) are never read again after a version bump, and the DATABASE store only evicts
+// an expired row when that exact key is next read — so superseded rows accumulate forever. Prune expired
+// rows daily. A no-op on the enhanced tier (Redis evicts itself) and during a restore.
+Schedule::call(function (): void {
+    if (config('cache.default') === 'database') {
+        DB::table((string) config('cache.stores.database.table', 'cache'))
+            ->where('expiration', '<', now()->getTimestamp())
+            ->delete();
+    }
+})->daily()->name('novfora-cache-prune')->skip($duringRestore);
 
 // Privacy/GDPR retention (ADR-0007 §2.6): purge aged registration checks + expired blocklist cache.
 Schedule::command('novfora:antispam:purge')->daily()->skip($duringRestore);

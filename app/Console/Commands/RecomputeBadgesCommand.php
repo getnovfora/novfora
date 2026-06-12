@@ -38,9 +38,17 @@ class RecomputeBadgesCommand extends Command
         $chunk = max(1, (int) $this->option('chunk'));
         $awarded = 0;
 
-        User::query()->orderBy('id')->chunkById($chunk, function ($users) use ($badges, &$awarded): void {
+        // Load the invariant badge catalog ONCE for the whole sweep — never re-queried per user.
+        $catalog = BadgeService::activeBadges();
+        if ($catalog->isEmpty()) {
+            $this->info('No active badges — nothing to sweep.');
+
+            return self::SUCCESS;
+        }
+
+        User::query()->orderBy('id')->chunkById($chunk, function ($users) use ($badges, $catalog, &$awarded): void {
             foreach ($users as $user) {
-                $awarded += $badges->evaluate($user);
+                $awarded += $badges->evaluate($user, null, $catalog);
             }
         });
 

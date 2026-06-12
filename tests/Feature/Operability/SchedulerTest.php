@@ -48,6 +48,13 @@ it('registers a liveness heartbeat callback for the health endpoint', function (
     expect($hasHeartbeat)->toBeTrue();
 });
 
+it('registers the daily database-cache prune (version-keyed entries never self-evict)', function () {
+    $hasPrune = collect(app(Schedule::class)->events())
+        ->contains(fn ($event) => $event->description === 'novfora-cache-prune');
+
+    expect($hasPrune)->toBeTrue();
+});
+
 it('registers the no-SSH auto-upgrade tick (RH-10), overlap-guarded', function () {
     $event = collect(app(Schedule::class)->events())
         ->first(fn ($event) => $event->description === 'novfora-auto-upgrade');

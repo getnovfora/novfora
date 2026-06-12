@@ -61,6 +61,29 @@ it('keeps the follow edge but delivers no notification when the followee ignores
     expect(followNotificationsFor((int) $followee->id))->toBe(0);
 });
 
+it('does not flood the inbox on follow/unfollow cycling — one unread notification per follower', function () {
+    $follower = Users::inGroups(['members', 'tl1']);
+    $followee = Users::inGroups(['members', 'tl1']);
+    $service = app(FollowService::class);
+
+    // Cycle within the rate limit: each follow creates a NEW edge and re-fires Followed — the unread
+    // dedupe in SendFollowNotification must still collapse it to ONE row (and one mail send).
+    $service->follow($follower, $followee);
+    $service->unfollow($follower, $followee);
+    $service->follow($follower, $followee);
+    $service->unfollow($follower, $followee);
+    $service->follow($follower, $followee);
+
+    expect(followNotificationsFor((int) $followee->id))->toBe(1);
+
+    // Once read, a genuinely new follow notifies again.
+    DB::table('notifications')->where('notifiable_id', $followee->id)->update(['read_at' => now()]);
+    $service->unfollow($follower, $followee);
+    $service->follow($follower, $followee);
+
+    expect((int) DB::table('notifications')->where('notifiable_id', $followee->id)->where('type', 'follow')->count())->toBe(2);
+});
+
 it('honours the followee per-event database-channel preference', function () {
     $follower = Users::inGroups(['members', 'tl1']);
     $followee = Users::inGroups(['members', 'tl1']);

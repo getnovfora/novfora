@@ -9,6 +9,7 @@ namespace App\Community;
 use App\Models\Badge;
 use App\Support\Audit;
 use App\Support\GroupColor;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -58,15 +59,21 @@ final class BadgeManager
             throw new BadgeException('Invalid badge criteria.');
         }
 
-        $badge = Badge::create([
-            'name' => $name,
-            'slug' => $this->uniqueSlug($name),
-            'description' => $this->cleanDescription($data['description'] ?? null),
-            'criteria' => $criteria,
-            'icon_token' => $this->cleanIcon($data['icon_token'] ?? null),
-            'color_token' => $this->cleanColor($data['color_token'] ?? null),
-            'is_active' => (bool) ($data['is_active'] ?? true),
-        ]);
+        try {
+            $badge = Badge::create([
+                'name' => $name,
+                'slug' => $this->uniqueSlug($name),
+                'description' => $this->cleanDescription($data['description'] ?? null),
+                'criteria' => $criteria,
+                'icon_token' => $this->cleanIcon($data['icon_token'] ?? null),
+                'color_token' => $this->cleanColor($data['color_token'] ?? null),
+                'is_active' => (bool) ($data['is_active'] ?? true),
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            // Two concurrent creates raced uniqueSlug's check-then-insert — surface a friendly retry
+            // instead of a 500 (the admin just resubmits; the next pass suffixes past the winner).
+            throw new BadgeException('A badge with this name was just created — please try again.');
+        }
 
         Audit::log('badge.created', $badge, ['name' => $name]);
 
@@ -122,6 +129,11 @@ final class BadgeManager
     private function uniqueSlug(string $name): string
     {
         $base = Str::slug($name);
+        if ($base === '') {
+            // A symbol/emoji-only name slugs to nothing — an empty string cannot be the stable identity.
+            throw new BadgeException('A badge name must contain letters or numbers.');
+        }
+
         $candidate = $base;
         $suffix = 2;
 
@@ -139,7 +151,8 @@ final class BadgeManager
             return null;
         }
 
-        $trimmed = trim((string) $description);
+        // Hard-capped to the column width (VARCHAR 255) — strict-mode MySQL would reject, not truncate.
+        $trimmed = Str::limit(trim((string) $description), 255, '');
 
         return $trimmed !== '' ? $trimmed : null;
     }

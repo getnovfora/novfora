@@ -72,6 +72,32 @@ it('shows only followed actors, still filtered by forum visibility (the permissi
         ->and($titles)->not->toContain('Stranger topic');        // visible but not followed → hidden
 });
 
+it('hides a topic MOVED into a restricted forum even though its activity row carries the old scope', function () {
+    Event::fake([Followed::class]);
+    $public = followingFeedForum('open');
+    $secret = followingFeedForum('vault');
+    $author = Users::inGroups(['members', 'tl1']);
+    $topic = app(PostService::class)->createTopic($author, $public, 'Soon to be secret', 'tiptap_json', Content::doc('b'));
+
+    $viewer = Users::inGroups(['members', 'tl1']);
+    app(FollowService::class)->follow($viewer, $author);
+    AclEntry::create([
+        'permission_key' => 'forum.view', 'holder_type' => 'user', 'holder_id' => $viewer->id,
+        'scope_type' => 'forum', 'scope_id' => $secret->id, 'value' => -1,
+    ]);
+
+    // The activity row froze scope_forum_id at creation (the public forum) — then the topic MOVES.
+    $topic->forceFill(['forum_id' => $secret->id])->save();
+    app(PermissionResolver::class)->flushMemo();
+    VisibleForumIds::flush();
+    Cache::flush();
+
+    $ids = app(FollowService::class)->followingIds($viewer);
+    $feed = app(ActivityFeed::class);
+    expect(array_map(fn ($i) => $i->title(), $feed->forFollowing($viewer, $ids)))->not->toContain('Soon to be secret')
+        ->and(array_map(fn ($i) => $i->title(), $feed->for($viewer)))->not->toContain('Soon to be secret');
+});
+
 it('serves the following window from cache on the second load — no activities re-query (RH-9)', function () {
     config(['cache.default' => 'database']); // serialising store — object caching would break here
     Event::fake([Followed::class]);

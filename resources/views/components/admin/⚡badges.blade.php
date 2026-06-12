@@ -79,15 +79,19 @@ new class extends Component
         $validColorTokens = array_merge([''], array_keys(GroupColor::PALETTE));
         $validCriteriaTypes = BadgeService::CRITERIA_TYPES;
 
-        $this->validate([
+        $rules = [
             'name' => ['required', 'string', 'max:100'],
-            'description' => ['nullable', 'string', 'max:500'],
+            'description' => ['nullable', 'string', 'max:255'], // the column is VARCHAR(255) — strict MySQL rejects, never truncates
             'criteriaType' => ['required', 'string', 'in:'.implode(',', $validCriteriaTypes)],
-            // threshold is required unless criteria type is 'join' (which carries no threshold)
-            'threshold' => ['integer', 'min:1', 'required_unless:criteriaType,join'],
             'iconToken' => ['nullable', 'string', 'in:'.implode(',', $validIconTokens)],
             'colorToken' => ['nullable', 'string', 'in:'.implode(',', $validColorTokens)],
-        ]);
+        ];
+        // join carries no threshold AND must not validate the hidden field — a stale out-of-range value
+        // left from a previous type selection would otherwise fail invisibly and the save would no-op.
+        if ($this->criteriaType !== 'join') {
+            $rules['threshold'] = ['required', 'integer', 'min:1'];
+        }
+        $this->validate($rules);
 
         // Build the normalised criteria document: join carries no threshold.
         $criteria = ['type' => $this->criteriaType];
@@ -384,8 +388,9 @@ new class extends Component
                         @if ($deleteId === $badge->id)
                             <div class="border-t border-line bg-surface-sunken px-4 py-4 sm:px-5">
                                 <x-ui.alert variant="warn" class="mb-3">
-                                    Delete "{{ $badge->name }}"? Members who have already earned this badge will keep it
-                                    on their profile, but the badge definition and all award records will be removed.
+                                    Delete "{{ $badge->name }}"? The badge definition AND every member's award of it are
+                                    permanently removed — it disappears from their profiles. To retire a badge while
+                                    existing holders keep it, mark it inactive instead.
                                 </x-ui.alert>
                                 <div class="flex flex-wrap items-center gap-2">
                                     <x-ui.button type="button" variant="danger" wire:click="delete"

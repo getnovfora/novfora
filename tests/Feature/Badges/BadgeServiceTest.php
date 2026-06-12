@@ -66,6 +66,17 @@ it('counts live posts for post_count criteria (the users.post_count column is an
         ->and($this->service->evaluate($author))->toBe(0);
 });
 
+it('never counts moderation-held posts toward post_count badges (sweep matches the event bar)', function () {
+    Badge::factory()->criteria(['type' => 'post_count', 'threshold' => 1])->create();
+    // A TL0 author's first posts are HELD (approved_state=pending) by the new-user moderation queue.
+    $newbie = Users::inGroups(['members', 'tl0']);
+    $forum = Forum::create(['slug' => 'badge-held', 'title' => 'Held', 'type' => 'forum']);
+    app(PostService::class)->createTopic($newbie, $forum, 'Held topic', 'markdown', ['source' => 'spam?']);
+
+    expect($this->service->evaluate($newbie->fresh()))->toBe(0)  // held content earns nothing
+        ->and(badgeCountFor($newbie))->toBe(0);
+});
+
 it('keeps a badge when the criterion later lapses (awards are permanent)', function () {
     Badge::factory()->criteria(['type' => 'reputation', 'threshold' => 10])->create();
     $user = Users::inGroups(['members', 'tl1'], ['reputation_points' => 15]);

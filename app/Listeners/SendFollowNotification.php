@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\UserRelationship;
 use App\Notifications\Notifier;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Queue\InteractsWithQueue;
 
 /**
@@ -53,7 +54,24 @@ final class SendFollowNotification implements ShouldQueue
             return;
         }
 
+        // Anti-flood (adversarial-review finding): follow/unfollow/follow cycling re-fires Followed on
+        // every new edge — within the rate limit that is still 10+ notifications AND emails per minute at
+        // one victim. While an UNREAD "X started following you" from this follower already sits in the
+        // inbox, a re-follow adds nothing: skip entirely (no merge bump, no second mail). Once the victim
+        // reads it, a genuinely new follow notifies again. thread_id = the follower id keys the lookup.
+        $alreadyUnread = DatabaseNotification::query()
+            ->where('notifiable_type', $followee->getMorphClass())
+            ->where('notifiable_id', $followee->getKey())
+            ->where('type', 'follow')
+            ->whereNull('read_at')
+            ->get()
+            ->contains(fn (DatabaseNotification $n): bool => (int) ($n->data['thread_id'] ?? 0) === (int) $follower->getKey());
+        if ($alreadyUnread) {
+            return;
+        }
+
         $this->notifier->send($followee, 'follow', $follower, [
+            'thread_id' => (int) $follower->getKey(),
             'url' => route('profiles.show', $follower->getKey()),
         ]);
     }

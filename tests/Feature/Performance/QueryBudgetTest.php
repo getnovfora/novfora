@@ -4,6 +4,8 @@
 
 declare(strict_types=1);
 
+use App\Community\BadgeService;
+use App\Community\FollowService;
 use App\Forum\PollService;
 use App\Forum\PostService;
 use App\Forum\ReactionService;
@@ -138,12 +140,12 @@ it('renders a member profile (follow + reputation + badges) within the query bud
     $fans = collect(range(1, 3))
         ->map(fn ($n) => Users::inGroups(['members', 'tl2'], ['username' => "fan{$n}", 'email' => "fan{$n}@budget.test"]));
     $reactions = app(ReactionService::class);
-    $follows = app(App\Community\FollowService::class);
+    $follows = app(FollowService::class);
     foreach ($fans as $fan) {
         $reactions->toggle($fan, $topic->posts()->first(), 'helpful');
         $follows->follow($fan, $owner);
     }
-    app(App\Community\BadgeService::class)->evaluate($owner);
+    app(BadgeService::class)->evaluate($owner);
 
     $viewer = Users::inGroups(['members', 'tl2'], ['username' => 'profviewer', 'email' => 'pv@budget.test']);
 

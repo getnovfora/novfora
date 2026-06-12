@@ -5,9 +5,12 @@
 declare(strict_types=1);
 
 use App\Community\ReputationService;
+use App\Forum\PostService;
+use App\Models\Forum;
 use App\Models\Reaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\Support\Users;
 
 /*
@@ -22,16 +25,18 @@ beforeEach(function () {
     $this->seed();
 });
 
-/** An in-memory unique ledger source (no source FK — morph class + id is the whole contract). */
+/** A fresh LIVE ledger source — award() verifies the source row exists (the orphan-ledger guard). */
 function cronRepSource(): Reaction
 {
-    static $id = 2000000;
+    $forum = Forum::firstOrCreate(['slug' => 'cron-src'], ['title' => 'Cron src', 'type' => 'forum']);
+    $author = Users::inGroups(['members', 'tl1']);
+    $topic = app(PostService::class)->createTopic($author, $forum, 'Src '.Str::random(8), 'markdown', ['source' => 'x']);
 
-    $reaction = new Reaction;
-    $reaction->id = ++$id;
-    $reaction->exists = true;
-
-    return $reaction;
+    return Reaction::create([
+        'post_id' => $topic->posts()->first()->id,
+        'user_id' => Users::inGroups(['members', 'tl1'])->id,
+        'type' => 'like',
+    ]);
 }
 
 it('heals drifted denorms across the board and is idempotent under repeated runs', function () {

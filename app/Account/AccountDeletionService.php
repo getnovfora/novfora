@@ -171,18 +171,16 @@ final class AccountDeletionService
             $votedOptionIds = PollVote::where('user_id', $userId)
                 ->pluck('poll_option_id')->map(fn ($i): int => (int) $i)->unique()->values()->all();
 
-            // (a2) CAPTURE the reputation blast radius of U's OWN reactions (P2-M5, the ADR-0025 extension):
-            //      those reactions awarded points to OTHER authors, and both the reaction rows and their
-            //      ledger rows are about to be deleted — after which the affected recipients can no longer
-            //      be derived. Mirrors the reactedPostIds capture above.
+            // (a2) CAPTURE the ids of U's OWN reactions (P2-M5, the ADR-0025 extension) — those reactions
+            //      awarded points to OTHER authors, and the rows are about to drop. The AFFECTED-AUTHOR set
+            //      is deliberately captured later, AFTER the reaction delete (see c2): deleting the rows
+            //      takes their locks, so any in-flight award job is ordered around the cascade (its own
+            //      source lock — ReputationService::award — aborts it once the rows are gone), and a
+            //      LOCKING current read then sees every award that actually landed, not this transaction's
+            //      start snapshot.
             $reactionMorph = (new Reaction)->getMorphClass();
             $userReactionIds = Reaction::where('user_id', $userId)
                 ->pluck('id')->map(fn ($i): int => (int) $i)->all();
-            $affectedAuthorIds = $userReactionIds === [] ? [] : DB::table('reputation_events')
-                ->where('source_type', $reactionMorph)
-                ->whereIn('source_id', $userReactionIds)
-                ->where('user_id', '!=', $userId) // U's own rows die wholesale in (c2); no recompute needed
-                ->pluck('user_id')->map(fn ($i): int => (int) $i)->unique()->values()->all();
 
             // (b) PSEUDONYMISE authored content — anonymise the attribution pointer only, keep the body.
             //     withTrashed() is REQUIRED: posts/topics use SoftDeletes, and the default scope would skip a
@@ -206,12 +204,23 @@ final class AccountDeletionService
             $this->reactions->recomputeForPosts($reactedPostIds);
 
             // (c2) REPUTATION (P2-M5 ⚙, the ADR-0025 extension). Order matters:
-            //      1. prune the ledger rows SOURCED from U's just-deleted reactions (they awarded OTHERS);
-            //      2. prune U's own received rep wholesale (creation awards + reactions TO U's posts — the
+            //      1. capture the AFFECTED third-party recipients with a LOCKING current read — now that
+            //         the reaction rows are deleted (their locks held by this txn), an in-flight award for
+            //         one of them has either committed (visible here) or will abort on its source check;
+            //      2. prune the ledger rows SOURCED from U's just-deleted reactions (they awarded OTHERS);
+            //      3. prune U's own received rep wholesale (creation awards + reactions TO U's posts — the
             //         surviving reaction rows stay as participation, their ledger rows die with U);
-            //      3. recompute the affected third-party authors AUTHORITATIVELY from what survives —
+            //      4. recompute the affected third-party authors AUTHORITATIVELY from what survives —
             //         absolute SUMs, mirroring recomputeForPosts; never ±deltas through a half-deleted graph.
+            $affectedAuthorIds = [];
             if ($userReactionIds !== []) {
+                $affectedAuthorIds = DB::table('reputation_events')
+                    ->where('source_type', $reactionMorph)
+                    ->whereIn('source_id', $userReactionIds)
+                    ->where('user_id', '!=', $userId) // U's own rows die wholesale below; no recompute needed
+                    ->lockForUpdate()
+                    ->pluck('user_id')->map(fn ($i): int => (int) $i)->unique()->values()->all();
+
                 DB::table('reputation_events')
                     ->where('source_type', $reactionMorph)
                     ->whereIn('source_id', $userReactionIds)
