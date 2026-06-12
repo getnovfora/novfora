@@ -57,6 +57,7 @@ final class AdminNavigation
             ]],
             ['Content', 'folder', [
                 ['Forums & structure', 'admin.structure', 'folder'],
+                ['Badges', 'admin.badges', 'check-circle'],
             ]],
             ['Moderation', 'flag', [
                 ['Approval queue', 'moderation.queue', 'check-circle', true],
