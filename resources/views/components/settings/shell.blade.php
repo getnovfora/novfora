@@ -8,6 +8,7 @@
         ['label' => 'Appearance', 'url' => route('settings.appearance'), 'active' => request()->routeIs('settings.appearance')],
         ['label' => 'Notifications', 'url' => route('settings.notifications'), 'active' => request()->routeIs('settings.notifications')],
         ['label' => 'Security', 'url' => route('settings.two-factor'), 'active' => request()->routeIs('settings.two-factor')],
+        ['label' => 'Account', 'url' => route('settings.account'), 'active' => request()->routeIs('settings.account')],
     ];
 @endphp
 <x-ui.container size="md" class="space-y-6">

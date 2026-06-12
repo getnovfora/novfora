@@ -399,6 +399,53 @@ seam required before the deletion feature is implemented. Pseudonymisation (not 
 consistent with GDPR Recital 26 — anonymised data falls outside the regulation's personal-data scope — and
 honours community-content integrity.
 
+**Implementation follow-up — `AccountDeletionService` (2026-06-11, P2 packet).** The full multi-table service
+deferred in the M1 / M2-B notes is now built (`App\Account\AccountDeletionService`) with both confirmation
+surfaces (the voluntary `⚡delete-account` settings SFC and the admin-forced controller flow). Decisions taken
+where ADR-0025 left a choice open, or where the FK reality forced one:
+
+- **One transaction; ids captured first.** Both paths share ONE private `cascade()` inside a single
+  `DB::transaction` — a mid-cascade failure commits nothing. The denormalised-tally inputs (reacted post ids,
+  voted option ids) are captured BEFORE the participation rows are deleted, then `ReactionService::
+  recomputeForPosts` / `PollService::recomputeForOptions` (new public batch seams reusing the existing private
+  recount logic) recompute `post_reaction_counts` / `poll_options.vote_count` authoritatively from the
+  survivors — a deleted reactor/voter leaves no phantom tally. The users row is deleted LAST; the real
+  `cascadeOnDelete` FKs (notification_preferences, digest_*, group_user, topic_reads, custom_field_values, bans,
+  warnings.user_id, conversation_user, user_relationships) then drop as belt-and-braces.
+- **Soft-deleted content is pseudonymised too.** posts/topics use `SoftDeletes`, so the `user_id → NULL` UPDATEs
+  run `withTrashed()` — the default scope would skip a soft-deleted row, leaving it pointing at the deleted user
+  (a dangling id + a privacy leak).
+- **audit_log.actor_id → NULL (the FLAGged call).** The deleted user's whole audit trail is de-identified
+  (`actor_id → NULL`) — GDPR-consistent erasure of the actor IDENTITY while the WHAT/action rows remain. The
+  `user.deleted` event keeps an inert `deleted_user_id` + `initiated_by` (`self`|`admin`); on the voluntary path
+  the actor (== self) is nulled with the rest of the trail, on the forced path the admin's actor id is retained
+  as the security record of who initiated. (Alternative — retain the full actor trail for the security record —
+  rejected: the trail's value is the action, not the now-gone identity.)
+- **email_suppressions deleted (the FLAGged call).** The table is keyed on the address (no `user_id`), so the
+  user's row(s) are deleted to free the address for re-registration. (Alternative — retain the suppression —
+  rejected: it protected an address the departing user no longer owns.)
+- **Admin-forced gate = one predicate.** `AccountDeletionService::canForceDelete()` is the SINGLE guard reused
+  by the service entry, the controller, and the profile trigger's visibility `@if`: `bans.manage` (global) +
+  `ActorRank::canActOn` + two deletion-specific guards `ActorRank` alone does not give — NOT an admin of
+  equal-or-higher rank (`ActorRank` lets any admin act on any admin), and NOT self (the force path is not for
+  self-deletion). Modelled on the spam-clean surface; deliberately NOT restricted to the `admins` group beyond
+  the rank guards, matching the binding packet.
+- **Sole-admin guard.** Neither path may remove the last administrator (`isSoleAdmin`); the voluntary SFC
+  surfaces it as a blocking message, the service enforces it on both entries (structurally redundant on the
+  forced path, where the acting admin survives, but kept as defence).
+- **Voluntary logout avoids an Eloquent re-insert.** The SFC deletes, then clears the session via
+  `session()->invalidate()` — NOT `Auth::logout()`. After the cascade the session guard still holds the
+  now-`exists=false` user model; `Auth::logout()` cycles its remember token and calls `save()`, which Eloquent
+  treats as an INSERT and would silently re-create the just-deleted account. A stale remember-me cookie is inert
+  (the user is gone).
+- **No tag recount here.** Topics are pseudonymised, not deleted, so `taggables` (no per-user column) is
+  untouched; ADR-0025's "tags applied" summary count is dropped (not derivable) and no tag path runs.
+- **`[Deleted]` render.** A null author renders `[Deleted]` (a `:fallback` on `<x-ui.user-name>`) + a neutral
+  guest avatar (an opt-in `:guest` silhouette on `<x-ui.avatar>`, leaving the generic null default unchanged) at
+  the post and PM-message author sites; `/users/{id}` already 404s for a removed user (route-model binding). The
+  queued `SendReactionNotification` / `SendPmNotification` already no-op a missing notifiable
+  (`$deleteWhenMissingModels` + a `User::find` null-check) — covered by a test, no new code.
+
 ---
 
 ## Dependency license register (ADR-0015)

@@ -186,6 +186,31 @@ final class PollService
         PollOption::whereKey($optionId)->update(['vote_count' => $count]);
     }
 
+    /**
+     * Authoritatively recompute a batch of option tallies and bump each affected poll's display-cache
+     * version. The account-deletion cascade (ADR-0025) calls this AFTER a departing user's poll_votes are
+     * bulk-deleted: the voted option ids are captured BEFORE the delete (the vote rows then vanish), so
+     * each option's vote_count is recomputed from the surviving votes and a deleted voter leaves no phantom
+     * tally. A version bump per affected poll evicts any stale cached result.
+     *
+     * @param  list<int>  $optionIds
+     */
+    public function recomputeForOptions(array $optionIds): void
+    {
+        $optionIds = array_values(array_unique(array_map('intval', $optionIds)));
+        if ($optionIds === []) {
+            return;
+        }
+
+        foreach ($optionIds as $optionId) {
+            $this->recountOption($optionId);
+        }
+
+        foreach (PollOption::whereIn('id', $optionIds)->pluck('poll_id')->unique() as $pollId) {
+            $this->bumpVersion((int) $pollId);
+        }
+    }
+
     // ── read side (RH-9: primitives only, rehydrate after the boundary) ────────────────────────────
 
     /**

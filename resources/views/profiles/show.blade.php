@@ -33,6 +33,19 @@
             </div>
         </x-ui.card>
 
+        @php($viewer = auth()->user())
+        @if ($viewer instanceof \App\Models\User && \App\Account\AccountDeletionService::canForceDelete($viewer, $user))
+            <x-ui.card class="space-y-3">
+                <h2 class="text-sm font-semibold text-ink">Staff tools</h2>
+                <p class="text-sm text-ink-subtle">Moderator actions for this member.</p>
+                <div class="flex flex-wrap gap-3">
+                    <x-ui.button :href="route('moderation.user-delete.confirm', $user)" variant="danger" size="sm" dusk="staff-delete-account">
+                        Delete account…
+                    </x-ui.button>
+                </div>
+            </x-ui.card>
+        @endif
+
         @php($hasFields = $fields->contains(fn ($field) => filled($values->get($field->id)?->value)))
         @if ($hasFields)
             <x-ui.card class="space-y-3">
