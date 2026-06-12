@@ -71,6 +71,7 @@ class RoleSeeder extends Seeder
             'users.manage' => $allow,
             'groups.manage' => $allow,
             'prefix.manage' => $allow,
+            'badge.manage' => $allow,
             'permissions.manage' => $allow,
         ];
 
