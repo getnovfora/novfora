@@ -40,6 +40,7 @@ process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed
 | 0025 | **Account deletion + content-cascade policy** — posts pseudonymised (`[Deleted]`); reactions / poll votes / tags hard-deleted; owner-confirmable cascade; voluntary + admin-forced paths share one service | Accepted | [§ADR-0025](#adr-0025--account-deletion-and-content-cascade-policy-2026-06-10) |
 | 0026 | **Project name = NovFora** (supersedes ADR-0024) — domains `novfora.com` + `novfora.net` registered; Hearth/NevoBB are retired codenames; in-code rename complete | Accepted | [§ADR-0026](#adr-0026--project-name-novfora-2026-06-10) |
 | 0027 | **Model routing = `ultracode` default, Fable@max apex** — every turn starts at Fable max-effort and downgrades (Opus `xhigh`/`high` → Sonnet → Haiku) as work proves pattern-replication, not correctness-load-bearing; supersedes Opus-`xhigh`-as-apex | Accepted | [§ADR-0027](#adr-0027--model-routing-ultracode-default--fablemax-apex-2026-06-12) |
+| 0028 | **P2-M5 scope = social pack in the public beta** — follow + reputation/points + badges pulled from Should-tier HELD into M5 Core; staff notes / reputation leaderboard / TL-auto-promotion deferred to fast-follow; overrides plan §5 descope for these three | Accepted | [§ADR-0028](#adr-0028--p2-m5-scope-social-pack-in-the-public-beta-2026-06-12) |
 
 ---
 
@@ -325,6 +326,20 @@ replication) is unchanged; only the apex rung and the start-high-then-downgrade 
 **Consequences:** the load-bearing core routes to Fable@max; Opus `xhigh`/`high` becomes the heavy rung below
 the apex; Sonnet (scaffold/CRUD/sweeps) and Haiku (trivial) unchanged. Recorded in `CLAUDE.md §Model routing` +
 the `PROJECT-STATE.md §Model & effort` mirror. Operating/workflow decision — not a stack or architecture change.
+
+### ADR-0028 — P2-M5 scope: social pack in the public beta (2026-06-12)
+**Context:** the §5 implementation-plan descope held the Should-tier social items (follow, reputation/points,
+badges, staff notes, 2nd theme) as the lever to protect the schedule to beta. Approaching the Phase-2 closer
+(P2-M5 → Public Beta), the owner reviewed the lever. **Decision:** pull the **social pack — follow +
+reputation/points + badges — into M5 Core**, shipping it in the public beta; **defer** staff notes, a reputation
+leaderboard / top-members surface, and trust-level auto-promotion-by-reputation to **fast-follows** after the
+beta. The 2nd example theme stays an optional M5 stretch. **Consequences:** M5 grows from a polish+regression
+closer into a meatier milestone with apex-tier work — the idempotent reputation/badge award, an **extended
+ADR-0025 deletion cascade** (revoke rep sourced from a deleted user's reactions + recompute affected third-party
+authors), and `follow.create` anti-spam; two new `nevo:` recompute crons join the Phase-5 rename surface (#8).
+Build source: [`docs/product/p2-m5-beta-social-code-kickoff.md`](docs/product/p2-m5-beta-social-code-kickoff.md).
+A scoping override of plan §5 for these three items — recorded, not silent; no locked stack/architecture
+decision changes.
 
 ### ADR-0025 — Account deletion and content-cascade policy (2026-06-10)
 

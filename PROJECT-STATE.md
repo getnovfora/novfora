@@ -48,8 +48,9 @@ multi-participant PMs (PR #17, `535a924`), **P2 account deletion** (ADR-0025, `b
 feed & community-feel core (`ae9bba3`), and **P2-M4** moderation depth / search facets / preferences (PR #19,
 `c56126e`). **Origin `main` is the source of truth; nothing is left unpushed.**
 
-**HELD (Should-tier descope lever, decide at M5):** follow-half of `user_relationships` (table built, unwired) ·
-reputation/points · badges · staff notes · a 2nd example theme.
+**HELD (deferred to fast-follow / Phase 3):** staff notes · reputation leaderboard / top-members ·
+trust-level auto-promotion · a 2nd example theme (optional M5 stretch). *Follow + reputation/points + badges
+were pulled into M5 Core — ADR-0028.*
 
 ## Immediate next actions
 
@@ -60,13 +61,16 @@ reputation/points · badges · staff notes · a 2nd example theme.
    `c56126e`). The account-deletion → M3 → M4 chain landed 2026-06-12. Build sources:
    `docs/product/*-code-kickoff.md` + [`phase-2-implementation-plan.md`](docs/product/phase-2-implementation-plan.md).
 
-2. **▶ NEXT — P2-M5: Phase 2 closer → 🚩 Public Beta (PLAN-BEFORE-CODE, awaiting approval).** Per
-   [`docs/product/phase-2-implementation-plan.md`](docs/product/phase-2-implementation-plan.md) §2: refresh
-   `DemoSeeder` (reactions/PMs/feeds/polls visible) + `getting-started.md` + `.env.example`; re-run the full
-   Phase-2 regression — perf/asset/query budgets · forced-absence suite · **RH-10 auto-upgrade + RH-11 restore
-   rehearsal** · permission-mask truth-tables · **deletion-cascade**; optional 2nd example/child theme
-   (Should-tier) to exercise the semver'd override layer. **Owner call before the plan lands:** which HELD
-   Should-tier items (follow / reputation / badges / staff notes) get pulled into the beta vs. deferred to Phase 3.
+2. **▶ NEXT — P2-M5: Phase 2 closer → 🚩 Public Beta — APPROVED 2026-06-12 (ADR-0028). Build source:
+   [`docs/product/p2-m5-beta-social-code-kickoff.md`](docs/product/p2-m5-beta-social-code-kickoff.md).** Scope =
+   beta polish (`DemoSeeder` / `getting-started.md` / `.env.example` refresh) + the **social pack pulled from
+   HELD — follow + reputation/points + badges** + the full Phase-2 regression (perf/asset/query budgets ·
+   forced-absence · **RH-10 auto-upgrade + RH-11 restore rehearsal** · permission-mask + **extended
+   deletion-cascade** truth tables); optional 2nd example theme stretch. **Apex (Fable@max) pieces:** idempotent
+   reputation/badge award · the extended ADR-0025 cascade (revoke rep from a deleted user's reactions →
+   recompute affected authors) · `follow.create` anti-spam. **4 PR slices** (follow → reputation → badges →
+   closer), built by Code on the real machine (Cowork writes no app code). Owner-tunable before/at build: rep
+   weights, default badge set/thresholds, empty-following-feed behaviour (defaults proposed in the kickoff).
 
 3. **Design-first items still queued (do not build without a plan):**
    - RH-4: subdirectory install (ADR needed)
