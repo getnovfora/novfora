@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Forum;
 
 use App\Events\Reacted;
+use App\Events\ReactionRemoved;
 use App\Models\Post;
 use App\Models\PostReactionCount;
 use App\Models\Reaction;
@@ -68,7 +69,7 @@ final class ReactionService
 
     private function apply(User $user, Post $post, string $type): ?string
     {
-        [$result, $changed] = DB::transaction(function () use ($user, $post, $type): array {
+        [$result, $changed, $removed] = DB::transaction(function () use ($user, $post, $type): array {
             // Serialise concurrent toggles on the same (post,user) so the single-choice invariant and the
             // tally recompute stay consistent. (The missing-row INSERT race is caught by toggle() above.)
             $existing = Reaction::where('post_id', $post->getKey())
@@ -78,6 +79,7 @@ final class ReactionService
 
             $touched = [];
             $result = null;
+            $removed = null;
 
             if ($existing === null) {
                 Reaction::create([
@@ -91,6 +93,7 @@ final class ReactionService
             } elseif ($existing->type === $type) {
                 $existing->delete();
                 $touched[] = $type;
+                $removed = $existing; // the in-memory model keeps its id — the rep ledger's source key
             } else {
                 $touched[] = $existing->type;
                 $existing->forceFill(['type' => $type])->save();
@@ -109,13 +112,16 @@ final class ReactionService
                 'user_id' => $user->getKey(),
             ]);
 
-            return [$result, $result !== null];
+            return [$result, $result !== null, $removed];
         });
 
-        // Emit the domain event AFTER commit, so a future M2/M3 listener never sees uncommitted state or fires
-        // on a rolled-back toggle — on add/change only (amendment #4: no listener yet).
+        // Emit the domain events AFTER commit, so a listener never sees uncommitted state or fires on a
+        // rolled-back toggle. Reacted on add/change (notification + reputation award — the amendment-#4
+        // score weights are LIVE as of P2-M5); ReactionRemoved on pure toggle-off (reputation revoke).
         if ($changed) {
             Reacted::dispatch($user, $post, $type);
+        } elseif ($removed !== null) {
+            ReactionRemoved::dispatch($user, $post, $removed);
         }
 
         return $result;

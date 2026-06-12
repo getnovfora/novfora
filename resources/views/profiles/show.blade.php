@@ -27,6 +27,7 @@
                             <span>{{ '@'.$user->username }}</span>
                             <span class="text-ink-subtle" aria-hidden="true">·</span>
                             <x-ui.badge variant="accent">Trust level <span class="nums">{{ (int) $user->trust_level }}</span></x-ui.badge>
+                            <x-ui.badge variant="neutral" dusk="reputation-points"><span class="nums">{{ (int) $user->reputation_points }}</span>&nbsp;reputation</x-ui.badge>
                         </p>
                     </div>
                 </div>

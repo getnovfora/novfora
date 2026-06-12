@@ -31,9 +31,10 @@ $trusted = [
 return [
 
     // Post reactions (P2-M1). XF-style single-choice typed reactions: a user picks at most one type per post.
-    // Each type carries a `score` weight that is CONFIG-ONLY AND INERT this milestone — the reputation ledger
-    // that would consume it is P2-M3 (held), so reactions accrue no reputation yet (Phase-2 amendment #4).
-    // Reactions are fully functional with zero reputation dependency; tune the type set freely.
+    // Each type carries a `score` weight — LIVE since P2-M5 (the amendment-#4 light-up): a received reaction
+    // awards the post author that many reputation points via the idempotent ledger (ReputationService);
+    // negative weights subtract. Changing a weight affects FUTURE awards only — already-banked ledger rows
+    // keep the points they were awarded at (revoke undoes the stored value, not the live config).
     'reactions' => [
         'types' => [
             'like' => ['label' => 'Like', 'emoji' => '👍', 'score' => 1],
@@ -69,6 +70,17 @@ return [
         // Mass-PM cap: the maximum recipients (excluding the sender) a single conversation may be started with
         // or grown to. Bounds the blast radius of a compromised/abusive trusted account.
         'max_recipients' => (int) env('NOVFORA_PM_MAX_RECIPIENTS', 10),
+    ],
+
+    // Reputation (P2-M5, ADR-0028). The ledger is reputation_events (UNIQUE per source = idempotent);
+    // users.reputation_points is the denormalised sum, reconciled hourly by nevo:reputation:recompute.
+    // Reaction weights live on novfora.reactions.types.*.score above. These are the OPTIONAL fixed awards
+    // for creating content — owner-tunable, DEFAULT 0 = off (no ledger row, no queue job is even staged).
+    'reputation' => [
+        'awards' => [
+            'post_created' => (int) env('NOVFORA_REP_POST_CREATED', 0),
+            'topic_created' => (int) env('NOVFORA_REP_TOPIC_CREATED', 0),
+        ],
     ],
 
     // Follow (P2-M5, ADR-0028). The follow.create soft gate lives in antispam.trust_gates below (tl0 = no,
