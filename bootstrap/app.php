@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsureNotInstalled;
 use App\Http\Middleware\PreventRequestsDuringUpgrade;
 use App\Http\Middleware\RedirectIfNotInstalled;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\ThrottledLastActive;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -31,6 +32,8 @@ return Application::configure(basePath: dirname(__DIR__))
             // The "board offline" switch (ACP v1, General settings): a branded 503 for guests/members,
             // admins pass. One O(cache-read) settings lookup; never reached pre-install.
             EnsureBoardOnline::class,
+            // Stamp last_active_at for the online heuristic (P2-M3), throttled to ≤1 raw write / user / 5 min.
+            ThrottledLastActive::class,
         ]);
 
         // The installer lock — applied to the installer routes so they 403 once installed.
