@@ -7,7 +7,9 @@ declare(strict_types=1);
 namespace App\Import;
 
 use App\Content\ContentRenderer;
+use App\Import\Contracts\ProvidesAttachments;
 use App\Import\Contracts\SourceDriver;
+use App\Models\Attachment;
 use App\Models\Forum;
 use App\Models\ImportMap;
 use App\Models\Post;
@@ -17,6 +19,7 @@ use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -53,11 +56,21 @@ final class ImportRunner
         $this->importForums($driver);
         $this->importTopics($driver, $batch);
         $this->importPosts($driver, $batch);
+        if ($driver instanceof ProvidesAttachments) {
+            $this->importAttachments($driver, $batch);
+        }
 
         return $this->verify($driver);
     }
 
-    /** @return array<string,array{source:int,imported:int,complete:bool}> */
+    /**
+     * Reconcile the import. Beyond per-kind COUNTS, this now verifies CONTENT: a sample of imported posts is
+     * compared byte-for-byte against the source-derived canonical body, and every imported attachment's stored
+     * file is re-hashed against its recorded sha-256 — so "verified" means the data actually arrived intact,
+     * not merely that the row counts line up.
+     *
+     * @return array<string,mixed>
+     */
     public function verify(SourceDriver $driver): array
     {
         $source = $driver->counts();
@@ -70,8 +83,88 @@ final class ImportRunner
                 'complete' => $imported[$kind] >= $source[$kind],
             ];
         }
+        $report['content'] = $this->verifyPostContent($driver);
+        if ($driver instanceof ProvidesAttachments) {
+            $report['attachments'] = $this->verifyAttachments($driver);
+        }
 
         return $report;
+    }
+
+    /**
+     * Sample imported posts and confirm the stored canonical body matches the source-derived body exactly —
+     * content reconciliation, not a row count. `ok` is true when every checked post matched.
+     *
+     * @return array{checked:int, matched:int, ok:bool, mismatched:list<int>}
+     */
+    private function verifyPostContent(SourceDriver $driver, int $sample = 100): array
+    {
+        $checked = 0;
+        $matched = 0;
+        $mismatched = [];
+        foreach ($driver->posts(0, $sample) as $row) {
+            $targetId = $this->target($driver->key(), 'post', $row['source_id']);
+            $post = $targetId !== null ? Post::find($targetId) : null;
+            if (! $post instanceof Post) {
+                continue;
+            }
+            $checked++;
+            if (($post->body_canonical['source'] ?? null) === $row['body']) {
+                $matched++;
+            } else {
+                $mismatched[] = $row['source_id'];
+            }
+        }
+
+        return ['checked' => $checked, 'matched' => $matched, 'ok' => $mismatched === [], 'mismatched' => array_slice($mismatched, 0, 10)];
+    }
+
+    /**
+     * Re-hash every imported attachment's stored file and compare it to the checksum recorded at import — the
+     * attachment-checksum verification. Also reconciles the imported attachment count against the source.
+     *
+     * @return array{source:int, imported:int, complete:bool, checked:int, verified:int, checksum_ok:bool, bad:list<int>}
+     */
+    private function verifyAttachments(SourceDriver&ProvidesAttachments $driver): array
+    {
+        $sourceCount = 0;
+        $after = 0;
+        while (($rows = $driver->attachments($after, 500)) !== []) {
+            $sourceCount += count($rows);
+            foreach ($rows as $row) {
+                $after = max($after, $row['source_id']);
+            }
+        }
+
+        $maps = ImportMap::query()->where('source', $driver->key())->where('kind', 'attachment')->get();
+        $checked = 0;
+        $verified = 0;
+        $bad = [];
+        foreach ($maps as $map) {
+            $attachment = Attachment::find($map->target_id);
+            if (! $attachment instanceof Attachment) {
+                $bad[] = (int) $map->source_id;
+
+                continue;
+            }
+            $checked++;
+            $bytes = Storage::disk((string) $attachment->disk)->get((string) $attachment->path);
+            if ($bytes !== null && hash('sha256', $bytes) === $attachment->checksum) {
+                $verified++;
+            } else {
+                $bad[] = (int) $map->source_id;
+            }
+        }
+
+        return [
+            'source' => $sourceCount,
+            'imported' => $maps->count(),
+            'complete' => $maps->count() >= $sourceCount,
+            'checked' => $checked,
+            'verified' => $verified,
+            'checksum_ok' => $bad === [],
+            'bad' => array_slice($bad, 0, 10),
+        ];
     }
 
     private function importUsers(SourceDriver $driver, int $batch): void
@@ -208,7 +301,10 @@ final class ImportRunner
                     'topic_id' => $topicId,
                     'user_id' => $this->target($driver->key(), 'user', $row['author_source_id']),
                     'body_format' => 'markdown',
-                    'body_canonical' => json_encode(['source' => $row['body']]),
+                    // The model casts body_canonical to array (the lossless source, like native posts) — store
+                    // the array, not a JSON string, or the array cast double-encodes it (a fidelity bug that
+                    // also broke editing/diffing an imported post, which read body_canonical as an array).
+                    'body_canonical' => ['source' => $row['body']],
                     'body_html_cache' => $rendered['html'],
                     'body_text' => $rendered['text'],
                     'approved_state' => 'approved',
@@ -218,6 +314,41 @@ final class ImportRunner
                     $post->forceFill(['created_at' => Carbon::createFromTimestamp($row['created_at'])])->saveQuietly();
                 }
                 $this->record($driver->key(), 'post', $row['source_id'], (int) $post->getKey());
+            }
+        }
+    }
+
+    private function importAttachments(SourceDriver&ProvidesAttachments $driver, int $batch): void
+    {
+        $after = $this->resumeAfter($driver->key(), 'attachment');
+        while (($rows = $driver->attachments($after, $batch)) !== []) {
+            foreach ($rows as $row) {
+                $after = max($after, $row['source_id']);
+                if ($this->isMapped($driver->key(), 'attachment', $row['source_id'])) {
+                    continue;
+                }
+                $postId = $this->target($driver->key(), 'post', $row['post_source_id']);
+                if ($postId === null) {
+                    continue; // orphan: the owning post wasn't imported — skip
+                }
+                $bytes = @file_get_contents($row['path']);
+                if ($bytes === false) {
+                    continue; // legacy file missing/unreadable — the verify pass reflects the shortfall
+                }
+                $ext = strtolower(pathinfo($row['original_name'], PATHINFO_EXTENSION)) ?: 'bin';
+                $storedPath = 'attachments/imported/'.$driver->key().'/'.$row['source_id'].'-'.Str::random(8).'.'.$ext;
+                Storage::disk('local')->put($storedPath, $bytes);
+                $attachment = Attachment::create([
+                    'post_id' => $postId,
+                    'user_id' => $this->target($driver->key(), 'user', $row['author_source_id']),
+                    'disk' => 'local',
+                    'path' => $storedPath,
+                    'original_name' => $row['original_name'],
+                    'mime' => $row['mime'],
+                    'size' => strlen($bytes),
+                    'checksum' => hash('sha256', $bytes), // verified by re-hash in verifyAttachments()
+                ]);
+                $this->record($driver->key(), 'attachment', $row['source_id'], (int) $attachment->getKey());
             }
         }
     }

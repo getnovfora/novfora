@@ -7,6 +7,7 @@ declare(strict_types=1);
 use App\Import\BbcodeConverter;
 use App\Import\Drivers\PhpbbDriver;
 use App\Import\ImportRunner;
+use App\Models\Attachment;
 use App\Models\Forum;
 use App\Models\ImportMap;
 use App\Models\Post;
@@ -17,6 +18,7 @@ use Illuminate\Database\ConnectionInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 /*
 | The phpBB importer (ADR-0034) against a FAKE legacy phpBB DB (a second sqlite connection with phpbb_* tables).
@@ -34,7 +36,7 @@ function legacyPhpbb(): ConnectionInterface
     $conn = DB::connection('legacy_test');
     $schema = Schema::connection('legacy_test');
 
-    foreach (['phpbb_users', 'phpbb_forums', 'phpbb_topics', 'phpbb_posts'] as $t) {
+    foreach (['phpbb_users', 'phpbb_forums', 'phpbb_topics', 'phpbb_posts', 'phpbb_attachments'] as $t) {
         $schema->dropIfExists($t);
     }
     $schema->create('phpbb_users', function ($t) {
@@ -67,6 +69,14 @@ function legacyPhpbb(): ConnectionInterface
         $t->text('post_text');
         $t->integer('post_time');
         $t->string('bbcode_uid');
+    });
+    $schema->create('phpbb_attachments', function ($t) {
+        $t->integer('attach_id');
+        $t->integer('post_msg_id');
+        $t->integer('poster_id');
+        $t->string('real_filename');
+        $t->string('physical_filename');
+        $t->string('mimetype');
     });
 
     $conn->table('phpbb_users')->insert([
@@ -151,4 +161,39 @@ it('is idempotent on re-run and resumes newly-added rows', function () {
     expect(User::where('username', 'carol')->exists())->toBeTrue()
         ->and(User::count())->toBe($usersAfterFirst + 1)
         ->and(Post::count())->toBe(3);
+});
+
+it('imports phpBB attachments and verifies their checksums + post content', function () {
+    Storage::fake('local');
+    $conn = legacyPhpbb();
+
+    $dir = sys_get_temp_dir().'/novfora-phpbb-att-'.bin2hex(random_bytes(4));
+    @mkdir($dir, 0777, true);
+    $content = "\x89PNG\r\n".str_repeat('phpbb-image-bytes', 16);
+    file_put_contents($dir.'/9f8e7d.png', $content);
+    $conn->table('phpbb_attachments')->insert([
+        'attach_id' => 1, 'post_msg_id' => 1, 'poster_id' => 1,
+        'real_filename' => 'holiday.png', 'physical_filename' => '9f8e7d.png', 'mimetype' => 'image/png',
+    ]);
+
+    try {
+        $driver = new PhpbbDriver($conn, 'phpbb_', $dir);
+        $report = app(ImportRunner::class)->import($driver);
+
+        $attachment = Attachment::firstOrFail();
+        expect($attachment->post_id)->not->toBeNull()
+            ->and($attachment->original_name)->toBe('holiday.png')
+            ->and($attachment->checksum)->toBe(hash('sha256', $content))
+            ->and(Storage::disk('local')->get($attachment->path))->toBe($content); // bytes survived intact
+
+        // The verify pass re-hashes the stored file + reconciles post bodies — content, not just counts.
+        expect($report['attachments']['imported'])->toBe(1)
+            ->and($report['attachments']['complete'])->toBeTrue()
+            ->and($report['attachments']['checksum_ok'])->toBeTrue()
+            ->and($report['attachments']['verified'])->toBe(1)
+            ->and($report['content']['ok'])->toBeTrue();
+    } finally {
+        @unlink($dir.'/9f8e7d.png');
+        @rmdir($dir);
+    }
 });

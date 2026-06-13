@@ -1399,3 +1399,32 @@ fidelity bugs the fixtures exposed.
 Clean-room throughout (only public table/column names are encoded; no reference-forum code/templates — including
 SMF's, whose BSD licence would permit it). Hash posture unchanged (MyBB salted-double-md5 / SMF SHA-1 aren't
 Laravel-verifiable → those users reset on first login; the tests assert the legacy hash is not retained as-is).
+
+### H2b — Attachment import + content/checksum verification (closes the ADR-0034 attachment flag)
+
+**Flag closed:** ADR-0034 noted "Verify is count-reconciliation, not per-attachment (attachment import is a
+documented follow-up)." Now done.
+
+**Decision:**
+- **Attachment import.** A new ADDITIVE optional capability `App\Import\Contracts\ProvidesAttachments` (kept
+  out of `SourceDriver` so it is semver-safe — a driver without attachments simply doesn't implement it and the
+  runner skips the stage). All three drivers implement it (phpBB `phpbb_attachments`, MyBB `mybb_attachments`,
+  SMF `smf_attachments` with its `{id_attach}_{file_hash}` physical name), resolving each legacy file from a
+  configured base dir. `ImportRunner::importAttachments` reads the bytes, stores them on the app `local` disk,
+  records a sha-256 `checksum` (the SAME column the native `AttachmentService` writes — the migration always
+  intended it "for importer verification"), links them to the imported post, and is idempotent/resumable via an
+  `import_maps` row of kind `attachment`.
+- **Content + checksum verification (replaces count-only).** `ImportRunner::verify` now additionally returns a
+  `content` block (a sample of imported post bodies compared to the source-derived canonical) and, when the
+  driver provides attachments, an `attachments` block that RE-HASHES every imported file against its recorded
+  checksum. "Complete" now means the data arrived intact, not just that row counts line up.
+
+**Fidelity bug fixed (found by the gate).** `importPosts` stored `body_canonical` as a `json_encode(...)`
+STRING, but the `Post` model casts that column to `array` (the lossless source, like native posts) — so the
+array cast DOUBLE-encoded it, and an imported post read its canonical back as a string. It now stores the array
+(matching `PostService`), so an imported post is correctly editable/diffable. The new content-verify assertion
+pins this.
+
+**Tests:** each driver's import test gained an attachment case (a real temp file → driver reads it → stored on a
+faked disk → checksum matches the source sha-256 → `verify()['attachments']['checksum_ok']` + `['content']['ok']`
+true). 10 importer tests green. The attachment base dir is injected, so the tests are self-contained.

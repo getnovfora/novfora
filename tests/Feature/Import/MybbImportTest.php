@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 use App\Import\Drivers\MybbDriver;
 use App\Import\ImportRunner;
+use App\Models\Attachment;
 use App\Models\Forum;
 use App\Models\ImportMap;
 use App\Models\Post;
@@ -16,6 +17,7 @@ use Illuminate\Database\ConnectionInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 /*
 | The MyBB 1.8 importer (ADR-0034) against a FAKE legacy MyBB DB (a second sqlite connection with mybb_* tables).
@@ -34,7 +36,7 @@ function legacyMybb(): ConnectionInterface
     $conn = DB::connection('legacy_mybb');
     $schema = Schema::connection('legacy_mybb');
 
-    foreach (['mybb_users', 'mybb_forums', 'mybb_threads', 'mybb_posts'] as $t) {
+    foreach (['mybb_users', 'mybb_forums', 'mybb_threads', 'mybb_posts', 'mybb_attachments'] as $t) {
         $schema->dropIfExists($t);
     }
     $schema->create('mybb_users', function ($t) {
@@ -65,6 +67,14 @@ function legacyMybb(): ConnectionInterface
         $t->string('subject');
         $t->text('message');
         $t->integer('dateline');
+    });
+    $schema->create('mybb_attachments', function ($t) {
+        $t->integer('aid');
+        $t->integer('pid');
+        $t->integer('uid');
+        $t->string('filename');
+        $t->string('filetype');
+        $t->string('attachname');
     });
 
     $conn->table('mybb_users')->insert([
@@ -141,4 +151,33 @@ it('is idempotent on re-run and resumes newly-added MyBB rows', function () {
     expect(User::where('username', 'olive')->exists())->toBeTrue()
         ->and(User::count())->toBe($users + 1)
         ->and(Post::count())->toBe(3);
+});
+
+it('imports MyBB attachments and verifies their checksums', function () {
+    Storage::fake('local');
+    $conn = legacyMybb();
+
+    $dir = sys_get_temp_dir().'/novfora-mybb-att-'.bin2hex(random_bytes(4));
+    @mkdir($dir, 0777, true);
+    $content = 'mybb-attachment-'.str_repeat('y', 64);
+    file_put_contents($dir.'/post_1_hash.attach', $content);
+    $conn->table('mybb_attachments')->insert([
+        'aid' => 1, 'pid' => 1, 'uid' => 1,
+        'filename' => 'report.pdf', 'filetype' => 'application/pdf', 'attachname' => 'post_1_hash.attach',
+    ]);
+
+    try {
+        $report = app(ImportRunner::class)->import(new MybbDriver($conn, 'mybb_', $dir));
+
+        $attachment = Attachment::firstOrFail();
+        expect($attachment->original_name)->toBe('report.pdf')
+            ->and($attachment->checksum)->toBe(hash('sha256', $content))
+            ->and(Storage::disk('local')->get($attachment->path))->toBe($content)
+            ->and($report['attachments']['imported'])->toBe(1)
+            ->and($report['attachments']['checksum_ok'])->toBeTrue()
+            ->and($report['content']['ok'])->toBeTrue();
+    } finally {
+        @unlink($dir.'/post_1_hash.attach');
+        @rmdir($dir);
+    }
 });

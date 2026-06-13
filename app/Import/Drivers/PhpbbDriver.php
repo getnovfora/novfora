@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Import\Drivers;
 
 use App\Import\BbcodeConverter;
+use App\Import\Contracts\ProvidesAttachments;
 use App\Import\Contracts\SourceDriver;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Builder;
@@ -17,11 +18,12 @@ use Illuminate\Database\Query\Builder;
  * DB READ-ONLY and never touches phpBB's code or templates. Bots (`user_type = 2`) are excluded; categories,
  * forums, and links are distinguished by `forum_type` (phpBB FORUM_CAT=0 / FORUM_POST=1 / FORUM_LINK=2).
  */
-final class PhpbbDriver implements SourceDriver
+final class PhpbbDriver implements ProvidesAttachments, SourceDriver
 {
     public function __construct(
         private readonly ConnectionInterface $connection,
         private readonly string $prefix = 'phpbb_',
+        private readonly ?string $attachmentsPath = null,
     ) {}
 
     public function key(): string
@@ -107,6 +109,26 @@ final class PhpbbDriver implements SourceDriver
                 'subject' => (string) $r->post_subject,
                 'body' => $converter->toMarkdown((string) $r->post_text, (string) ($r->bbcode_uid ?? '')),
                 'created_at' => (int) $r->post_time,
+            ])->all();
+    }
+
+    /** phpBB attachments (`phpbb_attachments`); the physical file lives under the configured files/ base dir. */
+    public function attachments(int $afterId, int $limit): array
+    {
+        if ($this->attachmentsPath === null) {
+            return [];
+        }
+
+        return $this->connection->table($this->t('attachments'))
+            ->where('attach_id', '>', $afterId)->orderBy('attach_id')->limit($limit)
+            ->get(['attach_id', 'post_msg_id', 'poster_id', 'real_filename', 'physical_filename', 'mimetype'])
+            ->map(fn ($r): array => [
+                'source_id' => (int) $r->attach_id,
+                'post_source_id' => (int) $r->post_msg_id,
+                'author_source_id' => (int) $r->poster_id,
+                'original_name' => (string) $r->real_filename,
+                'mime' => (string) $r->mimetype,
+                'path' => rtrim($this->attachmentsPath, '/').'/'.$r->physical_filename,
             ])->all();
     }
 

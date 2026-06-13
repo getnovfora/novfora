@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 use App\Import\Drivers\SmfDriver;
 use App\Import\ImportRunner;
+use App\Models\Attachment;
 use App\Models\Forum;
 use App\Models\ImportMap;
 use App\Models\Post;
@@ -16,6 +17,7 @@ use Illuminate\Database\ConnectionInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 /*
 | The SMF 2.x importer (ADR-0034) against a FAKE legacy SMF DB (a second sqlite connection with smf_* tables).
@@ -34,7 +36,7 @@ function legacySmf(): ConnectionInterface
     $conn = DB::connection('legacy_smf');
     $schema = Schema::connection('legacy_smf');
 
-    foreach (['smf_members', 'smf_boards', 'smf_topics', 'smf_messages'] as $t) {
+    foreach (['smf_members', 'smf_boards', 'smf_topics', 'smf_messages', 'smf_attachments'] as $t) {
         $schema->dropIfExists($t);
     }
     $schema->create('smf_members', function ($t) {
@@ -62,6 +64,13 @@ function legacySmf(): ConnectionInterface
         $t->string('subject');
         $t->text('body');
         $t->integer('poster_time');
+    });
+    $schema->create('smf_attachments', function ($t) {
+        $t->integer('id_attach');
+        $t->integer('id_msg');
+        $t->string('filename');
+        $t->string('file_hash');
+        $t->string('mime_type');
     });
 
     $conn->table('smf_members')->insert([
@@ -133,4 +142,32 @@ it('is idempotent on re-run and resumes newly-added SMF rows', function () {
     expect(User::where('username', 'quinn')->exists())->toBeTrue()
         ->and(User::count())->toBe($users + 1)
         ->and(Post::count())->toBe(3);
+});
+
+it('imports SMF attachments and verifies their checksums', function () {
+    Storage::fake('local');
+    $conn = legacySmf();
+
+    $dir = sys_get_temp_dir().'/novfora-smf-att-'.bin2hex(random_bytes(4));
+    @mkdir($dir, 0777, true);
+    $content = 'smf-attachment-'.str_repeat('z', 48);
+    file_put_contents($dir.'/1_deadbeefhash', $content); // SMF 2.1 physical name: {id_attach}_{file_hash}
+    $conn->table('smf_attachments')->insert([
+        'id_attach' => 1, 'id_msg' => 1, 'filename' => 'diagram.png', 'file_hash' => 'deadbeefhash', 'mime_type' => 'image/png',
+    ]);
+
+    try {
+        $report = app(ImportRunner::class)->import(new SmfDriver($conn, 'smf_', $dir));
+
+        $attachment = Attachment::firstOrFail();
+        expect($attachment->original_name)->toBe('diagram.png')
+            ->and($attachment->checksum)->toBe(hash('sha256', $content))
+            ->and(Storage::disk('local')->get($attachment->path))->toBe($content)
+            ->and($report['attachments']['imported'])->toBe(1)
+            ->and($report['attachments']['checksum_ok'])->toBeTrue()
+            ->and($report['content']['ok'])->toBeTrue();
+    } finally {
+        @unlink($dir.'/1_deadbeefhash');
+        @rmdir($dir);
+    }
 });

@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Import\Drivers;
 
 use App\Import\BbcodeConverter;
+use App\Import\Contracts\ProvidesAttachments;
 use App\Import\Contracts\SourceDriver;
 use Illuminate\Database\ConnectionInterface;
 
@@ -17,11 +18,12 @@ use Illuminate\Database\ConnectionInterface;
  * (the project's strict clean-room rule). SMF's SHA-1(lowercase-username + password) hashes are not
  * Laravel-verifiable → imported SMF users reset on first login. Verify against a live board before use.
  */
-final class SmfDriver implements SourceDriver
+final class SmfDriver implements ProvidesAttachments, SourceDriver
 {
     public function __construct(
         private readonly ConnectionInterface $connection,
         private readonly string $prefix = 'smf_',
+        private readonly ?string $attachmentsPath = null,
     ) {}
 
     public function key(): string
@@ -106,6 +108,26 @@ final class SmfDriver implements SourceDriver
                 'source_id' => (int) $r->id_msg, 'topic_source_id' => (int) $r->id_topic, 'author_source_id' => (int) $r->id_member,
                 'subject' => (string) $r->subject, 'body' => $converter->toMarkdown((string) $r->body),
                 'created_at' => (int) $r->poster_time,
+            ])->all();
+    }
+
+    /** SMF attachments (`smf_attachments`); the 2.1 physical file is `{id_attach}_{file_hash}` in the base dir. */
+    public function attachments(int $afterId, int $limit): array
+    {
+        if ($this->attachmentsPath === null) {
+            return [];
+        }
+
+        return $this->connection->table($this->prefix.'attachments')
+            ->where('id_attach', '>', $afterId)->orderBy('id_attach')->limit($limit)
+            ->get(['id_attach', 'id_msg', 'filename', 'file_hash', 'mime_type'])
+            ->map(fn ($r): array => [
+                'source_id' => (int) $r->id_attach,
+                'post_source_id' => (int) $r->id_msg,
+                'author_source_id' => 0, // SMF attachments carry no uploader id; author resolves to null
+                'original_name' => (string) $r->filename,
+                'mime' => (string) $r->mime_type,
+                'path' => rtrim($this->attachmentsPath, '/').'/'.$r->id_attach.'_'.$r->file_hash,
             ])->all();
     }
 
