@@ -55,9 +55,23 @@ with admin-controlled visibility (ADR-0030) · `users.post_count` now **maintain
 create/soft-delete/restore) **+ backfilled** — closes the M0 "unmaintained seam" flagged in ADR-0028 · minor
 UI width + profile-link polish. 6 conventional commits; full suite **972 green** (pint/larastan/audit clean).
 
-**HELD (deferred to fast-follow / Phase 3):** staff notes · reputation leaderboard / top-members ·
-trust-level auto-promotion · a 2nd example theme (the M5 Should, carried — recorded). *Follow +
-reputation/points + badges shipped in M5 Core per ADR-0028.*
+**Stage A fast-follows — DONE (2026-06-13, owner-authorized overnight build, branch
+`claude/stage-a-fast-follows`, pending owner push → PR → merge).** All six M5-deferred / review-flagged
+fast-follows shipped, each its own gated + committed unit; full suite **1012 green** (pint/larastan/audit
+clean). Design notes in `DECISIONS.md → Fast-follow backlog notes`.
+- **A1 staff notes** (`869c0db`) — private staff-only notes on a member (`bans.manage`-gated, never the
+  subject); `staff_notes` table, `StaffNote`, `App\Moderation\StaffNotes` authority, profile SFC, audited;
+  ADR-0025 cascade NULLs the author.
+- **A2 reputation leaderboard** (`fdc7b1f`) — public `/members/top` board (reputation / posts, all-time /
+  30-day / 7-day), shares the directory visibility gate; windowed views aggregate the source of truth.
+- **A3 trust auto-promotion by reputation** (`cc01545`, APEX) — `min_reputation` on tl2/tl3, a PROMOTION-ONLY
+  gate (never spurious-demotes), seeder + upgrade-backfill migration.
+- **A4 second example theme** (`73b9f8f`) — `themes/aurora` filesystem child theme + two core override seams
+  (head palette / footer); AA-safe palette via `AccentPalette`; ships inactive.
+- **A5 isSoleAdmin TOCTOU** (`57d0669`, APEX) — locked re-check inside the deletion transaction.
+- **A6 ActivityVersion / AclVersion lost-bump** (`b11eb46`, APEX) — atomic `Cache::add`+`increment`.
+
+*Follow + reputation/points + badges shipped earlier in M5 Core per ADR-0028.*
 
 ## Immediate next actions
 
@@ -72,9 +86,10 @@ reputation/points + badges shipped in M5 Core per ADR-0028.*
    theming + layout configurator; REST API + webhooks; phpBB/MyBB/SMF importers (verify + 301 redirects);
    admin analytics.
 
-3. **Fast-follows queued by M5** (post-beta, small): staff notes · reputation leaderboard / top-members ·
-   TL auto-promotion by reputation · 2nd example theme (the carried Should) · `isSoleAdmin` TOCTOU +
-   `ActivityVersion` lost-bump hardenings (pre-existing, flagged in the M5 review, recorded in `DECISIONS.md`).
+3. ~~**Fast-follows queued by M5**~~ — **DONE 2026-06-13** (Stage A, see the "Stage A fast-follows" block
+   above): staff notes · reputation leaderboard / top-members · TL auto-promotion by reputation · 2nd example
+   theme · `isSoleAdmin` TOCTOU + `ActivityVersion`/`AclVersion` lost-bump hardenings. On branch
+   `claude/stage-a-fast-follows` (owner push → PR → merge).
 
 4. **Design-first items still queued (do not build without a plan):**
    - RH-4: subdirectory install (ADR needed)
