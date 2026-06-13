@@ -72,7 +72,7 @@ final class ManifestValidator
      */
     public function fromArray(array $data, ?string $expectedSlug = null): ModuleManifest
     {
-        $slug = $this->validateSlug($this->string($data, 'slug', required: true));
+        $slug = $this->assertSlug($this->string($data, 'slug', required: true));
         if ($expectedSlug !== null && $slug !== $expectedSlug) {
             throw new ModuleException("Manifest slug '{$slug}' does not match its directory ('{$expectedSlug}').");
         }
@@ -109,12 +109,18 @@ final class ManifestValidator
         );
     }
 
-    /** A slug is `vendor/name`, each a lowercase token of [a-z0-9] separated by single hyphens. */
-    private function validateSlug(string $slug): string
+    /**
+     * Assert a slug is a path-safe `vendor/name` — each segment a lowercase token of [a-z0-9] joined by single
+     * hyphens, with exactly one '/'. PUBLIC because it is also the boundary guard for the lifecycle `$slug`
+     * parameter (ModuleManager::dirFor): a slug that never reaches a manifest must still be proven safe before
+     * it is concatenated into a filesystem / migration path, so it can never carry `..`, extra slashes, or
+     * other traversal. Throws ModuleException otherwise.
+     */
+    public function assertSlug(string $slug): string
     {
         $token = '[a-z0-9]+(?:-[a-z0-9]+)*';
         if (! preg_match('#^'.$token.'/'.$token.'$#', $slug)) {
-            throw new ModuleException("Manifest 'slug' must be 'vendor/name' of lowercase tokens, got '{$slug}'.");
+            throw new ModuleException("Module slug must be 'vendor/name' of lowercase tokens, got '{$slug}'.");
         }
 
         return $slug;
@@ -196,7 +202,7 @@ final class ManifestValidator
             if (! is_string($slug)) {
                 throw new ModuleException("Manifest 'requires.modules' has a non-string dependency slug.");
             }
-            $this->validateSlug($slug);
+            $this->assertSlug($slug);
             if (! is_string($constraint) || ! SemverConstraint::isValidConstraint($constraint)) {
                 throw new ModuleException("Manifest dependency '{$slug}' has an unsupported version constraint.");
             }

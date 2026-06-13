@@ -39,6 +39,13 @@ final class ModuleManager
 
     public function dirFor(string $slug): string
     {
+        // BOUNDARY GUARD (apex): the lifecycle $slug is attacker-influenceable (a livewire/update can send any
+        // string to install/enable/remove). Prove it is a path-safe vendor/name BEFORE it is ever concatenated
+        // into a filesystem / migration --path, so it can never traverse out of modules/ (e.g. a/../../etc).
+        // Every path helper (srcPath, migrationsPath) and manifestFor route through here, so this one assertion
+        // closes the traversal for the whole lifecycle.
+        $this->validator->assertSlug($slug);
+
         return $this->path().'/'.$slug;
     }
 
@@ -151,6 +158,17 @@ final class ModuleManager
         $manifest = $this->manifestFor($slug);
         $this->assertCompatible($manifest);
         $this->assertDependencies($manifest);
+
+        // Monotonic version guard (hardening): refuse a DOWNGRADE on upgrade. The on-disk version is operator-
+        // controlled and feeds downstream modules' `requires` checks; refusing a lower version blocks a swapped
+        // manifest from rolling the recorded version backwards.
+        if (SemverConstraint::satisfies($module->version, '>='.$manifest->version)
+            && $module->version !== $manifest->version) {
+            throw new ModuleException(
+                "Module '{$slug}' upgrade refused: manifest version {$manifest->version} is older than the "
+                ."installed {$module->version}."
+            );
+        }
 
         if ($module->enabled) {
             $this->runMigrations($slug);

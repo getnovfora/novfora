@@ -116,3 +116,22 @@ it('refuses to enable a module that tries to redefine a core permission key', fu
         ->toThrow(ModuleException::class, 'redefine the core permission');
     expect(Module::where('slug', 'test/collide')->firstOrFail()->enabled)->toBeFalse();
 });
+
+it('refuses a lifecycle slug that attempts path traversal (boundary guard, adversarial review fix)', function () {
+    $manager = app(ModuleManager::class);
+    foreach (['a/../../etc', '../../evil', 'novfora/hello/../../../tmp', 'a/b/c', 'UPPER/case', 'has space/x'] as $slug) {
+        // The slug never reaches the filesystem: dirFor() asserts it, so install() refuses before any read.
+        expect(fn () => $manager->dirFor($slug))->toThrow(ModuleException::class);
+        expect(fn () => $manager->install($slug))->toThrow(ModuleException::class);
+    }
+    expect(Module::count())->toBe(0); // nothing was installed from a traversal attempt
+});
+
+it('refuses an upgrade that would downgrade the recorded version (monotonic guard)', function () {
+    $manager = app(ModuleManager::class);
+    $manager->install('novfora/hello'); // on-disk manifest version is 1.0.0
+    Module::where('slug', 'novfora/hello')->update(['version' => '2.0.0']); // pretend a newer build was installed
+
+    expect(fn () => $manager->upgrade('novfora/hello'))
+        ->toThrow(ModuleException::class, 'older than');
+});

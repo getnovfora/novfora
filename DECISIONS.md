@@ -1153,3 +1153,18 @@ installing a module loads in-process code, the highest-privilege act. A first-pa
 these seams. Zero new runtime dependencies. **Flagged for review:** the full-trust execution model (documented,
 unavoidable for PHP); module migration rollback uses `--path` batch semantics (fine for the typical one-batch
 module; revisit if a module ships many migration batches). New reversible table `modules`.
+
+**Post-build adversarial review (2026-06-13).** A skeptic pass over the seven attack vectors (manifest
+validation, autoloader shadowing, permission escalation, slot/filter HTML, ACP authz, manifest-swap,
+migration injection). **Fixed — HIGH path traversal:** the lifecycle `$slug` (attacker-influenceable via a
+`livewire/update`) reached `dirFor()`/`srcPath()`/`migrationsPath()` UNVALIDATED — only the manifest's internal
+slug was checked, and its dir cross-check used only the last two path segments, so `install('a/../../tmp/evil')`
+could read/migrate/load code from outside `modules/`. Closed by asserting the slug at the single chokepoint
+(`ManifestValidator::assertSlug` in `ModuleManager::dirFor`, which every path helper routes through) — pinned
+by a traversal-refusal test. **Fixed — MEDIUM monotonic version:** `upgrade()` now refuses a manifest version
+older than the recorded one (a swapped manifest can't roll the version backwards to fool a downstream
+`requires`). **Confirmed BLOCKED:** autoloader shadowing (appended, not prepended; reserved roots; provider
+scoped to the module namespace), permission escalation (catalog-only writes, never `acl_entries`; complete
+core-key + cross-module collision checks), unsanitised HTML (slot + `post.html` both re-sanitised before
+`{!! !!}`), ACP authz (`ensureAdmin` in mount + listing + every action), and migration injection (in-process
+`Artisan::call`, no shell). 30 module tests green after the fix.
