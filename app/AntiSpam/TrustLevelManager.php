@@ -72,12 +72,20 @@ final class TrustLevelManager
      * spec's §2.3 engagement signals — posts AND tenure AND topics-READ (from M4's topic_reads) — not a raw
      * self-post count, so a patient self-poster can't lift the TL0 link/image NEVER gate by talking to
      * themselves. The "no active flags" half is enforced by evaluate() (a live flag freezes promotion).
+     *
+     * A3: each rung's `auto_promotion` may also carry a `min_reputation` bar (seeded on tl2/tl3) checked
+     * against the denormalised `users.reputation_points`. Reputation is a PROMOTION-ONLY gate: it can block
+     * climbing to a level ABOVE the user's current standing, but it never pulls a member BELOW a level they
+     * already hold (no spurious demotion for a reputation dip). Structural demotion — losing the posts/tenure/
+     * reads for a level you sit at — is unchanged.
      */
     private function earnedLevel(User $user): int
     {
         $posts = Post::where('user_id', $user->getKey())->count();
         $reads = TopicRead::where('user_id', $user->getKey())->count(); // distinct topics read (one row per topic)
         $days = $user->created_at ? (int) abs($user->created_at->diffInDays(now())) : 0;
+        $reputation = (int) $user->reputation_points;
+        $current = (int) $user->trust_level;
 
         $target = 0;
         foreach (self::PROMOTABLE as $slug => $level) {
@@ -86,12 +94,17 @@ final class TrustLevelManager
                 break;
             }
 
-            $meets = $posts >= (int) ($rules['min_posts'] ?? 0)
+            $structuralMet = $posts >= (int) ($rules['min_posts'] ?? 0)
                 && $days >= (int) ($rules['min_days'] ?? 0)
                 && $reads >= (int) ($rules['min_topics_read'] ?? 0)
                 && $target >= (int) ($rules['min_trust_level'] ?? 0);
 
-            if (! $meets) {
+            // Reputation gates climbing ABOVE the current level only; a rung at or below where the user already
+            // sits is exempt, so a reputation shortfall can never demote them.
+            $reputationMet = $level <= $current
+                || $reputation >= (int) ($rules['min_reputation'] ?? 0);
+
+            if (! ($structuralMet && $reputationMet)) {
                 break; // levels are cumulative — stop at the first unmet rung
             }
             $target = $level;

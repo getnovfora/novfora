@@ -117,9 +117,10 @@ it('demotes to TL0 when live infraction points cross the demotion threshold', fu
 
 it('never auto-promotes to TL4 (leader is manual), capping a qualifying user at TL3', function () {
     $user = Users::inGroups(['members', 'tl0']);
-    $user->forceFill(['created_at' => now()->subDays(90)])->save();
+    // A3: tl2/tl3 now also require reputation (10/50), so a fully-qualifying user carries enough rep too.
+    $user->forceFill(['created_at' => now()->subDays(90), 'reputation_points' => 60])->save();
     givePosts($user, 300);
-    giveReads($user, 5); // clears the TL0→TL1 reads gate; higher tiers ride posts/tenure
+    giveReads($user, 5); // clears the TL0→TL1 reads gate; higher tiers ride posts/tenure/reputation
 
     expect(app(TrustLevelManager::class)->recompute($user))->toBe(3);
 });
@@ -149,6 +150,63 @@ it('keeps a self-poster who has read nothing at TL0 — the link gate holds (F-D
 
     app(PermissionResolver::class)->flushMemo();
     expect(app(PermissionResolver::class)->can($user->fresh(), 'post.links', Scope::global()))->toBeFalse();
+});
+
+// ── A3: reputation as a promotion-only threshold ──────────────────────────────────────────────────────
+
+it('gates TL1→TL2 promotion on the reputation threshold (promote AT/over, never below)', function () {
+    $user = Users::inGroups(['members', 'tl1'], ['trust_level' => 1]);
+    $user->forceFill(['created_at' => now()->subDays(30)])->save(); // tl2 min_days = 15
+    givePosts($user, 60);                                           // tl2 min_posts = 50
+    giveReads($user, 5);
+
+    // Reputation below the tl2 bar (10) → the structural criteria are met but promotion is held at TL1.
+    $user->forceFill(['reputation_points' => 9])->save();
+    expect(app(TrustLevelManager::class)->recompute($user->fresh()))->toBe(1);
+    expect((int) $user->fresh()->trust_level)->toBe(1);
+
+    // Reputation exactly AT the threshold → promotes to TL2.
+    $user->forceFill(['reputation_points' => 10])->save();
+    expect(app(TrustLevelManager::class)->recompute($user->fresh()))->toBe(2);
+    expect((int) $user->fresh()->trust_level)->toBe(2);
+
+    // Well over the threshold also promotes (and not beyond TL2 — tl3 needs 200 posts).
+    $user->forceFill(['reputation_points' => 999])->save();
+    expect(app(TrustLevelManager::class)->recompute($user->fresh()))->toBe(2);
+});
+
+it('never demotes an existing TL3 member for a reputation shortfall (promotion-only gate)', function () {
+    $user = Users::inGroups(['members', 'tl3'], ['trust_level' => 3]);
+    $user->forceFill(['created_at' => now()->subDays(90), 'reputation_points' => 0])->save();
+    givePosts($user, 300);   // still clears the tl3 STRUCTURAL thresholds
+    giveReads($user, 5);
+
+    // Reputation (0) is far below the tl3 bar (50), but they already hold TL3 — the rep gate is upward-only,
+    // so recompute keeps them at TL3 rather than dropping them to TL1.
+    expect(app(TrustLevelManager::class)->recompute($user->fresh()))->toBe(3);
+    expect((int) $user->fresh()->trust_level)->toBe(3);
+    expect($user->fresh()->groups()->where('slug', 'tl3')->exists())->toBeTrue();
+});
+
+it('still structurally demotes a TL3 member who falls below the post threshold (rep gate does not mask it)', function () {
+    $user = Users::inGroups(['members', 'tl3'], ['trust_level' => 3]);
+    $user->forceFill(['created_at' => now()->subDays(90), 'reputation_points' => 0])->save();
+    givePosts($user, 60);    // meets tl2 (50) but NOT tl3 (200) structural
+    giveReads($user, 5);
+
+    // Structural demotion is unchanged by A3 — they settle at TL2 (the highest level they structurally hold).
+    expect(app(TrustLevelManager::class)->recompute($user->fresh()))->toBe(2);
+});
+
+it('recomputes reputation-based promotion idempotently', function () {
+    $user = Users::inGroups(['members', 'tl1'], ['trust_level' => 1]);
+    $user->forceFill(['created_at' => now()->subDays(30), 'reputation_points' => 25])->save();
+    givePosts($user, 60);
+    giveReads($user, 5);
+
+    expect(app(TrustLevelManager::class)->recompute($user->fresh()))->toBe(2);
+    expect(app(TrustLevelManager::class)->recompute($user->fresh()))->toBe(2); // second pass: no change
+    expect((int) $user->fresh()->trust_level)->toBe(2);
 });
 
 it('re-suppresses links in a user\'s existing posts when they are demoted (F-E)', function () {

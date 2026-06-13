@@ -1029,3 +1029,22 @@ directory. Non-obvious calls:
   `selectRaw`/`orderBy` identifiers come from a closed `{post_count, reputation_points}` set, never user input.
 - **Bounded at 25 rows** (a board, not a paginated directory). Reuses the directory's denormalised columns and
   the existing `<x-ui.tabs>` / `<x-ui.avatar>` / `<x-ui.user-name>` primitives — no new query on the hot path.
+
+### A3 — Trust-level auto-promotion by reputation (APEX — trust/permission-adjacent)
+Added a `min_reputation` criterion to the trust auto-promotion rules, wired into the existing
+`novfora:trust:recompute` (no command change — `recompute → evaluate → earnedLevel` already drives it).
+Non-obvious calls:
+- **Reputation is a PROMOTION-ONLY gate (the load-bearing decision).** A reputation bar can block climbing to
+  a level ABOVE the member's current standing, but it must NEVER pull a member below a level they already
+  hold — otherwise the periodic recompute would *spuriously demote* every existing tl2/tl3 member whose
+  reputation happens to sit under the new bar. `earnedLevel()` therefore exempts any rung at or below the
+  current level from the reputation check (`$level <= $current || reputation >= min_reputation`). Structural
+  demotion (losing the posts/tenure/reads for a level you sit at) is unchanged — the rep gate never masks it.
+- **Thresholds live in `groups.auto_promotion` JSON, not config** — tl2 = 10, tl3 = 50; tl1 stays
+  reputation-free so a brand-new member (zero rep) can still earn TL1 by engagement alone. Fresh installs get
+  the values from `GroupSeeder` (`updateOrCreate`); **upgrades get them from a dedicated migration** that
+  backfills the key onto existing rows (RH-10: auto-upgrade runs migrations only, never seeders). The
+  migration is idempotent and never clobbers an operator-tuned value.
+- **`reputation_points` is read off the already-loaded User model** (no extra query). Tests pin: promote
+  at/over the threshold, held below it, **no spurious demote** for a rep dip (the floor), structural demotion
+  still fires, idempotent recompute, and the upgrade-migration backfill + reversibility.
