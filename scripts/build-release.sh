@@ -1,9 +1,9 @@
 ﻿#!/bin/sh
 # SPDX-License-Identifier: Apache-2.0
 #
-# Build the deployable nevo-release.zip. Run in a PHP 8.3 env with Composer (e.g. the docker/dev image):
+# Build the deployable novfora-release.zip. Run in a PHP 8.3+ env with Composer + Node (e.g. the docker/dev image):
 #
-#   docker run --rm -v "$PWD:/src" -w /src forum-app:latest sh scripts/build-release.sh /src /src/nevo-release.zip
+#   docker run --rm -v "$PWD:/src" -w /src forum-app:latest sh scripts/build-release.sh /src /src/novfora-release.zip
 #
 # Prebuilt assets (public/build) are shipped as-is — the host needs no Node. The CRITICAL fix vs. the first
 # cut of this bundle: after `composer install` we run `php artisan package:discover`, so the package manifest
@@ -16,9 +16,12 @@
 set -eu
 
 SRC="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
-OUT="${2:-$SRC/nevo-release.zip}"
+OUT="${2:-$SRC/novfora-release.zip}"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
+
+echo ">> npm ci && npm run build  (refresh public/build assets before staging)"
+( cd "$SRC" && npm ci && npm run build )
 
 echo ">> staging the allowlist from $SRC"
 for d in app config resources routes; do cp -a "$SRC/$d" "$STAGE/$d"; done
@@ -46,7 +49,7 @@ echo ">> composer install --no-dev --optimize-autoloader (production deps only)"
 
 echo ">> php artisan package:discover  (generates bootstrap/cache/packages.php — the RH-1 fix)"
 # NEVO_INSTALL_ENFORCE=false keeps the pre-install boot hook from minting a setup token / .env into STAGE.
-( cd "$STAGE" && NEVO_INSTALL_ENFORCE=false php artisan package:discover --ansi )
+( cd "$STAGE" && NOVFORA_INSTALL_ENFORCE=false php artisan package:discover --ansi )
 
 echo ">> keep ONLY packages.php in bootstrap/cache (drop env-specific / runtime caches)"
 rm -f "$STAGE/bootstrap/cache/services.php" \
