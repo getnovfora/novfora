@@ -44,6 +44,7 @@ process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed
 | 0029 | **DB-backed style themes (ACP visual theme editor)** — named accent + sanitised custom CSS, single-active, cached + CSP-nonce'd `<style>` injection; a first slice of ADR-0009's visual configurator, distinct from the filesystem child-theme layer | Accepted | [§ADR-0029](#adr-0029--db-backed-style-themes-acp-visual-theme-editor-2026-06-12) |
 | 0030 | **Members-directory visibility** — public `/members` listing gated by one setting (everyone→members→staff→disabled); a single `visibleTo()` authority shared by the route gate, the SFC self-guard, and the nav; 404 (no disclosure) for a non-visible viewer | Accepted | [§ADR-0030](#adr-0030--members-directory-visibility-2026-06-12) |
 | 0031 | **Module / plugin foundation (Phase 3 B1)** — local-only packages under `modules/`, a validated `module.json` manifest, a semver'd MODULE API (`ModuleApi::VERSION`), lifecycle (install/enable/disable/upgrade/remove) with pre-enable compat + dependency checks, event/filter/slot seams, manifest-declared permission keys that ADD to the existing engine (never redefine core), and an ACP surface; slot + filter HTML is always re-sanitised | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0031](#adr-0031--module--plugin-foundation-phase-3-b1-2026-06-13) |
+| 0032 | **Visual theming + layout configurator (Phase 3 B2)** — a semver'd theme-API contract (`ThemeApi`: AA-safe CSS token list + named regions), a layout-widget system (`WidgetRegistry` + built-in widgets, module-extensible) placed into regions via an admins-only ACP configurator; widget settings constrained to declared fields, admin HTML sanitised, output via `<x-region>` | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0032](#adr-0032--visual-theming--layout-configurator-phase-3-b2-2026-06-13) |
 
 ---
 
@@ -1168,3 +1169,40 @@ scoped to the module namespace), permission escalation (catalog-only writes, nev
 core-key + cross-module collision checks), unsanitised HTML (slot + `post.html` both re-sanitised before
 `{!! !!}`), ACP authz (`ensureAdmin` in mount + listing + every action), and migration injection (in-process
 `Artisan::call`, no shell). 30 module tests green after the fix.
+
+### ADR-0032 — Visual theming + layout configurator (Phase 3 B2) (2026-06-13)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context:** B2 extends the shipped theme system (A4 filesystem child themes + ADR-0029 DB style themes) with
+the two pieces ADR-0009 anticipated but hadn't built: a **theme-API contract surface** and a **region/layout
+configurator**.
+
+**Decision:**
+- **Theme-API contract** = `App\Theme\ThemeApi` — a semver'd VERSION plus two stable surfaces: the **token
+  contract** (the CSS custom properties a theme/widget may rely on/override — semantic aliases + the AA-derived
+  AccentPalette set, AA-safe in both colour modes) and the **named regions**. Versioning mirrors the module
+  API: add a token/region = minor; rename/remove = major.
+- **Layout configurator** = a **widget** system on B1's extension stance. `App\Theme\WidgetRegistry` holds
+  built-in widgets (an admin **HTML/text block** and a **board-statistics** card) and is module-extensible
+  (a module registers widgets the same way it registers slots). `App\Theme\LayoutManager` is the single
+  audited writer of `layout_widgets` placements (region + widget + position + settings + enabled) and the
+  renderer the `<x-region name="…">` outlet calls. Two regions ship (`forum_top`, `forum_bottom`, on the
+  forum index). An admins-only (`admin.access` + staff-2FA) ACP page adds/reorders/toggles/edits/removes
+  widgets.
+
+**Security / non-obvious calls:**
+- **Widget settings are constrained to the widget's DECLARED fields on write** (`updateSettings` drops unknown
+  keys) — a placement can never carry arbitrary settings.
+- **The one untrusted-input path (the HTML-block widget's admin HTML) is sanitised** through the same
+  post-HTML allowlist as user content; built-in widgets escape every dynamic value (`e()`), so `<x-region>`'s
+  `{!! !!}` only ever emits trusted, code-authored output. Module-contributed widgets follow the same
+  full-trust-but-document stance as B1 slots.
+- **Region keys use `_` not `.`** so they bind as flat Livewire property keys (a `.` would be read as nested
+  path and break the add-widget select). The stats widget caches its three COUNTs for a minute (off the
+  forum-index hot path). Placements whose widget is no longer registered (a module was disabled) render
+  nothing, never erroring.
+
+**Consequences:** admins get point-and-click content regions with zero new dependencies; the theme-API token
+list is now a documented, versioned contract themes can target; the widget seam gives modules a second UI
+extension point beyond slots. New reversible table `layout_widgets`. Tests pin registry/render, the settings
+constraint, sanitisation of admin HTML, reorder, the on-page region, the token contract, and ACP authz.
