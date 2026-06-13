@@ -187,6 +187,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // cascade and all guards live in AccountDeletionService.
     Route::view('/settings/account', 'settings.account')->name('settings.account');
 
+    // Personal API tokens (ADR-0033, B3) — the ⚡api-tokens SFC issues/revokes the user's own tokens.
+    Route::view('/settings/api-tokens', 'settings.api-tokens')->name('settings.api-tokens');
+
     // Private messages (P2-M2 Half-B). The /messages/new route MUST be registered before {conversation}
     // so the literal "new" segment is never captured as a conversation id.
     Route::get('/messages', fn () => view('pm.inbox'))->name('pm.inbox');
