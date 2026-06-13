@@ -130,6 +130,14 @@ Schedule::command('webhooks:deliver')
     ->withoutOverlapping(5)
     ->skip($duringRestore);
 
+// Daily admin analytics rollup (ADR-0035, B5): compute aggregate daily metrics (no PII) on the baseline tier.
+// Idempotent (UNIQUE per date+key), so finalising yesterday + refreshing today is safe; skipped during a
+// restore (it reads users/topics/posts which a restore is swapping).
+Schedule::command('novfora:analytics:rollup')
+    ->daily()
+    ->withoutOverlapping(10)
+    ->skip($duringRestore);
+
 // Privacy/GDPR retention (ADR-0007 §2.6): purge aged registration checks + expired blocklist cache.
 Schedule::command('novfora:antispam:purge')->daily()->skip($duringRestore);
 

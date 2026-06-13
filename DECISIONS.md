@@ -47,6 +47,7 @@ process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed
 | 0032 | **Visual theming + layout configurator (Phase 3 B2)** — a semver'd theme-API contract (`ThemeApi`: AA-safe CSS token list + named regions), a layout-widget system (`WidgetRegistry` + built-in widgets, module-extensible) placed into regions via an admins-only ACP configurator; widget settings constrained to declared fields, admin HTML sanitised, output via `<x-region>` | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0032](#adr-0032--visual-theming--layout-configurator-phase-3-b2-2026-06-13) |
 | 0033 | **REST API + outbound webhooks (Phase 3 B3)** — a versioned `/api/v1` read/write API with hashed personal-token auth, authorized AS the user through the EXISTING permission engine, rate-limited + paginated; outbound webhooks with per-endpoint HMAC signing (the inbound verifier's scheme), cron-driven delivery with retry/backoff (baseline-safe), an SSRF-guarded endpoint URL, and an admins-only ACP | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0033](#adr-0033--rest-api--outbound-webhooks-phase-3-b3-2026-06-13) |
 | 0034 | **Importers (Phase 3 B4)** — a clean-room, driver-based legacy importer (phpBB built + tested; MyBB/SMF scaffolded behind the same `SourceDriver`); idempotent + resumable via an `import_maps` ledger, BBCode→markdown, 301 redirect maps served by a route fallback, and a count-reconciliation verify pass; reads the legacy DB schema (DATA only), never the reference program | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0034](#adr-0034--importers-phase-3-b4-2026-06-13) |
+| 0035 | **Admin analytics (Phase 3 B5)** — privacy-conscious AGGREGATE daily metrics (no PII / per-user tracking) in `daily_metrics`, computed by a daily idempotent `novfora:analytics:rollup` cron (baseline-safe; totals as-of-day for correct backfill), with an admins-only dashboard (live totals + recent-days table) | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0035](#adr-0035--admin-analytics-phase-3-b5-2026-06-13) |
 
 ---
 
@@ -1288,3 +1289,38 @@ aren't Laravel-verifiable). **Verify is count-reconciliation**, not per-attachme
 documented follow-up). New reversible tables `import_maps`, `redirects`. 3 phpBB tests (against a fake legacy
 sqlite DB): BBCode conversion, the full import (bots/hierarchy/content/redirect served by the fallback), and
 idempotent re-run + resume.
+
+### ADR-0035 — Admin analytics (Phase 3 B5) (2026-06-13)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context:** Phase 3 promised admin analytics with a privacy-conscious posture and baseline (cron) computation.
+
+**Decision:**
+- **Privacy-conscious by construction.** `daily_metrics` holds only AGGREGATE counts per day — there is NO
+  per-user tracking, no IP logging, no PII. The metric set is a fixed, closed schema
+  (`AnalyticsService::METRICS`), never derived from input.
+- **Baseline-safe computation.** `AnalyticsService::rollup($date)` computes the day's figures and upserts them;
+  `novfora:analytics:rollup` (daily cron, overlap-guarded, restore-skipped) finalises yesterday + refreshes
+  today. Idempotent via `UNIQUE(metric_date, metric_key)`, so the cron, a manual run, and `--backfill` are all
+  safe. Totals are computed AS-OF the end of the day, so a backfilled timeseries is historically correct, not
+  just a snapshot of "now".
+- **Admins-only dashboard** (`admin.access` + staff-2FA) — live headline totals (cheap counts) plus a
+  recent-days table from the rollup; a "Refresh today" action re-rolls on demand.
+
+**Non-obvious call (and bug fixed in build):** `daily_metrics.metric_date` is kept as a plain `Y-m-d` STRING
+(no `date` cast). The Eloquent `date` cast reformatted it to a datetime, which broke both exact-date lookups
+(`where('metric_date', toDateString())`) AND the `updateOrCreate` idempotency match — the string form stores +
+compares identically across drivers.
+
+**Consequences:** operators get growth/engagement figures with zero PII and zero new dependencies; the metric
+set extends by adding a key to the closed list + a count in `rollup`. New reversible table `daily_metrics`. 3
+tests: the rollup values + idempotency, the cron command, and dashboard authz + aggregate display.
+
+---
+
+### Phase 3 — status (2026-06-13)
+**All five subsystems built, tested, and committed** on `claude/phase-3-extensibility` (pending owner push →
+PR → merge): B1 modules (ADR-0031), B2 theming/layout (ADR-0032), B3 REST API + webhooks (ADR-0033), B4
+importers (ADR-0034, phpBB built + MyBB/SMF scaffolded), B5 analytics (ADR-0035). Design set:
+`docs/architecture/phase3-extensibility/`. Each ADR is **Accepted — owner-authorized overnight build; flagged
+for review** and should get a human review pass before the 1.0 line.

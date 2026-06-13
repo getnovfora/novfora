@@ -42,6 +42,7 @@ final class AdminNavigation
         $definition = [
             ['Overview', 'gauge', [
                 ['Dashboard', 'admin.dashboard', 'gauge'],
+                ['Analytics', 'admin.analytics', 'gauge'],
             ]],
             ['Settings', 'sliders', [
                 ['General', 'admin.settings.general', 'cog'],

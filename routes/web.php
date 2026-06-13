@@ -10,6 +10,7 @@ use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\BanController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\LegacyRedirectController;
 use App\Http\Controllers\MailWebhookController;
 use App\Http\Controllers\MentionController;
 use App\Http\Controllers\ModerationController;
@@ -254,6 +255,9 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         // Outbound webhooks (ADR-0033, B3) — the <livewire:admin.webhooks /> endpoint manager.
         Route::view('/webhooks', 'admin.webhooks')->name('webhooks');
 
+        // Admin analytics (ADR-0035, B5) — the <livewire:admin.analytics /> aggregate dashboard.
+        Route::view('/analytics', 'admin.analytics')->name('analytics');
+
         // Settings pages (PART 3) — each a focused Livewire SFC on the Settings store.
         Route::view('/settings/general', 'admin.settings.general')->name('settings.general');
         Route::view('/settings/registration', 'admin.settings.registration')->name('settings.registration');
@@ -269,4 +273,4 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
 
 // Importer 301 redirect maps (ADR-0034) — the LAST route: only consulted for an otherwise-unmatched URL (a
 // legacy link), so the redirects table is never touched on the hot path.
-Route::fallback(\App\Http\Controllers\LegacyRedirectController::class);
+Route::fallback(LegacyRedirectController::class);
