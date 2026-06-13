@@ -11,9 +11,10 @@ Copyright 2026 The NovFora Authors
 
 ```
 SourceDriver (interface)  ── reads a legacy DB READ-ONLY, maps rows to a source-agnostic vocabulary
-  ├─ PhpbbDriver   (built + tested — the highest-value source)
-  ├─ MybbDriver    (scaffold — schema mapped, behind the same contract)
-  └─ SmfDriver     (scaffold — schema mapped)
+  ├─ PhpbbDriver   (verified — the highest-value source; + attachments/checksum)
+  ├─ MybbDriver    (verified against a fixture suite; + attachments/checksum)
+  └─ SmfDriver     (verified against a fixture suite; title-from-first-message; + attachments/checksum)
+ProvidesAttachments       ── optional driver capability: import attachment files + verify by sha-256 checksum
 ImportRunner              ── driver-agnostic: preflight → import → verify; idempotent + resumable
 import_maps               ── (source, kind, source_id) → target_id, UNIQUE: the idempotency + resume ledger
 redirects                 ── 301 maps, served by the LegacyRedirectController route fallback
@@ -32,7 +33,9 @@ too, even though its BSD licence would technically allow code reuse.
 2. **Import** — batched, keyset-cursored work. Every created entity is recorded in `import_maps`, so the run is
    **idempotent** (a re-run skips what exists) and **resumable** (it continues from the last id). A
    multi-million-row board survives an interruption and fits cron windows on the baseline tier.
-3. **Verify** — reconcile imported counts against the source per kind.
+3. **Verify** — reconcile per kind, AND beyond counts: a sample of imported post bodies is compared to the
+   source-derived canonical, and every imported attachment's stored file is re-hashed against its recorded
+   sha-256 (CONTENT + checksum verification, not just row counts).
 
 Imports go **straight through the Eloquent models, not the post/topic services**, so a bulk import fires **no
 domain events** — no webhook storm, no activity-feed flood, no reputation awards.
@@ -48,6 +51,9 @@ domain events** — no webhook storm, no activity-feed flood, no reputation awar
   No forced reset for modern hashes. (MyBB/SMF hash schemes aren't Laravel-verifiable → those users reset.)
 - **SEO** — legacy URLs (e.g. `/viewtopic.php?t=5`) become 301 `redirects`, served by the route **fallback**
   so the table is only consulted for an otherwise-unmatched URL.
+- **Attachments** — a driver implementing `ProvidesAttachments` (phpBB/MyBB/SMF do) exposes each legacy
+  attachment's bytes; the runner stores them on the app disk, records a sha-256 checksum (the same column the
+  native uploader writes), links them to the imported post, and the verify pass re-hashes to confirm integrity.
 
 ## 4. Running it
 
@@ -59,6 +65,7 @@ php artisan novfora:import phpbb --connection=legacy --prefix=phpbb_            
 
 ## 5. Follow-ups (flagged)
 
-- Attachment import + checksum verification (the verify pass is currently count-reconciliation).
-- Finish + verify the MyBB and SMF drivers against live boards.
+- Verify the MyBB and SMF drivers against a LIVE board. They are now verified here against representative
+  fixtures (full import + attachments + idempotency/resume), but a live board can surface schema-version
+  quirks — phpBB remains the highest-confidence path.
 - Richer BBCode coverage (tables, nested quotes) and oEmbed re-resolution.

@@ -1,0 +1,20 @@
+{
+    "name": "Q&A — Accepted Answer",
+    "slug": "novfora/qa",
+    "version": "1.0.0",
+    "api_version": "^1.1",
+    "description": "First-party dogfood plugin. Turns a topic into a Q&A: a permitted user marks one reply as the accepted answer, shown with a badge in the per-post slot. Exercises every module seam — a domain-event listener, a post.html content filter ([answer] callouts), a UI slot, a plugin-owned migration, plugin settings, a permission, and routes — entirely through the public contract, with zero core edits.",
+    "author": "The NovFora Authors",
+    "namespace": "Modules\\Novfora\\Qa\\",
+    "provider": "Modules\\Novfora\\Qa\\QaServiceProvider",
+    "permissions": [
+        {
+            "key": "novfora.qa.accept",
+            "label": "Mark a post as the accepted answer",
+            "scope_kind": "global",
+            "group": "Q&A",
+            "description": "Lets the holder mark one reply in a topic as its accepted answer."
+        }
+    ],
+    "provides": ["routes", "listeners", "filters", "slots", "permissions", "settings", "migrations"]
+}

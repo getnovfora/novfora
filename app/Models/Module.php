@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 /**
  * An installed module/plugin (ADR-0031). A row exists once a local module is installed; `enabled` controls
@@ -18,6 +19,10 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $version
  * @property string $api_version
  * @property bool $enabled
+ * @property Carbon|null $consented_at
+ * @property string|null $package_hash
+ * @property Carbon|null $failed_at
+ * @property string|null $last_error
  * @property array<int,string>|null $permission_keys
  * @property array<string,mixed>|null $meta
  */
@@ -33,6 +38,8 @@ class Module extends Model
             'permission_keys' => 'array',
             'meta' => 'array',
             'installed_at' => 'datetime',
+            'consented_at' => 'datetime',
+            'failed_at' => 'datetime',
         ];
     }
 }

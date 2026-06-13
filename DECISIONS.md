@@ -1324,3 +1324,289 @@ PR → merge): B1 modules (ADR-0031), B2 theming/layout (ADR-0032), B3 REST API 
 importers (ADR-0034, phpBB built + MyBB/SMF scaffolded), B5 analytics (ADR-0035). Design set:
 `docs/architecture/phase3-extensibility/`. Each ADR is **Accepted — owner-authorized overnight build; flagged
 for review** and should get a human review pass before the 1.0 line.
+
+---
+
+## Phase 3 — Hardening pass (2026-06-13, owner-authorized)
+
+> A focused pass to PROVE and HARDEN Phase 3 before more is built on it: close every "flagged for review"
+> follow-up from ADR-0031…0035, run an adversarial review over the extensibility surface, expand coverage, and
+> dogfood the semver'd contract. No new phase. Each item is its own gated, committed unit. Gates (PHP 8.3-line
+> baseline, run on PHP 8.5 here): `php artisan migrate` · `pest` (single-process) · `pint` · `phpstan`.
+
+### H1 — Webhook SSRF / DNS-rebinding hardening (APEX, closes the ADR-0033 flag)
+
+**Flag closed:** ADR-0033 noted the webhook SSRF guard was "literal-host/IP-based (no DNS resolution → a
+hostname that resolves to a private IP isn't caught); DNS-rebinding out of scope." That gap is now closed.
+
+**Decision:** introduce `App\Webhooks\WebhookUrlGuard` and route delivery through it, with the dangerous range
+logic shared via a new `App\Support\Ssrf` kernel (one source of truth across BOTH egress surfaces — webhooks
+and the pre-existing oEmbed fetcher):
+- `App\Support\Ssrf\IpClassifier::isBlocked($ip)` — the SSRF deny-list (private / loopback / link-local /
+  reserved / CGNAT 100.64/10 / cloud-metadata 169.254.169.254 / IPv6 ULA fc00::/7 / link-local fe80::/10 /
+  IPv4-mapped / unspecified / 6to4 2002::/16 / NAT64 64:ff9b::/96). Lifted verbatim from the proven oEmbed guard.
+- `App\Support\Ssrf\UrlSafety` — shared redirect/resolve helpers (`locationIsUnsafe` CRLF/empty check,
+  `absolutize`, `resolvePins` CURLOPT_RESOLVE pin builder, `systemResolve` A+AAAA).
+- `App\Content\Oembed\SsrfGuard` now DELEGATES `isBlockedIp` + the helpers to the shared kernel (behaviour
+  identical — its permanent SSRF battery, incl. the IPv6-transition bypass cases and the `locationIsUnsafe`
+  reflection test, stays green), so the two guards can never drift.
+
+**Two-layer model.** (1) Create/update time (`assertConfigUrl`): a cheap http(s) + literal-IP + internal-
+hostname check, NO DNS — deliberately, so a public hostname (e.g. a `.test` host in CI, or any host whose A
+records change) is accepted and the authoritative check is deferred. (2) **Delivery time** (`deliver`, the
+authoritative boundary, in `WebhookDeliveryRunner`): resolve every record, refuse if ANY is blocked, pin the
+connection to a validated IP (closing the resolve-vs-connect rebinding gap), and re-validate every redirect
+hop. An SSRF block raises `App\Support\Ssrf\SsrfException`, caught by the runner → a scheduled retry (uniform
+with any other delivery failure), and nothing is sent. `novfora.webhooks.allow_private` still opens it for
+local dev only.
+
+**Non-obvious calls.** Config-time stays DNS-free on purpose (resolving at save time would both break on
+non-resolving test hosts and give a false sense of safety, since DNS can change before delivery — which is
+exactly rebinding). The resolver is injectable so the rebinding simulation + metadata-endpoint attempt are
+deterministic without real DNS. Following redirects (re-validating each hop) is kept rather than refused, to
+satisfy the "re-validate every hop" requirement; the payload is IDs-only so a redirected delivery leaks nothing
+sensitive even before the re-validation refuses an internal hop.
+
+**Tests (`tests/Feature/Webhooks/WebhookSsrfTest.php`, PERMANENT):** config-time refusals + public acceptance;
+delivery-time rebinding (public-at-save → private-at-delivery → refused, nothing sent); cloud-metadata attempt;
+mixed-records (any-blocked) refusal; fail-closed on no-resolve; redirect-to-internal re-validation; missing/
+unsafe Location; happy-path delivery; the `allow_private` dev escape; and an end-to-end runner test (a rebound
+host → scheduled retry, `last_error` records the block, nothing sent). The existing `WebhookTest` delivery
+cases now bind a deterministic public-IP resolver (delivery is SSRF-guarded). oEmbed suite unchanged + green.
+
+### H2a — Importer driver verification + hierarchy/title fidelity (closes part of the ADR-0034 flag)
+
+**Flag (partial close):** ADR-0034 shipped phpBB "built + tested" but MyBB + SMF as "scaffolds — schema mapped,
+unverified against a live board". H2a promotes both to VERIFIED against representative fixtures, and fixes two
+fidelity bugs the fixtures exposed.
+
+**Decision:**
+- **Representative fixtures + full-import tests for MyBB and SMF** (`tests/Feature/Import/MybbImportTest.php`,
+  `SmfImportTest.php`), mirroring the phpBB battery: a fake legacy DB (a second sqlite connection with the
+  reference `mybb_*` / `smf_*` schema), then asserting preflight counts, user import, forum hierarchy,
+  category-vs-forum typing, BBCode→markdown→HTML content, 301 redirect maps served by the fallback, and
+  idempotent re-run + resume. A driver is marked "verified" only because it passes this suite.
+- **Order-independent forum import (fidelity fix).** `ImportRunner::importForums` previously relied on the
+  driver yielding parents before children (true for phpBB's nested-set `left_id`, but NOT for MyBB `disporder`
+  / SMF `board_order`, which are display order). It now does a topological multi-pass: import any forum whose
+  parent is a root or already mapped, repeat until no progress, then create any remaining (missing/cyclic
+  parent) as roots so none is dropped. The MyBB + SMF fixtures deliberately store the child board BEFORE its
+  parent to pin this.
+- **SMF title-from-first-message (fidelity fix).** SMF keeps no title on the topic row — it lives on the first
+  message (`id_first_msg`). `SmfDriver::topics()` now LEFT JOINs `smf_messages` to carry the real subject +
+  creation time instead of a synthetic placeholder; the SMF test asserts the imported topic title.
+
+Clean-room throughout (only public table/column names are encoded; no reference-forum code/templates — including
+SMF's, whose BSD licence would permit it). Hash posture unchanged (MyBB salted-double-md5 / SMF SHA-1 aren't
+Laravel-verifiable → those users reset on first login; the tests assert the legacy hash is not retained as-is).
+
+### H2b — Attachment import + content/checksum verification (closes the ADR-0034 attachment flag)
+
+**Flag closed:** ADR-0034 noted "Verify is count-reconciliation, not per-attachment (attachment import is a
+documented follow-up)." Now done.
+
+**Decision:**
+- **Attachment import.** A new ADDITIVE optional capability `App\Import\Contracts\ProvidesAttachments` (kept
+  out of `SourceDriver` so it is semver-safe — a driver without attachments simply doesn't implement it and the
+  runner skips the stage). All three drivers implement it (phpBB `phpbb_attachments`, MyBB `mybb_attachments`,
+  SMF `smf_attachments` with its `{id_attach}_{file_hash}` physical name), resolving each legacy file from a
+  configured base dir. `ImportRunner::importAttachments` reads the bytes, stores them on the app `local` disk,
+  records a sha-256 `checksum` (the SAME column the native `AttachmentService` writes — the migration always
+  intended it "for importer verification"), links them to the imported post, and is idempotent/resumable via an
+  `import_maps` row of kind `attachment`.
+- **Content + checksum verification (replaces count-only).** `ImportRunner::verify` now additionally returns a
+  `content` block (a sample of imported post bodies compared to the source-derived canonical) and, when the
+  driver provides attachments, an `attachments` block that RE-HASHES every imported file against its recorded
+  checksum. "Complete" now means the data arrived intact, not just that row counts line up.
+
+**Fidelity bug fixed (found by the gate).** `importPosts` stored `body_canonical` as a `json_encode(...)`
+STRING, but the `Post` model casts that column to `array` (the lossless source, like native posts) — so the
+array cast DOUBLE-encoded it, and an imported post read its canonical back as a string. It now stores the array
+(matching `PostService`), so an imported post is correctly editable/diffable. The new content-verify assertion
+pins this.
+
+**Tests:** each driver's import test gained an attachment case (a real temp file → driver reads it → stored on a
+faked disk → checksum matches the source sha-256 → `verify()['attachments']['checksum_ok']` + `['content']['ok']`
+true). 10 importer tests green. The attachment base dir is injected, so the tests are self-contained.
+
+### H3 — Plugin trust guardrails (APEX, closes the ADR-0031 full-trust flag)
+
+**Flag addressed:** ADR-0031 flagged "the full-trust execution model (documented, unavoidable for PHP)". A real
+PHP sandbox remains **out of scope** (unchanged — no half-sandbox was built, per the run's instruction). Instead
+H3 adds the explicit, audited guardrails AROUND the full-trust fact so an operator enables code knowingly and a
+bad module can't take the site down.
+
+**Decision (four guardrails, new migration adds `consented_at`/`package_hash`/`failed_at`/`last_error`):**
+- **Full-trust consent gate.** `ModuleManager::enable($slug, $acknowledgeTrust=false)` refuses (with a clear
+  message) until an admin explicitly acknowledges that the module runs with full server trust. Consent is
+  recorded once (`consented_at`) and carries across a later disable/enable. The ACP enable button now opens a
+  consent panel that names the module's **declared capabilities** (the manifest `provides`) before confirming.
+- **Package integrity check.** Install/enable/upgrade record a `package_hash` — sha-256 over a path-sorted
+  serialisation of `module.json` + every PHP file under `src/` + `database/migrations/`. `integrityStatus()`
+  re-hashes on demand and the ACP shows `verified` / `modified` (`modified` = the on-disk files changed since
+  the admin blessed them — tamper / accidental-edit detection). *(A full asymmetric PACKAGE SIGNATURE — detached
+  sig + a configured trusted key — is a documented future enhancement; for a local-install model with no remote
+  fetch/marketplace, tamper-detection-vs-blessed-state is the high-value piece and signing is lower-value until
+  there is a distribution channel. Flagged, not built — no half-measure.)*
+- **Disable-on-fatal quarantine.** `ModuleLoader` wraps each module's provider registration in try/catch; a
+  Throwable → `ModuleManager::quarantine()` disables the module + records `failed_at`/`last_error` + audits
+  `module.quarantined`, so a crashing module is skipped next boot instead of white-screening the site. (A hard
+  parse error in a module file is uncatchable here — that is what the kill switch is for.)
+- **Kill switch.** A file-based safe-mode marker (`novfora.modules.safe_mode_marker`, default
+  `storage_path('modules-safe-mode')`); while it exists `ModuleLoader` loads NO modules. File-based (not a DB
+  flag) so it works before the DB is reachable and survives a module that breaks boot — an operator can drop it
+  over FTP/cPanel. An admins-only ACP toggle writes/removes it.
+
+**Non-obvious calls.** The consent gate sits AFTER the compat/dependency checks (fail fast on a module that
+can't be enabled anyway) but BEFORE permissions/migrations run (no side effects without consent). The adversarial
+lifecycle tests pass `acknowledgeTrust: true` so they still exercise their target guard (dependency / core-key
+collision). Quarantine swallows its own errors so the safety net can never itself fatal a request.
+
+**Tests (`tests/Feature/Modules/ModuleTrustTest.php`):** consent refused-then-granted + recorded-once; integrity
+verified→modified on a tampered file (isolated temp module — parallel-safe); a faulty fixture provider that
+throws is quarantined (disabled + `last_error` + audit); the kill switch loads nothing even with a module
+enabled (marker isolated to a temp path). 34 Modules tests green.
+
+### H4 — Remaining flagged Phase-3 follow-ups (closed or scope-fenced)
+
+**Closed — module migration rollback batch-semantics (ADR-0031 flag).** ADR-0031 flagged that module migration
+rollback used `migrate:rollback --path` "(fine for the typical one-batch module; revisit if a module ships many
+migration batches)". `ModuleManager::rollbackMigrations` now uses **`migrate:reset --path`**, which reverses ALL
+of a module's migrations regardless of how many batches they ran across (initial enable + later upgrades), so
+`remove()` never strands a table from an earlier batch. Pinned by a new `ModuleLifecycleTest` case that runs a
+migration on enable (batch 1) + a second on upgrade (batch 2) and asserts BOTH are dropped on remove.
+
+**Scope-fenced (intentional future ENHANCEMENTS, not gaps — left as documented follow-ups):**
+- ADR-0034 / importers.md §5: richer BBCode coverage (tables, nested quotes), oEmbed re-resolution, and
+  verifying MyBB/SMF against a LIVE board (they are verified here against representative fixtures incl.
+  attachments + idempotency/resume — a live board may surface schema-version quirks; phpBB is the high-confidence
+  path). These extend fidelity but are not correctness gaps in the shipped surface.
+- ADR-0035 / analytics.md §5: per-forum/per-category breakdowns + dashboard charting/export. Additive metric-set
+  growth per the documented contract; the aggregate-only privacy posture is unchanged.
+- ADR-0033: the REST API surface is deliberately small (read core + reply) and grows under the same versioned
+  contract — by design, not a gap.
+- ADR-0031: a full asymmetric PACKAGE SIGNATURE and a real PHP SANDBOX remain out of scope (see H3) — the
+  integrity hash + consent + disable-on-fatal + kill switch are the honest mitigations for a full-trust,
+  local-install model. No half-measures were built.
+
+## Phase 3 — Adversarial review (P1, 2026-06-13, APEX)
+
+> A fresh skeptic pass (verify-then-refute) over the whole extensibility surface, on top of the overnight
+> build's per-subsystem review. Each vector below is recorded with its verdict; the one MEDIUM is fixed.
+
+**Plugin lifecycle & path handling — REFUTED (already hardened).** `dirFor`/`srcPath`/`migrationsPath`/
+`manifestFor`/`packageHash` all route the slug through `ManifestValidator::assertSlug` (the chokepoint the
+overnight build added after the HIGH traversal fix), pinned by the traversal-refusal test. `discover()` skips
+invalid manifests and the manifest-slug-vs-directory cross-check bounds it. A symlink planted in `modules/` is
+an admin/full-trust act and the slug cross-check still applies. No new issue.
+
+**Manifest parsing — REFUTED.** `ManifestValidator` is fail-closed: bounded JSON depth (64), strict slug /
+namespace (reserved-root refusal) / provider-in-namespace / semver / permission-key regex + scope-kind, bounded
+strings, dup-key refusal. A pathologically large permissions array is admin-trust (local file), bounded only by
+good sense — noted, not a vuln. Fuzzed in P2.
+
+**Hook / event / filter payloads — MEDIUM, FIXED.** The sanitisation contract held (slot output + `post.html`
+filter output are both re-sanitised — verified at `ContentRenderer:49-51` and `SlotRegistry::render`), and a
+filter is value-transform-only (cannot widen a permission decision). **But** a filter callback or slot renderer
+that THREW was not isolated — a single faulty (full-trust) module could 500 every post render / break an outlet.
+**Fix:** `HookRegistry::applyFilters` and `SlotRegistry::render` now catch a throwing callback, `report()` it,
+and skip it (the running value / the other renderers survive) — the per-call complement to H3's load-time
+disable-on-fatal. Pinned by two new `HookSlotTest` cases.
+
+**REST authz (bypass hunt) — REFUTED.** Every `/api/v1` endpoint resolves the token→user and authorizes via
+`$user->canDo(...)` on the resource's `permissionScope()` through the SAME `PermissionResolver` as the web UI;
+writes go through the SAME `PostService` (trust gating / sanitisation / approval) — there is NO second code path
+to bypass. Posts are filtered to `approved`. A global NEVER on `forum.view` / `post.create` denies the read
+filter, the per-forum topics read, AND the write (tests). Route-model binding excludes soft-deleted rows.
+
+**API token handling + rate limits — REFUTED.** Tokens are sha256-hashed (indexed lookup, no plaintext stored/
+logged), reject expired + non-active-owner; the plaintext is shown once. `throttle:api` (60/min) runs AHEAD of
+token auth (route middleware order) so floods are IP-bounded before the lookup — keying by IP pre-auth is the
+deliberate trade (per-user keying would need auth-before-throttle, exposing the lookup to floods).
+
+**Webhook HMAC + the new SSRF guard — REFUTED (H1).** HMAC-SHA256 over `{ts}.{body}`; the per-endpoint secret
+is encrypted at rest; payloads are IDs-only. The H1 guard resolves+classifies+pins+re-validates each redirect
+hop at delivery (the authoritative boundary), shared deny-list with oEmbed. `allow_private` is documented
+dev-only.
+
+**Importer parsing of untrusted dumps — REFUTED.** Drivers read the legacy DB via the parameterised query
+builder (no SQLi from dump data); legacy content flows through `BbcodeConverter` then the post pipeline's
+`ContentSanitizer` (a `<script>` in a legacy body is stripped); usernames/emails are deduped + length-bounded
+and rendered escaped. The `--prefix` / connection are operator-supplied (CLI), not untrusted-dump input. The
+manifest + BBCode parsers are fuzzed in P2.
+
+**Net:** 1 MEDIUM (filter/slot exception isolation) found + fixed; all other vectors verified-safe. No HIGH.
+
+### P2 — Coverage expansion + fuzz/property tests (2026-06-13)
+
+The real user flows now have automated feature coverage end-to-end: plugin install→enable→exercise→disable→
+remove + upgrade (`ModuleLifecycleTest`, incl. the H3 consent path + the H4 multi-batch rollback); theme + layout
+(`AuroraThemeTest`, `LayoutAdminTest`, `LayoutWidgetTest`, and D2's first-party theme); API token create / ROTATE
+/ revoke (`ApiTokenManagementTest` — rotation added here); webhook register + signed delivery (`WebhookTest` +
+`WebhookSsrfTest`); and an import run end-to-end for all three drivers incl. attachments (`Phpbb/Mybb/SmfImportTest`).
+
+**Fuzz/property tests for the untrusted-input PARSERS (new):**
+- `ManifestFuzzTest` — a fixed adversarial corpus + a seeded random pile of objects (≈400 cases) assert
+  `ManifestValidator` is TOTAL + fail-closed: every input yields a `ModuleManifest` (with a path-safe slug) or a
+  `ModuleException`, and NEVER any other Throwable. (The fuzz harness itself caught a bug — in the test, not the
+  validator — proving the loop reaches the parser.)
+- `BbcodeFuzzTest` — ≈600 seeded random BBCode token streams assert `BbcodeConverter` never throws, leaks no
+  KNOWN bracket tag, and does not catastrophically backtrack on a 2000-deep nest.
+
+**Dusk:** intentionally NOT added. The flows above are server-rendered Livewire components fully exercised by
+`Livewire::test` (the consent panel, layout configurator, token settings) — there is no new browser-only/JS
+behaviour a real browser would catch that the feature tests don't, and the sandbox has no browser driver. Dusk
+stays reserved for genuinely JS-driven flows.
+
+## Phase 3 — Dogfood (D1/D2/D3, 2026-06-13)
+
+> The real payoff: build first-party extensions PURELY through the public contract (zero core edits) to surface
+> contract gaps before third parties hit them. Every gap found was closed ADDITIVELY (semver-aware), bumping the
+> Module API minor to **1.1.0**.
+
+### D1 — First-party plugins (`modules/novfora/qa`, `modules/novfora/kudos`)
+
+Two plugins, each exercising EVERY module seam through the contract (a domain-event listener, a `post.html`
+filter, a UI slot, a plugin-owned migration, a plugin setting, a permission, routes) + Kudos also a
+module-registered layout **widget**:
+- **novfora/qa** — mark one reply as a topic's accepted answer (permission `novfora.qa.accept`, table
+  `qa_accepted_answers`, the `topic.post.aside` badge slot, an `[answer]` content callout filter gated by the
+  `qa.callout_enabled` setting, CSRF-guarded confirm+accept routes).
+- **novfora/kudos** — give kudos to a post (permission `novfora.kudos.give`, table `kudos`, a footer-slot total,
+  a `KudosWidget` layout widget, a `[kudos]` glyph filter using the `kudos.glyph` setting).
+
+**CONTRACT GAPS found by dogfooding, and how each was closed (all additive → Module API 1.1.0):**
+1. **No per-post UI extension point.** The only slots placed in core templates were `footer.widgets` + the forum
+   regions — a plugin had nowhere to render per-post UI (an accepted-answer badge). *Closed:* added the
+   `topic.post.aside` slot outlet to the topic view, passing the post + topic as context (the `<x-slot-outlet>`
+   component already supported `:context`; the value is sanitised). A NEW slot name = minor.
+2. **No way for a plugin to register settings.** `SettingsRegistry` was a closed hardcoded list, so the declared
+   `provides: ["settings"]` capability had no registration path — `Settings::get/set` returned null/threw for an
+   unregistered key. *Closed:* `SettingsRegistry::register(SettingDefinition)` (+ `flushRuntime()` for test
+   isolation); module keys fill gaps only — a plugin can NEVER override a core key (e.g. `mail.password`).
+3. **`widgets` missing from the manifest capability vocabulary.** Modules can register layout widgets (ADR-0032)
+   but `provides: ["widgets"]` was rejected by `ManifestValidator`. *Closed:* added `widgets` to `KNOWN_PROVIDES`.
+
+**Also fixed (robustness, not a gap):** module routes now build URLs with path-based `url()` rather than
+`route()`-by-name, so a runtime-registered module route resolves even before the name lookup is rebuilt / under
+route:cache. (Recorded as a known consideration: runtime-registered routes are not in a cached route file —
+fine on the baseline tier; an enhanced-tier operator using `route:cache` should be aware. Not a correctness gap
+in the shipped flow.)
+
+Tests: `QaPluginTest`, `KudosPluginTest` drive each plugin install→enable→exercise-every-seam through the
+contract; permission gating is enforced by the core engine (403 without the grant).
+
+### D2 — First-party theme (`themes/nebula`)
+
+A polished filesystem child theme built purely on the theme API (ThemeManager view overrides), zero core edits:
+- **Token overrides** — overrides the documented `ThemeApi::tokens()` contract via the `theme-head` seam: a
+  distinct AA-safe violet accent (derived by `AccentPalette`, so light/dark inks meet WCAG AA) plus the semantic
+  aliases `--novfora-accent` / `--novfora-radius`.
+- **Branding** — a `footer-tagline` view override.
+- **Coexistence** — the test proves that with Nebula active, a configured layout REGION (`<x-region>` widget)
+  and a module SLOT both still render (and slots are still sanitised) — a theme is presentation-only.
+
+**No new contract gaps:** the theme API (token contract + view-override seams + region/slot coexistence) was
+already sufficient for a polished child theme. `ThemeApi::VERSION` stays **1.0.0** (the new per-post slot is a
+SlotRegistry/Module-API addition, not a theme region). Tests: `NebulaThemeTest` (activation, token-contract
+override, branding, layout/slot coexistence, no-op when inactive). 32 Theme tests green.

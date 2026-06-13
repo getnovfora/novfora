@@ -15,6 +15,10 @@ namespace App\Modules;
  * This is a value-transform contract, NOT an authority: a filter can shape data a core call site chooses to
  * expose, but it can never widen a permission decision (those resolve only through PermissionResolver) and any
  * HTML a filter produces is still sanitised by the core call site that consumes it.
+ *
+ * RESILIENCE (P1): a single (full-trust) module filter that THROWS is isolated — caught, reported, and skipped
+ * with the running value preserved — so one faulty extension can't 500 every post render. (Complements H3's
+ * load-time disable-on-fatal: this is the per-call safety net.)
  */
 final class HookRegistry
 {
@@ -38,7 +42,12 @@ final class HookRegistry
         usort($hooks, fn (array $a, array $b): int => [$a['priority'], $a['seq']] <=> [$b['priority'], $b['seq']]);
 
         foreach ($hooks as $hook) {
-            $value = ($hook['callback'])($value, ...$args);
+            try {
+                $value = ($hook['callback'])($value, ...$args);
+            } catch (\Throwable $e) {
+                // Isolate a faulty module filter: skip it (keep the running value), report for the operator.
+                report($e);
+            }
         }
 
         return $value;

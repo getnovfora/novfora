@@ -17,8 +17,14 @@ namespace App\Modules;
  */
 final class ModuleApi
 {
-    /** The core's current MODULE API version. Bump per the contract rules above. */
-    public const VERSION = '1.0.0';
+    /**
+     * The core's current MODULE API version. Bump per the contract rules above.
+     *
+     * 1.1.0 (Phase-3 hardening / dogfood): MINOR, additive — added the `topic.post.aside` UI slot (a per-post
+     * extension outlet, with the post + topic as context) and a plugin SETTINGS registration path
+     * (App\Settings\SettingsRegistry::register). Modules targeting `^1.0` keep working unchanged.
+     */
+    public const VERSION = '1.1.0';
 
     /** Whether the core's MODULE API satisfies a module's declared `api_version` constraint. */
     public static function satisfies(string $constraint): bool

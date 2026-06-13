@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Import\Drivers;
 
 use App\Import\BbcodeConverter;
+use App\Import\Contracts\ProvidesAttachments;
 use App\Import\Contracts\SourceDriver;
 use Illuminate\Database\ConnectionInterface;
 
@@ -17,11 +18,12 @@ use Illuminate\Database\ConnectionInterface;
  * stores `md5(md5(salt).md5(password))`, which Laravel cannot verify — imported MyBB users reset their
  * password on first login. Verify against a live board before production use.
  */
-final class MybbDriver implements SourceDriver
+final class MybbDriver implements ProvidesAttachments, SourceDriver
 {
     public function __construct(
         private readonly ConnectionInterface $connection,
         private readonly string $prefix = 'mybb_',
+        private readonly ?string $attachmentsPath = null,
     ) {}
 
     public function key(): string
@@ -94,6 +96,26 @@ final class MybbDriver implements SourceDriver
                 'source_id' => (int) $r->pid, 'topic_source_id' => (int) $r->tid, 'author_source_id' => (int) $r->uid,
                 'subject' => (string) $r->subject, 'body' => $converter->toMarkdown((string) $r->message),
                 'created_at' => (int) $r->dateline,
+            ])->all();
+    }
+
+    /** MyBB attachments (`mybb_attachments`); the physical file is `attachname` under the uploads/ base dir. */
+    public function attachments(int $afterId, int $limit): array
+    {
+        if ($this->attachmentsPath === null) {
+            return [];
+        }
+
+        return $this->connection->table($this->prefix.'attachments')
+            ->where('aid', '>', $afterId)->orderBy('aid')->limit($limit)
+            ->get(['aid', 'pid', 'uid', 'filename', 'filetype', 'attachname'])
+            ->map(fn ($r): array => [
+                'source_id' => (int) $r->aid,
+                'post_source_id' => (int) $r->pid,
+                'author_source_id' => (int) $r->uid,
+                'original_name' => (string) $r->filename,
+                'mime' => (string) $r->filetype,
+                'path' => rtrim($this->attachmentsPath, '/').'/'.$r->attachname,
             ])->all();
     }
 

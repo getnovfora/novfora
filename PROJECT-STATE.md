@@ -11,7 +11,71 @@
 
 ---
 
-## ⭐ Overnight autonomous build — 2026-06-13 (REVIEW THIS FIRST)
+## ⭐ Phase 3 — HARDENED · PROVEN · DOGFOODED — 2026-06-13 (REVIEW THIS FIRST)
+
+A focused run to **prove and harden Phase 3 before more is built on it** (NOT a new phase). Phase 3 was first
+merged into `main` (PR #23, Stage A + Phase 3 together), then this work landed on branch
+**`claude/phase-3-hardening`** (off `main`) as 10 gated, conventional, DCO-signed commits.
+
+**Gate status (final):** full suite **1116 passed / 1 skipped, 0 failed** (`pest`, parallel) · `pint` clean ·
+`phpstan` (level 5) **0 errors** · `php artisan migrate` clean. Baseline on `main` was 1077; this run added the
+hardening/dogfood tests. Run on the host's **PHP 8.5** (satisfies the `^8.3` floor) — see env assumptions below.
+
+**⚠ Nothing is pushed.** All 10 commits are on `claude/phase-3-hardening` for you to review + push from your
+terminal (push is interactive-only in this sandbox).
+
+### HARDEN — closed every flagged Phase-3 follow-up (APEX)
+- **H1 — Webhook SSRF / DNS-rebinding** (`feat(webhooks)…2e3c5e3`). New `App\Webhooks\WebhookUrlGuard`: delivery
+  resolves the host, refuses any private/loopback/link-local/reserved/CGNAT/metadata/IPv6-ULA/mapped/6to4/NAT64
+  address, **pins** the connection to a validated IP (CURLOPT_RESOLVE), and **re-validates every redirect hop**.
+  Shared deny-list kernel `App\Support\Ssrf\IpClassifier` (the oEmbed guard now delegates to it — one source of
+  truth). Tests: rebinding sim + metadata-endpoint attempt.
+- **H2 — Importers verification & fidelity** (`879dd1a`, `50eb308`). MyBB + SMF promoted from scaffolds to
+  **VERIFIED** against representative fixtures (full import + idempotency/resume); order-independent forum import
+  + SMF title-from-first-message fidelity fixes; **attachment import + sha-256 checksum verification** across all
+  three drivers; `verify()` now reconciles CONTENT, not just counts. (Fixed a latent `body_canonical`
+  double-encode bug, caught by phpstan.)
+- **H3 — Plugin trust guardrails** (`c8cbfdf`). Full-trust **consent gate** at enable, package **integrity hash**
+  (verified/modified), **disable-on-fatal quarantine**, and a file-based **kill switch** — NOT a sandbox (none
+  built; a real sandbox + full package signature stay out of scope, documented).
+- **H4 — Module migration rollback** (`d21b2f8`). `remove()` uses `migrate:reset` (all batches), not
+  `migrate:rollback` (last batch only). Remaining items are intentional future enhancements (scope-fenced).
+
+### PROVE — adversarial review + coverage
+- **P1 — Adversarial review** (`666f6d5`, APEX). Verify-then-refute over the whole surface (lifecycle/path,
+  manifest, hook/filter/slot, REST authz, tokens+rate-limit, webhook HMAC+SSRF, importer dumps). **1 MEDIUM found
+  + fixed** — a throwing hook filter / slot renderer is now isolated (caught + reported + skipped) so a faulty
+  full-trust extension can't 500 every render. All other vectors **verified-safe, no HIGH**. Full per-vector
+  writeup in `DECISIONS.md`.
+- **P2 — Coverage + fuzz** (`04fea56`). Property/fuzz tests for the untrusted-input parsers (`ManifestFuzzTest`
+  ~400 cases → total + fail-closed; `BbcodeFuzzTest` ~600 cases → total, no tag leak, no ReDoS); API-token
+  rotation flow. (No Dusk — flows are server-rendered Livewire, fully covered; no browser driver here.)
+
+### DOGFOOD — used the contract to find gaps (the real payoff)
+- **D1 — two first-party plugins** (`63f5072`): `novfora/qa` (accepted answer) + `novfora/kudos`, each exercising
+  EVERY seam (event, filter, slot, migration, setting, permission, route; kudos also a layout widget) — **zero
+  core edits**. Surfaced **3 contract gaps, all closed ADDITIVELY → Module API `1.1.0`:** (1) no per-post UI slot
+  → added `topic.post.aside`; (2) no plugin-settings path → `SettingsRegistry::register()`; (3) `widgets` missing
+  from the manifest `provides` vocabulary.
+- **D2 — one first-party theme** (`f138d57`): `themes/nebula`, a polished child theme overriding the documented
+  `ThemeApi` token contract + branding, proven to coexist with slots + the layout configurator. **No new gaps**;
+  `ThemeApi::VERSION` stays `1.0.0`.
+- Guide: **`docs/architecture/phase3-extensibility/writing-plugins-and-themes.md`** (write-your-first plugin/theme,
+  grounded in the proven contract). The phase-3 arch docs were updated with the proven security model.
+
+### Recorded assumptions (also in `DECISIONS.md`)
+- **Environment (sandbox only — no repo impact):** the host's root-owned, unreadable `.env` (an overnight-Docker
+  artifact) was renamed to **`.env.root-stale`** and a clean baseline (sqlite) `.env` written so gates run as
+  `tommy`; restore it with `sudo mv .env.root-stale .env` if it held real settings. A `conf.d` ini raises the
+  PHP-8.5 CLI `memory_limit` to 512M (the lexbor html-sanitizer parser + Pest need it). Parallel Pest runs with
+  `--cache-directory=/tmp/...` (the bundled `vendor/pestphp/pest/.temp` is root-owned). Several stale root-owned
+  runtime files under `storage/` were moved aside. Docker is NOT available in this WSL distro.
+- **`scripts/build-release.sh` is STASHED** (`git stash` — "build-release.sh tweak (push from my terminal
+  later)") so it couldn't block branch switches; apply + push it yourself.
+
+---
+
+## Overnight autonomous build — 2026-06-13 (Stage A + Phase 3 build)
 
 An unattended run completed **Stage A (6 M5-deferred fast-follows)** and **Stage B (Phase 3 Extensibility — all
 5 subsystems)**. Everything is gated green and committed; **nothing is pushed** (see push status). Every Phase-3

@@ -295,6 +295,12 @@ return [
     // API version is App\Modules\ModuleApi::VERSION; a module declares the api_version constraint it targets.
     'modules' => [
         'path' => base_path('modules'),          // filesystem location of module packages
+
+        // KILL SWITCH (apex, H3): a file-based safe-mode marker. While this file exists, ModuleLoader loads NO
+        // modules — an operator can drop it via FTP / cPanel File Manager (no DB access) to instantly disable
+        // every plugin even if one is crashing the boot, and the admins-only ACP toggle writes/removes it. A
+        // file (not a DB flag) so it works before the DB is reachable and survives a module that breaks boot.
+        'safe_mode_marker' => env('NOVFORA_MODULES_SAFE_MODE_MARKER', storage_path('modules-safe-mode')),
     ],
 
     // ── Outbound webhooks (ADR-0033, Phase 3 B3) ────────────────────────────────────────────────────

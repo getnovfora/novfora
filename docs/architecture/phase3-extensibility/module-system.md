@@ -12,8 +12,10 @@ Copyright 2026 The NovFora Authors
 A module/plugin is a **local package** an admin drops under `modules/<vendor>/<name>/`. There is **no remote
 fetch, no marketplace, no `eval` of downloaded code** — installation is a filesystem action; enable/disable is
 an audited admin action in the ACP. A module runs **in-process with full PHP trust** (true PHP sandboxing is
-not feasible — the honest position from ADR-0008 §2.4); the mitigations are: a validated manifest, lifecycle
-auditing, an ACP that shows exactly what is enabled, and the hard guarantees below.
+not feasible — the honest position from ADR-0008 §2.4); the mitigations (H3) are: a validated manifest, an
+explicit **full-trust consent gate** before a first enable, a **package integrity hash** (tamper detection),
+**disable-on-fatal** quarantine + a global **kill switch**, lifecycle auditing, an ACP that shows exactly what
+is enabled, and the hard guarantees below.
 
 ```
 modules/<vendor>/<name>/
@@ -88,6 +90,15 @@ longer validates is **silently skipped** — never a fatal boot error.
    the namespace can't be a core root; the provider must live inside the module's own namespace.
 4. **Fail-closed + audited.** Compatibility and dependency checks run before enable; every lifecycle write is
    `Audit::log`'d (`module.installed|enabled|disabled|upgraded|removed`).
+5. **Trust guardrails around the full-trust model (H3).** Enabling a module is refused until an admin
+   **explicitly consents** to its full-server-trust ("I trust this module"), recorded once per module and
+   audited. Install/enable/upgrade record a **package integrity hash** (sha-256 over the manifest + `src/` +
+   migrations); the ACP flags a module whose on-disk files no longer match it (`verified` / `modified`). A
+   module whose provider **throws while loading is quarantined** (auto-disabled + the error recorded and shown
+   in the ACP), so one bad module cannot white-screen the site. A file-based **kill switch**
+   (`novfora.modules.safe_mode_marker`) loads NO modules while present — an operator's escape hatch that works
+   over FTP with no DB access. *(A real PHP sandbox remains out of scope — documented; these are the honest
+   mitigations for a full-trust, local-install model.)*
 
 ## 6. The example plugin (`modules/novfora/hello`)
 

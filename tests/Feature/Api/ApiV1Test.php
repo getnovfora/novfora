@@ -105,6 +105,15 @@ it('creates a reply through the engine-authorized write endpoint', function () {
     expect(Post::where('topic_id', $topic->id)->where('body_text', 'like', '%reply via the API%')->exists())->toBeTrue();
 });
 
+it('forbids reading a forum\'s topics when the engine denies forum.view (no bypass)', function () {
+    $user = Users::inGroups(['members', 'tl1']);
+    $forum = Forum::create(['slug' => 'general', 'title' => 'General', 'type' => 'forum']);
+    denyGlobally($user, 'forum.view');
+
+    // The list endpoint filters it out AND the per-forum topics endpoint denies it — both go through the engine.
+    $this->withToken(issueToken($user))->getJson("/api/v1/forums/{$forum->id}/topics")->assertStatus(403);
+});
+
 it('forbids a write the permission engine denies (no post.create)', function () {
     $author = Users::inGroups(['members', 'tl1']);
     $forum = Forum::create(['slug' => 'general', 'title' => 'General', 'type' => 'forum']);

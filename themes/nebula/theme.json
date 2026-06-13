@@ -1,0 +1,7 @@
+{
+    "slug": "nebula",
+    "name": "Nebula",
+    "version": "1.0.0",
+    "api_version": "^1.0",
+    "description": "A polished first-party filesystem child theme (Phase-3 dogfood). Overrides the documented ThemeApi token contract — a distinct AA-safe violet accent (AccentPalette) plus semantic --novfora-* tokens — and the footer branding, entirely through the Blade view-override API with zero core edits. Coexists with the module slot system and the admin layout/region configurator."
+}

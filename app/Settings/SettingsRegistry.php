@@ -22,6 +22,33 @@ final class SettingsRegistry
     /** @var array<string,SettingDefinition>|null */
     private static ?array $cache = null;
 
+    /**
+     * Module-registered setting definitions (Phase-3 hardening, D3 contract gap). A plugin declaring
+     * `provides: ["settings"]` calls {@see register()} from its provider so it can read/write its own keys
+     * through the same typed Settings service the ACP uses — the settings seam was declared but had no
+     * registration path before. Keyed by setting key (idempotent).
+     *
+     * @var array<string,SettingDefinition>
+     */
+    private static array $runtime = [];
+
+    /**
+     * Register a module-owned setting definition. A module may NOT override a CORE key (core wins in all()),
+     * so a plugin can never hijack e.g. mail.password. Idempotent; invalidates the built cache.
+     */
+    public static function register(SettingDefinition $definition): void
+    {
+        self::$runtime[$definition->key] = $definition;
+        self::$cache = null;
+    }
+
+    /** Drop module-registered definitions (test isolation; static state survives an app rebuild). */
+    public static function flushRuntime(): void
+    {
+        self::$runtime = [];
+        self::$cache = null;
+    }
+
     /** @return array<string,SettingDefinition> */
     public static function all(): array
     {
@@ -32,6 +59,10 @@ final class SettingsRegistry
         $defs = [];
         foreach (self::definitions() as $def) {
             $defs[$def->key] = $def;
+        }
+        // Module-registered keys fill gaps only — a core key is never overridden by a plugin.
+        foreach (self::$runtime as $key => $def) {
+            $defs[$key] ??= $def;
         }
 
         return self::$cache = $defs;

@@ -157,6 +157,11 @@
 
                             <div class="novfora-prose pt-3 md:pt-4">{!! $post->body_html_cache !!}</div>
 
+                            {{-- Per-post extension outlet (ADR-0031/0032, theme API 1.1): modules render a
+                                 sanitised per-post aside here (e.g. an accepted-answer badge). The post + topic
+                                 are passed as context; output is sanitised through the post-HTML allowlist. --}}
+                            <x-slot-outlet name="topic.post.aside" :context="['post' => $post, 'topic' => $topic]" />
+
                             <livewire:forum.post-reactions :key="'react-'.$post->id"
                                 :post-id="$post->id"
                                 :topic-id="$post->topic_id"

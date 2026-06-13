@@ -10,6 +10,7 @@ use App\Models\WebhookDelivery;
 use App\Models\WebhookEndpoint;
 use App\Webhooks\WebhookDeliveryRunner;
 use App\Webhooks\WebhookManager;
+use App\Webhooks\WebhookUrlGuard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\Support\Users;
@@ -22,7 +23,12 @@ use Tests\Support\Users;
 
 uses(RefreshDatabase::class);
 
-beforeEach(fn () => $this->seed());
+beforeEach(function () {
+    $this->seed();
+    // Delivery now resolves the host through the SSRF guard; pin the test host to a public IP so the faked
+    // transport is reached. The dedicated rebinding/metadata cases live in WebhookSsrfTest.
+    $this->app->instance(WebhookUrlGuard::class, new WebhookUrlGuard(fn () => ['203.0.113.10']));
+});
 
 function endpoint(array $events = ['post.created']): WebhookEndpoint
 {

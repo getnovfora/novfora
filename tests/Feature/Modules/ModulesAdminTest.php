@@ -45,7 +45,12 @@ it('lets a 2FA admin list, install and enable the example plugin', function () {
         ->assertSet('error', null);
     expect(Module::where('slug', 'novfora/hello')->firstOrFail()->enabled)->toBeFalse();
 
-    Livewire::test('admin.modules')->call('enable', 'novfora/hello');
+    // First enable shows the full-trust consent step (H3); confirming it enables.
+    Livewire::test('admin.modules')
+        ->call('enable', 'novfora/hello')
+        ->assertSet('pendingConsent', 'novfora/hello')
+        ->call('confirmEnable')
+        ->assertSet('pendingConsent', null);
     expect(Module::where('slug', 'novfora/hello')->firstOrFail()->enabled)->toBeTrue();
 });
 

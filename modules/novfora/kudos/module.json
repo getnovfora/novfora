@@ -1,0 +1,20 @@
+{
+    "name": "Kudos",
+    "slug": "novfora/kudos",
+    "version": "1.0.0",
+    "api_version": "^1.1",
+    "description": "Second first-party dogfood plugin. Lets a permitted user give kudos to a post, surfaces a community kudos total in the footer slot AND as a placeable layout widget, and adds a [kudos] content glyph. Exercises the module seams — listener, post.html filter, slot, layout widget, plugin migration, plugin setting, permission, route — through the public contract with zero core edits.",
+    "author": "The NovFora Authors",
+    "namespace": "Modules\\Novfora\\Kudos\\",
+    "provider": "Modules\\Novfora\\Kudos\\KudosServiceProvider",
+    "permissions": [
+        {
+            "key": "novfora.kudos.give",
+            "label": "Give kudos to a post",
+            "scope_kind": "global",
+            "group": "Kudos",
+            "description": "Lets the holder add a kudos to a post (one per user per post)."
+        }
+    ],
+    "provides": ["routes", "listeners", "filters", "slots", "widgets", "permissions", "settings", "migrations"]
+}
