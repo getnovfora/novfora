@@ -1,0 +1,9 @@
+{
+    "name": "Needs A Dependency",
+    "slug": "test/needs-dep",
+    "version": "1.0.0",
+    "api_version": "^1.0",
+    "requires": {
+        "modules": { "test/missing": "^1.0" }
+    }
+}

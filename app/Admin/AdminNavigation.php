@@ -62,6 +62,9 @@ final class AdminNavigation
                 ['Forums & structure', 'admin.structure', 'folder'],
                 ['Badges', 'admin.badges', 'check-circle'],
             ]],
+            ['Extend', 'folder', [
+                ['Modules & plugins', 'admin.modules', 'cog'],
+            ]],
             ['Moderation', 'flag', [
                 ['Approval queue', 'moderation.queue', 'check-circle', true],
                 ['Reports', 'moderation.reports', 'flag', true],

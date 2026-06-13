@@ -289,6 +289,14 @@ return [
         'api_version' => '1.0',                  // the semver'd theme contract (ThemeManager::API_VERSION)
     ],
 
+    // ── Module / plugin system (ADR-0031, Phase 3 B1) ───────────────────────────────────────────────
+    // Modules are LOCAL packages an admin installs under modules/<vendor>/<name>/. No remote fetch, no
+    // marketplace, no eval — installation is a filesystem action; enable/disable is in the ACP. The MODULE
+    // API version is App\Modules\ModuleApi::VERSION; a module declares the api_version constraint it targets.
+    'modules' => [
+        'path' => base_path('modules'),          // filesystem location of module packages
+    ],
+
     // ── Operability — the no-SSH web installer (M5, phase-1-plan §5) ──────────────────────────────
     // The installer is an UNAUTHENTICATED pre-install surface that writes .env, runs migrations, and
     // creates the first admin. It MUST lock after install: the marker file below is written LAST and,

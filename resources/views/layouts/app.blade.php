@@ -249,6 +249,8 @@
     <footer class="border-t border-line bg-surface-raised">
         <x-ui.container size="xl" class="flex flex-col sm:flex-row items-center justify-between gap-3 py-6 text-sm text-ink-muted">
             <p>@include('partials.footer-tagline')</p>
+            {{-- Module UI-slot extension point (ADR-0031): modules may inject sanitised footer widgets here. --}}
+            <x-slot-outlet name="footer.widgets" />
             {{-- Density quick-switch (available to everyone; persists server-side when signed in). --}}
             <div x-data="{ d: document.documentElement.getAttribute('data-density') || 'comfortable' }"
                  x-on:novfora:density.window="d = $event.detail"

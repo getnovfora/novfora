@@ -43,6 +43,7 @@ process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed
 | 0028 | **P2-M5 scope = social pack in the public beta** — follow + reputation/points + badges pulled from Should-tier HELD into M5 Core; staff notes / reputation leaderboard / TL-auto-promotion deferred to fast-follow; overrides plan §5 descope for these three | Accepted | [§ADR-0028](#adr-0028--p2-m5-scope-social-pack-in-the-public-beta-2026-06-12) |
 | 0029 | **DB-backed style themes (ACP visual theme editor)** — named accent + sanitised custom CSS, single-active, cached + CSP-nonce'd `<style>` injection; a first slice of ADR-0009's visual configurator, distinct from the filesystem child-theme layer | Accepted | [§ADR-0029](#adr-0029--db-backed-style-themes-acp-visual-theme-editor-2026-06-12) |
 | 0030 | **Members-directory visibility** — public `/members` listing gated by one setting (everyone→members→staff→disabled); a single `visibleTo()` authority shared by the route gate, the SFC self-guard, and the nav; 404 (no disclosure) for a non-visible viewer | Accepted | [§ADR-0030](#adr-0030--members-directory-visibility-2026-06-12) |
+| 0031 | **Module / plugin foundation (Phase 3 B1)** — local-only packages under `modules/`, a validated `module.json` manifest, a semver'd MODULE API (`ModuleApi::VERSION`), lifecycle (install/enable/disable/upgrade/remove) with pre-enable compat + dependency checks, event/filter/slot seams, manifest-declared permission keys that ADD to the existing engine (never redefine core), and an ACP surface; slot + filter HTML is always re-sanitised | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0031](#adr-0031--module--plugin-foundation-phase-3-b1-2026-06-13) |
 
 ---
 
@@ -1090,3 +1091,65 @@ Made the cache version-counter bump atomic (flagged in the P2-M5 review). Non-ob
 - **Concurrency test without threads**: the array cache driver is atomic within the process, so the suite pins
   the *primitive* (a Cache mock asserts `increment` is called, not a `get`/`forever` pair an interleave could
   split) plus cold-start, an exact no-lost-update count over 100 bumps, and the throw-path fallback.
+
+---
+
+## Phase 3 — Extensibility (owner-authorized overnight build — flagged for review)
+
+> Phase 3 builds the Stage A extensibility plan (ADR-0008/0009/0013) into running code. Each subsystem ships a
+> PROPOSED-then-Accepted ADR, the implementation, tests (apex-level on the security/permission/concurrency
+> paths), gates green, and a commit. Full design set: `docs/architecture/phase3-extensibility/`.
+
+### ADR-0031 — Module / plugin foundation (Phase 3 B1) (2026-06-13)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context:** every incumbent's worst trait is a bad extension architecture (MyBB `eval()` templates, SMF core
+patches) — add-ons and themes that break on upgrade, customisation that needs core edits. ADR-0008 designed
+the answer in Stage A; B1 builds it. This is the project's **highest-stakes security boundary**, so the build
+is conservative and fail-closed.
+
+**Decision (the public contract surface):** a module is a **local** package under `modules/<vendor>/<name>/`
+(no remote fetch, no marketplace, no eval). The pieces:
+- **Manifest** `module.json`, validated by `App\Modules\ManifestValidator` (the untrusted-input boundary):
+  slug = path-safe `vendor/name`; namespace non-core + PSR-4; provider inside the module namespace;
+  version/api_version/dependency constraints parse (`SemverConstraint`); permission entries well-formed. Fail
+  closed — nothing coerced.
+- **Semver'd MODULE API** = `App\Modules\ModuleApi::VERSION` (`1.0.0`). A module declares the `api_version`
+  constraint it targets; compatibility is checked BEFORE install/enable ("know before you enable").
+- **Lifecycle** = `App\Modules\ModuleManager` (the single audited writer): install → enable (compat + deps +
+  permission registration + migrations) → disable (non-destructive: KEEP data) → upgrade → remove (roll back
+  migrations + drop owned permission keys & their grants). `App\Modules\ModuleLoader` boots enabled modules
+  each request (runtime PSR-4 + `register()` the provider); a broken/missing module is skipped, never fatal.
+- **Seams:** Laravel **domain events** (the ones core already fires); a **filter-hook** pipeline
+  (`Hook::applyFilters`/`addFilter`, priority-ordered, no-op until a module opts in); **UI slots**
+  (`<x-slot-outlet name="…" />` + `SlotRegistry`); routes/Livewire; manifest **permission keys**; reversible
+  **migrations**. Versioning: adding events/filters/slots = minor; changing/removing a payload/name/signature
+  = major.
+
+**Security posture (apex, non-negotiable):**
+- **No permission escalation.** Manifest permission keys only ADD to the catalog; grants stay separate
+  `acl_entries` an admin creates. A module may NEVER redefine a core key (refused at enable) nor claim another
+  module's key. Removal deletes the module's keys AND any grants referencing them (no dangling ACL) and bumps
+  `AclVersion`. There is no second permission system — module permissions resolve through the existing
+  `PermissionResolver`.
+- **No unsanitised HTML.** Slot output and `post.html` filter output are RE-sanitised through the same
+  `ContentSanitizer` allowlist as user post HTML — a full-trust module still can't smuggle `<script>`/`<style>`
+  onto a page. The `post.html` re-sanitise pass is skipped entirely unless a module registered a filter (the
+  unextended hot path is unchanged).
+- **No traversal / shadowing.** The validated slug bounds the directory; the namespace can't be a core root;
+  the provider must live in the module's own namespace.
+- **Honest trust model:** modules run in-process with full PHP trust (no PHP sandbox is feasible); the
+  mitigations are local-only install, manifest validation, ACP visibility, and audited lifecycle.
+
+**Non-obvious build calls:** disable is **non-destructive** (keep schema/data; only `remove` purges) — a safer
+refinement of ADR-0008's "disable rolls back migrations". Module migrations run via
+`Artisan::call('migrate', ['--path' => …, '--realpath' => true])` and roll back the same way on remove. The
+runtime autoloader (`spl_autoload_register` over the enabled modules' namespaces) avoids editing
+`composer.json` / `dump-autoload` per module. The ACP page is **admins-only** (`admin.access` + staff-2FA) —
+installing a module loads in-process code, the highest-privilege act. A first-party example plugin
+(`modules/novfora/hello`) exercises every seam and is the lifecycle's living integration test.
+
+**Consequences:** the module API is a frozen-within-a-major public contract from this commit; B2–B5 build on
+these seams. Zero new runtime dependencies. **Flagged for review:** the full-trust execution model (documented,
+unavoidable for PHP); module migration rollback uses `--path` batch semantics (fine for the typical one-batch
+module; revisit if a module ships many migration batches). New reversible table `modules`.

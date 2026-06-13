@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Content;
 
+use App\Modules\Facades\Hook;
 use Illuminate\Support\Str;
 
 /**
@@ -32,13 +33,25 @@ final class ContentRenderer
      */
     public function render(string $format, array $doc, array $restrict = []): array
     {
-        return match ($format) {
+        $result = match ($format) {
             'markdown' => $this->renderMarkdown((string) ($doc['source'] ?? ''), $restrict),
             default => [
                 'html' => $this->canonical->toSafeHtml($doc, $restrict),
                 'text' => $this->canonical->toText($doc),
             ],
         };
+
+        // Module filter-hook extension point (ADR-0031): a module may transform the rendered post HTML. The
+        // result is RE-SANITISED through the same allowlist (and the same author restrictions), so a filter can
+        // NEVER reintroduce <script>/unsafe markup — a plugin can never smuggle unsanitised HTML. The whole
+        // block is skipped (no extra sanitise pass) unless a module has actually registered a 'post.html'
+        // filter, so the unextended hot path is unchanged.
+        if (Hook::hasFilter('post.html')) {
+            $filtered = Hook::applyFilters('post.html', $result['html']);
+            $result['html'] = $this->sanitizer->sanitize(is_string($filtered) ? $filtered : $result['html'], $restrict);
+        }
+
+        return $result;
     }
 
     /**

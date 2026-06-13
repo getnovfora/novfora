@@ -242,6 +242,9 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         // Badge manager (P2-M5 Slice 3) — the <livewire:admin.badges /> manager.
         Route::view('/badges', 'admin.badges')->name('badges');
 
+        // Module / plugin manager (ADR-0031, B1) — the <livewire:admin.modules /> lifecycle surface.
+        Route::view('/modules', 'admin.modules')->name('modules');
+
         // Settings pages (PART 3) — each a focused Livewire SFC on the Settings store.
         Route::view('/settings/general', 'admin.settings.general')->name('settings.general');
         Route::view('/settings/registration', 'admin.settings.registration')->name('settings.registration');
