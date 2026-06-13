@@ -1466,3 +1466,25 @@ collision). Quarantine swallows its own errors so the safety net can never itsel
 verified→modified on a tampered file (isolated temp module — parallel-safe); a faulty fixture provider that
 throws is quarantined (disabled + `last_error` + audit); the kill switch loads nothing even with a module
 enabled (marker isolated to a temp path). 34 Modules tests green.
+
+### H4 — Remaining flagged Phase-3 follow-ups (closed or scope-fenced)
+
+**Closed — module migration rollback batch-semantics (ADR-0031 flag).** ADR-0031 flagged that module migration
+rollback used `migrate:rollback --path` "(fine for the typical one-batch module; revisit if a module ships many
+migration batches)". `ModuleManager::rollbackMigrations` now uses **`migrate:reset --path`**, which reverses ALL
+of a module's migrations regardless of how many batches they ran across (initial enable + later upgrades), so
+`remove()` never strands a table from an earlier batch. Pinned by a new `ModuleLifecycleTest` case that runs a
+migration on enable (batch 1) + a second on upgrade (batch 2) and asserts BOTH are dropped on remove.
+
+**Scope-fenced (intentional future ENHANCEMENTS, not gaps — left as documented follow-ups):**
+- ADR-0034 / importers.md §5: richer BBCode coverage (tables, nested quotes), oEmbed re-resolution, and
+  verifying MyBB/SMF against a LIVE board (they are verified here against representative fixtures incl.
+  attachments + idempotency/resume — a live board may surface schema-version quirks; phpBB is the high-confidence
+  path). These extend fidelity but are not correctness gaps in the shipped surface.
+- ADR-0035 / analytics.md §5: per-forum/per-category breakdowns + dashboard charting/export. Additive metric-set
+  growth per the documented contract; the aggregate-only privacy posture is unchanged.
+- ADR-0033: the REST API surface is deliberately small (read core + reply) and grows under the same versioned
+  contract — by design, not a gap.
+- ADR-0031: a full asymmetric PACKAGE SIGNATURE and a real PHP SANDBOX remain out of scope (see H3) — the
+  integrity hash + consent + disable-on-fatal + kill switch are the honest mitigations for a full-trust,
+  local-install model. No half-measures were built.

@@ -400,7 +400,10 @@ final class ModuleManager
         if (! is_dir($path)) {
             return;
         }
-        Artisan::call('migrate:rollback', ['--path' => $path, '--realpath' => true, '--force' => true]);
+        // migrate:reset (NOT :rollback) so ALL of a module's migrations are reversed on remove, regardless of
+        // how many BATCHES they ran across (initial enable + later upgrades). :rollback reverses only the last
+        // batch, which would strand the tables from earlier batches — the ADR-0031 batch-semantics flag (H4).
+        Artisan::call('migrate:reset', ['--path' => $path, '--realpath' => true, '--force' => true]);
     }
 
     /** @return array<string,mixed> */
