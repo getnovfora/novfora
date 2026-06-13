@@ -41,6 +41,8 @@ process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed
 | 0026 | **Project name = NovFora** (supersedes ADR-0024) — domains `novfora.com` + `novfora.net` registered; Hearth/NevoBB are retired codenames; in-code rename complete | Accepted | [§ADR-0026](#adr-0026--project-name-novfora-2026-06-10) |
 | 0027 | **Model routing = `ultracode` default, Fable@max apex** — every turn starts at Fable max-effort and downgrades (Opus `xhigh`/`high` → Sonnet → Haiku) as work proves pattern-replication, not correctness-load-bearing; supersedes Opus-`xhigh`-as-apex | Accepted | [§ADR-0027](#adr-0027--model-routing-ultracode-default--fablemax-apex-2026-06-12) |
 | 0028 | **P2-M5 scope = social pack in the public beta** — follow + reputation/points + badges pulled from Should-tier HELD into M5 Core; staff notes / reputation leaderboard / TL-auto-promotion deferred to fast-follow; overrides plan §5 descope for these three | Accepted | [§ADR-0028](#adr-0028--p2-m5-scope-social-pack-in-the-public-beta-2026-06-12) |
+| 0029 | **DB-backed style themes (ACP visual theme editor)** — named accent + sanitised custom CSS, single-active, cached + CSP-nonce'd `<style>` injection; a first slice of ADR-0009's visual configurator, distinct from the filesystem child-theme layer | Accepted | [§ADR-0029](#adr-0029--db-backed-style-themes-acp-visual-theme-editor-2026-06-12) |
+| 0030 | **Members-directory visibility** — public `/members` listing gated by one setting (everyone→members→staff→disabled); a single `visibleTo()` authority shared by the route gate, the SFC self-guard, and the nav; 404 (no disclosure) for a non-visible viewer | Accepted | [§ADR-0030](#adr-0030--members-directory-visibility-2026-06-12) |
 
 ---
 
@@ -389,9 +391,12 @@ plus the mechanism records it mandates:
   evaluated (no expression engine on admin input; deliberate M5 security fence). Awards are
   `insertOrIgnore` on `UNIQUE(user_id, badge_id)` and **permanent** — a lapsed criterion never revokes;
   the daily `nevo:badges:recompute` sweep only ever adds (catch-up for missed events). `post_count`
-  criteria COUNT live posts — **`users.post_count` is an unmaintained M0 seam** (nothing writes it; the
-  live references are all forum counters). Flagged for either wiring or removal in a later cleanup.
-  Badge slugs are the stable identity (suffix-deduped on create, never changed on update).
+  criteria COUNT live **approved** posts directly — deliberately NOT `users.post_count`, which counts ALL
+  non-deleted posts incl. held/pending and would award badges for unapproved spam. **Update 2026-06-12
+  (post-beta polish):** the M0 `users.post_count` "unmaintained seam" is now **CLOSED** — maintained live
+  (atomic ±1 on create / soft-delete / restore) + a one-off backfill; see ADR-0029/0030's polish batch. The
+  badge sweep still counts approved posts directly for the bar above. Badge slugs are the stable identity
+  (suffix-deduped on create, never changed on update).
 - **`nevo:` cron names are deliberate** (`nevo:reputation:recompute`, `nevo:badges:recompute`) — they join
   the Phase-5 rename surface (#8) per the kickoff/this ADR; do NOT pre-rename them to the novfora: scheme.
 - **Budgets:** react action ≤15 (steady-state, now pinned by a dedicated test — the rep award is a queued
@@ -558,6 +563,46 @@ where ADR-0025 left a choice open, or where the FK reality forced one:
   the post and PM-message author sites; `/users/{id}` already 404s for a removed user (route-model binding). The
   queued `SendReactionNotification` / `SendPmNotification` already no-op a missing notifiable
   (`$deleteWhenMissingModels` + a `User::find` null-check) — covered by a test, no new code.
+
+### ADR-0029 — DB-backed style themes (ACP visual theme editor) (2026-06-12)
+**Context:** ADR-0009 anticipated a visual theming configurator alongside the Blade-override child-theme
+layer. Operators want to recolour/restyle the site from the panel without authoring and uploading a
+filesystem child theme. **Decision:** a DB-backed **style theme** — a named, AA-safe accent colour plus an
+optional block of custom CSS — created, edited, and activated from *Admin → Settings → Themes*; **exactly
+one active** (single-active invariant, enforced in a transaction). The active theme's CSS is compiled
+(accent → light/dark CSS variables, then the custom CSS), cached forever and invalidated on every write, and
+injected **once per request** into a **CSP-nonce'd `<style>`** in the head, **after** the Appearance accent
+so an active theme wins on equal specificity. This is a **first slice of ADR-0009's "visual configurator"** —
+CSS-only, no view overrides, no filesystem write — and is **distinct from** the filesystem child-theme layer
+(which overrides Blade views via `ThemeManager` and still appears on the Appearance page). **Security:**
+custom CSS is sanitised on **both store and render** — any `</style` close-tag (the only HTML RAWTEXT
+breakout vector) and HTML comment markers are stripped, so it cannot escape the `<style>` element; the accent
+is normalised to a validated `#rrggbb`; the body is bounded (20 000 chars). The editor is admin-gated
+(`admin.access` + staff-2FA) in `mount()` **and** every action (a `livewire/update` action carries no route
+middleware). **Consequences:** zero new dependencies; cosmetic-only — it feeds no permission resolution; the
+residual CSS-level mischief a full admin could author (external `url()`, attribute-selector exfiltration) is
+bounded by the site CSP and is no greater than the existing filesystem child-theme authority — an accepted
+admin-trust residual. New reversible table `site_themes`. Tests cover create/activate, the single-active
+invariant, the sanitiser breakout, an invalid accent → null, and deactivate, plus the admin SFC's resolution
++ self-guard.
+
+### ADR-0030 — Members-directory visibility (2026-06-12)
+**Context:** a public member listing is a standard community feature, but some communities (and privacy
+regimes) want it restricted or off. **Decision:** a public `/members` directory — search, sort, and filter
+by group / trust level — gated by one setting `members.directory_visibility` with nested tiers **everyone →
+members → staff → disabled**. A **single authority**, `App\Community\MembersDirectory::visibleTo()`, is
+consulted by the **route gate**, the Livewire component's **self-guard** (in `mount()` **and** the
+`members()` query, since a `livewire/update` action carries no route middleware), **and** the header nav
+link, so the three can never drift. A non-visible viewer gets a **404 — no disclosure** (deliberately not a
+403). Only `status='active'` members are listed, reading only already-denormalised/public columns
+(`post_count`, `reputation_points`, `last_active_at`) + groups for the name colour; search matches
+username/display-name (never email). Admin control lives at *Admin → Members → Directory* (an admin-gated
+SFC, on the ADR-0023 settings store — no schema change). **Privacy (documented):** the default `everyone`
+lets guests **enumerate** all active members (no field beyond the already-public profile page, but bulk
+enumeration is a new capability), and there is **no per-user opt-out** — admins can restrict the tier, and a
+"hide me from the directory" toggle is a flagged fast-follow. **Consequences:** zero new dependencies; one
+new settings key. Tests cover all four visibility modes via the route, active/banned filtering, and the admin
+SFC's self-guard.
 
 ---
 
