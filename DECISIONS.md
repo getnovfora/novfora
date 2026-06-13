@@ -1536,3 +1536,24 @@ and rendered escaped. The `--prefix` / connection are operator-supplied (CLI), n
 manifest + BBCode parsers are fuzzed in P2.
 
 **Net:** 1 MEDIUM (filter/slot exception isolation) found + fixed; all other vectors verified-safe. No HIGH.
+
+### P2 — Coverage expansion + fuzz/property tests (2026-06-13)
+
+The real user flows now have automated feature coverage end-to-end: plugin install→enable→exercise→disable→
+remove + upgrade (`ModuleLifecycleTest`, incl. the H3 consent path + the H4 multi-batch rollback); theme + layout
+(`AuroraThemeTest`, `LayoutAdminTest`, `LayoutWidgetTest`, and D2's first-party theme); API token create / ROTATE
+/ revoke (`ApiTokenManagementTest` — rotation added here); webhook register + signed delivery (`WebhookTest` +
+`WebhookSsrfTest`); and an import run end-to-end for all three drivers incl. attachments (`Phpbb/Mybb/SmfImportTest`).
+
+**Fuzz/property tests for the untrusted-input PARSERS (new):**
+- `ManifestFuzzTest` — a fixed adversarial corpus + a seeded random pile of objects (≈400 cases) assert
+  `ManifestValidator` is TOTAL + fail-closed: every input yields a `ModuleManifest` (with a path-safe slug) or a
+  `ModuleException`, and NEVER any other Throwable. (The fuzz harness itself caught a bug — in the test, not the
+  validator — proving the loop reaches the parser.)
+- `BbcodeFuzzTest` — ≈600 seeded random BBCode token streams assert `BbcodeConverter` never throws, leaks no
+  KNOWN bracket tag, and does not catastrophically backtrack on a 2000-deep nest.
+
+**Dusk:** intentionally NOT added. The flows above are server-rendered Livewire components fully exercised by
+`Livewire::test` (the consent panel, layout configurator, token settings) — there is no new browser-only/JS
+behaviour a real browser would catch that the feature tests don't, and the sandbox has no browser driver. Dusk
+stays reserved for genuinely JS-driven flows.

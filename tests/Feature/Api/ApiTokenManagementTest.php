@@ -48,6 +48,22 @@ it('lets a user revoke their own token but not another user\'s', function () {
     expect(ApiToken::find($ownerToken->id))->toBeNull();
 });
 
+it('supports ROTATING a token — issue a replacement, revoke the old, the new one still resolves', function () {
+    $user = Users::inGroups(['members', 'tl1']);
+    $this->actingAs($user);
+
+    $old = app(ApiTokenService::class)->issue($user, 'ci')['token'];
+
+    // Rotate: issue a replacement through the SFC, capture its one-time plaintext, then revoke the old.
+    $component = Livewire::test('settings.api-tokens')->set('name', 'ci (rotated)')->call('create')->assertHasNoErrors();
+    $newPlaintext = (string) $component->get('plaintext');
+    $component->call('revoke', $old->id);
+
+    expect(ApiToken::find($old->id))->toBeNull()                                       // old revoked
+        ->and(app(ApiTokenService::class)->resolve($newPlaintext))->not->toBeNull()    // replacement works
+        ->and(app(ApiTokenService::class)->resolve($newPlaintext)?->name)->toBe('ci (rotated)');
+});
+
 it('forbids a guest from the token component', function () {
     Livewire::test('settings.api-tokens')->assertForbidden();
 });
