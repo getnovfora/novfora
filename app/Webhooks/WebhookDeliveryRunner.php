@@ -8,18 +8,21 @@ namespace App\Webhooks;
 
 use App\Models\WebhookDelivery;
 use App\Models\WebhookEndpoint;
-use Illuminate\Support\Facades\Http;
 
 /**
  * Drains pending webhook deliveries (ADR-0033) — the cron-driven egress, so delivery degrades gracefully on
- * the baseline (no persistent worker) tier. Each due delivery is signed (WebhookSigner) and POSTed with a short
- * timeout; a 2xx marks it delivered, anything else schedules an exponential-backoff retry and gives up after
- * `max_attempts`. Idempotent at the row level: a delivery only advances its own status, so a mid-kill re-run
- * just re-attempts the rows still pending.
+ * the baseline (no persistent worker) tier. Each due delivery is signed (WebhookSigner) and POSTed through the
+ * SSRF-safe {@see WebhookUrlGuard} (resolve→classify→pin→re-validate each redirect hop) with a short timeout;
+ * a 2xx marks it delivered, anything else (incl. an SSRF block) schedules an exponential-backoff retry and
+ * gives up after `max_attempts`. Idempotent at the row level: a delivery only advances its own status, so a
+ * mid-kill re-run just re-attempts the rows still pending.
  */
 final class WebhookDeliveryRunner
 {
-    public function __construct(private readonly WebhookSigner $signer) {}
+    public function __construct(
+        private readonly WebhookSigner $signer,
+        private readonly WebhookUrlGuard $guard,
+    ) {}
 
     public function runPending(int $limit = 100): int
     {
@@ -53,10 +56,9 @@ final class WebhookDeliveryRunner
         $headers = $this->signer->headers($body, $endpoint->secret);
 
         try {
-            $response = Http::timeout(10)
-                ->withHeaders($headers)
-                ->withBody($body, 'application/json')
-                ->post($endpoint->url);
+            // The guard resolves + validates the host, pins the connection to a validated public IP, and
+            // re-validates every redirect hop. An SSRF block throws (caught below → scheduled retry).
+            $response = $this->guard->deliver($endpoint->url, $body, $headers, 10);
 
             if ($response->successful()) {
                 $delivery->update([

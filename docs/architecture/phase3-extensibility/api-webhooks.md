@@ -50,9 +50,17 @@ webhooks:deliver        ── scheduled every minute (overlap-guarded, skipped 
 - **Signing** — reuses the inbound verifier's scheme: `HMAC-SHA256("{timestamp}.{body}", secret)` sent as
   `X-NovFora-Signature` + `X-NovFora-Timestamp`, so a receiver verifies identically and can reject replays. The
   per-endpoint secret is **encrypted at rest**.
-- **SSRF guard** — `WebhookManager::assertSafeUrl` allows only http(s) and refuses loopback / private /
-  link-local / reserved hosts (literal IPs via `FILTER_FLAG_NO_PRIV_RANGE|NO_RES_RANGE`, plus obvious internal
-  suffixes). `novfora.webhooks.allow_private` opens it for local dev only. DNS-rebinding is out of scope.
+- **SSRF guard (apex, DNS-rebinding-safe)** — `App\Webhooks\WebhookUrlGuard`, in two layers. **(1) Create/update
+  time** (`assertConfigUrl`): a cheap http(s) + literal-IP + obvious-internal-hostname check (no DNS — a public
+  hostname's A records aren't knowable or stable when the endpoint is saved). **(2) Delivery time** (the
+  AUTHORITATIVE boundary, in `WebhookDeliveryRunner`): resolve every A/AAAA record and refuse if ANY resolves to
+  a private / loopback / link-local / reserved / CGNAT / cloud-metadata (`169.254.169.254`) / IPv6-ULA /
+  IPv4-mapped / 6to4 / NAT64 address; **pin** the connection to a validated IP (`CURLOPT_RESOLVE`) so it can't
+  be rebound between resolve and connect; and **re-validate every redirect hop** (a 30x to an internal URL is
+  the classic bypass). Because (2) runs at delivery, a hostname that looked public when saved but is later
+  re-pointed at an internal address (DNS rebinding) is caught. The address deny-list
+  (`App\Support\Ssrf\IpClassifier`) is shared with the oEmbed fetcher — one source of truth for both egress
+  surfaces. `novfora.webhooks.allow_private` opens it for local dev only.
 - **ACP** — *Admin → Webhooks* (admins-only: `admin.access` + 2FA) creates/toggles/removes endpoints; every
   write is audited.
 

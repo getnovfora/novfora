@@ -10,16 +10,16 @@ use App\Models\WebhookEndpoint;
 use App\Support\Audit;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
-use InvalidArgumentException;
 
 /**
  * Manages outbound webhook endpoints (ADR-0033) — the single audited writer. The DELIVERABLE EVENTS are a
  * closed set (the core domain events); an endpoint's subscription is intersected with it, so a stored endpoint
  * can never subscribe to something undeliverable.
  *
- * SSRF GUARD (apex): the destination URL is validated on create/update — http(s) only, and (unless explicitly
- * allowed in config for local development) loopback / private / link-local / reserved hosts are refused, so a
- * webhook can't be pointed at an internal service. Full DNS-rebinding protection is out of scope and documented.
+ * SSRF GUARD (apex): the destination URL is validated by {@see WebhookUrlGuard} — a cheap http(s) / literal-IP
+ * / internal-hostname check on create/update, plus the AUTHORITATIVE resolve→classify→pin→re-validate-each-
+ * redirect-hop check at delivery time ({@see WebhookDeliveryRunner}), which closes the DNS-rebinding gap.
+ * `novfora.webhooks.allow_private` opens it for local dev only.
  */
 final class WebhookManager
 {
@@ -32,6 +32,8 @@ final class WebhookManager
      * DB queries (it stays under the documented per-action query budgets). Refreshed on every endpoint write.
      */
     public const ACTIVE_FLAG = 'novfora:webhooks:has_active';
+
+    public function __construct(private readonly WebhookUrlGuard $guard) {}
 
     /**
      * @param  list<string>  $events
@@ -99,34 +101,9 @@ final class WebhookManager
         return array_values(array_intersect(self::EVENTS, $events));
     }
 
+    /** Create/update-time URL validation — delegates to the apex {@see WebhookUrlGuard}. */
     public function assertSafeUrl(string $url): void
     {
-        $parts = parse_url($url);
-        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
-        $host = (string) ($parts['host'] ?? '');
-        if (! in_array($scheme, ['http', 'https'], true) || $host === '') {
-            throw new InvalidArgumentException('Webhook URL must be a valid http(s) URL.');
-        }
-        if (config('novfora.webhooks.allow_private', false)) {
-            return;
-        }
-        if ($this->isPrivateHost($host)) {
-            throw new InvalidArgumentException('Webhook URL may not target a loopback, private, or reserved address.');
-        }
-    }
-
-    private function isPrivateHost(string $host): bool
-    {
-        $host = strtolower(trim($host, '[]')); // strip IPv6 brackets
-        if (in_array($host, ['localhost', '0.0.0.0'], true)) {
-            return true;
-        }
-        if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
-            // A literal IP is private/reserved unless it passes the NO_PRIV_RANGE + NO_RES_RANGE filter.
-            return filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
-        }
-
-        // Hostnames: refuse the obvious internal suffixes; DNS resolution (rebinding) is out of scope.
-        return str_ends_with($host, '.local') || str_ends_with($host, '.internal') || $host === 'localhost';
+        $this->guard->assertConfigUrl($url);
     }
 }

@@ -1324,3 +1324,52 @@ PR → merge): B1 modules (ADR-0031), B2 theming/layout (ADR-0032), B3 REST API 
 importers (ADR-0034, phpBB built + MyBB/SMF scaffolded), B5 analytics (ADR-0035). Design set:
 `docs/architecture/phase3-extensibility/`. Each ADR is **Accepted — owner-authorized overnight build; flagged
 for review** and should get a human review pass before the 1.0 line.
+
+---
+
+## Phase 3 — Hardening pass (2026-06-13, owner-authorized)
+
+> A focused pass to PROVE and HARDEN Phase 3 before more is built on it: close every "flagged for review"
+> follow-up from ADR-0031…0035, run an adversarial review over the extensibility surface, expand coverage, and
+> dogfood the semver'd contract. No new phase. Each item is its own gated, committed unit. Gates (PHP 8.3-line
+> baseline, run on PHP 8.5 here): `php artisan migrate` · `pest` (single-process) · `pint` · `phpstan`.
+
+### H1 — Webhook SSRF / DNS-rebinding hardening (APEX, closes the ADR-0033 flag)
+
+**Flag closed:** ADR-0033 noted the webhook SSRF guard was "literal-host/IP-based (no DNS resolution → a
+hostname that resolves to a private IP isn't caught); DNS-rebinding out of scope." That gap is now closed.
+
+**Decision:** introduce `App\Webhooks\WebhookUrlGuard` and route delivery through it, with the dangerous range
+logic shared via a new `App\Support\Ssrf` kernel (one source of truth across BOTH egress surfaces — webhooks
+and the pre-existing oEmbed fetcher):
+- `App\Support\Ssrf\IpClassifier::isBlocked($ip)` — the SSRF deny-list (private / loopback / link-local /
+  reserved / CGNAT 100.64/10 / cloud-metadata 169.254.169.254 / IPv6 ULA fc00::/7 / link-local fe80::/10 /
+  IPv4-mapped / unspecified / 6to4 2002::/16 / NAT64 64:ff9b::/96). Lifted verbatim from the proven oEmbed guard.
+- `App\Support\Ssrf\UrlSafety` — shared redirect/resolve helpers (`locationIsUnsafe` CRLF/empty check,
+  `absolutize`, `resolvePins` CURLOPT_RESOLVE pin builder, `systemResolve` A+AAAA).
+- `App\Content\Oembed\SsrfGuard` now DELEGATES `isBlockedIp` + the helpers to the shared kernel (behaviour
+  identical — its permanent SSRF battery, incl. the IPv6-transition bypass cases and the `locationIsUnsafe`
+  reflection test, stays green), so the two guards can never drift.
+
+**Two-layer model.** (1) Create/update time (`assertConfigUrl`): a cheap http(s) + literal-IP + internal-
+hostname check, NO DNS — deliberately, so a public hostname (e.g. a `.test` host in CI, or any host whose A
+records change) is accepted and the authoritative check is deferred. (2) **Delivery time** (`deliver`, the
+authoritative boundary, in `WebhookDeliveryRunner`): resolve every record, refuse if ANY is blocked, pin the
+connection to a validated IP (closing the resolve-vs-connect rebinding gap), and re-validate every redirect
+hop. An SSRF block raises `App\Support\Ssrf\SsrfException`, caught by the runner → a scheduled retry (uniform
+with any other delivery failure), and nothing is sent. `novfora.webhooks.allow_private` still opens it for
+local dev only.
+
+**Non-obvious calls.** Config-time stays DNS-free on purpose (resolving at save time would both break on
+non-resolving test hosts and give a false sense of safety, since DNS can change before delivery — which is
+exactly rebinding). The resolver is injectable so the rebinding simulation + metadata-endpoint attempt are
+deterministic without real DNS. Following redirects (re-validating each hop) is kept rather than refused, to
+satisfy the "re-validate every hop" requirement; the payload is IDs-only so a redirected delivery leaks nothing
+sensitive even before the re-validation refuses an internal hop.
+
+**Tests (`tests/Feature/Webhooks/WebhookSsrfTest.php`, PERMANENT):** config-time refusals + public acceptance;
+delivery-time rebinding (public-at-save → private-at-delivery → refused, nothing sent); cloud-metadata attempt;
+mixed-records (any-blocked) refusal; fail-closed on no-resolve; redirect-to-internal re-validation; missing/
+unsafe Location; happy-path delivery; the `allow_private` dev escape; and an end-to-end runner test (a rebound
+host → scheduled retry, `last_error` records the block, nothing sent). The existing `WebhookTest` delivery
+cases now bind a deterministic public-IP resolver (delivery is SSRF-guarded). oEmbed suite unchanged + green.
