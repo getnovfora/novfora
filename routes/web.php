@@ -2,6 +2,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 
+use App\Community\MembersDirectory;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\TasksController;
 use App\Http\Controllers\AppearanceController;
@@ -87,6 +88,15 @@ if ((bool) config('novfora.deliverability.webhook.enabled') && (string) config('
 
 // Member profiles (data-model §1) — public read.
 Route::get('/users/{user}', [ProfileController::class, 'show'])->name('profiles.show');
+
+// Members directory (public listing) — visibility is admin-controlled (Admin → Members → Directory). The
+// gate and the directory component share App\Community\MembersDirectory::visibleTo(); a non-visible viewer
+// gets a 404 (no disclosure). The route stays registered so the nav can Route::has() it.
+Route::get('/members', function () {
+    abort_unless(MembersDirectory::visibleTo(auth()->user()), 404);
+
+    return view('members.index');
+})->name('members.index');
 
 // Compose / moderate / upload — authenticated + email-verified.
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -232,4 +242,7 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/settings/antispam', 'admin.settings.antispam')->name('settings.antispam');
         Route::view('/settings/appearance', 'admin.settings.appearance')->name('settings.appearance');
         Route::view('/settings/themes', 'admin.settings.themes')->name('settings.themes'); // visual theme editor
+
+        // Members directory visibility (the public /members listing is gated on this setting).
+        Route::view('/members/directory', 'admin.members.directory')->name('members.directory');
     });

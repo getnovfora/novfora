@@ -99,6 +99,11 @@ final class SettingsRegistry
             new SettingDefinition('appearance.poster_position', 'string', default: 'left', group: 'appearance', label: 'Poster-info position', options: ['top', 'left', 'right']),
             new SettingDefinition('appearance.board_list_style', 'string', default: 'info-rich', group: 'appearance', label: 'Board-list style', options: ['info-rich', 'minimal']),
             new SettingDefinition('appearance.wordmark', 'string', default: '', group: 'appearance', label: 'Wordmark text'),
+
+            // ── Members directory (public listing) ──────────────────────────────────────────────────
+            // Gates the public /members directory. 'everyone' (incl. guests) → 'members' (signed-in) →
+            // 'staff' → 'disabled' (off). Read by App\Community\MembersDirectory::visibleTo().
+            new SettingDefinition('members.directory_visibility', 'string', default: 'everyone', group: 'members', label: 'Members directory visibility', options: ['disabled', 'staff', 'members', 'everyone']),
         ];
     }
 }
