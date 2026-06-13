@@ -18,6 +18,9 @@ use App\Content\ContentSanitizer;
  * though it runs in-process with full PHP trust — can never smuggle `<script>`/`<style>` or otherwise
  * unsanitised markup into a rendered page through a slot. Interactive UI is out of scope for a slot string;
  * a module that needs it registers its own route / Livewire component instead.
+ *
+ * RESILIENCE (P1): a slot renderer that THROWS is isolated — caught, reported, and skipped — so one faulty
+ * (full-trust) module can't break the whole outlet (and the page). Complements H3's load-time disable-on-fatal.
  */
 final class SlotRegistry
 {
@@ -47,7 +50,13 @@ final class SlotRegistry
 
         $html = '';
         foreach ($renderers as $slot) {
-            $out = ($slot['renderer'])($context);
+            try {
+                $out = ($slot['renderer'])($context);
+            } catch (\Throwable $e) {
+                report($e); // a faulty slot renderer is skipped, never allowed to break the page
+
+                continue;
+            }
             if (is_string($out)) {
                 $html .= $out;
             }

@@ -1488,3 +1488,51 @@ migration on enable (batch 1) + a second on upgrade (batch 2) and asserts BOTH a
 - ADR-0031: a full asymmetric PACKAGE SIGNATURE and a real PHP SANDBOX remain out of scope (see H3) — the
   integrity hash + consent + disable-on-fatal + kill switch are the honest mitigations for a full-trust,
   local-install model. No half-measures were built.
+
+## Phase 3 — Adversarial review (P1, 2026-06-13, APEX)
+
+> A fresh skeptic pass (verify-then-refute) over the whole extensibility surface, on top of the overnight
+> build's per-subsystem review. Each vector below is recorded with its verdict; the one MEDIUM is fixed.
+
+**Plugin lifecycle & path handling — REFUTED (already hardened).** `dirFor`/`srcPath`/`migrationsPath`/
+`manifestFor`/`packageHash` all route the slug through `ManifestValidator::assertSlug` (the chokepoint the
+overnight build added after the HIGH traversal fix), pinned by the traversal-refusal test. `discover()` skips
+invalid manifests and the manifest-slug-vs-directory cross-check bounds it. A symlink planted in `modules/` is
+an admin/full-trust act and the slug cross-check still applies. No new issue.
+
+**Manifest parsing — REFUTED.** `ManifestValidator` is fail-closed: bounded JSON depth (64), strict slug /
+namespace (reserved-root refusal) / provider-in-namespace / semver / permission-key regex + scope-kind, bounded
+strings, dup-key refusal. A pathologically large permissions array is admin-trust (local file), bounded only by
+good sense — noted, not a vuln. Fuzzed in P2.
+
+**Hook / event / filter payloads — MEDIUM, FIXED.** The sanitisation contract held (slot output + `post.html`
+filter output are both re-sanitised — verified at `ContentRenderer:49-51` and `SlotRegistry::render`), and a
+filter is value-transform-only (cannot widen a permission decision). **But** a filter callback or slot renderer
+that THREW was not isolated — a single faulty (full-trust) module could 500 every post render / break an outlet.
+**Fix:** `HookRegistry::applyFilters` and `SlotRegistry::render` now catch a throwing callback, `report()` it,
+and skip it (the running value / the other renderers survive) — the per-call complement to H3's load-time
+disable-on-fatal. Pinned by two new `HookSlotTest` cases.
+
+**REST authz (bypass hunt) — REFUTED.** Every `/api/v1` endpoint resolves the token→user and authorizes via
+`$user->canDo(...)` on the resource's `permissionScope()` through the SAME `PermissionResolver` as the web UI;
+writes go through the SAME `PostService` (trust gating / sanitisation / approval) — there is NO second code path
+to bypass. Posts are filtered to `approved`. A global NEVER on `forum.view` / `post.create` denies the read
+filter, the per-forum topics read, AND the write (tests). Route-model binding excludes soft-deleted rows.
+
+**API token handling + rate limits — REFUTED.** Tokens are sha256-hashed (indexed lookup, no plaintext stored/
+logged), reject expired + non-active-owner; the plaintext is shown once. `throttle:api` (60/min) runs AHEAD of
+token auth (route middleware order) so floods are IP-bounded before the lookup — keying by IP pre-auth is the
+deliberate trade (per-user keying would need auth-before-throttle, exposing the lookup to floods).
+
+**Webhook HMAC + the new SSRF guard — REFUTED (H1).** HMAC-SHA256 over `{ts}.{body}`; the per-endpoint secret
+is encrypted at rest; payloads are IDs-only. The H1 guard resolves+classifies+pins+re-validates each redirect
+hop at delivery (the authoritative boundary), shared deny-list with oEmbed. `allow_private` is documented
+dev-only.
+
+**Importer parsing of untrusted dumps — REFUTED.** Drivers read the legacy DB via the parameterised query
+builder (no SQLi from dump data); legacy content flows through `BbcodeConverter` then the post pipeline's
+`ContentSanitizer` (a `<script>` in a legacy body is stripped); usernames/emails are deduped + length-bounded
+and rendered escaped. The `--prefix` / connection are operator-supplied (CLI), not untrusted-dump input. The
+manifest + BBCode parsers are fuzzed in P2.
+
+**Net:** 1 MEDIUM (filter/slot exception isolation) found + fixed; all other vectors verified-safe. No HIGH.

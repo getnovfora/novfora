@@ -63,3 +63,21 @@ it('re-sanitises post.html filter output so a filter cannot inject script', func
         ->not->toContain('<script>')
         ->not->toContain('alert(1)');
 });
+
+it('isolates a THROWING filter — skips it, keeps the running value (P1 resilience)', function () {
+    Hook::addFilter('x.value', fn (string $v) => $v.'-ok', priority: 10);
+    Hook::addFilter('x.value', fn (string $v) => throw new RuntimeException('boom'), priority: 20);
+    Hook::addFilter('x.value', fn (string $v) => $v.'-after', priority: 30);
+
+    // The throwing filter is reported + skipped; the others still apply (no 500 from a faulty plugin).
+    expect(Hook::applyFilters('x.value', 'start'))->toBe('start-ok-after');
+});
+
+it('isolates a THROWING slot renderer — skips it, keeps the rest (P1 resilience)', function () {
+    app(SlotRegistry::class)->addSlot('footer.widgets', fn () => '<span class="a">A</span>', priority: 10);
+    app(SlotRegistry::class)->addSlot('footer.widgets', fn () => throw new RuntimeException('boom'), priority: 20);
+    app(SlotRegistry::class)->addSlot('footer.widgets', fn () => '<span class="c">C</span>', priority: 30);
+
+    $html = app(SlotRegistry::class)->render('footer.widgets');
+    expect($html)->toContain('class="a"')->toContain('class="c"'); // the faulty renderer didn't break the outlet
+});
