@@ -231,4 +231,5 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/settings/moderation', 'admin.settings.moderation')->name('settings.moderation');
         Route::view('/settings/antispam', 'admin.settings.antispam')->name('settings.antispam');
         Route::view('/settings/appearance', 'admin.settings.appearance')->name('settings.appearance');
+        Route::view('/settings/themes', 'admin.settings.themes')->name('settings.themes'); // visual theme editor
     });

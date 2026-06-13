@@ -34,6 +34,11 @@
         $appearanceCss .= "@media (prefers-color-scheme: dark){:root:not([data-theme='light']){".$vars($accent['dark']).'}}';
         $appearanceCss .= ":root[data-theme='dark']{".$vars($accent['dark']).'}';
     }
+
+    // DB-backed style theme (ACP visual theme editor): the active theme's compiled CSS (its AA-safe accent +
+    // sanitised custom CSS), cached and read once per request. Emitted AFTER the appearance overrides below
+    // so an active theme wins on equal specificity.
+    $styleThemeCss = app(\App\Theme\StyleThemeManager::class)->css();
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
@@ -77,6 +82,12 @@
          AFTER the bundle so equal-specificity :root rules win; values are validated hex / a fixed width map. --}}
     @if ($appearanceCss)
         <style @if ($nonce) nonce="{{ $nonce }}" @endif>{!! $appearanceCss !!}</style>
+    @endif
+
+    {{-- Active DB-backed style theme (ACP visual theme editor): compiled accent vars + sanitised custom CSS,
+         emitted last so an active theme overrides the site Appearance accent. --}}
+    @if ($styleThemeCss)
+        <style @if ($nonce) nonce="{{ $nonce }}" @endif>{!! $styleThemeCss !!}</style>
     @endif
 </head>
 <body class="min-h-dvh flex flex-col bg-surface text-ink">
