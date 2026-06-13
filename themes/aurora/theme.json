@@ -1,0 +1,7 @@
+{
+    "slug": "aurora",
+    "name": "Aurora",
+    "version": "1.0.0",
+    "api_version": "^1.0",
+    "description": "An example NovFora filesystem child theme: a distinct, AA-safe aurora-teal accent palette plus footer branding, demonstrating the Blade view-override API (themes/<slug>/views/...). Distinct from the in-admin DB style editor."
+}

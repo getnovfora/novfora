@@ -1048,3 +1048,18 @@ Non-obvious calls:
 - **`reputation_points` is read off the already-loaded User model** (no extra query). Tests pin: promote
   at/over the threshold, held below it, **no spurious demote** for a rep dip (the floor), structural demotion
   still fires, idempotent recompute, and the upgrade-migration backfill + reversibility.
+
+### A4 — Second example theme (`themes/aurora`)
+A shipped filesystem child theme exercising the `ThemeManager` view-override API — distinct from the DB
+style editor (ADR-0029). Non-obvious calls:
+- **Two minimal core override seams added** so a filesystem theme can ship a SITE-WIDE palette without
+  overriding the monolithic `layouts/app.blade.php`: `@include('partials.theme-head', ['nonce' => $nonce])`
+  in `<head>` (emitted LAST so a theme accent wins on equal specificity, like the DB style theme) and
+  `@include('partials.footer-tagline')` in the footer. Both default partials are inert (the footer renders
+  the same text as before — no test asserted it), so the change is invisible until a theme overrides them.
+- **The palette is AA-derived, not hand-picked** — Aurora's `theme-head` override feeds its accent
+  (`#0e7490`, a deep teal) through `App\Support\AccentPalette`, the same WCAG-AA machinery the Appearance
+  accent and the style editor use, so the light/dark accent inks are guaranteed AA. CSP-nonce-aware.
+- **Ships inactive** — no active theme by default, so the default appearance is unchanged; an admin selects
+  Aurora via `NOVFORA_THEME` / Appearance. Tests mirror `ThemeOverrideTest`: boot + direct view render,
+  asserting the override resolves ahead of core and the core defaults render when inactive.

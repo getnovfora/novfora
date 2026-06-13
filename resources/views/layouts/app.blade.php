@@ -89,6 +89,10 @@
     @if ($styleThemeCss)
         <style @if ($nonce) nonce="{{ $nonce }}" @endif>{!! $styleThemeCss !!}</style>
     @endif
+
+    {{-- Filesystem child-theme head injection (a theme overrides partials.theme-head). Emitted last so a
+         theme's accent palette wins on equal specificity, like the DB style theme above. --}}
+    @include('partials.theme-head', ['nonce' => $nonce])
 </head>
 <body class="min-h-dvh flex flex-col bg-surface text-ink">
     {{-- a11y floor (ADR-0009 §3.3): skip link + a single main landmark. Themes may restyle, not remove. --}}
@@ -244,7 +248,7 @@
 
     <footer class="border-t border-line bg-surface-raised">
         <x-ui.container size="xl" class="flex flex-col sm:flex-row items-center justify-between gap-3 py-6 text-sm text-ink-muted">
-            <p>{{ config('app.name', 'NovFora') }} — open-source community platform.</p>
+            <p>@include('partials.footer-tagline')</p>
             {{-- Density quick-switch (available to everyone; persists server-side when signed in). --}}
             <div x-data="{ d: document.documentElement.getAttribute('data-density') || 'comfortable' }"
                  x-on:novfora:density.window="d = $event.detail"
