@@ -111,6 +111,7 @@ final class ModuleManager
                 'api_version' => $manifest->apiVersion,
                 'enabled' => false,
                 'installed_at' => now(),
+                'package_hash' => $this->packageHash($slug), // integrity baseline recorded at install
                 'meta' => $this->metaFor($manifest),
             ],
         );
@@ -119,24 +120,37 @@ final class ModuleManager
         return $module;
     }
 
-    public function enable(string $slug): Module
+    public function enable(string $slug, bool $acknowledgeTrust = false): Module
     {
         $module = $this->installed($slug);
         $manifest = $this->manifestFor($slug);
         $this->assertCompatible($manifest);
         $this->assertDependencies($manifest);
 
+        // CONSENT GATE (apex): enabling a module loads its PHP in-process with FULL server trust. Refuse unless
+        // an admin has explicitly acknowledged that. Consent is recorded ONCE per module and carries across a
+        // later disable/enable, so the admin isn't re-prompted for a module they already vouched for.
+        if ($module->consented_at === null && ! $acknowledgeTrust) {
+            throw new ModuleException(
+                "Enabling '{$slug}' runs its code with full server trust. Confirm you trust this module to proceed."
+            );
+        }
+
         $this->registerPermissions($module, $manifest);
         $this->runMigrations($slug);
 
         $module->forceFill([
             'enabled' => true,
+            'consented_at' => $module->consented_at ?? now(),
+            'package_hash' => $this->packageHash($slug), // bless the current files as the integrity baseline
+            'failed_at' => null,                          // clear any prior disable-on-fatal quarantine
+            'last_error' => null,
             'name' => $manifest->name,
             'version' => $manifest->version,
             'api_version' => $manifest->apiVersion,
             'meta' => $this->metaFor($manifest),
         ])->save();
-        Audit::log('module.enabled', $module, ['slug' => $slug, 'version' => $manifest->version]);
+        Audit::log('module.enabled', $module, ['slug' => $slug, 'version' => $manifest->version, 'package_hash' => $module->package_hash]);
 
         return $module;
     }
@@ -178,6 +192,7 @@ final class ModuleManager
             'name' => $manifest->name,
             'version' => $manifest->version,
             'api_version' => $manifest->apiVersion,
+            'package_hash' => $this->packageHash($slug), // re-bless the integrity baseline for the new version
             'meta' => $this->metaFor($manifest),
         ])->save();
         Audit::log('module.upgraded', $module, ['slug' => $slug, 'to' => $manifest->version]);
@@ -192,6 +207,102 @@ final class ModuleManager
         $this->dropPermissions($module);
         Audit::log('module.removed', $module, ['slug' => $slug]);
         $module->delete();
+    }
+
+    /**
+     * A content hash of the package — sha-256 over a path-sorted serialisation of `module.json` plus every PHP
+     * file under `src/` and `database/migrations/`. Recorded at install/enable/upgrade as the admin-blessed
+     * baseline so {@see integrityStatus()} can flag files that changed since (tamper / accidental-edit detection).
+     */
+    public function packageHash(string $slug): ?string
+    {
+        $dir = $this->dirFor($slug); // routes through the slug boundary guard (no traversal)
+        if (! is_dir($dir)) {
+            return null;
+        }
+
+        $files = is_file($dir.'/module.json') ? ['module.json'] : [];
+        foreach (['src', 'database/migrations'] as $sub) {
+            $base = $dir.'/'.$sub;
+            if (! is_dir($base)) {
+                continue;
+            }
+            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($base, \FilesystemIterator::SKIP_DOTS));
+            foreach ($iterator as $file) {
+                if ($file instanceof \SplFileInfo && $file->isFile() && strtolower($file->getExtension()) === 'php') {
+                    $files[] = $sub.'/'.str_replace('\\', '/', substr($file->getPathname(), strlen($base) + 1));
+                }
+            }
+        }
+        sort($files);
+
+        $hash = hash_init('sha256');
+        foreach ($files as $rel) {
+            $path = $dir.'/'.$rel;
+            if (is_file($path)) {
+                hash_update($hash, $rel."\0".(string) file_get_contents($path)."\0");
+            }
+        }
+
+        return hash_final($hash);
+    }
+
+    /** 'verified' (files match the blessed hash), 'modified' (differ), or 'unknown' (no baseline / files gone). */
+    public function integrityStatus(string $slug): string
+    {
+        $module = Module::where('slug', $slug)->first();
+        if (! $module instanceof Module || $module->package_hash === null) {
+            return 'unknown';
+        }
+        $current = $this->packageHash($slug);
+
+        return $current !== null && hash_equals($module->package_hash, $current) ? 'verified' : 'modified';
+    }
+
+    /**
+     * Disable-on-fatal (apex): a module whose provider throws while loading is QUARANTINED — disabled + the
+     * error recorded — so it is skipped on the next boot instead of repeatedly white-screening the site.
+     * Called by {@see ModuleLoader} from a caught Throwable; swallows its own errors so the safety net can
+     * never itself fatal a request.
+     */
+    public function quarantine(string $slug, string $error): void
+    {
+        try {
+            $module = Module::where('slug', $slug)->first();
+            if (! $module instanceof Module) {
+                return;
+            }
+            $module->forceFill(['enabled' => false, 'failed_at' => now(), 'last_error' => mb_substr($error, 0, 1000)])->save();
+            Audit::log('module.quarantined', $module, ['slug' => $slug, 'error' => mb_substr($error, 0, 250)]);
+        } catch (\Throwable) {
+            // never let the safety net itself break the request
+        }
+    }
+
+    /** Whether the global module KILL SWITCH (file-based safe mode) is engaged — ModuleLoader loads nothing. */
+    public function safeMode(): bool
+    {
+        return is_file($this->safeModeMarker());
+    }
+
+    public function engageSafeMode(): void
+    {
+        @file_put_contents($this->safeModeMarker(), 'engaged '.now()->toIso8601String());
+        Audit::log('module.safe_mode.engaged', null, []);
+    }
+
+    public function releaseSafeMode(): void
+    {
+        $marker = $this->safeModeMarker();
+        if (is_file($marker)) {
+            @unlink($marker);
+        }
+        Audit::log('module.safe_mode.released', null, []);
+    }
+
+    private function safeModeMarker(): string
+    {
+        return (string) config('novfora.modules.safe_mode_marker', storage_path('modules-safe-mode'));
     }
 
     private function installed(string $slug): Module

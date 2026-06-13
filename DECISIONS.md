@@ -1428,3 +1428,41 @@ pins this.
 **Tests:** each driver's import test gained an attachment case (a real temp file → driver reads it → stored on a
 faked disk → checksum matches the source sha-256 → `verify()['attachments']['checksum_ok']` + `['content']['ok']`
 true). 10 importer tests green. The attachment base dir is injected, so the tests are self-contained.
+
+### H3 — Plugin trust guardrails (APEX, closes the ADR-0031 full-trust flag)
+
+**Flag addressed:** ADR-0031 flagged "the full-trust execution model (documented, unavoidable for PHP)". A real
+PHP sandbox remains **out of scope** (unchanged — no half-sandbox was built, per the run's instruction). Instead
+H3 adds the explicit, audited guardrails AROUND the full-trust fact so an operator enables code knowingly and a
+bad module can't take the site down.
+
+**Decision (four guardrails, new migration adds `consented_at`/`package_hash`/`failed_at`/`last_error`):**
+- **Full-trust consent gate.** `ModuleManager::enable($slug, $acknowledgeTrust=false)` refuses (with a clear
+  message) until an admin explicitly acknowledges that the module runs with full server trust. Consent is
+  recorded once (`consented_at`) and carries across a later disable/enable. The ACP enable button now opens a
+  consent panel that names the module's **declared capabilities** (the manifest `provides`) before confirming.
+- **Package integrity check.** Install/enable/upgrade record a `package_hash` — sha-256 over a path-sorted
+  serialisation of `module.json` + every PHP file under `src/` + `database/migrations/`. `integrityStatus()`
+  re-hashes on demand and the ACP shows `verified` / `modified` (`modified` = the on-disk files changed since
+  the admin blessed them — tamper / accidental-edit detection). *(A full asymmetric PACKAGE SIGNATURE — detached
+  sig + a configured trusted key — is a documented future enhancement; for a local-install model with no remote
+  fetch/marketplace, tamper-detection-vs-blessed-state is the high-value piece and signing is lower-value until
+  there is a distribution channel. Flagged, not built — no half-measure.)*
+- **Disable-on-fatal quarantine.** `ModuleLoader` wraps each module's provider registration in try/catch; a
+  Throwable → `ModuleManager::quarantine()` disables the module + records `failed_at`/`last_error` + audits
+  `module.quarantined`, so a crashing module is skipped next boot instead of white-screening the site. (A hard
+  parse error in a module file is uncatchable here — that is what the kill switch is for.)
+- **Kill switch.** A file-based safe-mode marker (`novfora.modules.safe_mode_marker`, default
+  `storage_path('modules-safe-mode')`); while it exists `ModuleLoader` loads NO modules. File-based (not a DB
+  flag) so it works before the DB is reachable and survives a module that breaks boot — an operator can drop it
+  over FTP/cPanel. An admins-only ACP toggle writes/removes it.
+
+**Non-obvious calls.** The consent gate sits AFTER the compat/dependency checks (fail fast on a module that
+can't be enabled anyway) but BEFORE permissions/migrations run (no side effects without consent). The adversarial
+lifecycle tests pass `acknowledgeTrust: true` so they still exercise their target guard (dependency / core-key
+collision). Quarantine swallows its own errors so the safety net can never itself fatal a request.
+
+**Tests (`tests/Feature/Modules/ModuleTrustTest.php`):** consent refused-then-granted + recorded-once; integrity
+verified→modified on a tampered file (isolated temp module — parallel-safe); a faulty fixture provider that
+throws is quarantined (disabled + `last_error` + audit); the kill switch loads nothing even with a module
+enabled (marker isolated to a temp path). 34 Modules tests green.

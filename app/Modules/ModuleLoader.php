@@ -31,6 +31,9 @@ final class ModuleLoader
         if (! $this->modulesTableReady()) {
             return; // pre-install or mid-migration: nothing to load
         }
+        if ($this->manager->safeMode()) {
+            return; // KILL SWITCH engaged (file-based safe mode): load NO modules — the operator's escape hatch
+        }
 
         foreach (Module::query()->where('enabled', true)->get() as $module) {
             $this->load($app, $module);
@@ -42,14 +45,22 @@ final class ModuleLoader
         try {
             $manifest = $this->manager->manifestFor($module->slug);
         } catch (\Throwable) {
-            return; // files gone / manifest broke — skip this module, keep the site up
+            return; // files gone / manifest broke — skip (transient, e.g. mid-deploy); never a fatal boot
         }
 
-        if ($manifest->namespace !== null) {
-            $this->registerNamespace($manifest->namespace, $this->manager->srcPath($module->slug));
-        }
-        if ($manifest->provider !== null && class_exists($manifest->provider)) {
-            $app->register($manifest->provider);
+        try {
+            if ($manifest->namespace !== null) {
+                $this->registerNamespace($manifest->namespace, $this->manager->srcPath($module->slug));
+            }
+            if ($manifest->provider !== null && class_exists($manifest->provider)) {
+                $app->register($manifest->provider);
+            }
+        } catch (\Throwable $e) {
+            // DISABLE-ON-FATAL (apex): the module's OWN provider faulted while loading. Quarantine it (disable +
+            // record the error) so it is skipped next boot instead of repeatedly breaking the site; the ACP
+            // surfaces the reason. (A hard parse error in a module file is uncatchable here — that is what the
+            // global kill switch is for.)
+            $this->manager->quarantine($module->slug, $e->getMessage());
         }
     }
 

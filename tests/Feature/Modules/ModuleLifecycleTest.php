@@ -46,7 +46,7 @@ it('drives the example plugin install → enable → exercise → disable → re
 
     // install records it (disabled); enable runs its migration + registers its permission.
     $manager->install('novfora/hello');
-    $manager->enable('novfora/hello');
+    $manager->enable('novfora/hello', acknowledgeTrust: true); // explicit full-trust consent (H3 guardrail)
 
     $module = Module::where('slug', 'novfora/hello')->firstOrFail();
     expect($module->enabled)->toBeTrue()
@@ -102,7 +102,7 @@ it('refuses to enable a module whose dependency is not installed and enabled', f
     $manager = app(ModuleManager::class);
     $manager->install('test/needs-dep'); // install is fine — the API major is compatible
 
-    expect(fn () => $manager->enable('test/needs-dep'))
+    expect(fn () => $manager->enable('test/needs-dep', acknowledgeTrust: true))
         ->toThrow(ModuleException::class, 'installed and enabled');
     expect(Module::where('slug', 'test/needs-dep')->firstOrFail()->enabled)->toBeFalse();
 });
@@ -112,7 +112,7 @@ it('refuses to enable a module that tries to redefine a core permission key', fu
     $manager = app(ModuleManager::class);
     $manager->install('test/collide');
 
-    expect(fn () => $manager->enable('test/collide'))
+    expect(fn () => $manager->enable('test/collide', acknowledgeTrust: true))
         ->toThrow(ModuleException::class, 'redefine the core permission');
     expect(Module::where('slug', 'test/collide')->firstOrFail()->enabled)->toBeFalse();
 });

@@ -1,0 +1,8 @@
+{
+    "name": "Faulty",
+    "slug": "test/faulty",
+    "version": "1.0.0",
+    "api_version": "^1.0",
+    "namespace": "Modules\\Test\\Faulty\\",
+    "provider": "Modules\\Test\\Faulty\\FaultyServiceProvider"
+}
