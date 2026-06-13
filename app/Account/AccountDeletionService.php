@@ -24,6 +24,7 @@ use App\Models\Reaction;
 use App\Models\RegistrationCheck;
 use App\Models\Report;
 use App\Models\RoleAssignment;
+use App\Models\StaffNote;
 use App\Models\Topic;
 use App\Models\User;
 use App\Models\UserRelationship;
@@ -246,6 +247,11 @@ final class AccountDeletionService
 
             // warnings.issued_by has no FK → NULL it; warnings.user_id (a real FK) cascades with the row.
             Warning::where('issued_by', $userId)->update(['issued_by' => null]);
+
+            // Staff notes (A1): notes ABOUT this user (staff_notes.user_id) cascade with the row; notes this
+            // user AUTHORED about OTHERS survive but are de-identified — author_id has no FK, so NULL it (the
+            // note then renders "[Deleted]"), exactly like warnings.issued_by above.
+            StaffNote::where('author_id', $userId)->update(['author_id' => null]);
 
             // Relationship edges (follow + ignore) drop in BOTH directions — who the user followed/ignored
             // AND who followed/ignored them (P2-M5). Both endpoint FKs do cascadeOnDelete with the users row,

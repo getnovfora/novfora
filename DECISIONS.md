@@ -987,3 +987,28 @@ moderator action redirects with `navigate:false` (full reload) so the Alpine sto
 renders. The Dusk journey asserts the rank-guard OUTCOME (eligible deleted, higher-ranked survives), not a flash
 string, with generous waits for the slow local docker env (≈9 s page loads — the same env flakiness recorded for
 the M2B/installer journeys; validate in clean CI).
+
+---
+
+## Fast-follow backlog notes (2026-06-13, owner-authorized overnight build — flagged for review)
+
+> These are the M5-deferred fast-follows (PROJECT-STATE §3 / ADR-0028) and the two pre-existing concurrency
+> hardenings flagged in the P2-M5 review, built unattended as one pass. Each is real code + tests, gated green
+> and pushed per item. Non-obvious calls are recorded here; no locked stack/architecture decision changes.
+
+### A1 — Staff notes
+Private staff-only notes ABOUT a member (`staff_notes` table; `App\Models\StaffNote`; `App\Moderation\StaffNotes`
+authority; `<livewire:moderation.staff-notes>` SFC on the profile). Non-obvious calls:
+- **Gated on the EXISTING `bans.manage` (global), not a new permission key.** `bans.manage` is held by
+  moderators + admins (RoleSeeder), i.e. staff — so staff notes reuse the engine with no new ACL seeding, no
+  new mask semantics, and no second permission system (the project rule). The authority adds one clause the
+  raw permission can't express: **viewer ≠ subject**, so a note never appears on the subject's own profile even
+  when the subject is themselves staff ("never visible to the subject").
+- **Add = any staff; edit/delete = author OR admin.** `StaffNotes::canManage` is the single predicate; a note
+  whose author has been de-identified (author_id NULL) is manageable only by an admin.
+- **`staff_notes.author_id` carries no FK and is pseudonymised by the ADR-0025 cascade** (NULLed like
+  `warnings.issued_by`), so a note AUTHORED by a since-deleted staffer survives and renders "[Deleted]"; notes
+  ABOUT a deleted member cascade away via the `user_id` FK. (One line added to `AccountDeletionService::cascade`.)
+- **SFC self-guards in mount() AND every action** (Livewire actions carry no route middleware) — defence in
+  depth behind the profile `@if`. Body bounded at 5000 chars; every write audited
+  (`staff_note.created|updated|deleted`).
