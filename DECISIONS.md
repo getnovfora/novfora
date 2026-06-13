@@ -46,6 +46,7 @@ process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed
 | 0031 | **Module / plugin foundation (Phase 3 B1)** — local-only packages under `modules/`, a validated `module.json` manifest, a semver'd MODULE API (`ModuleApi::VERSION`), lifecycle (install/enable/disable/upgrade/remove) with pre-enable compat + dependency checks, event/filter/slot seams, manifest-declared permission keys that ADD to the existing engine (never redefine core), and an ACP surface; slot + filter HTML is always re-sanitised | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0031](#adr-0031--module--plugin-foundation-phase-3-b1-2026-06-13) |
 | 0032 | **Visual theming + layout configurator (Phase 3 B2)** — a semver'd theme-API contract (`ThemeApi`: AA-safe CSS token list + named regions), a layout-widget system (`WidgetRegistry` + built-in widgets, module-extensible) placed into regions via an admins-only ACP configurator; widget settings constrained to declared fields, admin HTML sanitised, output via `<x-region>` | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0032](#adr-0032--visual-theming--layout-configurator-phase-3-b2-2026-06-13) |
 | 0033 | **REST API + outbound webhooks (Phase 3 B3)** — a versioned `/api/v1` read/write API with hashed personal-token auth, authorized AS the user through the EXISTING permission engine, rate-limited + paginated; outbound webhooks with per-endpoint HMAC signing (the inbound verifier's scheme), cron-driven delivery with retry/backoff (baseline-safe), an SSRF-guarded endpoint URL, and an admins-only ACP | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0033](#adr-0033--rest-api--outbound-webhooks-phase-3-b3-2026-06-13) |
+| 0034 | **Importers (Phase 3 B4)** — a clean-room, driver-based legacy importer (phpBB built + tested; MyBB/SMF scaffolded behind the same `SourceDriver`); idempotent + resumable via an `import_maps` ledger, BBCode→markdown, 301 redirect maps served by a route fallback, and a count-reconciliation verify pass; reads the legacy DB schema (DATA only), never the reference program | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0034](#adr-0034--importers-phase-3-b4-2026-06-13) |
 
 ---
 
@@ -1250,3 +1251,40 @@ delivery that works on a shared host; zero new runtime dependencies. New reversi
 surface is deliberately small (read core + reply) and grows per the same versioned contract. 23 tests across
 the API (auth/401, engine-denied read+write, pagination, own-token revoke) and webhooks (SSRF refusal,
 subscribe filter, verifiable HMAC, retry/backoff, ACP authz).
+
+### ADR-0034 — Importers (Phase 3 B4) (2026-06-13)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context:** ADR-0013 specified resumable, verifying, SEO-preserving importers as Phase 3's answer to the
+incumbents' worst migration failures. B4 builds the architecture + one importer fully.
+
+**Decision:**
+- **Clean-room, driver-based.** A `SourceDriver` (interface) reads a legacy forum's DB **read-only** and maps
+  rows to a NovFora-shaped, source-agnostic vocabulary; the `ImportRunner` is identical across drivers. A
+  driver encodes only the reference forum's **public DB schema** to copy DATA — never its code or templates
+  (the strict clean-room rule applies even to SMF, whose BSD licence would permit code reuse).
+- **phpBB built + tested**; **MyBB and SMF scaffolded** behind the same contract (schema mapped, marked
+  unverified-against-a-live-board). Build at least one fully — done.
+- **Idempotent + resumable.** Every created entity is recorded in `import_maps` keyed `(source, kind,
+  source_id)` UNIQUE; a re-run skips what exists and resumes from the last id (keyset cursor) — a
+  multi-million-row import survives interruption and fits cron windows.
+- **Three stages:** preflight (counts + plan, read-only; aborts on an unreachable source), import (batched),
+  verify (count reconciliation per kind).
+- **Imports go through the Eloquent models, NOT the post/topic services**, so a bulk import fires NO domain
+  events — no webhook storm, no activity-feed flood, no reputation awards.
+- **SEO:** legacy URL patterns (phpBB `viewtopic.php?t=` / `viewforum.php?f=`) become 301 `redirects`, served
+  by a **route FALLBACK** (`LegacyRedirectController`) so the table is consulted only for an otherwise-
+  unmatched URL — never the hot path.
+- **Content:** `BbcodeConverter` (clean-room) maps BBCode → canonical markdown (strips phpBB's per-post
+  `bbcode_uid`); the post then renders + sanitises through the normal pipeline. Bots (phpBB `user_type=2`)
+  are excluded; the forum hierarchy and author/forum mappings are preserved.
+
+**Non-obvious calls / flagged:** **Passwords** — the legacy hash is stored via the `hashed` cast, which
+PRESERVES a valid bcrypt (`$2y$`) hash (Laravel verifies it + auto-rehashes to argon2id on first login) and
+re-hashes anything else; a legacy phpass/SHA hash that can't be verified simply fails the check, so that user
+resets (no forced reset for modern hashes). Usernames/emails are **deduped** (a colliding/empty value gets a
+source-id suffix or an `@imported.invalid` placeholder). The MyBB/SMF drivers force a reset (their hash schemes
+aren't Laravel-verifiable). **Verify is count-reconciliation**, not per-attachment (attachment import is a
+documented follow-up). New reversible tables `import_maps`, `redirects`. 3 phpBB tests (against a fake legacy
+sqlite DB): BBCode conversion, the full import (bots/hierarchy/content/redirect served by the fallback), and
+idempotent re-run + resume.

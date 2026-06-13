@@ -266,3 +266,7 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         // Members directory visibility (the public /members listing is gated on this setting).
         Route::view('/members/directory', 'admin.members.directory')->name('members.directory');
     });
+
+// Importer 301 redirect maps (ADR-0034) — the LAST route: only consulted for an otherwise-unmatched URL (a
+// legacy link), so the redirects table is never touched on the hot path.
+Route::fallback(\App\Http\Controllers\LegacyRedirectController::class);
