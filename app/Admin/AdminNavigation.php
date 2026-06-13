@@ -65,6 +65,7 @@ final class AdminNavigation
             ['Extend', 'folder', [
                 ['Modules & plugins', 'admin.modules', 'cog'],
                 ['Layout & widgets', 'admin.layout', 'sliders'],
+                ['Webhooks', 'admin.webhooks', 'mail'],
             ]],
             ['Moderation', 'flag', [
                 ['Approval queue', 'moderation.queue', 'check-circle', true],

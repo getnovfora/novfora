@@ -251,6 +251,9 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         // Layout / widget configurator (ADR-0032, B2) — the <livewire:admin.layout /> region editor.
         Route::view('/layout', 'admin.layout')->name('layout');
 
+        // Outbound webhooks (ADR-0033, B3) — the <livewire:admin.webhooks /> endpoint manager.
+        Route::view('/webhooks', 'admin.webhooks')->name('webhooks');
+
         // Settings pages (PART 3) — each a focused Livewire SFC on the Settings store.
         Route::view('/settings/general', 'admin.settings.general')->name('settings.general');
         Route::view('/settings/registration', 'admin.settings.registration')->name('settings.registration');

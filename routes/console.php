@@ -122,6 +122,14 @@ Schedule::call(function (): void {
     }
 })->daily()->name('novfora-cache-prune')->skip($duringRestore);
 
+// Outbound webhook egress (ADR-0033, B3): drain pending deliveries, signing + POSTing with retry/backoff.
+// The cron path makes delivery work on the baseline tier (no persistent worker); overlap-guarded so a coarse
+// interval never double-sends, and skipped during a restore (it touches webhook_deliveries).
+Schedule::command('webhooks:deliver')
+    ->everyMinute()
+    ->withoutOverlapping(5)
+    ->skip($duringRestore);
+
 // Privacy/GDPR retention (ADR-0007 §2.6): purge aged registration checks + expired blocklist cache.
 Schedule::command('novfora:antispam:purge')->daily()->skip($duringRestore);
 

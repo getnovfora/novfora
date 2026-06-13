@@ -45,6 +45,7 @@ process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed
 | 0030 | **Members-directory visibility** — public `/members` listing gated by one setting (everyone→members→staff→disabled); a single `visibleTo()` authority shared by the route gate, the SFC self-guard, and the nav; 404 (no disclosure) for a non-visible viewer | Accepted | [§ADR-0030](#adr-0030--members-directory-visibility-2026-06-12) |
 | 0031 | **Module / plugin foundation (Phase 3 B1)** — local-only packages under `modules/`, a validated `module.json` manifest, a semver'd MODULE API (`ModuleApi::VERSION`), lifecycle (install/enable/disable/upgrade/remove) with pre-enable compat + dependency checks, event/filter/slot seams, manifest-declared permission keys that ADD to the existing engine (never redefine core), and an ACP surface; slot + filter HTML is always re-sanitised | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0031](#adr-0031--module--plugin-foundation-phase-3-b1-2026-06-13) |
 | 0032 | **Visual theming + layout configurator (Phase 3 B2)** — a semver'd theme-API contract (`ThemeApi`: AA-safe CSS token list + named regions), a layout-widget system (`WidgetRegistry` + built-in widgets, module-extensible) placed into regions via an admins-only ACP configurator; widget settings constrained to declared fields, admin HTML sanitised, output via `<x-region>` | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0032](#adr-0032--visual-theming--layout-configurator-phase-3-b2-2026-06-13) |
+| 0033 | **REST API + outbound webhooks (Phase 3 B3)** — a versioned `/api/v1` read/write API with hashed personal-token auth, authorized AS the user through the EXISTING permission engine, rate-limited + paginated; outbound webhooks with per-endpoint HMAC signing (the inbound verifier's scheme), cron-driven delivery with retry/backoff (baseline-safe), an SSRF-guarded endpoint URL, and an admins-only ACP | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0033](#adr-0033--rest-api--outbound-webhooks-phase-3-b3-2026-06-13) |
 
 ---
 
@@ -1206,3 +1207,46 @@ configurator**.
 list is now a documented, versioned contract themes can target; the widget seam gives modules a second UI
 extension point beyond slots. New reversible table `layout_widgets`. Tests pin registry/render, the settings
 constraint, sanitisation of admin HTML, reorder, the on-page region, the token contract, and ACP authz.
+
+### ADR-0033 — REST API + outbound webhooks (Phase 3 B3) (2026-06-13)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context:** Phase 3 promised a versioned public REST API and outbound webhooks (ADR-0008 §2.5). Both are
+untrusted-input boundaries (token auth; an admin-supplied egress URL), so the build is conservative.
+
+**Decision — REST API (`/api/v1`):**
+- **Hashed personal tokens** (`api_tokens`), no Sanctum dependency: the one-time plaintext (`nvf_…`) is shown
+  once and stored only as a sha256 hash; `ApiTokenService::resolve` looks it up by hash, rejecting an expired
+  token or an inactive owner. An account-settings SFC issues/revokes the user's OWN tokens.
+- **`AuthenticateApiToken` sets the resolved user as the request user**, so every endpoint authorizes through
+  the EXISTING permission engine (`canDo` / PostService) — the API can never exceed the user's web rights. A
+  bad/expired/inactive token is a clean JSON 401.
+- Endpoints: `/me`, `/forums` (filtered by `forum.view`), `/forums/{forum}/topics`, `/topics/{topic}` (paginated
+  posts), `POST /topics/{topic}/posts` (`post.create`, via PostService). Responses explicitly shaped; collections
+  paginated; `throttle:api` = 60/min keyed by user-or-IP (throttle runs ahead of token auth so floods are
+  IP-bounded before the lookup).
+
+**Decision — outbound webhooks:**
+- `webhook_endpoints` (URL + per-endpoint signing secret, **encrypted at rest** + subscribed events) and
+  `webhook_deliveries` (the queue). `WebhookEventSubscriber` bridges the core domain events (post/topic created,
+  followed, reputation awarded, message sent — **IDs only, never bodies/PII**) to the `WebhookDispatcher`, which
+  only INSERTS pending deliveries on the action's path (never an HTTP call) and swallows any error, so a webhook
+  can never break the triggering action.
+- `WebhookDeliveryRunner` is the **cron egress** (`webhooks:deliver` every minute, overlap-guarded, skipped
+  during a restore): it signs each due delivery and POSTs with a short timeout; 2xx → delivered, else an
+  exponential-backoff retry, failing after `max_attempts`. **Delivery thus degrades gracefully on the baseline
+  (cron) tier** — no persistent worker required.
+- **HMAC signing reuses the inbound verifier's scheme** — `HMAC-SHA256("{timestamp}.{body}", secret)` with
+  `X-NovFora-Signature` + `X-NovFora-Timestamp` headers — so a receiver verifies identically (and can reject
+  replays). **SSRF guard** (apex): `WebhookManager::assertSafeUrl` allows only http(s) and refuses loopback /
+  private / link-local / reserved hosts (literal-IP `FILTER_FLAG_NO_PRIV_RANGE|NO_RES_RANGE` + obvious internal
+  suffixes); a `novfora.webhooks.allow_private` config opens it for local dev only. DNS-rebinding is documented
+  out of scope. The ACP page is admins-only (`admin.access` + 2FA), audited.
+
+**Consequences:** integrators get a token-scoped API that can't exceed the user's rights and no-code event
+delivery that works on a shared host; zero new runtime dependencies. New reversible tables `api_tokens`,
+`webhook_endpoints`, `webhook_deliveries`. **Flagged for review:** the SSRF guard is literal-host/IP-based
+(no DNS resolution → a hostname that resolves to a private IP isn't caught; admin-trust + documented); the API
+surface is deliberately small (read core + reply) and grows per the same versioned contract. 23 tests across
+the API (auth/401, engine-denied read+write, pagination, own-token revoke) and webhooks (SSRF refusal,
+subscribe filter, verifiable HMAC, retry/backoff, ACP authz).

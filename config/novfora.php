@@ -297,6 +297,14 @@ return [
         'path' => base_path('modules'),          // filesystem location of module packages
     ],
 
+    // ── Outbound webhooks (ADR-0033, Phase 3 B3) ────────────────────────────────────────────────────
+    // Admin-registered endpoints receive HMAC-signed deliveries of domain events, drained by the cron runner.
+    // allow_private lets a developer point a webhook at a loopback/private host (the SSRF guard refuses these
+    // by default); NEVER enable it in production.
+    'webhooks' => [
+        'allow_private' => (bool) env('NOVFORA_WEBHOOKS_ALLOW_PRIVATE', false),
+    ],
+
     // ── Operability — the no-SSH web installer (M5, phase-1-plan §5) ──────────────────────────────
     // The installer is an UNAUTHENTICATED pre-install surface that writes .env, runs migrations, and
     // creates the first admin. It MUST lock after install: the marker file below is written LAST and,
