@@ -1595,3 +1595,18 @@ in the shipped flow.)
 
 Tests: `QaPluginTest`, `KudosPluginTest` drive each plugin install→enable→exercise-every-seam through the
 contract; permission gating is enforced by the core engine (403 without the grant).
+
+### D2 — First-party theme (`themes/nebula`)
+
+A polished filesystem child theme built purely on the theme API (ThemeManager view overrides), zero core edits:
+- **Token overrides** — overrides the documented `ThemeApi::tokens()` contract via the `theme-head` seam: a
+  distinct AA-safe violet accent (derived by `AccentPalette`, so light/dark inks meet WCAG AA) plus the semantic
+  aliases `--novfora-accent` / `--novfora-radius`.
+- **Branding** — a `footer-tagline` view override.
+- **Coexistence** — the test proves that with Nebula active, a configured layout REGION (`<x-region>` widget)
+  and a module SLOT both still render (and slots are still sanitised) — a theme is presentation-only.
+
+**No new contract gaps:** the theme API (token contract + view-override seams + region/slot coexistence) was
+already sufficient for a polished child theme. `ThemeApi::VERSION` stays **1.0.0** (the new per-post slot is a
+SlotRegistry/Module-API addition, not a theme region). Tests: `NebulaThemeTest` (activation, token-contract
+override, branding, layout/slot coexistence, no-op when inactive). 32 Theme tests green.
