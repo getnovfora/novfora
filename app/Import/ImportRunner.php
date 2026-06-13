@@ -106,25 +106,57 @@ final class ImportRunner
 
     private function importForums(SourceDriver $driver): void
     {
-        // forums() yields parents before children, so a parent is always mapped before its child resolves it.
+        // Import forums parent-before-child WITHOUT relying on the driver's row order (phpBB yields nested-set
+        // order, but MyBB `disporder` / SMF `board_order` are display order, not hierarchy). Pass repeatedly
+        // over the not-yet-imported forums, creating any whose parent is a root (0) or already mapped, until a
+        // full pass makes no progress; any then-remaining forums (a missing or cyclic parent) are created as
+        // roots so none is silently dropped. Idempotent: an already-mapped forum is skipped on re-run.
+        $pending = [];
         foreach ($driver->forums() as $row) {
-            if ($this->isMapped($driver->key(), 'forum', $row['source_id'])) {
-                continue;
+            if (! $this->isMapped($driver->key(), 'forum', $row['source_id'])) {
+                $pending[] = $row;
             }
-            $parentId = $row['parent_source_id'] > 0
-                ? $this->target($driver->key(), 'forum', $row['parent_source_id'])
-                : null;
-            $forum = Forum::create([
-                'parent_id' => $parentId,
-                'slug' => $this->uniqueSlug('forums', $row['name'], $row['source_id']),
-                'title' => $row['name'] !== '' ? $row['name'] : "Forum {$row['source_id']}",
-                'type' => $row['type'],
-                'position' => $row['position'],
-            ]);
-            $this->record($driver->key(), 'forum', $row['source_id'], (int) $forum->getKey());
-            foreach ($driver->legacyForumPaths($row['source_id']) as $path) {
-                $this->redirect($path, '/forums/'.$forum->getKey());
+        }
+
+        while ($pending !== []) {
+            $progressed = false;
+            $next = [];
+            foreach ($pending as $row) {
+                $parentReady = $row['parent_source_id'] <= 0
+                    || $this->target($driver->key(), 'forum', $row['parent_source_id']) !== null;
+                if ($parentReady) {
+                    $this->createForum($driver, $row);
+                    $progressed = true;
+                } else {
+                    $next[] = $row;
+                }
             }
+            if (! $progressed) {
+                foreach ($next as $row) {
+                    $this->createForum($driver, $row, forceRoot: true); // missing/cyclic parent → root, never dropped
+                }
+                break;
+            }
+            $pending = $next;
+        }
+    }
+
+    /** @param array{source_id:int, parent_source_id:int, name:string, type:string, position:int} $row */
+    private function createForum(SourceDriver $driver, array $row, bool $forceRoot = false): void
+    {
+        $parentId = (! $forceRoot && $row['parent_source_id'] > 0)
+            ? $this->target($driver->key(), 'forum', $row['parent_source_id'])
+            : null;
+        $forum = Forum::create([
+            'parent_id' => $parentId,
+            'slug' => $this->uniqueSlug('forums', $row['name'], $row['source_id']),
+            'title' => $row['name'] !== '' ? $row['name'] : "Forum {$row['source_id']}",
+            'type' => $row['type'],
+            'position' => $row['position'],
+        ]);
+        $this->record($driver->key(), 'forum', $row['source_id'], (int) $forum->getKey());
+        foreach ($driver->legacyForumPaths($row['source_id']) as $path) {
+            $this->redirect($path, '/forums/'.$forum->getKey());
         }
     }
 

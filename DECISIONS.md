@@ -1373,3 +1373,29 @@ mixed-records (any-blocked) refusal; fail-closed on no-resolve; redirect-to-inte
 unsafe Location; happy-path delivery; the `allow_private` dev escape; and an end-to-end runner test (a rebound
 host → scheduled retry, `last_error` records the block, nothing sent). The existing `WebhookTest` delivery
 cases now bind a deterministic public-IP resolver (delivery is SSRF-guarded). oEmbed suite unchanged + green.
+
+### H2a — Importer driver verification + hierarchy/title fidelity (closes part of the ADR-0034 flag)
+
+**Flag (partial close):** ADR-0034 shipped phpBB "built + tested" but MyBB + SMF as "scaffolds — schema mapped,
+unverified against a live board". H2a promotes both to VERIFIED against representative fixtures, and fixes two
+fidelity bugs the fixtures exposed.
+
+**Decision:**
+- **Representative fixtures + full-import tests for MyBB and SMF** (`tests/Feature/Import/MybbImportTest.php`,
+  `SmfImportTest.php`), mirroring the phpBB battery: a fake legacy DB (a second sqlite connection with the
+  reference `mybb_*` / `smf_*` schema), then asserting preflight counts, user import, forum hierarchy,
+  category-vs-forum typing, BBCode→markdown→HTML content, 301 redirect maps served by the fallback, and
+  idempotent re-run + resume. A driver is marked "verified" only because it passes this suite.
+- **Order-independent forum import (fidelity fix).** `ImportRunner::importForums` previously relied on the
+  driver yielding parents before children (true for phpBB's nested-set `left_id`, but NOT for MyBB `disporder`
+  / SMF `board_order`, which are display order). It now does a topological multi-pass: import any forum whose
+  parent is a root or already mapped, repeat until no progress, then create any remaining (missing/cyclic
+  parent) as roots so none is dropped. The MyBB + SMF fixtures deliberately store the child board BEFORE its
+  parent to pin this.
+- **SMF title-from-first-message (fidelity fix).** SMF keeps no title on the topic row — it lives on the first
+  message (`id_first_msg`). `SmfDriver::topics()` now LEFT JOINs `smf_messages` to carry the real subject +
+  creation time instead of a synthetic placeholder; the SMF test asserts the imported topic title.
+
+Clean-room throughout (only public table/column names are encoded; no reference-forum code/templates — including
+SMF's, whose BSD licence would permit it). Hash posture unchanged (MyBB salted-double-md5 / SMF SHA-1 aren't
+Laravel-verifiable → those users reset on first login; the tests assert the legacy hash is not retained as-is).

@@ -74,12 +74,24 @@ final class SmfDriver implements SourceDriver
 
     public function topics(int $afterId, int $limit): array
     {
-        return $this->connection->table($this->prefix.'topics')
-            ->where('id_topic', '>', $afterId)->orderBy('id_topic')->limit($limit)
-            ->get(['id_topic', 'id_board', 'id_member_started'])
+        // SMF keeps no title on the topic row — it lives on the FIRST message (id_first_msg). Join it so the
+        // imported topic carries the real subject + creation time instead of a synthetic placeholder.
+        $topics = $this->prefix.'topics';
+        $messages = $this->prefix.'messages';
+
+        return $this->connection->table($topics)
+            ->leftJoin($messages, "{$topics}.id_first_msg", '=', "{$messages}.id_msg")
+            ->where("{$topics}.id_topic", '>', $afterId)->orderBy("{$topics}.id_topic")->limit($limit)
+            ->get([
+                "{$topics}.id_topic", "{$topics}.id_board", "{$topics}.id_member_started",
+                "{$messages}.subject as first_subject", "{$messages}.poster_time as first_time",
+            ])
             ->map(fn ($r): array => [
-                'source_id' => (int) $r->id_topic, 'forum_source_id' => (int) $r->id_board, 'title' => '',
-                'author_source_id' => (int) $r->id_member_started, 'created_at' => 0,
+                'source_id' => (int) $r->id_topic,
+                'forum_source_id' => (int) $r->id_board,
+                'title' => (string) ($r->first_subject ?? ''),
+                'author_source_id' => (int) $r->id_member_started,
+                'created_at' => (int) ($r->first_time ?? 0),
             ])->all();
     }
 
