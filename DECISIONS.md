@@ -1012,3 +1012,20 @@ authority; `<livewire:moderation.staff-notes>` SFC on the profile). Non-obvious 
 - **SFC self-guards in mount() AND every action** (Livewire actions carry no route middleware) — defence in
   depth behind the profile `@if`. Body bounded at 5000 chars; every write audited
   (`staff_note.created|updated|deleted`).
+
+### A2 — Reputation leaderboard / top-members
+Public "Top members" board (`/members/top`, `<livewire:leaderboard>`) reachable from a tab on the members
+directory. Non-obvious calls:
+- **Same visibility gate as the directory** — `MembersDirectory::visibleTo()` in the route AND the SFC
+  (mount + rows()); a non-visible viewer gets 404 (no disclosure), exactly like `/members`. No new setting.
+- **All-time reads the denormalised columns; windowed views aggregate the SOURCE OF TRUTH.** All-time orders
+  by `users.reputation_points` / `users.post_count` (cheap). The 30-day / 7-day windows can't use a lifetime
+  denorm, so they aggregate the authoritative tables: reputation from `SUM(reputation_events.points)` in the
+  window (`HAVING > 0`), posts from `COUNT(posts)` filtered to `approved_state='approved'`, not soft-deleted,
+  and a non-NULL (non-pseudonymised) author. `DB::table` bypasses the SoftDeletes scope, so `deleted_at` is
+  filtered explicitly. This means a windowed board reflects real recent activity and isn't skewed by lifetime
+  totals.
+- **Deterministic ties** — `ORDER BY metric DESC, users.id ASC`; only ACTIVE members, only positive metrics.
+  `selectRaw`/`orderBy` identifiers come from a closed `{post_count, reputation_points}` set, never user input.
+- **Bounded at 25 rows** (a board, not a paginated directory). Reuses the directory's denormalised columns and
+  the existing `<x-ui.tabs>` / `<x-ui.avatar>` / `<x-ui.user-name>` primitives — no new query on the hot path.

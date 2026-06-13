@@ -98,6 +98,14 @@ Route::get('/members', function () {
     return view('members.index');
 })->name('members.index');
 
+// "Top members" leaderboard (A2) — same visibility gate as the directory (404 for a non-visible viewer); the
+// <livewire:leaderboard> component re-asserts it. A separate path avoids a /members/{user} wildcard.
+Route::get('/members/top', function () {
+    abort_unless(MembersDirectory::visibleTo(auth()->user()), 404);
+
+    return view('members.top');
+})->name('members.top');
+
 // Compose / moderate / upload — authenticated + email-verified.
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/forums/{forum}/topics/create', fn (Forum $forum) => view('forum.create-topic', ['forum' => $forum]))->name('topics.create');
