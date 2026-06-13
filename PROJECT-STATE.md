@@ -49,6 +49,12 @@ feed & community-feel core (`ae9bba3`), **P2-M4** moderation depth / search face
 `c56126e`), and **P2-M5** the social pack (follow / reputation / badges) + beta polish + full regression —
 **tagged `v1.0.0-beta.1` (🚩 Public Beta)**. **Origin `main` is the source of truth; nothing is left unpushed.**
 
+**Post-beta polish — built + green, on branch `claude/acp-themes-members-directory` (pending owner push → PR →
+merge):** **DB-backed style themes** / in-admin visual theme editor (ADR-0029) · **public members directory**
+with admin-controlled visibility (ADR-0030) · `users.post_count` now **maintained** (atomic ±1 on
+create/soft-delete/restore) **+ backfilled** — closes the M0 "unmaintained seam" flagged in ADR-0028 · minor
+UI width + profile-link polish. 6 conventional commits; full suite **972 green** (pint/larastan/audit clean).
+
 **HELD (deferred to fast-follow / Phase 3):** staff notes · reputation leaderboard / top-members ·
 trust-level auto-promotion · a 2nd example theme (the M5 Should, carried — recorded). *Follow +
 reputation/points + badges shipped in M5 Core per ADR-0028.*

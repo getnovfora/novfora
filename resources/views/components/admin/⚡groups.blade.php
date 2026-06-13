@@ -78,20 +78,29 @@ new class extends Component
     public function save(GroupManager $manager): void
     {
         $this->ensureAdmin();
-        $data = $this->validate([
+
+        // System groups expose only name/colour/description in the form (priority + role preset are their
+        // identity and stay hidden). Their seeded priority can exceed the custom-group ceiling — Administrators
+        // is 100, Moderators 80 — so validating `priority` with max:99 for them would fail on an invisible
+        // field and silently block the save. Those rules therefore apply to CUSTOM groups only; GroupManager
+        // already ignores priority/role for system groups regardless.
+        $rules = [
             'name' => ['required', 'string', 'max:60'],
             'description' => ['nullable', 'string', 'max:255'],
             'color' => ['nullable', 'string', 'max:20'], // GroupManager enforces the palette
-            'priority' => ['nullable', 'integer', 'min:1', 'max:99'],
-            'roleId' => ['nullable', 'integer', 'exists:roles,id'],
-        ]);
+        ];
+        if (! $this->editingSystem) {
+            $rules['priority'] = ['nullable', 'integer', 'min:1', 'max:99'];
+            $rules['roleId'] = ['nullable', 'integer', 'exists:roles,id'];
+        }
+        $data = $this->validate($rules);
 
         $payload = [
             'name' => $data['name'],
             'description' => $data['description'] ?? null,
             'color' => $data['color'] ?? null,
-            'priority' => $data['priority'] ?? 50,
-            'role_id' => $data['roleId'] ?? null,
+            'priority' => $data['priority'] ?? $this->priority,
+            'role_id' => $data['roleId'] ?? $this->roleId,
         ];
 
         try {

@@ -20,8 +20,9 @@ use Illuminate\Support\Facades\DB;
  * (rep drops, posts deleted); the recompute cron only ever ADDS missed awards. An unknown criteria type
  * in the DB (e.g. written by a future version) matches nothing rather than failing.
  *
- * post_count criteria COUNT live posts (the users.post_count column is an unmaintained M0 seam —
- * recorded in DECISIONS); reputation criteria read the ledger-reconciled users.reputation_points.
+ * post_count criteria COUNT live APPROVED posts directly — deliberately NOT users.post_count (now maintained,
+ * but it counts ALL non-deleted posts incl. held/pending, which would award badges for unapproved spam);
+ * reputation criteria read the ledger-reconciled users.reputation_points.
  */
 final class BadgeService
 {

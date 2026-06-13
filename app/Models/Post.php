@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 use Laravel\Scout\Searchable;
 
 class Post extends Model
@@ -31,6 +32,14 @@ class Post extends Model
         static::created(fn (Post $post) => $post->syncAggregates(1));
         static::deleted(fn (Post $post) => $post->syncAggregates(-1));
         static::restored(fn (Post $post) => $post->syncAggregates(1));
+
+        // Maintain the denormalised users.post_count alongside the forum aggregate (data-model §0). A post
+        // counts for its author the moment it exists and uncounts on (soft-)delete; restore re-counts. Since
+        // rejection soft-deletes the post, a held-then-rejected post nets to zero — exactly mirroring how
+        // forums.post_count is moved by the same create/delete/restore deltas above.
+        static::created(fn (Post $post) => $post->adjustAuthorPostCount(1));
+        static::deleted(fn (Post $post) => $post->adjustAuthorPostCount(-1));
+        static::restored(fn (Post $post) => $post->adjustAuthorPostCount(1));
 
         // A delete/restore changes which posts (and thus reaction tallies) are in scope for the topic, so
         // invalidate the RH-9 reaction-count cache (it is version-keyed per topic, not per post).
@@ -145,5 +154,26 @@ class Post extends Model
                 'last_posted_at' => $activeTopic?->last_posted_at,
             ])->saveQuietly();
         }
+    }
+
+    /**
+     * Atomically move the author's denormalised users.post_count by the given delta (data-model §0). A direct,
+     * event-free query-builder UPDATE keeps it concurrency-safe (no read-modify-write race), and it avoids
+     * touching the user's timestamps or firing model events. The decrement is floored at zero so a double-fire
+     * or an out-of-order event can never drive the count negative.
+     */
+    public function adjustAuthorPostCount(int $delta): void
+    {
+        $userId = (int) $this->user_id;
+        if ($userId <= 0 || $delta === 0) {
+            return;
+        }
+
+        $query = DB::table('users')->where('id', $userId);
+        if ($delta < 0) {
+            $query->where('post_count', '>', 0);
+        }
+
+        $query->update(['post_count' => DB::raw('post_count + ('.(int) $delta.')')]);
     }
 }

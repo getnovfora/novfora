@@ -29,6 +29,7 @@ final class AdminNavigation
         'moderation' => ['admin.settings.moderation', 'Moderation'],
         'antispam' => ['admin.settings.antispam', 'Anti-spam'],
         'appearance' => ['admin.settings.appearance', 'Appearance'],
+        'members' => ['admin.members.directory', 'Members'],
     ];
 
     /**
@@ -49,11 +50,13 @@ final class AdminNavigation
                 ['Moderation', 'admin.settings.moderation', 'shield'],
                 ['Anti-spam', 'admin.settings.antispam', 'lock'],
                 ['Appearance', 'admin.settings.appearance', 'palette'],
+                ['Themes', 'admin.settings.themes', 'palette'],
             ]],
             ['Members', 'users', [
                 ['Groups', 'admin.members.groups', 'users'],
                 ['Permissions', 'admin.system.permissions', 'shield'],
                 ['Custom fields', 'admin.system.profile-fields', 'list'],
+                ['Directory', 'admin.members.directory', 'users'],
             ]],
             ['Content', 'folder', [
                 ['Forums & structure', 'admin.structure', 'folder'],

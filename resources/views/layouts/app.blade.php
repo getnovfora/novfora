@@ -34,6 +34,11 @@
         $appearanceCss .= "@media (prefers-color-scheme: dark){:root:not([data-theme='light']){".$vars($accent['dark']).'}}';
         $appearanceCss .= ":root[data-theme='dark']{".$vars($accent['dark']).'}';
     }
+
+    // DB-backed style theme (ACP visual theme editor): the active theme's compiled CSS (its AA-safe accent +
+    // sanitised custom CSS), cached and read once per request. Emitted AFTER the appearance overrides below
+    // so an active theme wins on equal specificity.
+    $styleThemeCss = app(\App\Theme\StyleThemeManager::class)->css();
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
@@ -78,13 +83,19 @@
     @if ($appearanceCss)
         <style @if ($nonce) nonce="{{ $nonce }}" @endif>{!! $appearanceCss !!}</style>
     @endif
+
+    {{-- Active DB-backed style theme (ACP visual theme editor): compiled accent vars + sanitised custom CSS,
+         emitted last so an active theme overrides the site Appearance accent. --}}
+    @if ($styleThemeCss)
+        <style @if ($nonce) nonce="{{ $nonce }}" @endif>{!! $styleThemeCss !!}</style>
+    @endif
 </head>
 <body class="min-h-dvh flex flex-col bg-surface text-ink">
     {{-- a11y floor (ADR-0009 §3.3): skip link + a single main landmark. Themes may restyle, not remove. --}}
     <a href="#main" class="skip-link">Skip to content</a>
 
     <header class="sticky top-0 z-30 border-b border-line bg-surface-raised/85 backdrop-blur">
-        <x-ui.container size="xl" class="flex h-14 items-center gap-2 sm:gap-3">
+        <x-ui.container size="lg" class="flex h-14 items-center gap-2 sm:gap-3">
             {{-- Mobile nav toggle --}}
             <div x-data="{ open: false }" class="sm:hidden flex items-center">
                 <button type="button" @click="open = ! open" :aria-expanded="open.toString()" aria-controls="mobile-nav"
@@ -102,6 +113,9 @@
                     </form>
                     <nav class="flex flex-col" aria-label="Mobile">
                         <a href="{{ route('forums.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Forums</a>
+                        @if (\App\Community\MembersDirectory::visibleTo(auth()->user()))
+                            <a href="{{ route('members.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Members</a>
+                        @endif
                         @auth
                             <a href="{{ route('whats-new') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">What's new</a>
                             <a href="{{ route('notifications.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Notifications</a>
@@ -118,6 +132,9 @@
             {{-- Desktop primary nav --}}
             <nav class="hidden sm:flex items-center gap-0.5" aria-label="Primary">
                 <a href="{{ route('forums.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Forums</a>
+                @if (\App\Community\MembersDirectory::visibleTo(auth()->user()))
+                    <a href="{{ route('members.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Members</a>
+                @endif
                 @auth
                     <a href="{{ route('whats-new') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">What's new</a>
                 @endauth
@@ -198,7 +215,7 @@
     {{-- Site-wide notice (ACP v1 General settings) — shown on every page when an admin sets one. --}}
     @if (($site['notice'] ?? '') !== '')
         <div class="border-b border-line bg-accent-soft text-accent-soft-ink">
-            <x-ui.container size="xl" class="flex items-start gap-2 py-2.5 text-sm">
+            <x-ui.container size="lg" class="flex items-start gap-2 py-2.5 text-sm">
                 <x-ui.icon name="bell" class="mt-0.5 h-4 w-4 shrink-0" />
                 <p>{{ $site['notice'] }}</p>
             </x-ui.container>
@@ -208,7 +225,7 @@
     {{-- Optional breadcrumb bar: a page provides @section('breadcrumbs') with <x-ui.breadcrumbs>. --}}
     @hasSection('breadcrumbs')
         <div class="border-b border-line bg-surface-raised">
-            <x-ui.container size="xl" class="py-2.5">@yield('breadcrumbs')</x-ui.container>
+            <x-ui.container size="lg" class="py-2.5">@yield('breadcrumbs')</x-ui.container>
         </div>
     @endif
 
