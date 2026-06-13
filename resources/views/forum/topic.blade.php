@@ -132,7 +132,7 @@
                             <span class="md:hidden"><x-ui.avatar :user="$author" :guest="$author === null" size="md" /></span>
                             <span class="hidden md:inline-flex"><x-ui.avatar :user="$author" :guest="$author === null" size="xl" /></span>
                             <div class="min-w-0 md:mt-1">
-                                <p class="font-semibold text-ink truncate"><x-ui.user-name :user="$author" :fallback="__('[Deleted]')" /></p>
+                                <p class="font-semibold text-ink truncate"><x-ui.user-name :user="$author" :link="true" :fallback="__('[Deleted]')" /></p>
                                 @if ($role)
                                     <x-ui.badge variant="accent" class="mt-1">{{ $role }}</x-ui.badge>
                                 @endif
