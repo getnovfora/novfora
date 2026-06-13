@@ -43,6 +43,11 @@ process in [GOVERNANCE.md](GOVERNANCE.md). Status values: **Accepted · Proposed
 | 0028 | **P2-M5 scope = social pack in the public beta** — follow + reputation/points + badges pulled from Should-tier HELD into M5 Core; staff notes / reputation leaderboard / TL-auto-promotion deferred to fast-follow; overrides plan §5 descope for these three | Accepted | [§ADR-0028](#adr-0028--p2-m5-scope-social-pack-in-the-public-beta-2026-06-12) |
 | 0029 | **DB-backed style themes (ACP visual theme editor)** — named accent + sanitised custom CSS, single-active, cached + CSP-nonce'd `<style>` injection; a first slice of ADR-0009's visual configurator, distinct from the filesystem child-theme layer | Accepted | [§ADR-0029](#adr-0029--db-backed-style-themes-acp-visual-theme-editor-2026-06-12) |
 | 0030 | **Members-directory visibility** — public `/members` listing gated by one setting (everyone→members→staff→disabled); a single `visibleTo()` authority shared by the route gate, the SFC self-guard, and the nav; 404 (no disclosure) for a non-visible viewer | Accepted | [§ADR-0030](#adr-0030--members-directory-visibility-2026-06-12) |
+| 0031 | **Module / plugin foundation (Phase 3 B1)** — local-only packages under `modules/`, a validated `module.json` manifest, a semver'd MODULE API (`ModuleApi::VERSION`), lifecycle (install/enable/disable/upgrade/remove) with pre-enable compat + dependency checks, event/filter/slot seams, manifest-declared permission keys that ADD to the existing engine (never redefine core), and an ACP surface; slot + filter HTML is always re-sanitised | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0031](#adr-0031--module--plugin-foundation-phase-3-b1-2026-06-13) |
+| 0032 | **Visual theming + layout configurator (Phase 3 B2)** — a semver'd theme-API contract (`ThemeApi`: AA-safe CSS token list + named regions), a layout-widget system (`WidgetRegistry` + built-in widgets, module-extensible) placed into regions via an admins-only ACP configurator; widget settings constrained to declared fields, admin HTML sanitised, output via `<x-region>` | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0032](#adr-0032--visual-theming--layout-configurator-phase-3-b2-2026-06-13) |
+| 0033 | **REST API + outbound webhooks (Phase 3 B3)** — a versioned `/api/v1` read/write API with hashed personal-token auth, authorized AS the user through the EXISTING permission engine, rate-limited + paginated; outbound webhooks with per-endpoint HMAC signing (the inbound verifier's scheme), cron-driven delivery with retry/backoff (baseline-safe), an SSRF-guarded endpoint URL, and an admins-only ACP | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0033](#adr-0033--rest-api--outbound-webhooks-phase-3-b3-2026-06-13) |
+| 0034 | **Importers (Phase 3 B4)** — a clean-room, driver-based legacy importer (phpBB built + tested; MyBB/SMF scaffolded behind the same `SourceDriver`); idempotent + resumable via an `import_maps` ledger, BBCode→markdown, 301 redirect maps served by a route fallback, and a count-reconciliation verify pass; reads the legacy DB schema (DATA only), never the reference program | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0034](#adr-0034--importers-phase-3-b4-2026-06-13) |
+| 0035 | **Admin analytics (Phase 3 B5)** — privacy-conscious AGGREGATE daily metrics (no PII / per-user tracking) in `daily_metrics`, computed by a daily idempotent `novfora:analytics:rollup` cron (baseline-safe; totals as-of-day for correct backfill), with an admins-only dashboard (live totals + recent-days table) | **Accepted — owner-authorized overnight build; flagged for review** | [§ADR-0035](#adr-0035--admin-analytics-phase-3-b5-2026-06-13) |
 
 ---
 
@@ -987,3 +992,335 @@ moderator action redirects with `navigate:false` (full reload) so the Alpine sto
 renders. The Dusk journey asserts the rank-guard OUTCOME (eligible deleted, higher-ranked survives), not a flash
 string, with generous waits for the slow local docker env (≈9 s page loads — the same env flakiness recorded for
 the M2B/installer journeys; validate in clean CI).
+
+---
+
+## Fast-follow backlog notes (2026-06-13, owner-authorized overnight build — flagged for review)
+
+> These are the M5-deferred fast-follows (PROJECT-STATE §3 / ADR-0028) and the two pre-existing concurrency
+> hardenings flagged in the P2-M5 review, built unattended as one pass. Each is real code + tests, gated green
+> and pushed per item. Non-obvious calls are recorded here; no locked stack/architecture decision changes.
+
+### A1 — Staff notes
+Private staff-only notes ABOUT a member (`staff_notes` table; `App\Models\StaffNote`; `App\Moderation\StaffNotes`
+authority; `<livewire:moderation.staff-notes>` SFC on the profile). Non-obvious calls:
+- **Gated on the EXISTING `bans.manage` (global), not a new permission key.** `bans.manage` is held by
+  moderators + admins (RoleSeeder), i.e. staff — so staff notes reuse the engine with no new ACL seeding, no
+  new mask semantics, and no second permission system (the project rule). The authority adds one clause the
+  raw permission can't express: **viewer ≠ subject**, so a note never appears on the subject's own profile even
+  when the subject is themselves staff ("never visible to the subject").
+- **Add = any staff; edit/delete = author OR admin.** `StaffNotes::canManage` is the single predicate; a note
+  whose author has been de-identified (author_id NULL) is manageable only by an admin.
+- **`staff_notes.author_id` carries no FK and is pseudonymised by the ADR-0025 cascade** (NULLed like
+  `warnings.issued_by`), so a note AUTHORED by a since-deleted staffer survives and renders "[Deleted]"; notes
+  ABOUT a deleted member cascade away via the `user_id` FK. (One line added to `AccountDeletionService::cascade`.)
+- **SFC self-guards in mount() AND every action** (Livewire actions carry no route middleware) — defence in
+  depth behind the profile `@if`. Body bounded at 5000 chars; every write audited
+  (`staff_note.created|updated|deleted`).
+
+### A2 — Reputation leaderboard / top-members
+Public "Top members" board (`/members/top`, `<livewire:leaderboard>`) reachable from a tab on the members
+directory. Non-obvious calls:
+- **Same visibility gate as the directory** — `MembersDirectory::visibleTo()` in the route AND the SFC
+  (mount + rows()); a non-visible viewer gets 404 (no disclosure), exactly like `/members`. No new setting.
+- **All-time reads the denormalised columns; windowed views aggregate the SOURCE OF TRUTH.** All-time orders
+  by `users.reputation_points` / `users.post_count` (cheap). The 30-day / 7-day windows can't use a lifetime
+  denorm, so they aggregate the authoritative tables: reputation from `SUM(reputation_events.points)` in the
+  window (`HAVING > 0`), posts from `COUNT(posts)` filtered to `approved_state='approved'`, not soft-deleted,
+  and a non-NULL (non-pseudonymised) author. `DB::table` bypasses the SoftDeletes scope, so `deleted_at` is
+  filtered explicitly. This means a windowed board reflects real recent activity and isn't skewed by lifetime
+  totals.
+- **Deterministic ties** — `ORDER BY metric DESC, users.id ASC`; only ACTIVE members, only positive metrics.
+  `selectRaw`/`orderBy` identifiers come from a closed `{post_count, reputation_points}` set, never user input.
+- **Bounded at 25 rows** (a board, not a paginated directory). Reuses the directory's denormalised columns and
+  the existing `<x-ui.tabs>` / `<x-ui.avatar>` / `<x-ui.user-name>` primitives — no new query on the hot path.
+
+### A3 — Trust-level auto-promotion by reputation (APEX — trust/permission-adjacent)
+Added a `min_reputation` criterion to the trust auto-promotion rules, wired into the existing
+`novfora:trust:recompute` (no command change — `recompute → evaluate → earnedLevel` already drives it).
+Non-obvious calls:
+- **Reputation is a PROMOTION-ONLY gate (the load-bearing decision).** A reputation bar can block climbing to
+  a level ABOVE the member's current standing, but it must NEVER pull a member below a level they already
+  hold — otherwise the periodic recompute would *spuriously demote* every existing tl2/tl3 member whose
+  reputation happens to sit under the new bar. `earnedLevel()` therefore exempts any rung at or below the
+  current level from the reputation check (`$level <= $current || reputation >= min_reputation`). Structural
+  demotion (losing the posts/tenure/reads for a level you sit at) is unchanged — the rep gate never masks it.
+- **Thresholds live in `groups.auto_promotion` JSON, not config** — tl2 = 10, tl3 = 50; tl1 stays
+  reputation-free so a brand-new member (zero rep) can still earn TL1 by engagement alone. Fresh installs get
+  the values from `GroupSeeder` (`updateOrCreate`); **upgrades get them from a dedicated migration** that
+  backfills the key onto existing rows (RH-10: auto-upgrade runs migrations only, never seeders). The
+  migration is idempotent and never clobbers an operator-tuned value.
+- **`reputation_points` is read off the already-loaded User model** (no extra query). Tests pin: promote
+  at/over the threshold, held below it, **no spurious demote** for a rep dip (the floor), structural demotion
+  still fires, idempotent recompute, and the upgrade-migration backfill + reversibility.
+
+### A4 — Second example theme (`themes/aurora`)
+A shipped filesystem child theme exercising the `ThemeManager` view-override API — distinct from the DB
+style editor (ADR-0029). Non-obvious calls:
+- **Two minimal core override seams added** so a filesystem theme can ship a SITE-WIDE palette without
+  overriding the monolithic `layouts/app.blade.php`: `@include('partials.theme-head', ['nonce' => $nonce])`
+  in `<head>` (emitted LAST so a theme accent wins on equal specificity, like the DB style theme) and
+  `@include('partials.footer-tagline')` in the footer. Both default partials are inert (the footer renders
+  the same text as before — no test asserted it), so the change is invisible until a theme overrides them.
+- **The palette is AA-derived, not hand-picked** — Aurora's `theme-head` override feeds its accent
+  (`#0e7490`, a deep teal) through `App\Support\AccentPalette`, the same WCAG-AA machinery the Appearance
+  accent and the style editor use, so the light/dark accent inks are guaranteed AA. CSP-nonce-aware.
+- **Ships inactive** — no active theme by default, so the default appearance is unchanged; an admin selects
+  Aurora via `NOVFORA_THEME` / Appearance. Tests mirror `ThemeOverrideTest`: boot + direct view render,
+  asserting the override resolves ahead of core and the core defaults render when inactive.
+
+### A5 — isSoleAdmin TOCTOU hardening (APEX, concurrency)
+Closed the check-then-act window in the last-admin guard (flagged in the P2-M5 review). Non-obvious calls:
+- **The authority is a LOCKED re-read INSIDE the deletion transaction**, run as the first act before any
+  mutation: `assertNotSoleAdminLocked()` does `SELECT … FROM group_user JOIN groups WHERE slug='admins' FOR
+  UPDATE`, re-derives admin-ness from the locked pivot rows (DB truth, not a stale model), and throws if the
+  target is the lone admin — rolling the transaction back. Two concurrent admin self-deletions both pass the
+  fast pre-filter (each still counts two admins), but the FOR UPDATE serialises them: the first commits, the
+  second then reads one admin and aborts. The public non-locking `isSoleAdmin()` stays as a cheap pre-filter /
+  UI signal — explicitly NOT the authority.
+- **Race test without threads**: `AccountDeletionService` is `final`, so the test reproduces the staleness
+  with a stale in-memory model — the user is loaded as a non-admin, then made the sole admin directly in the
+  DB, so the pre-filter (which reads `isAdmin()` off the cached groups) returns false and the deletion gets
+  *past* it, yet the in-transaction locked re-read sees the live lone admin and aborts. SQLite has no row
+  locks, but the in-transaction live re-read is still correct there; the lock matters only under real MySQL/PG.
+
+### A6 — ActivityVersion / AclVersion lost-bump hardening (APEX, concurrency)
+Made the cache version-counter bump atomic (flagged in the P2-M5 review). Non-obvious calls:
+- **`Cache::add` (seed-once, SETNX-style) + `Cache::increment` (atomic)** replaces the read-modify-write
+  (`current() + 1` then `Cache::forever`) whose two concurrent callers could both read N and both write N+1 —
+  losing a bump and leaving a stale, version-keyed feed / resolved-permission entry served to other readers.
+  Applied identically to BOTH `App\Community\ActivityVersion` and its structural twin `App\Permissions\
+  AclVersion`. `current()` and the graceful-degradation contract (a dead cache never errors, never returns a
+  wrong answer) are unchanged.
+- **Concurrency test without threads**: the array cache driver is atomic within the process, so the suite pins
+  the *primitive* (a Cache mock asserts `increment` is called, not a `get`/`forever` pair an interleave could
+  split) plus cold-start, an exact no-lost-update count over 100 bumps, and the throw-path fallback.
+
+---
+
+## Phase 3 — Extensibility (owner-authorized overnight build — flagged for review)
+
+> Phase 3 builds the Stage A extensibility plan (ADR-0008/0009/0013) into running code. Each subsystem ships a
+> PROPOSED-then-Accepted ADR, the implementation, tests (apex-level on the security/permission/concurrency
+> paths), gates green, and a commit. Full design set: `docs/architecture/phase3-extensibility/`.
+
+### ADR-0031 — Module / plugin foundation (Phase 3 B1) (2026-06-13)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context:** every incumbent's worst trait is a bad extension architecture (MyBB `eval()` templates, SMF core
+patches) — add-ons and themes that break on upgrade, customisation that needs core edits. ADR-0008 designed
+the answer in Stage A; B1 builds it. This is the project's **highest-stakes security boundary**, so the build
+is conservative and fail-closed.
+
+**Decision (the public contract surface):** a module is a **local** package under `modules/<vendor>/<name>/`
+(no remote fetch, no marketplace, no eval). The pieces:
+- **Manifest** `module.json`, validated by `App\Modules\ManifestValidator` (the untrusted-input boundary):
+  slug = path-safe `vendor/name`; namespace non-core + PSR-4; provider inside the module namespace;
+  version/api_version/dependency constraints parse (`SemverConstraint`); permission entries well-formed. Fail
+  closed — nothing coerced.
+- **Semver'd MODULE API** = `App\Modules\ModuleApi::VERSION` (`1.0.0`). A module declares the `api_version`
+  constraint it targets; compatibility is checked BEFORE install/enable ("know before you enable").
+- **Lifecycle** = `App\Modules\ModuleManager` (the single audited writer): install → enable (compat + deps +
+  permission registration + migrations) → disable (non-destructive: KEEP data) → upgrade → remove (roll back
+  migrations + drop owned permission keys & their grants). `App\Modules\ModuleLoader` boots enabled modules
+  each request (runtime PSR-4 + `register()` the provider); a broken/missing module is skipped, never fatal.
+- **Seams:** Laravel **domain events** (the ones core already fires); a **filter-hook** pipeline
+  (`Hook::applyFilters`/`addFilter`, priority-ordered, no-op until a module opts in); **UI slots**
+  (`<x-slot-outlet name="…" />` + `SlotRegistry`); routes/Livewire; manifest **permission keys**; reversible
+  **migrations**. Versioning: adding events/filters/slots = minor; changing/removing a payload/name/signature
+  = major.
+
+**Security posture (apex, non-negotiable):**
+- **No permission escalation.** Manifest permission keys only ADD to the catalog; grants stay separate
+  `acl_entries` an admin creates. A module may NEVER redefine a core key (refused at enable) nor claim another
+  module's key. Removal deletes the module's keys AND any grants referencing them (no dangling ACL) and bumps
+  `AclVersion`. There is no second permission system — module permissions resolve through the existing
+  `PermissionResolver`.
+- **No unsanitised HTML.** Slot output and `post.html` filter output are RE-sanitised through the same
+  `ContentSanitizer` allowlist as user post HTML — a full-trust module still can't smuggle `<script>`/`<style>`
+  onto a page. The `post.html` re-sanitise pass is skipped entirely unless a module registered a filter (the
+  unextended hot path is unchanged).
+- **No traversal / shadowing.** The validated slug bounds the directory; the namespace can't be a core root;
+  the provider must live in the module's own namespace.
+- **Honest trust model:** modules run in-process with full PHP trust (no PHP sandbox is feasible); the
+  mitigations are local-only install, manifest validation, ACP visibility, and audited lifecycle.
+
+**Non-obvious build calls:** disable is **non-destructive** (keep schema/data; only `remove` purges) — a safer
+refinement of ADR-0008's "disable rolls back migrations". Module migrations run via
+`Artisan::call('migrate', ['--path' => …, '--realpath' => true])` and roll back the same way on remove. The
+runtime autoloader (`spl_autoload_register` over the enabled modules' namespaces) avoids editing
+`composer.json` / `dump-autoload` per module. The ACP page is **admins-only** (`admin.access` + staff-2FA) —
+installing a module loads in-process code, the highest-privilege act. A first-party example plugin
+(`modules/novfora/hello`) exercises every seam and is the lifecycle's living integration test.
+
+**Consequences:** the module API is a frozen-within-a-major public contract from this commit; B2–B5 build on
+these seams. Zero new runtime dependencies. **Flagged for review:** the full-trust execution model (documented,
+unavoidable for PHP); module migration rollback uses `--path` batch semantics (fine for the typical one-batch
+module; revisit if a module ships many migration batches). New reversible table `modules`.
+
+**Post-build adversarial review (2026-06-13).** A skeptic pass over the seven attack vectors (manifest
+validation, autoloader shadowing, permission escalation, slot/filter HTML, ACP authz, manifest-swap,
+migration injection). **Fixed — HIGH path traversal:** the lifecycle `$slug` (attacker-influenceable via a
+`livewire/update`) reached `dirFor()`/`srcPath()`/`migrationsPath()` UNVALIDATED — only the manifest's internal
+slug was checked, and its dir cross-check used only the last two path segments, so `install('a/../../tmp/evil')`
+could read/migrate/load code from outside `modules/`. Closed by asserting the slug at the single chokepoint
+(`ManifestValidator::assertSlug` in `ModuleManager::dirFor`, which every path helper routes through) — pinned
+by a traversal-refusal test. **Fixed — MEDIUM monotonic version:** `upgrade()` now refuses a manifest version
+older than the recorded one (a swapped manifest can't roll the version backwards to fool a downstream
+`requires`). **Confirmed BLOCKED:** autoloader shadowing (appended, not prepended; reserved roots; provider
+scoped to the module namespace), permission escalation (catalog-only writes, never `acl_entries`; complete
+core-key + cross-module collision checks), unsanitised HTML (slot + `post.html` both re-sanitised before
+`{!! !!}`), ACP authz (`ensureAdmin` in mount + listing + every action), and migration injection (in-process
+`Artisan::call`, no shell). 30 module tests green after the fix.
+
+### ADR-0032 — Visual theming + layout configurator (Phase 3 B2) (2026-06-13)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context:** B2 extends the shipped theme system (A4 filesystem child themes + ADR-0029 DB style themes) with
+the two pieces ADR-0009 anticipated but hadn't built: a **theme-API contract surface** and a **region/layout
+configurator**.
+
+**Decision:**
+- **Theme-API contract** = `App\Theme\ThemeApi` — a semver'd VERSION plus two stable surfaces: the **token
+  contract** (the CSS custom properties a theme/widget may rely on/override — semantic aliases + the AA-derived
+  AccentPalette set, AA-safe in both colour modes) and the **named regions**. Versioning mirrors the module
+  API: add a token/region = minor; rename/remove = major.
+- **Layout configurator** = a **widget** system on B1's extension stance. `App\Theme\WidgetRegistry` holds
+  built-in widgets (an admin **HTML/text block** and a **board-statistics** card) and is module-extensible
+  (a module registers widgets the same way it registers slots). `App\Theme\LayoutManager` is the single
+  audited writer of `layout_widgets` placements (region + widget + position + settings + enabled) and the
+  renderer the `<x-region name="…">` outlet calls. Two regions ship (`forum_top`, `forum_bottom`, on the
+  forum index). An admins-only (`admin.access` + staff-2FA) ACP page adds/reorders/toggles/edits/removes
+  widgets.
+
+**Security / non-obvious calls:**
+- **Widget settings are constrained to the widget's DECLARED fields on write** (`updateSettings` drops unknown
+  keys) — a placement can never carry arbitrary settings.
+- **The one untrusted-input path (the HTML-block widget's admin HTML) is sanitised** through the same
+  post-HTML allowlist as user content; built-in widgets escape every dynamic value (`e()`), so `<x-region>`'s
+  `{!! !!}` only ever emits trusted, code-authored output. Module-contributed widgets follow the same
+  full-trust-but-document stance as B1 slots.
+- **Region keys use `_` not `.`** so they bind as flat Livewire property keys (a `.` would be read as nested
+  path and break the add-widget select). The stats widget caches its three COUNTs for a minute (off the
+  forum-index hot path). Placements whose widget is no longer registered (a module was disabled) render
+  nothing, never erroring.
+
+**Consequences:** admins get point-and-click content regions with zero new dependencies; the theme-API token
+list is now a documented, versioned contract themes can target; the widget seam gives modules a second UI
+extension point beyond slots. New reversible table `layout_widgets`. Tests pin registry/render, the settings
+constraint, sanitisation of admin HTML, reorder, the on-page region, the token contract, and ACP authz.
+
+### ADR-0033 — REST API + outbound webhooks (Phase 3 B3) (2026-06-13)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context:** Phase 3 promised a versioned public REST API and outbound webhooks (ADR-0008 §2.5). Both are
+untrusted-input boundaries (token auth; an admin-supplied egress URL), so the build is conservative.
+
+**Decision — REST API (`/api/v1`):**
+- **Hashed personal tokens** (`api_tokens`), no Sanctum dependency: the one-time plaintext (`nvf_…`) is shown
+  once and stored only as a sha256 hash; `ApiTokenService::resolve` looks it up by hash, rejecting an expired
+  token or an inactive owner. An account-settings SFC issues/revokes the user's OWN tokens.
+- **`AuthenticateApiToken` sets the resolved user as the request user**, so every endpoint authorizes through
+  the EXISTING permission engine (`canDo` / PostService) — the API can never exceed the user's web rights. A
+  bad/expired/inactive token is a clean JSON 401.
+- Endpoints: `/me`, `/forums` (filtered by `forum.view`), `/forums/{forum}/topics`, `/topics/{topic}` (paginated
+  posts), `POST /topics/{topic}/posts` (`post.create`, via PostService). Responses explicitly shaped; collections
+  paginated; `throttle:api` = 60/min keyed by user-or-IP (throttle runs ahead of token auth so floods are
+  IP-bounded before the lookup).
+
+**Decision — outbound webhooks:**
+- `webhook_endpoints` (URL + per-endpoint signing secret, **encrypted at rest** + subscribed events) and
+  `webhook_deliveries` (the queue). `WebhookEventSubscriber` bridges the core domain events (post/topic created,
+  followed, reputation awarded, message sent — **IDs only, never bodies/PII**) to the `WebhookDispatcher`, which
+  only INSERTS pending deliveries on the action's path (never an HTTP call) and swallows any error, so a webhook
+  can never break the triggering action.
+- `WebhookDeliveryRunner` is the **cron egress** (`webhooks:deliver` every minute, overlap-guarded, skipped
+  during a restore): it signs each due delivery and POSTs with a short timeout; 2xx → delivered, else an
+  exponential-backoff retry, failing after `max_attempts`. **Delivery thus degrades gracefully on the baseline
+  (cron) tier** — no persistent worker required.
+- **HMAC signing reuses the inbound verifier's scheme** — `HMAC-SHA256("{timestamp}.{body}", secret)` with
+  `X-NovFora-Signature` + `X-NovFora-Timestamp` headers — so a receiver verifies identically (and can reject
+  replays). **SSRF guard** (apex): `WebhookManager::assertSafeUrl` allows only http(s) and refuses loopback /
+  private / link-local / reserved hosts (literal-IP `FILTER_FLAG_NO_PRIV_RANGE|NO_RES_RANGE` + obvious internal
+  suffixes); a `novfora.webhooks.allow_private` config opens it for local dev only. DNS-rebinding is documented
+  out of scope. The ACP page is admins-only (`admin.access` + 2FA), audited.
+
+**Consequences:** integrators get a token-scoped API that can't exceed the user's rights and no-code event
+delivery that works on a shared host; zero new runtime dependencies. New reversible tables `api_tokens`,
+`webhook_endpoints`, `webhook_deliveries`. **Flagged for review:** the SSRF guard is literal-host/IP-based
+(no DNS resolution → a hostname that resolves to a private IP isn't caught; admin-trust + documented); the API
+surface is deliberately small (read core + reply) and grows per the same versioned contract. 23 tests across
+the API (auth/401, engine-denied read+write, pagination, own-token revoke) and webhooks (SSRF refusal,
+subscribe filter, verifiable HMAC, retry/backoff, ACP authz).
+
+### ADR-0034 — Importers (Phase 3 B4) (2026-06-13)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context:** ADR-0013 specified resumable, verifying, SEO-preserving importers as Phase 3's answer to the
+incumbents' worst migration failures. B4 builds the architecture + one importer fully.
+
+**Decision:**
+- **Clean-room, driver-based.** A `SourceDriver` (interface) reads a legacy forum's DB **read-only** and maps
+  rows to a NovFora-shaped, source-agnostic vocabulary; the `ImportRunner` is identical across drivers. A
+  driver encodes only the reference forum's **public DB schema** to copy DATA — never its code or templates
+  (the strict clean-room rule applies even to SMF, whose BSD licence would permit code reuse).
+- **phpBB built + tested**; **MyBB and SMF scaffolded** behind the same contract (schema mapped, marked
+  unverified-against-a-live-board). Build at least one fully — done.
+- **Idempotent + resumable.** Every created entity is recorded in `import_maps` keyed `(source, kind,
+  source_id)` UNIQUE; a re-run skips what exists and resumes from the last id (keyset cursor) — a
+  multi-million-row import survives interruption and fits cron windows.
+- **Three stages:** preflight (counts + plan, read-only; aborts on an unreachable source), import (batched),
+  verify (count reconciliation per kind).
+- **Imports go through the Eloquent models, NOT the post/topic services**, so a bulk import fires NO domain
+  events — no webhook storm, no activity-feed flood, no reputation awards.
+- **SEO:** legacy URL patterns (phpBB `viewtopic.php?t=` / `viewforum.php?f=`) become 301 `redirects`, served
+  by a **route FALLBACK** (`LegacyRedirectController`) so the table is consulted only for an otherwise-
+  unmatched URL — never the hot path.
+- **Content:** `BbcodeConverter` (clean-room) maps BBCode → canonical markdown (strips phpBB's per-post
+  `bbcode_uid`); the post then renders + sanitises through the normal pipeline. Bots (phpBB `user_type=2`)
+  are excluded; the forum hierarchy and author/forum mappings are preserved.
+
+**Non-obvious calls / flagged:** **Passwords** — the legacy hash is stored via the `hashed` cast, which
+PRESERVES a valid bcrypt (`$2y$`) hash (Laravel verifies it + auto-rehashes to argon2id on first login) and
+re-hashes anything else; a legacy phpass/SHA hash that can't be verified simply fails the check, so that user
+resets (no forced reset for modern hashes). Usernames/emails are **deduped** (a colliding/empty value gets a
+source-id suffix or an `@imported.invalid` placeholder). The MyBB/SMF drivers force a reset (their hash schemes
+aren't Laravel-verifiable). **Verify is count-reconciliation**, not per-attachment (attachment import is a
+documented follow-up). New reversible tables `import_maps`, `redirects`. 3 phpBB tests (against a fake legacy
+sqlite DB): BBCode conversion, the full import (bots/hierarchy/content/redirect served by the fallback), and
+idempotent re-run + resume.
+
+### ADR-0035 — Admin analytics (Phase 3 B5) (2026-06-13)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context:** Phase 3 promised admin analytics with a privacy-conscious posture and baseline (cron) computation.
+
+**Decision:**
+- **Privacy-conscious by construction.** `daily_metrics` holds only AGGREGATE counts per day — there is NO
+  per-user tracking, no IP logging, no PII. The metric set is a fixed, closed schema
+  (`AnalyticsService::METRICS`), never derived from input.
+- **Baseline-safe computation.** `AnalyticsService::rollup($date)` computes the day's figures and upserts them;
+  `novfora:analytics:rollup` (daily cron, overlap-guarded, restore-skipped) finalises yesterday + refreshes
+  today. Idempotent via `UNIQUE(metric_date, metric_key)`, so the cron, a manual run, and `--backfill` are all
+  safe. Totals are computed AS-OF the end of the day, so a backfilled timeseries is historically correct, not
+  just a snapshot of "now".
+- **Admins-only dashboard** (`admin.access` + staff-2FA) — live headline totals (cheap counts) plus a
+  recent-days table from the rollup; a "Refresh today" action re-rolls on demand.
+
+**Non-obvious call (and bug fixed in build):** `daily_metrics.metric_date` is kept as a plain `Y-m-d` STRING
+(no `date` cast). The Eloquent `date` cast reformatted it to a datetime, which broke both exact-date lookups
+(`where('metric_date', toDateString())`) AND the `updateOrCreate` idempotency match — the string form stores +
+compares identically across drivers.
+
+**Consequences:** operators get growth/engagement figures with zero PII and zero new dependencies; the metric
+set extends by adding a key to the closed list + a count in `rollup`. New reversible table `daily_metrics`. 3
+tests: the rollup values + idempotency, the cron command, and dashboard authz + aggregate display.
+
+---
+
+### Phase 3 — status (2026-06-13)
+**All five subsystems built, tested, and committed** on `claude/phase-3-extensibility` (pending owner push →
+PR → merge): B1 modules (ADR-0031), B2 theming/layout (ADR-0032), B3 REST API + webhooks (ADR-0033), B4
+importers (ADR-0034, phpBB built + MyBB/SMF scaffolded), B5 analytics (ADR-0035). Design set:
+`docs/architecture/phase3-extensibility/`. Each ADR is **Accepted — owner-authorized overnight build; flagged
+for review** and should get a human review pass before the 1.0 line.

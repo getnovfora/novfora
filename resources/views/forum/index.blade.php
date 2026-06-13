@@ -7,6 +7,9 @@
             <h1 class="text-2xl font-semibold tracking-tight text-ink">Forums</h1>
         </div>
 
+        {{-- Configurable layout region (ADR-0032) — admin-placed widgets above the forum list. --}}
+        <x-region name="forum_top" />
+
         @forelse ($tree as $node)
             @if ($node->isCategory())
                 <section class="space-y-2">
@@ -40,6 +43,9 @@
                 </x-ui.empty>
             </x-ui.card>
         @endforelse
+
+        {{-- Configurable layout region (ADR-0032) — admin-placed widgets below the forum list. --}}
+        <x-region name="forum_bottom" />
 
         {{-- Community activity feed (P2-M3): global, per-viewer permission-filtered, cached primitives. --}}
         <livewire:community.activity-feed />

@@ -24,6 +24,7 @@ use App\Models\Reaction;
 use App\Models\RegistrationCheck;
 use App\Models\Report;
 use App\Models\RoleAssignment;
+use App\Models\StaffNote;
 use App\Models\Topic;
 use App\Models\User;
 use App\Models\UserRelationship;
@@ -146,11 +147,42 @@ final class AccountDeletionService
         return true;
     }
 
-    /** Whether removing this user would leave the forum with zero administrators. */
+    /**
+     * Whether removing this user would leave the forum with zero administrators. This is the fast, NON-locking
+     * pre-filter — used for the UI "deletion unavailable" signal and a cheap early throw before a transaction is
+     * even opened. It is NOT the authority: the TOCTOU window between this read and the delete is closed by
+     * assertNotSoleAdminLocked() inside the cascade transaction.
+     */
     public function isSoleAdmin(User $user): bool
     {
         return $user->isAdmin()
             && User::whereHas('groups', fn ($q) => $q->where('slug', 'admins'))->count() <= 1;
+    }
+
+    /**
+     * The AUTHORITATIVE sole-admin guard (A5, apex): a LOCKING current read of the admins-group membership, run
+     * inside the deletion transaction so it serialises against any concurrent admin removal. Throws — rolling
+     * the transaction back, committing nothing — when removing this user would strand the forum with zero
+     * administrators. Admin-ness is re-derived from the locked pivot rows (DB truth), never a stale in-memory
+     * model. On drivers without row locks (SQLite) the FOR UPDATE is a no-op, but the in-transaction re-read
+     * against live state is still correct; the lock only matters for true MySQL/Postgres concurrency.
+     *
+     * @throws AccountDeletionException when $userId is the sole remaining administrator
+     */
+    private function assertNotSoleAdminLocked(int $userId): void
+    {
+        $adminIds = DB::table('group_user')
+            ->join('groups', 'groups.id', '=', 'group_user.group_id')
+            ->where('groups.slug', 'admins')
+            ->lockForUpdate()
+            ->pluck('group_user.user_id')
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->all();
+
+        if (in_array($userId, $adminIds, true) && count($adminIds) <= 1) {
+            throw new AccountDeletionException('The last administrator account cannot be deleted.');
+        }
     }
 
     /**
@@ -165,6 +197,15 @@ final class AccountDeletionService
         $email = $target->email;
 
         DB::transaction(function () use ($target, $userId, $initiatedBy, $actorId, $email): void {
+            // (a0) TOCTOU close (A5, apex): re-assert the sole-admin invariant under a ROW LOCK, inside the
+            //      transaction, as the FIRST act — BEFORE any mutation. The non-locking public isSoleAdmin()
+            //      checked by the callers is only a fast pre-filter / UI signal; THIS locked re-read is the
+            //      authority. Two concurrent admin self-deletions both pass the pre-filter (each still counts
+            //      two admins), but the FOR UPDATE on the admins-group pivot serialises them: the first
+            //      deletes + commits, the second then reads only ONE admin (itself) and aborts here — so the
+            //      forum can never be stranded with zero administrators.
+            $this->assertNotSoleAdminLocked($userId);
+
             // (a) CAPTURE the denormalised-tally inputs BEFORE anything drops the rows that derive them.
             $reactedPostIds = Reaction::where('user_id', $userId)
                 ->pluck('post_id')->map(fn ($i): int => (int) $i)->unique()->values()->all();
@@ -246,6 +287,11 @@ final class AccountDeletionService
 
             // warnings.issued_by has no FK → NULL it; warnings.user_id (a real FK) cascades with the row.
             Warning::where('issued_by', $userId)->update(['issued_by' => null]);
+
+            // Staff notes (A1): notes ABOUT this user (staff_notes.user_id) cascade with the row; notes this
+            // user AUTHORED about OTHERS survive but are de-identified — author_id has no FK, so NULL it (the
+            // note then renders "[Deleted]"), exactly like warnings.issued_by above.
+            StaffNote::where('author_id', $userId)->update(['author_id' => null]);
 
             // Relationship edges (follow + ignore) drop in BOTH directions — who the user followed/ignored
             // AND who followed/ignored them (P2-M5). Both endpoint FKs do cascadeOnDelete with the users row,

@@ -1,0 +1,9 @@
+{
+    "name": "Permission Collider",
+    "slug": "test/collide",
+    "version": "1.0.0",
+    "api_version": "^1.0",
+    "permissions": [
+        { "key": "admin.access", "scope_kind": "global" }
+    ]
+}

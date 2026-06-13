@@ -1,0 +1,20 @@
+{
+    "name": "Hello World",
+    "slug": "novfora/hello",
+    "version": "1.0.0",
+    "api_version": "^1.0",
+    "description": "First-party example plugin. Exercises the whole NovFora module API end-to-end: a permission key, a domain-event listener, a filter hook, a UI slot, a route, and a reversible migration. Doubles as a living test of the contract.",
+    "author": "The NovFora Authors",
+    "namespace": "Modules\\Novfora\\Hello\\",
+    "provider": "Modules\\Novfora\\Hello\\HelloServiceProvider",
+    "permissions": [
+        {
+            "key": "novfora.hello.manage",
+            "label": "Manage Hello greetings",
+            "scope_kind": "global",
+            "group": "Modules",
+            "description": "Demo permission registered by the Hello example plugin (it only ADDS to the catalog; grants are normal acl_entries)."
+        }
+    ],
+    "provides": ["routes", "listeners", "filters", "slots", "permissions", "migrations"]
+}

@@ -9,6 +9,7 @@
         ['label' => 'Preferences', 'url' => route('settings.preferences'), 'active' => request()->routeIs('settings.preferences')],
         ['label' => 'Notifications', 'url' => route('settings.notifications'), 'active' => request()->routeIs('settings.notifications')],
         ['label' => 'Security', 'url' => route('settings.two-factor'), 'active' => request()->routeIs('settings.two-factor')],
+        ['label' => 'API tokens', 'url' => route('settings.api-tokens'), 'active' => request()->routeIs('settings.api-tokens')],
         ['label' => 'Account', 'url' => route('settings.account'), 'active' => request()->routeIs('settings.account')],
     ];
 @endphp

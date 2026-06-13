@@ -68,6 +68,12 @@
             </x-ui.card>
         @endif
 
+        {{-- Private staff-only notes (A1). Gated by the same authority the SFC re-asserts in mount() and every
+             action — never rendered for the subject or a non-staff viewer. --}}
+        @if (\App\Moderation\StaffNotes::visibleTo($viewer instanceof \App\Models\User ? $viewer : null, $user))
+            <livewire:moderation.staff-notes :subject-id="$user->id" />
+        @endif
+
         @php($hasFields = $fields->contains(fn ($field) => filled($values->get($field->id)?->value)))
         @if ($hasFields)
             <x-ui.card class="space-y-3">

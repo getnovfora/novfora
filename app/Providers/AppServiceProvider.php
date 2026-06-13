@@ -15,9 +15,13 @@ use App\Services\Tier\Probes\RedisProbe;
 use App\Services\Tier\Probes\ReverbProbe;
 use App\Services\Tier\Probes\S3Probe;
 use App\Services\Tier\ServiceTier;
+use App\Webhooks\WebhookEventSubscriber;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -58,10 +62,22 @@ class AppServiceProvider extends ServiceProvider
         Paginator::defaultView('pagination::novfora');
         Paginator::defaultSimpleView('pagination::simple-novfora');
 
+        // REST API rate limit (ADR-0033): 60 requests/minute, keyed by the authenticated user when known,
+        // else the client IP. `throttle:api` runs ahead of token auth, so unauthenticated floods are bounded
+        // by IP before they reach the token lookup.
+        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(60)->by(
+            $request->user()?->getAuthIdentifier() ?? $request->ip() ?? 'api'
+        ));
+
         // Audit-log authentication events (phase-1.5 F-I): login / logout / failed / lockout / reset / 2FA.
         // (A subscriber — needs explicit registration; plain handle()-listeners in app/Listeners, e.g.
         // SendReactionNotification for the P2-M2 reaction notification, are AUTO-DISCOVERED — do not re-list.)
         Event::subscribe(AuditAuthEvents::class);
+
+        // Outbound webhooks (ADR-0033): bridge the core domain events to pending webhook deliveries. The bridge
+        // only inserts rows (the HTTP POST is the cron runner's job) and swallows any error, so it never breaks
+        // the triggering action.
+        Event::subscribe(WebhookEventSubscriber::class);
 
         // Route scope-based authorization through the permission-mask engine, deny-by-default.
         // Usage: $user->can('forum.post.create', $scope) or Gate::allows('...', $scope).

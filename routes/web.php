@@ -10,6 +10,7 @@ use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\BanController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\LegacyRedirectController;
 use App\Http\Controllers\MailWebhookController;
 use App\Http\Controllers\MentionController;
 use App\Http\Controllers\ModerationController;
@@ -98,6 +99,14 @@ Route::get('/members', function () {
     return view('members.index');
 })->name('members.index');
 
+// "Top members" leaderboard (A2) — same visibility gate as the directory (404 for a non-visible viewer); the
+// <livewire:leaderboard> component re-asserts it. A separate path avoids a /members/{user} wildcard.
+Route::get('/members/top', function () {
+    abort_unless(MembersDirectory::visibleTo(auth()->user()), 404);
+
+    return view('members.top');
+})->name('members.top');
+
 // Compose / moderate / upload — authenticated + email-verified.
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/forums/{forum}/topics/create', fn (Forum $forum) => view('forum.create-topic', ['forum' => $forum]))->name('topics.create');
@@ -179,6 +188,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // cascade and all guards live in AccountDeletionService.
     Route::view('/settings/account', 'settings.account')->name('settings.account');
 
+    // Personal API tokens (ADR-0033, B3) — the ⚡api-tokens SFC issues/revokes the user's own tokens.
+    Route::view('/settings/api-tokens', 'settings.api-tokens')->name('settings.api-tokens');
+
     // Private messages (P2-M2 Half-B). The /messages/new route MUST be registered before {conversation}
     // so the literal "new" segment is never captured as a conversation id.
     Route::get('/messages', fn () => view('pm.inbox'))->name('pm.inbox');
@@ -234,6 +246,18 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         // Badge manager (P2-M5 Slice 3) — the <livewire:admin.badges /> manager.
         Route::view('/badges', 'admin.badges')->name('badges');
 
+        // Module / plugin manager (ADR-0031, B1) — the <livewire:admin.modules /> lifecycle surface.
+        Route::view('/modules', 'admin.modules')->name('modules');
+
+        // Layout / widget configurator (ADR-0032, B2) — the <livewire:admin.layout /> region editor.
+        Route::view('/layout', 'admin.layout')->name('layout');
+
+        // Outbound webhooks (ADR-0033, B3) — the <livewire:admin.webhooks /> endpoint manager.
+        Route::view('/webhooks', 'admin.webhooks')->name('webhooks');
+
+        // Admin analytics (ADR-0035, B5) — the <livewire:admin.analytics /> aggregate dashboard.
+        Route::view('/analytics', 'admin.analytics')->name('analytics');
+
         // Settings pages (PART 3) — each a focused Livewire SFC on the Settings store.
         Route::view('/settings/general', 'admin.settings.general')->name('settings.general');
         Route::view('/settings/registration', 'admin.settings.registration')->name('settings.registration');
@@ -246,3 +270,7 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         // Members directory visibility (the public /members listing is gated on this setting).
         Route::view('/members/directory', 'admin.members.directory')->name('members.directory');
     });
+
+// Importer 301 redirect maps (ADR-0034) — the LAST route: only consulted for an otherwise-unmatched URL (a
+// legacy link), so the redirects table is never touched on the hot path.
+Route::fallback(LegacyRedirectController::class);

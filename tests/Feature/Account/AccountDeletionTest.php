@@ -21,6 +21,7 @@ use App\Models\Conversation;
 use App\Models\ConversationParticipant;
 use App\Models\EmailSuppression;
 use App\Models\Forum;
+use App\Models\Group;
 use App\Models\Message;
 use App\Models\PollOption;
 use App\Models\PollVote;
@@ -327,6 +328,47 @@ it('allows an administrator to delete their own account when another admin remai
     expect($audit->actor_id)->toBeNull();
     $changes = is_string($audit->changes) ? json_decode($audit->changes, true) : $audit->changes;
     expect($changes['initiated_by'])->toBe('self');
+});
+
+it('closes the sole-admin TOCTOU: the in-transaction locked guard blocks even when the pre-check is stale (A5)', function () {
+    delForum();
+
+    // Reproduce the TOCTOU staleness deterministically. Create the user as a NON-admin and load their groups,
+    // so the in-memory set read by isAdmin() is cached WITHOUT admins...
+    $user = Users::inGroups(['members']);
+    $user->load('groups');
+
+    // ...then make them the SOLE administrator directly in the DB, WITHOUT refreshing the model. The fast,
+    // NON-locking pre-check now reads the stale model and returns false (exactly what a check-then-act window
+    // produces), so deleteOwnAccount proceeds past it — but the authoritative locked re-check inside cascade()
+    // reads LIVE DB state, sees the lone administrator, and aborts. The forum is never stranded.
+    $adminGroupId = Group::where('slug', 'admins')->value('id');
+    DB::table('group_user')->insert(['user_id' => $user->id, 'group_id' => $adminGroupId, 'is_primary' => false]);
+
+    expect($user->isAdmin())->toBeFalse()                                       // stale in-memory view
+        ->and(app(AccountDeletionService::class)->isSoleAdmin($user))->toBeFalse(); // pre-filter is fooled
+
+    $this->actingAs($user);
+    expect(fn () => app(AccountDeletionService::class)->deleteOwnAccount($user))
+        ->toThrow(AccountDeletionException::class);
+    expect(User::find($user->id))->not->toBeNull(); // not stranded — the locked guard caught it
+});
+
+it('still allows the genuine last-of-two admin deletion to complete through the locked guard (A5)', function () {
+    delForum();
+    $admin1 = Users::inGroups(['admins']);
+    $admin2 = Users::inGroups(['admins']);
+
+    // admin1 deletes first — the locked guard sees two admins, permits it.
+    $this->actingAs($admin1);
+    app(AccountDeletionService::class)->deleteOwnAccount($admin1);
+    expect(User::find($admin1->id))->toBeNull();
+
+    // admin2 is now genuinely the sole admin — the locked guard (and the pre-filter) both refuse.
+    $this->actingAs($admin2);
+    expect(fn () => app(AccountDeletionService::class)->deleteOwnAccount($admin2))
+        ->toThrow(AccountDeletionException::class);
+    expect(User::find($admin2->id))->not->toBeNull();
 });
 
 it('summarises the pre-deletion footprint', function () {

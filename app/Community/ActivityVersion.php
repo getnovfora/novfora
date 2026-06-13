@@ -29,14 +29,19 @@ final class ActivityVersion
 
     public function bump(): int
     {
-        $next = $this->current() + 1;
-
         try {
-            Cache::forever(self::KEY, $next);
-        } catch (\Throwable) {
-            // graceful: an unavailable cache just means the feed isn't cached.
-        }
+            // Atomic (A6): seed the counter once if absent (Cache::add is SETNX-style), then atomically
+            // increment. This replaces a read-modify-write (current() + 1, then Cache::forever) whose two
+            // concurrent callers could both read N and both write N+1 — losing a bump and serving a stale,
+            // version-keyed feed entry to other readers. Cache::increment is atomic on every store that
+            // supports it (array/database/redis/memcached).
+            Cache::add(self::KEY, 1);
+            $next = Cache::increment(self::KEY);
 
-        return $next;
+            return is_int($next) ? $next : $this->current();
+        } catch (\Throwable) {
+            // graceful: an unavailable cache just means the feed isn't cached, never that it is wrong.
+            return $this->current() + 1;
+        }
     }
 }

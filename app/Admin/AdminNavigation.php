@@ -42,6 +42,7 @@ final class AdminNavigation
         $definition = [
             ['Overview', 'gauge', [
                 ['Dashboard', 'admin.dashboard', 'gauge'],
+                ['Analytics', 'admin.analytics', 'gauge'],
             ]],
             ['Settings', 'sliders', [
                 ['General', 'admin.settings.general', 'cog'],
@@ -61,6 +62,11 @@ final class AdminNavigation
             ['Content', 'folder', [
                 ['Forums & structure', 'admin.structure', 'folder'],
                 ['Badges', 'admin.badges', 'check-circle'],
+            ]],
+            ['Extend', 'folder', [
+                ['Modules & plugins', 'admin.modules', 'cog'],
+                ['Layout & widgets', 'admin.layout', 'sliders'],
+                ['Webhooks', 'admin.webhooks', 'mail'],
             ]],
             ['Moderation', 'flag', [
                 ['Approval queue', 'moderation.queue', 'check-circle', true],
