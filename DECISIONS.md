@@ -1610,3 +1610,38 @@ A polished filesystem child theme built purely on the theme API (ThemeManager vi
 already sufficient for a polished child theme. `ThemeApi::VERSION` stays **1.0.0** (the new per-post slot is a
 SlotRegistry/Module-API addition, not a theme region). Tests: `NebulaThemeTest` (activation, token-contract
 override, branding, layout/slot coexistence, no-op when inactive). 32 Theme tests green.
+
+---
+
+## Phase 3 — ADR human review pass + beta release build (2026-06-13)
+
+### Human review pass (closes the "flagged for review" note on ADR-0031…0035)
+Before building the live-deploy bundle, ADR-0031…0035 were read against the locked decisions (CLAUDE.md) and
+the hard rules. **Outcome: consistent — no concern to flag, no decision relitigated.** Confirmed:
+- **No second permission system / no escalation.** Module permission keys only ADD to the catalog and resolve
+  through the existing `PermissionResolver`; a module can never redefine a core key or write `acl_entries`
+  (ADR-0031). The REST API authorizes every call through the same engine and `PostService` — it can't exceed the
+  token owner's web rights (ADR-0033, re-verified in the P1 bypass hunt).
+- **No unsanitised HTML.** Slot / `post.html` filter / widget output is re-sanitised through the same
+  `ContentSanitizer` allowlist as user content; a throwing full-trust callback is now isolated (P1 MEDIUM fix).
+- **Untrusted-input boundaries fail closed.** Manifest parsing, webhook egress (H1 DNS-rebinding guard), and
+  importer dump parsing are all validated/parameterised/fail-closed (P1 verified-safe; P2 fuzzed).
+- **Strict clean-room** holds for the importers, including SMF (data-only schema mapping, never the program).
+- **Honestly-documented residuals** (full-PHP-trust plugin model — no feasible PHP sandbox; deliberately small
+  REST surface) are accepted, not bugs. The full-trust model is now gated by H3's consent + integrity + kill
+  switch. The ADR `Status` lines are left as the historical record; this note is the recorded human pass.
+
+### Beta release build (`novfora-release.zip`)
+Built the portable, tier-adaptive in-place upgrade bundle from `main` HEAD (Phase 3 + hardening, gate green:
+**Pest 1116 passed / 1 skipped**, pint + phpstan-L5 clean). The bundle carries Phase 3 (`/api/v1`, module/theme
+registries, phpBB/MyBB/SMF importers, analytics rollup, the H1 webhook SSRF guard) and **60 migrations (10
+Phase-3/Stage-A)** — so `SchemaState::codeFingerprint()` advances and a live `v1.0.0-beta.1` host auto-detects
+`schema.pending = true` (RH-10). Verified by a truly-cold HTTP boot (no artisan first): `GET /` → **302 /install**,
+`/install` → **200**; `bootstrap/cache/packages.php` ships (RH-1) and no env-specific cache/secret/install marker
+does. Artifact is gitignored, not committed.
+
+**`scripts/build-release.sh` fixes (this commit set):** (1) a `SKIP_NPM=1` path so the bundle can build in the
+node-less `forum-app` container after assets are built on the host (Docker php:8.3 + host Node); (2) the
+invariant-#4 `php artisan optimize:clear` now runs **before** `package:discover`, because in Laravel 13
+`optimize:clear`'s `clear-compiled` step also deletes `bootstrap/cache/packages.php` — so discovery must be the
+LAST cache writer or the RH-1 manifest wouldn't ship.

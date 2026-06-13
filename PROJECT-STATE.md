@@ -11,6 +11,32 @@
 
 ---
 
+## 📦 Beta release bundle BUILT + Phase 3 now on main — 2026-06-13 (LATEST)
+
+**`main` is at `e5d724b` (= `origin/main`) and carries Phase 3 + the hardening pass** — merged via PR #24
+(`claude/phase-3-hardening`) + PR #25 (build-release rename) and **pushed**. (The "nothing is pushed" note in the
+hardening section below is from before that merge — superseded.) Re-confirmed gate on `main` HEAD: **Pest 1116
+passed / 1 skipped / 0 failed**, `pint` clean, `phpstan` L5 0 errors, migrations apply clean. *(A first parallel
+gate run showed 156 false failures from a stale compiled-view cache carrying WSL `/mnt/d` paths into the `/app`
+container; cleared with `view:clear` and the authoritative single-process run is green.)*
+
+**Deployable `novfora-release.zip` built from `main` HEAD** for the no-SSH in-place beta upgrade (per
+[`docs/product/live-deploy-kickoff.md`](docs/product/live-deploy-kickoff.md)):
+- **Artifact:** `D:\Forum\novfora-release.zip` · 12.66 MB (13,271,763 bytes) · sha256
+  `9ea9623d8e329011f2f741463372a7bd670819fb1c41021794f94b423df8a3e5` · **gitignored (not committed)**.
+- **Carries Phase 3:** `/api/v1`, module/theme registries, phpBB/MyBB/SMF importers, analytics rollup, H1 webhook
+  SSRF guard; **60 migrations (10 Phase-3/Stage-A)** → `SchemaState::codeFingerprint()` advances so a
+  `v1.0.0-beta.1` host sees `schema.pending = true` and auto-upgrades (RH-10).
+- **Verified:** truly-cold HTTP boot (NO artisan first) `GET /` → **302 /install**, `/install` → **200**;
+  `bootstrap/cache/packages.php` ships (RH-1) and no `.env` / install marker / env caches do.
+- **ADR-0031…0035** given the flagged human pass — consistent with the locked decisions (see `DECISIONS.md →
+  Phase 3 — ADR human review pass`).
+- **Committed (script/doc only):** `scripts/build-release.sh` portability fix (`SKIP_NPM` + `optimize:clear`
+  ordering), the `public/build` asset rebuild, and these notes. **Owner: push `main` + upload the zip per the
+  live-deploy Part B runbook.**
+
+---
+
 ## ⭐ Phase 3 — HARDENED · PROVEN · DOGFOODED — 2026-06-13 (REVIEW THIS FIRST)
 
 A focused run to **prove and harden Phase 3 before more is built on it** (NOT a new phase). Phase 3 was first
