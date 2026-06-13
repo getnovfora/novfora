@@ -1063,3 +1063,30 @@ style editor (ADR-0029). Non-obvious calls:
 - **Ships inactive** — no active theme by default, so the default appearance is unchanged; an admin selects
   Aurora via `NOVFORA_THEME` / Appearance. Tests mirror `ThemeOverrideTest`: boot + direct view render,
   asserting the override resolves ahead of core and the core defaults render when inactive.
+
+### A5 — isSoleAdmin TOCTOU hardening (APEX, concurrency)
+Closed the check-then-act window in the last-admin guard (flagged in the P2-M5 review). Non-obvious calls:
+- **The authority is a LOCKED re-read INSIDE the deletion transaction**, run as the first act before any
+  mutation: `assertNotSoleAdminLocked()` does `SELECT … FROM group_user JOIN groups WHERE slug='admins' FOR
+  UPDATE`, re-derives admin-ness from the locked pivot rows (DB truth, not a stale model), and throws if the
+  target is the lone admin — rolling the transaction back. Two concurrent admin self-deletions both pass the
+  fast pre-filter (each still counts two admins), but the FOR UPDATE serialises them: the first commits, the
+  second then reads one admin and aborts. The public non-locking `isSoleAdmin()` stays as a cheap pre-filter /
+  UI signal — explicitly NOT the authority.
+- **Race test without threads**: `AccountDeletionService` is `final`, so the test reproduces the staleness
+  with a stale in-memory model — the user is loaded as a non-admin, then made the sole admin directly in the
+  DB, so the pre-filter (which reads `isAdmin()` off the cached groups) returns false and the deletion gets
+  *past* it, yet the in-transaction locked re-read sees the live lone admin and aborts. SQLite has no row
+  locks, but the in-transaction live re-read is still correct there; the lock matters only under real MySQL/PG.
+
+### A6 — ActivityVersion / AclVersion lost-bump hardening (APEX, concurrency)
+Made the cache version-counter bump atomic (flagged in the P2-M5 review). Non-obvious calls:
+- **`Cache::add` (seed-once, SETNX-style) + `Cache::increment` (atomic)** replaces the read-modify-write
+  (`current() + 1` then `Cache::forever`) whose two concurrent callers could both read N and both write N+1 —
+  losing a bump and leaving a stale, version-keyed feed / resolved-permission entry served to other readers.
+  Applied identically to BOTH `App\Community\ActivityVersion` and its structural twin `App\Permissions\
+  AclVersion`. `current()` and the graceful-degradation contract (a dead cache never errors, never returns a
+  wrong answer) are unchanged.
+- **Concurrency test without threads**: the array cache driver is atomic within the process, so the suite pins
+  the *primitive* (a Cache mock asserts `increment` is called, not a `get`/`forever` pair an interleave could
+  split) plus cold-start, an exact no-lost-update count over 100 bumps, and the throw-path fallback.

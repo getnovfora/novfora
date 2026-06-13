@@ -28,13 +28,18 @@ final class AclVersion
 
     public function bump(): int
     {
-        $next = $this->current() + 1;
         try {
-            Cache::forever(self::KEY, $next);
+            // Atomic (A6): seed the counter once if absent (Cache::add is SETNX-style), then atomically
+            // increment — replacing a read-modify-write (current() + 1, then Cache::forever) whose two
+            // concurrent callers could both read N and both write N+1, losing a bump and leaving a stale
+            // resolved-permission set cached. Cache::increment is atomic on every store that supports it.
+            Cache::add(self::KEY, 1);
+            $next = Cache::increment(self::KEY);
+
+            return is_int($next) ? $next : $this->current();
         } catch (\Throwable) {
             // graceful: a missing cache just means resolved sets aren't cached, not incorrect.
+            return $this->current() + 1;
         }
-
-        return $next;
     }
 }
