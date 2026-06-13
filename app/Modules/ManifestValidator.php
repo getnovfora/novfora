@@ -31,7 +31,7 @@ final class ManifestValidator
 
     private const SCOPE_KINDS = ['global', 'category', 'forum', 'thread'];
 
-    private const KNOWN_PROVIDES = ['routes', 'listeners', 'filters', 'slots', 'permissions', 'settings', 'migrations', 'commands', 'schedule'];
+    private const KNOWN_PROVIDES = ['routes', 'listeners', 'filters', 'slots', 'widgets', 'permissions', 'settings', 'migrations', 'commands', 'schedule'];
 
     /** Reserved namespace roots a module may never claim (it would shadow core/framework code). */
     private const RESERVED_NAMESPACES = ['App', 'Illuminate', 'Symfony', 'Laravel', 'Database', 'Tests', 'Livewire', 'Composer'];

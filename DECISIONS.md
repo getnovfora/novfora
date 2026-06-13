@@ -1557,3 +1557,41 @@ remove + upgrade (`ModuleLifecycleTest`, incl. the H3 consent path + the H4 mult
 `Livewire::test` (the consent panel, layout configurator, token settings) — there is no new browser-only/JS
 behaviour a real browser would catch that the feature tests don't, and the sandbox has no browser driver. Dusk
 stays reserved for genuinely JS-driven flows.
+
+## Phase 3 — Dogfood (D1/D2/D3, 2026-06-13)
+
+> The real payoff: build first-party extensions PURELY through the public contract (zero core edits) to surface
+> contract gaps before third parties hit them. Every gap found was closed ADDITIVELY (semver-aware), bumping the
+> Module API minor to **1.1.0**.
+
+### D1 — First-party plugins (`modules/novfora/qa`, `modules/novfora/kudos`)
+
+Two plugins, each exercising EVERY module seam through the contract (a domain-event listener, a `post.html`
+filter, a UI slot, a plugin-owned migration, a plugin setting, a permission, routes) + Kudos also a
+module-registered layout **widget**:
+- **novfora/qa** — mark one reply as a topic's accepted answer (permission `novfora.qa.accept`, table
+  `qa_accepted_answers`, the `topic.post.aside` badge slot, an `[answer]` content callout filter gated by the
+  `qa.callout_enabled` setting, CSRF-guarded confirm+accept routes).
+- **novfora/kudos** — give kudos to a post (permission `novfora.kudos.give`, table `kudos`, a footer-slot total,
+  a `KudosWidget` layout widget, a `[kudos]` glyph filter using the `kudos.glyph` setting).
+
+**CONTRACT GAPS found by dogfooding, and how each was closed (all additive → Module API 1.1.0):**
+1. **No per-post UI extension point.** The only slots placed in core templates were `footer.widgets` + the forum
+   regions — a plugin had nowhere to render per-post UI (an accepted-answer badge). *Closed:* added the
+   `topic.post.aside` slot outlet to the topic view, passing the post + topic as context (the `<x-slot-outlet>`
+   component already supported `:context`; the value is sanitised). A NEW slot name = minor.
+2. **No way for a plugin to register settings.** `SettingsRegistry` was a closed hardcoded list, so the declared
+   `provides: ["settings"]` capability had no registration path — `Settings::get/set` returned null/threw for an
+   unregistered key. *Closed:* `SettingsRegistry::register(SettingDefinition)` (+ `flushRuntime()` for test
+   isolation); module keys fill gaps only — a plugin can NEVER override a core key (e.g. `mail.password`).
+3. **`widgets` missing from the manifest capability vocabulary.** Modules can register layout widgets (ADR-0032)
+   but `provides: ["widgets"]` was rejected by `ManifestValidator`. *Closed:* added `widgets` to `KNOWN_PROVIDES`.
+
+**Also fixed (robustness, not a gap):** module routes now build URLs with path-based `url()` rather than
+`route()`-by-name, so a runtime-registered module route resolves even before the name lookup is rebuilt / under
+route:cache. (Recorded as a known consideration: runtime-registered routes are not in a cached route file —
+fine on the baseline tier; an enhanced-tier operator using `route:cache` should be aware. Not a correctness gap
+in the shipped flow.)
+
+Tests: `QaPluginTest`, `KudosPluginTest` drive each plugin install→enable→exercise-every-seam through the
+contract; permission gating is enforced by the core engine (403 without the grant).
