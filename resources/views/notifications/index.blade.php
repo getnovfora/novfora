@@ -2,7 +2,7 @@
 @extends('layouts.app', ['title' => 'Notifications · '.config('app.name', 'NovFora')])
 
 @section('content')
-    <x-ui.container size="md" class="space-y-5">
+    <x-ui.container size="lg" class="space-y-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-2xl font-semibold tracking-tight text-ink">Notifications</h1>
             <div class="flex items-center gap-2">

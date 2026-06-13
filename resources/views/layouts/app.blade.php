@@ -84,7 +84,7 @@
     <a href="#main" class="skip-link">Skip to content</a>
 
     <header class="sticky top-0 z-30 border-b border-line bg-surface-raised/85 backdrop-blur">
-        <x-ui.container size="xl" class="flex h-14 items-center gap-2 sm:gap-3">
+        <x-ui.container size="lg" class="flex h-14 items-center gap-2 sm:gap-3">
             {{-- Mobile nav toggle --}}
             <div x-data="{ open: false }" class="sm:hidden flex items-center">
                 <button type="button" @click="open = ! open" :aria-expanded="open.toString()" aria-controls="mobile-nav"
@@ -198,7 +198,7 @@
     {{-- Site-wide notice (ACP v1 General settings) — shown on every page when an admin sets one. --}}
     @if (($site['notice'] ?? '') !== '')
         <div class="border-b border-line bg-accent-soft text-accent-soft-ink">
-            <x-ui.container size="xl" class="flex items-start gap-2 py-2.5 text-sm">
+            <x-ui.container size="lg" class="flex items-start gap-2 py-2.5 text-sm">
                 <x-ui.icon name="bell" class="mt-0.5 h-4 w-4 shrink-0" />
                 <p>{{ $site['notice'] }}</p>
             </x-ui.container>
@@ -208,7 +208,7 @@
     {{-- Optional breadcrumb bar: a page provides @section('breadcrumbs') with <x-ui.breadcrumbs>. --}}
     @hasSection('breadcrumbs')
         <div class="border-b border-line bg-surface-raised">
-            <x-ui.container size="xl" class="py-2.5">@yield('breadcrumbs')</x-ui.container>
+            <x-ui.container size="lg" class="py-2.5">@yield('breadcrumbs')</x-ui.container>
         </div>
     @endif
 
