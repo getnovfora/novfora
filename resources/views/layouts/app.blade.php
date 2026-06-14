@@ -39,6 +39,9 @@
     // sanitised custom CSS), cached and read once per request. Emitted AFTER the appearance overrides below
     // so an active theme wins on equal specificity.
     $styleThemeCss = app(\App\Theme\StyleThemeManager::class)->css();
+
+    // Theme Studio 1.2: the active theme's custom header/footer HTML (sanitised at write time, cached).
+    $themeChrome = app(\App\Theme\StyleThemeManager::class)->chrome();
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
@@ -216,6 +219,13 @@
         </x-ui.container>
     </header>
 
+    {{-- Theme Studio 1.2: per-theme custom header HTML (sanitised at write time through the post allowlist). --}}
+    @if (($themeChrome['header'] ?? '') !== '')
+        <div class="novfora-theme-header border-b border-line">
+            <x-ui.container size="lg" class="py-3">{!! $themeChrome['header'] !!}</x-ui.container>
+        </div>
+    @endif
+
     {{-- Site-wide notice (ACP v1 General settings) — shown on every page when an admin sets one. --}}
     @if (($site['notice'] ?? '') !== '')
         <div class="border-b border-line bg-accent-soft text-accent-soft-ink">
@@ -247,6 +257,12 @@
     <main id="main" class="flex-1 py-6 sm:py-8">@yield('content')</main>
 
     <footer class="border-t border-line bg-surface-raised">
+        {{-- Theme Studio 1.2: per-theme custom footer HTML (sanitised at write time through the post allowlist). --}}
+        @if (($themeChrome['footer'] ?? '') !== '')
+            <div class="novfora-theme-footer border-b border-line">
+                <x-ui.container size="xl" class="py-4 text-sm text-ink-muted">{!! $themeChrome['footer'] !!}</x-ui.container>
+            </div>
+        @endif
         <x-ui.container size="xl" class="flex flex-col sm:flex-row items-center justify-between gap-3 py-6 text-sm text-ink-muted">
             <p>@include('partials.footer-tagline')</p>
             {{-- Module UI-slot extension point (ADR-0031): modules may inject sanitised footer widgets here. --}}

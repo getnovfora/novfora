@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Theme;
 
+use App\Content\ContentSanitizer;
 use App\Models\SiteTheme;
 use App\Support\AccentPalette;
 use App\Support\Audit;
@@ -24,6 +25,8 @@ use Illuminate\Support\Str;
 final class StyleThemeManager
 {
     public const CACHE_KEY = 'novfora:style-theme:css';
+
+    public const CHROME_CACHE_KEY = 'novfora:style-theme:chrome';
 
     /** The active style theme, or null when none is active / the table isn't ready (pre-install). */
     public function active(): ?SiteTheme
@@ -55,6 +58,34 @@ final class StyleThemeManager
             return $css;
         } catch (\Throwable) {
             return '';
+        }
+    }
+
+    /**
+     * The active theme's custom header / footer HTML (Theme Studio 1.2) — already sanitised at write time
+     * (ContentSanitizer allowlist), so the layout renders it raw. Cached forever, invalidated on every write;
+     * defensive against a missing table (pre-install) exactly like css().
+     *
+     * @return array{header:string,footer:string}
+     */
+    public function chrome(): array
+    {
+        try {
+            $cached = Cache::get(self::CHROME_CACHE_KEY);
+            if (is_array($cached) && isset($cached['header'], $cached['footer'])) {
+                return $cached;
+            }
+
+            $theme = $this->active();
+            $chrome = [
+                'header' => $theme instanceof SiteTheme ? (string) ($theme->header_html ?? '') : '',
+                'footer' => $theme instanceof SiteTheme ? (string) ($theme->footer_html ?? '') : '',
+            ];
+            Cache::forever(self::CHROME_CACHE_KEY, $chrome);
+
+            return $chrome;
+        } catch (\Throwable) {
+            return ['header' => '', 'footer' => ''];
         }
     }
 
@@ -136,6 +167,8 @@ final class StyleThemeManager
             'accent_color' => $this->cleanAccent($data['accent_color'] ?? null),
             'custom_css' => self::sanitizeCss((string) ($data['custom_css'] ?? '')) ?: null,
             'tokens' => $this->cleanTokens($data['tokens'] ?? null),
+            'header_html' => $this->cleanHtml($data['header_html'] ?? null),
+            'footer_html' => $this->cleanHtml($data['footer_html'] ?? null),
             'is_active' => false,
         ]);
 
@@ -162,6 +195,8 @@ final class StyleThemeManager
             'accent_color' => $this->cleanAccent($data['accent_color'] ?? null),
             'custom_css' => self::sanitizeCss((string) ($data['custom_css'] ?? '')) ?: null,
             'tokens' => $this->cleanTokens($data['tokens'] ?? null),
+            'header_html' => $this->cleanHtml($data['header_html'] ?? null),
+            'footer_html' => $this->cleanHtml($data['footer_html'] ?? null),
         ]);
 
         $this->invalidate();
@@ -198,10 +233,28 @@ final class StyleThemeManager
         Audit::log('theme.deleted', null, ['name' => $name]);
     }
 
-    /** Drop the cached compiled CSS. Called on every write. */
+    /** Drop the cached compiled CSS + chrome HTML. Called on every write. */
     public function invalidate(): void
     {
         Cache::forget(self::CACHE_KEY);
+        Cache::forget(self::CHROME_CACHE_KEY);
+    }
+
+    /**
+     * Sanitise admin-authored header/footer HTML through the SAME user-content allowlist as posts
+     * (ContentSanitizer) BEFORE storage — <script>/<style> and any non-allowlisted element are dropped, so
+     * what is stored (and later rendered raw) is always safe. Returns null when nothing survives.
+     */
+    private function cleanHtml(mixed $value): ?string
+    {
+        $html = is_string($value) ? trim($value) : '';
+        if ($html === '') {
+            return null;
+        }
+
+        $clean = trim(app(ContentSanitizer::class)->sanitize($html));
+
+        return $clean === '' ? null : $clean;
     }
 
     /** Normalise an accent to a lowercase #rrggbb hex, or null when empty/invalid (→ inherit the built-in). */

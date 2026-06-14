@@ -29,6 +29,10 @@ new class extends Component
 
     public string $customCss = '';
 
+    public string $headerHtml = '';
+
+    public string $footerHtml = '';
+
     public ?int $deleteId = null;
 
     public ?string $message = null;
@@ -56,6 +60,8 @@ new class extends Component
         $this->accentColor = (string) ($theme->accent_color ?? '');
         $this->tokens = is_array($theme->tokens) ? $theme->tokens : [];
         $this->customCss = (string) ($theme->custom_css ?? '');
+        $this->headerHtml = (string) ($theme->header_html ?? '');
+        $this->footerHtml = (string) ($theme->footer_html ?? '');
         $this->deleteId = null;
         $this->showForm = true;
     }
@@ -67,6 +73,8 @@ new class extends Component
             'name' => ['required', 'string', 'max:60'],
             'accentColor' => ['nullable', 'string', 'regex:/^#?[0-9a-fA-F]{6}$/'],
             'customCss' => ['nullable', 'string', 'max:20000'],
+            'headerHtml' => ['nullable', 'string', 'max:20000'],
+            'footerHtml' => ['nullable', 'string', 'max:20000'],
         ]);
 
         $payload = [
@@ -74,6 +82,8 @@ new class extends Component
             'accent_color' => $data['accentColor'] ?? null,
             'tokens' => $this->tokens, // StyleThemeManager::cleanTokens() strict-validates each value
             'custom_css' => $data['customCss'] ?? null,
+            'header_html' => $this->headerHtml,  // sanitised through the post allowlist on save
+            'footer_html' => $this->footerHtml,
         ];
 
         if ($this->formId === null) {
@@ -169,7 +179,7 @@ new class extends Component
 
     private function resetForm(): void
     {
-        $this->reset(['formId', 'name', 'accentColor', 'tokens', 'customCss']);
+        $this->reset(['formId', 'name', 'accentColor', 'tokens', 'customCss', 'headerHtml', 'footerHtml']);
         $this->resetErrorBag();
     }
 
@@ -273,6 +283,16 @@ new class extends Component
                 <x-ui.textarea label="Custom CSS" name="customCss" wire:model="customCss" rows="8"
                                hint="Optional. Plain CSS targeting the design tokens, e.g. :root{ --radius-md: 2px; }. Any style close-tag is stripped before saving."
                                class="font-mono text-xs" />
+
+                {{-- Custom header / footer HTML (Theme Studio 1.2) — sanitised through the post allowlist on save. --}}
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <x-ui.textarea label="Custom header HTML" name="headerHtml" wire:model="headerHtml" rows="5"
+                                   hint="Shown as a banner below the site header. Sanitised like a post — scripts & styles are stripped."
+                                   class="font-mono text-xs" />
+                    <x-ui.textarea label="Custom footer HTML" name="footerHtml" wire:model="footerHtml" rows="5"
+                                   hint="Shown in the footer above the credit line. Sanitised like a post — scripts & styles are stripped."
+                                   class="font-mono text-xs" />
+                </div>
 
                 <div class="flex flex-wrap items-center gap-2">
                     <x-ui.button type="submit" wire:loading.attr="disabled" wire:target="save" dusk="acp-theme-save">

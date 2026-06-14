@@ -1737,3 +1737,18 @@ since seed is restored during an upgrade, and an upgrade still SUCCEEDS when `pe
   valid tokens persist / invalid + blank + unknown keys drop; the column clears when nothing is valid; the
   active-theme CSS carries the real-token overrides; `tokenCss` ignores non-contract keys; the editor saves
   through Livewire dropping invalid values; non-admin → 403.
+
+**1.2 — Per-theme custom header / footer HTML (the "wrapper") + custom CSS.**
+- **Sanitised at WRITE time through the post allowlist.** New nullable `header_html` / `footer_html` TEXT
+  columns on `site_themes` (reversible). `StyleThemeManager::cleanHtml()` runs each through the SAME
+  `ContentSanitizer` allowlist as user posts — `<script>` / `<style>` and any non-allowlisted element/attribute
+  (e.g. `onclick`) are dropped — so what is stored is already safe and the layout renders it raw (`{!! !!}`).
+  Custom CSS already existed (1.0). The "wrapper" is the header band + footer block surrounding the page; a
+  true split open/close wrapper is intentionally NOT offered (it can't be sanitised as balanced fragments).
+- **Cached chrome, invalidated on write.** `StyleThemeManager::chrome()` returns the active theme's
+  `{header, footer}` HTML, cached forever under a second key and forgotten in `invalidate()` (so an edit shows
+  at once) — same discipline as the compiled-CSS cache. The layout fetches it once per request and renders a
+  header band below the site header and a footer block above the credit line.
+- **Tests (5):** script/style/`onclick` stripped at save; null when nothing survives; `chrome()` reflects the
+  active theme and clears when none is active / on edit; and a route-integration test that the active theme's
+  header & footer HTML render on the forum index (and vanish when deactivated).
