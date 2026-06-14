@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Forum;
+use App\Models\Tag;
 use App\Models\Topic;
 use App\Models\User;
 use Illuminate\Http\Response;
@@ -35,10 +36,22 @@ class SitemapController extends Controller
             ->filter(fn (Forum $f) => $guest->canDo('forum.view', $f->permissionScope()));
         $forumIds = $forums->pluck('id')->all();
 
-        $urls = [['loc' => route('forums.index')]];
+        // Static discovery landing pages (depth, discovery 3.4).
+        $urls = [
+            ['loc' => route('forums.index')],
+            ['loc' => route('trending.index')],
+            ['loc' => route('tags.index')],
+        ];
         foreach ($forums as $forum) {
             $urls[] = ['loc' => route('forums.show', $forum)];
         }
+
+        // Tag pages (only tags actually in use) — public listings, deepen crawl coverage.
+        Tag::query()->where('usage_count', '>', 0)->orderByDesc('usage_count')->limit(5000)
+            ->pluck('slug')
+            ->each(function (string $slug) use (&$urls) {
+                $urls[] = ['loc' => route('tags.show', $slug)];
+            });
 
         if ($forumIds !== []) {
             Topic::query()->whereIn('forum_id', $forumIds)

@@ -1,6 +1,10 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 @extends('layouts.app', ['title' => 'Forums · '.config('app.name', 'NovFora')])
 
+@push('head')
+    <link rel="canonical" href="{{ route('forums.index') }}">
+@endpush
+
 @section('content')
     @php $sidebarHtml = app(\App\Theme\LayoutManager::class)->render('forum_sidebar'); @endphp
     <x-ui.container size="lg" class="space-y-6">

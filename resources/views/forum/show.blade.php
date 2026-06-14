@@ -2,6 +2,12 @@
 @extends('layouts.app', ['title' => $forum->title.' · '.config('app.name', 'NovFora')])
 
 @push('head')
+    {{-- SEO polish (discovery 3.4): canonical + Open Graph for the board. --}}
+    <link rel="canonical" href="{{ route('forums.show', $forum) }}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{ $forum->title }}">
+    @if ($forum->description)<meta property="og:description" content="{{ $forum->description }}">@endif
+    <meta property="og:url" content="{{ route('forums.show', $forum) }}">
     {{-- RSS/Atom auto-discovery (discovery 3.2). --}}
     <link rel="alternate" type="application/atom+xml" title="{{ $forum->title }} — feed" href="{{ route('feeds.forum', $forum) }}">
 @endpush

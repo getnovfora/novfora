@@ -1924,3 +1924,17 @@ everyone (readers don't authenticate, so feeds expose only what a guest may see)
 guest-visible forums via `VisibleForumIds`. Cached 15 min per id (sitemap discipline). Auto-discovery
 `<link rel="alternate" type="application/atom+xml">` added to the forum, topic and profile heads. Tests (5):
 forum/topic/user feeds (content-type + content), the private-forum 404, and the auto-discovery links.
+
+**3.3 — Lightweight recommendations.** `App\Discovery\RecommendationService::related()` — baseline-safe, no ML:
+topics that SHARE A TAG with the source (newest-active first), topped up from the SAME FORUM when short.
+Permission-safe via `VisibleForumIds`. Rendered as a "Related topics" section on the topic page
+(`TopicController` passes `$related`). Tests (4): share-a-tag (excludes source), same-forum top-up,
+**never recommends an unseen forum's topic**, and the page section render.
+
+**3.4 — Sitemap depth + SEO polish.** The sitemap now also lists the `/trending` + `/tags` landing pages and
+every in-use tag page (usage_count > 0), alongside the existing forums + topics (all still guest-gated).
+SEO polish: canonical + Open Graph added to the board page (`forums.show`) and a canonical to the forum index
+(topic pages already had the full set). Tests (3): sitemap includes the landing + tag pages, excludes an
+unused tag, and the board page emits canonical + og:title.
+
+**Wave 3 — COMPLETE** (trending/best-of, RSS/Atom feeds, recommendations, sitemap/SEO), all gated + committed.

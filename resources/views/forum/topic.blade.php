@@ -255,6 +255,20 @@
         <x-sandbox-template name="topic_footer"
             :data="['topic' => ['title' => $topic->title, 'reply_count' => (int) $topic->reply_count]]" />
 
+        {{-- Discovery 3.3: related topics (share-a-tag, same-forum fallback; permission-safe). --}}
+        @if (($related ?? collect())->isNotEmpty())
+            <section class="mt-8 space-y-2" aria-label="Related topics">
+                <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle">Related topics</h2>
+                <x-ui.card flush>
+                    <ul class="divide-y divide-line">
+                        @foreach ($related as $rel)
+                            @include('discovery.partials.topic-line', ['topic' => $rel])
+                        @endforeach
+                    </ul>
+                </x-ui.card>
+            </section>
+        @endif
+
         {{-- Theme Studio 1.3: configurable region — admin-placed widgets at the bottom of a topic. --}}
         <x-region name="topic_bottom" />
     </x-ui.container>
