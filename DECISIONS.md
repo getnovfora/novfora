@@ -1864,3 +1864,15 @@ viewer's saved set for the page. The `/saved` view (`saved.index`, auth-only) li
 **re-checks current visibility** (`forum.view`) so a bookmark in a now-forbidden forum, or a deleted target,
 drops out. Nav links added (desktop dropdown + mobile). Tests (6): toggle on/off, unique-edge idempotency,
 batched lookup, the Livewire toggle, the `/saved` list + auth gate, and the deleted-target drop-out.
+
+**2.2 — Ignore / block users.** Built on the EXISTING `user_relationships` `TYPE_IGNORE` edge (the PM-block half
+was already wired into `ConversationService` in P2-M2b — reused, not rebuilt). New `App\Community\IgnoreService`
+mirrors `FollowService` (insertOrIgnore, self-ignore hard refuse, SILENT — no event) with `ignore`/`unignore`/
+`ignores`/`ignoredIds`/`ignoredUsers`. A `<livewire:community.ignore-button>` sits on the profile next to
+follow; a `/settings/ignore-list` (new settings tab) lists + unignores. **Posts:** `TopicController` passes the
+viewer's ignore set; the post loop COLLAPSES an ignored member's post behind a "you ignore this member — show"
+reveal — **but never a staff member's** (the guard is `$role === null`, i.e. not Admin/Moderator, so staff
+actions are never hidden). **PMs:** unchanged — `IgnoreService::ignore()` writes the same edge
+`ConversationService` already reads, proven end-to-end (an ignored sender's PM is refused). Tests (7):
+ignore/unignore, self-ignore refuse, the IgnoreService→PM-block integration, the profile button, post collapse
+for a member, **never** for staff, and the settings list + unignore.

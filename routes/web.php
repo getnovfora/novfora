@@ -170,6 +170,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // reads/writes the authenticated user only.
     Route::view('/settings/preferences', 'settings.preferences')->name('settings.preferences');
 
+    // Ignored members (member tool 2.2).
+    Route::view('/settings/ignore-list', 'settings.ignore-list')->name('settings.ignore-list');
+
     // Appearance: colour mode (auto/light/dark) + density (comfortable/compact). The form POST works with
     // no JS; the header quick-toggle posts a single field via fetch (default-theme phase, PART 2).
     Route::get('/settings/appearance', [AppearanceController::class, 'edit'])->name('settings.appearance');

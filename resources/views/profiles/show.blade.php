@@ -34,8 +34,10 @@
                     </div>
                 </div>
 
-                <div class="mt-4">
+                <div class="mt-4 flex flex-wrap items-center gap-2">
                     <livewire:community.follow-button :user-id="$user->id" />
+                    {{-- Member tool 2.2: ignore/block this member. --}}
+                    <livewire:community.ignore-button :user-id="$user->id" />
                 </div>
 
                 @php($earned = $user->badges()->orderBy('name')->get())

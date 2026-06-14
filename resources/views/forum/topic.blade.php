@@ -123,6 +123,8 @@
             @foreach ($posts as $post)
                 @php($author = $post->author)
                 @php($role = $author?->isAdmin() ? 'Admin' : ($author?->isStaff() ? 'Moderator' : null))
+                {{-- Member tool 2.2: collapse a post by an ignored member — but NEVER a staff member ($role set). --}}
+                @php($authorIgnored = $role === null && in_array((int) $post->user_id, $ignoredIds ?? [], true))
                 <x-ui.card id="post-{{ $post->id }}" :class="$post->approved_state === 'pending' ? 'ring-1 ring-warn-soft' : ''">
                     @if ($canModerate)
                         {{-- Bulk-select checkbox (P2-M4): shown only in select mode, bound to the Alpine store. --}}
@@ -163,7 +165,17 @@
                                 @endif
                             </div>
 
-                            <div class="novfora-prose pt-3 md:pt-4">{!! $post->body_html_cache !!}</div>
+                            @if ($authorIgnored)
+                                <div class="pt-3 md:pt-4" x-data="{ show: false }" dusk="ignored-post-{{ $post->id }}">
+                                    <button type="button" x-show="!show" @click="show = true"
+                                            class="w-full rounded-md border border-dashed border-line px-3 py-2 text-left text-xs text-ink-muted hover:border-accent">
+                                        {{ __('You ignore this member.') }} <span class="text-accent">{{ __('Show this post') }}</span>
+                                    </button>
+                                    <div x-show="show" x-cloak class="novfora-prose">{!! $post->body_html_cache !!}</div>
+                                </div>
+                            @else
+                                <div class="novfora-prose pt-3 md:pt-4">{!! $post->body_html_cache !!}</div>
+                            @endif
 
                             {{-- Per-post extension outlet (ADR-0031/0032, theme API 1.1): modules render a
                                  sanitised per-post aside here (e.g. an accepted-answer badge). The post + topic
