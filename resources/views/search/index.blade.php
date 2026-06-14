@@ -80,6 +80,19 @@
                 {{ \Illuminate\Support\Str::plural('result', $results->count()) }}@if ($q !== '') for “{{ $q }}”@endif
             </p>
 
+            {{-- Save this search (search 6.1) — signed-in members; replays the full query incl. operators/facets. --}}
+            @auth
+                <form method="POST" action="{{ route('saved-searches.store') }}" class="flex flex-wrap items-center gap-2">
+                    @csrf
+                    <input type="hidden" name="q" value="{{ request('q') }}">
+                    <input type="hidden" name="query_string" value="{{ request()->getQueryString() }}">
+                    <input type="text" name="name" placeholder="Name this search" maxlength="120" required dusk="save-search-name"
+                           class="min-h-10 px-3 rounded-md bg-surface-raised text-ink border border-line text-sm">
+                    <x-ui.button type="submit" variant="subtle" size="sm" dusk="save-search-submit">Save this search</x-ui.button>
+                    <a href="{{ route('saved-searches.index') }}" class="text-xs text-accent hover:underline">Saved searches</a>
+                </form>
+            @endauth
+
             @if ($results->count())
                 <x-ui.card flush>
                     <ul class="divide-y divide-line">

@@ -207,6 +207,7 @@
                         <x-ui.dropdown-item :href="route('profiles.show', auth()->user())"><x-ui.icon name="user" class="h-4 w-4 text-ink-subtle" /> Profile</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('saved.index')"><x-ui.icon name="pin" class="h-4 w-4 text-ink-subtle" /> Saved</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('scheduled.index')"><x-ui.icon name="clock" class="h-4 w-4 text-ink-subtle" /> Scheduled</x-ui.dropdown-item>
+                        <x-ui.dropdown-item :href="route('saved-searches.index')"><x-ui.icon name="search" class="h-4 w-4 text-ink-subtle" /> Saved searches</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('settings.profile')"><x-ui.icon name="cog" class="h-4 w-4 text-ink-subtle" /> Edit profile</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('settings.appearance')"><x-ui.icon name="sun" class="h-4 w-4 text-ink-subtle" /> Appearance</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('settings.notifications')"><x-ui.icon name="bell" class="h-4 w-4 text-ink-subtle" /> Notifications</x-ui.dropdown-item>

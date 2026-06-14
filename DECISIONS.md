@@ -1968,3 +1968,23 @@ hierarchy category→forum, BBCode→md→html, 301 redirects served), idempoten
 rows imported), and attachment import with sha-256 checksum + post-content reconciliation.
 
 **Wave 4 — COMPLETE.**
+
+### ADR-0042 — Saved searches + search operators (Wave 6.1) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review.** The fully-buildable Wave-6 slice
+(Meilisearch 6.2 + Reverb 6.3 are DEFERRED pending Phase 4 / enhanced-tier validation).
+
+**Search operators.** `App\Search\SearchQueryParser::parse()` pulls inline operators out of the raw `q` string
+— `author:<username>`, `in:<forum-slug>`, `tag:<tag-slug>` (repeatable), `after:`/`before:<date>`,
+`type:topic`, plus `"quoted phrases"` — and resolves them to the SAME facet fields the form already uses
+(authorId/forumId/tagIds/dateFrom/dateTo/type), leaving the residual keyword as the term. Wired into
+`SearchQuery::fromRequest()` where **operators take precedence** over the equivalent GET facets. A missing
+author/forum resolves to id 0 → empty result (consistent with the form's author facet), never silently
+dropped. Driver-neutral: `SearchService` already translates the facets to DB (and, on the enhanced tier,
+Meili) filters; visibility (`VisibleForumIds`) is unchanged.
+
+**Saved searches.** New `saved_searches` table (reversible) + `SavedSearch` model + `SavedSearchService`
+(own-only by construction: every read/write scoped to `user_id`; `MAX_PER_USER = 50`). A "Save this search"
+control on the results page (auth-only) captures the full GET query string (operators + facets) so the search
+**replays verbatim**; `/saved-searches` lists + re-runs + deletes; nav link added. `SavedSearchController` is
+auth-gated; delete is own-only (a member can't remove another's). Tests (7): operator parse + unknown→empty +
+end-to-end author filter; save/list, **own-only delete**, store-from-page, and the page control.

@@ -175,6 +175,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Scheduled replies (member tool 2.4).
     Route::view('/scheduled', 'scheduled.index')->name('scheduled.index');
 
+    // Saved searches (search 6.1).
+    Route::get('/saved-searches', [\App\Http\Controllers\SavedSearchController::class, 'index'])->name('saved-searches.index');
+    Route::post('/saved-searches', [\App\Http\Controllers\SavedSearchController::class, 'store'])->name('saved-searches.store');
+    Route::delete('/saved-searches/{search}', [\App\Http\Controllers\SavedSearchController::class, 'destroy'])->name('saved-searches.destroy');
+
     Route::view('/settings/two-factor', 'settings.two-factor')->name('settings.two-factor');
 
     // Consolidated display preferences (P2-M4): posts-per-page + thread sort order. The ⚡user-preferences SFC
