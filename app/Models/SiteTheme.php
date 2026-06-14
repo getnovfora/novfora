@@ -16,9 +16,10 @@ use Illuminate\Database\Eloquent\Model;
  */
 class SiteTheme extends Model
 {
-    protected $fillable = ['name', 'slug', 'accent_color', 'custom_css', 'is_active'];
+    protected $fillable = ['name', 'slug', 'accent_color', 'custom_css', 'tokens', 'is_active'];
 
     protected $casts = [
+        'tokens' => 'array',
         'is_active' => 'boolean',
     ];
 }

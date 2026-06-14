@@ -1705,3 +1705,35 @@ since seed is restored during an upgrade, and an upgrade still SUCCEEDS when `pe
 
 **Operator command (clears a live 403 without a redeploy):** `php artisan novfora:permissions:sync`
 (preview with `--dry-run`).
+
+### ADR-0037 — Theme Studio (Wave 1) (2026-06-13)
+**Status: Accepted — owner-authorized overnight build; flagged for review.** Extends the DB style themes
+(ADR-0029) + the theme-API token contract (ADR-0032). Built unit-by-unit; this entry grows per sub-unit.
+**1.4 (per-forum/club assignment) is DEFERRED pending Phase 4** (Clubs) — site-wide assignment only.
+
+**1.1 — Visual token editor (full token set, AA-checked, draft + live preview).**
+- **Override the REAL core tokens, not the `--novfora-*` aliases.** Investigation showed `--novfora-bg`
+  etc. are *one-way* aliases (`--novfora-bg: var(--surface)`) — Tailwind utilities read `--surface` /
+  `--ink` / `--line` / `--radius-md` directly, so overriding the alias is cosmetically inert. The editor
+  therefore overrides the real tokens. `ThemeApi::editableTokens()` is the new versioned registry mapping
+  each editable token → its real CSS var + built-in default + type; `ThemeApi::VERSION` → **1.1.0** (a token
+  addition = MINOR, per the contract's own rule) and `tokens()` now also lists the real core vars.
+- **Light-palette override; dark stays tuned.** A theme supplies ONE value per token. Overrides are emitted
+  as a plain `:root{…}` block AFTER app.css — so they win in light mode, while the existing
+  higher-specificity dark rules (`@media (prefers-color-scheme: dark)`, `:root[data-theme='dark']`) keep the
+  hand-tuned dark palette. (Per-token dark customisation is a deferred enhancement.) This mirrors exactly how
+  the accent already behaves and needs **no asset rebuild** — everything is runtime-injected into `<head>`.
+- **Storage + injection-safe validation.** New nullable `tokens` JSON column on `site_themes`
+  (reversible migration). `StyleThemeManager::cleanTokens()` keeps only contract keys and accepts a value
+  only if it is a strict `#rrggbb` hex (colour) or `<number><px|rem|em>` length — so a token value can never
+  carry a `;`/`}`/`:` that would break out of the emitted declaration. (Admins are trusted — they can already
+  write custom CSS — this is cheap defence-in-depth.) `buildCss()` emits `tokenCss()` between the accent block
+  and the custom-CSS block.
+- **Live AA preview.** `AccentPalette` gains a public `contrastRatio()` (WCAG 2.1) + `passesAA()`; the editor
+  computes ink-on-surface / muted-on-surface / ink-on-card ratios server-side (via a component
+  `tokenPreview()` method — kept out of the Blade so the compiler doesn't choke on arrow-fn logic) and shows
+  a live ✓/✗ badge plus an inline-styled preview card that updates on every keystroke (`wire:model.live`).
+- **Tests (8):** the v1.1 contract; the contrast maths (black-on-white = 21, identical = 1) + `passesAA`;
+  valid tokens persist / invalid + blank + unknown keys drop; the column clears when nothing is valid; the
+  active-theme CSS carries the real-token overrides; `tokenCss` ignores non-contract keys; the editor saves
+  through Livewire dropping invalid values; non-admin → 403.

@@ -76,9 +76,37 @@ final class StyleThemeManager
             $css .= ":root[data-theme='dark']{".$vars($accent['dark']).'}';
         }
 
+        // Core token overrides (Theme Studio 1.1). Emitted as a plain :root{} block AFTER app.css, so they win
+        // in light mode while the higher-specificity dark rules preserve the tuned dark palette. Values are
+        // already strict-validated (cleanTokens), so this can never inject beyond a declaration.
+        $css .= self::tokenCss(is_array($theme->tokens) ? $theme->tokens : null);
+
         $css .= self::sanitizeCss((string) $theme->custom_css);
 
         return $css;
+    }
+
+    /**
+     * Compile the validated token map into a `:root{}` override block (or '' when empty). Only keys in the
+     * ThemeApi editable-token contract are emitted, each as its REAL core CSS variable.
+     *
+     * @param  array<string,string>|null  $tokens
+     */
+    public static function tokenCss(?array $tokens): string
+    {
+        if (empty($tokens)) {
+            return '';
+        }
+
+        $registry = ThemeApi::editableTokens();
+        $decls = '';
+        foreach ($tokens as $key => $value) {
+            if (isset($registry[$key]) && $value !== '') {
+                $decls .= $registry[$key]['var'].':'.$value.';';
+            }
+        }
+
+        return $decls === '' ? '' : ':root{'.$decls.'}';
     }
 
     /**
@@ -107,6 +135,7 @@ final class StyleThemeManager
             'slug' => $this->uniqueSlug($name),
             'accent_color' => $this->cleanAccent($data['accent_color'] ?? null),
             'custom_css' => self::sanitizeCss((string) ($data['custom_css'] ?? '')) ?: null,
+            'tokens' => $this->cleanTokens($data['tokens'] ?? null),
             'is_active' => false,
         ]);
 
@@ -132,6 +161,7 @@ final class StyleThemeManager
             'name' => $name,
             'accent_color' => $this->cleanAccent($data['accent_color'] ?? null),
             'custom_css' => self::sanitizeCss((string) ($data['custom_css'] ?? '')) ?: null,
+            'tokens' => $this->cleanTokens($data['tokens'] ?? null),
         ]);
 
         $this->invalidate();
@@ -186,6 +216,41 @@ final class StyleThemeManager
         }
 
         return preg_match('/^#[0-9a-fA-F]{6}$/', $hex) === 1 ? strtolower($hex) : null;
+    }
+
+    /**
+     * Validate the editor's token map down to a safe, storable form: only keys in the ThemeApi editable-token
+     * contract survive, and each value must be a strict #rrggbb hex (colour) or a `<number><px|rem|em>` length.
+     * Anything else is dropped — so a token value can NEVER carry a `;`/`}`/`:` that would break out of the
+     * emitted declaration (CSS-injection defence; admins are trusted but this is cheap defence-in-depth).
+     *
+     * @return array<string,string>|null null when nothing valid remains (so the column clears)
+     */
+    private function cleanTokens(mixed $value): ?array
+    {
+        if (! is_array($value)) {
+            return null;
+        }
+
+        $clean = [];
+        foreach (ThemeApi::editableTokens() as $key => $meta) {
+            $raw = $value[$key] ?? null;
+            if (! is_string($raw) || trim($raw) === '') {
+                continue;
+            }
+            $raw = trim($raw);
+
+            if ($meta['type'] === 'color') {
+                $hex = $this->cleanAccent($raw); // reuses the strict #rrggbb normaliser (null if invalid)
+                if ($hex !== null) {
+                    $clean[$key] = $hex;
+                }
+            } elseif (preg_match('/^\d{1,4}(\.\d{1,2})?(px|rem|em)$/', $raw) === 1) {
+                $clean[$key] = $raw;
+            }
+        }
+
+        return $clean === [] ? null : $clean;
     }
 
     private function uniqueSlug(string $name): string
