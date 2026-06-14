@@ -1660,6 +1660,16 @@ LAST cache writer or the RH-1 manifest wouldn't ship.
 > **EXPLICITLY DEFERRED pending Phase 4 (NOT built, NOT stubbed under another name):** Theme-Studio 1.4
 > per-forum/club assignment hook · SAML (5.3) · Meilisearch (6.2) · Reverb (6.3) · monetization (Wave 7).
 > These stay out until Phase 4 lands so this work cannot collide with the real Phase-4 design.
+>
+> **⚠ CONCURRENT-SESSION ANOMALY (observed 2026-06-14, owner: please reconcile).** Partway through the run, ~49
+> files appeared MODIFIED in the working tree that this build never touched — `if (! Schema::hasTable())`
+> idempotency guards across ~48 migrations, an `UpgradeCommand` restore-path hint fix, and a new untracked
+> `docs/product/rh4-subdirectory-install-spike.md` (RH-4 subdirectory install — a design-first item). This is a
+> coherent OTHER workstream (a concurrent session on the same working tree, per the standing "watch for
+> concurrent sessions" caution). The mega-build commits on `claude/mega-build` are CLEAN — every commit staged
+> explicit paths, so none of these foreign changes are included — and the gate was green WITH them present. I
+> left them untouched (reverting could destroy that session's uncommitted work; committing would mix it in).
+> Owner: commit/stash that work from its own session; `git diff` shows exactly what it is.
 
 ### ADR-0036 — `permissions:sync`: additive re-provisioning of role presets on upgrade (Wave 0.1) (2026-06-13)
 **Status: Accepted — owner-authorized overnight build; flagged for review.** (APEX — `acl_entries` / preset
@@ -1838,3 +1848,19 @@ one HIGH**: the save-lint scanned the RAW source, so a forbidden token split acr
 **Fixed in this build** — the lint now scans the literal SKELETON (source with all tags stripped), and the 4
 PoCs are must-block cases in the battery (now 55 tests). Recommendation recorded: enable strict nonce CSP
 before delegating template authoring beyond full admins.
+
+### ADR-0039 — Member tools (Wave 2) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review.** Built unit-by-unit; this entry
+grows per sub-unit.
+
+**2.1 — Bookmarks / saved topics + posts.** A polymorphic `bookmarks` table (reversible) — a PRIVATE edge from
+a user to a Topic or Post, one row per target (unique). Saving is **ungated participation** (no ACL key, like a
+draft) — the only gate is "signed in". `BookmarkService` is the single writer: `toggle()` (returns the new
+state, race-safe via the unique index + catch), `isBookmarked()`, a BATCHED `bookmarkedIds()` for a whole post
+page (no per-post query — the same N+1 discipline as reactions), and `paginate()` for the "Saved" view. A
+generic `<livewire:forum.bookmark-button kind=… :target-id=…>` (the view never names a class — a short kind
+maps to a model server-side) renders on each post + the topic header; `TopicController::show` pre-computes the
+viewer's saved set for the page. The `/saved` view (`saved.index`, auth-only) lists newest-first and
+**re-checks current visibility** (`forum.view`) so a bookmark in a now-forbidden forum, or a deleted target,
+drops out. Nav links added (desktop dropdown + mobile). Tests (6): toggle on/off, unique-edge idempotency,
+batched lookup, the Livewire toggle, the `/saved` list + auth gate, and the deleted-target drop-out.

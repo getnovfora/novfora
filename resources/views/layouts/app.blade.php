@@ -134,6 +134,7 @@
                             <a href="{{ route('whats-new') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">What's new</a>
                             <a href="{{ route('notifications.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Notifications</a>
                             <a href="{{ route('pm.inbox') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Messages</a>
+                            <a href="{{ route('saved.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Saved</a>
                             <a href="{{ route('settings.profile') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Profile &amp; settings</a>
                         @endauth
                     </nav>
@@ -203,6 +204,7 @@
                             <p class="text-xs text-ink-muted truncate">{{ '@'.auth()->user()->username }}</p>
                         </div>
                         <x-ui.dropdown-item :href="route('profiles.show', auth()->user())"><x-ui.icon name="user" class="h-4 w-4 text-ink-subtle" /> Profile</x-ui.dropdown-item>
+                        <x-ui.dropdown-item :href="route('saved.index')"><x-ui.icon name="pin" class="h-4 w-4 text-ink-subtle" /> Saved</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('settings.profile')"><x-ui.icon name="cog" class="h-4 w-4 text-ink-subtle" /> Edit profile</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('settings.appearance')"><x-ui.icon name="sun" class="h-4 w-4 text-ink-subtle" /> Appearance</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('settings.notifications')"><x-ui.icon name="bell" class="h-4 w-4 text-ink-subtle" /> Notifications</x-ui.dropdown-item>

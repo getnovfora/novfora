@@ -66,6 +66,12 @@
                 <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ $topic->title }}</h1>
             </div>
 
+            @if ($canBookmark)
+                {{-- Member tool 2.1: save this topic. --}}
+                <livewire:forum.bookmark-button :key="'bm-topic-'.$topic->id" kind="topic" :target-id="$topic->id"
+                    :saved="$topicBookmarked" :can-save="$canBookmark" />
+            @endif
+
             @if ($canModerate)
                 <div class="flex flex-wrap items-center gap-2">
                     <form method="POST" action="{{ route('topics.pin', $topic) }}">@csrf
@@ -172,6 +178,11 @@
                                 :can-react="$canReact" />
 
                             <footer class="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                                @if ($canBookmark)
+                                    {{-- Member tool 2.1: save this post. --}}
+                                    <livewire:forum.bookmark-button :key="'bm-post-'.$post->id" kind="post" :target-id="$post->id"
+                                        :saved="($viewerBookmarks[$post->id] ?? false)" :can-save="$canBookmark" />
+                                @endif
                                 @can('update', $post)
                                     <x-ui.button :href="route('posts.edit', $post)" variant="subtle" size="sm">Edit</x-ui.button>
                                 @endcan

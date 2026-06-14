@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Forum\BookmarkService;
 use App\Forum\PollService;
 use App\Forum\ReactionService;
 use App\Models\Post;
@@ -20,7 +21,7 @@ use Illuminate\Support\Str;
 
 class TopicController extends Controller
 {
-    public function show(Request $request, Topic $topic, ReactionService $reactions, PollService $polls): View|RedirectResponse
+    public function show(Request $request, Topic $topic, ReactionService $reactions, PollService $polls, BookmarkService $bookmarks): View|RedirectResponse
     {
         $viewer = $request->user() ?? User::guest();
 
@@ -116,6 +117,12 @@ class TopicController extends Controller
         // lets an author see their OWN post's history (decided per post from already-loaded columns).
         $canViewHistory = $user instanceof User && $user->canDo('post.history.view', $scope);
 
+        // Bookmarks (member tool 2.1): saving is ungated, so the only gate is "is signed in". Resolve the
+        // viewer's saved post ids for THIS page in one batched query (never per post), plus the topic itself.
+        $canBookmark = $user instanceof User;
+        $viewerBookmarks = $canBookmark ? $bookmarks->bookmarkedIds($user, Post::class, $postIds) : [];
+        $topicBookmarked = $canBookmark && $bookmarks->isBookmarked($user, $topic);
+
         // SEO description = an excerpt of the opening post's text projection (security-safe; no HTML).
         $description = Str::limit((string) Post::where('topic_id', $topic->getKey())
             ->orderBy('position')->orderBy('id')->value('body_text'), 160);
@@ -124,6 +131,7 @@ class TopicController extends Controller
             'topic', 'posts', 'viewer', 'user', 'canReply', 'canModerate', 'description',
             'reactionCounts', 'viewerReactions', 'canReact',
             'pollData', 'pollVotes', 'canVote', 'canViewHistory',
+            'canBookmark', 'viewerBookmarks', 'topicBookmarked',
         ));
     }
 }
