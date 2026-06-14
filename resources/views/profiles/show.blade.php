@@ -1,6 +1,11 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 @extends('layouts.app', ['title' => ($user->display_name ?? $user->username).' · '.config('app.name', 'NovFora')])
 
+@push('head')
+    {{-- RSS/Atom auto-discovery (discovery 3.2): this member's recent topics. --}}
+    <link rel="alternate" type="application/atom+xml" title="{{ $user->display_name ?? $user->username }} — topics" href="{{ route('feeds.user', $user) }}">
+@endpush
+
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[
         ['label' => 'Forums', 'url' => route('forums.index')],

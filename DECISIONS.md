@@ -1916,3 +1916,11 @@ no clause; [] = none → empty; else `whereIn('forum_id', …)`), querying the L
 always current (no stale-scope re-check needed). Public `/trending` page (`trending.index`) + nav link, with a
 reusable `discovery.partials.topic-line`. Tests (4): engagement ranking, trending-window-vs-all-time-best-of,
 **exclusion of a forum the viewer can't see** (a guest NEVER), and the page render.
+
+**3.2 — RSS/Atom feeds (per forum / topic / user).** `App\Discovery\FeedBuilder` assembles Atom 1.0 with strict
+`ENT_XML1` escaping (dependency-free, like the sitemap). `FeedController` serves `feeds.forum` / `feeds.topic`
+/ `feeds.user`, each **public but guest-visibility-gated** — a private forum's (or topic's) feed 404s for
+everyone (readers don't authenticate, so feeds expose only what a guest may see), and the user feed filters to
+guest-visible forums via `VisibleForumIds`. Cached 15 min per id (sitemap discipline). Auto-discovery
+`<link rel="alternate" type="application/atom+xml">` added to the forum, topic and profile heads. Tests (5):
+forum/topic/user feeds (content-type + content), the private-forum 404, and the auto-discovery links.

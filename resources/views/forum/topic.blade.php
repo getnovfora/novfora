@@ -10,6 +10,8 @@
     <meta property="og:description" content="{{ $description }}">
     <meta property="og:url" content="{{ $canonical }}">
     <meta name="twitter:card" content="summary">
+    {{-- RSS/Atom auto-discovery (discovery 3.2). --}}
+    <link rel="alternate" type="application/atom+xml" title="{{ $topic->title }} — feed" href="{{ route('feeds.topic', $topic) }}">
     {{-- schema.org DiscussionForumPosting (JSON-LD); JSON_HEX_TAG keeps it safe inside <script>.
          nonce carries the strict-CSP token when enabled (phase-1.5 F-M3); empty/ignored under the baseline. --}}
     <script type="application/ld+json" nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">

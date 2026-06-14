@@ -56,6 +56,11 @@ Route::get('/forums/{forum}', [ForumController::class, 'show'])->name('forums.sh
 
 // Trending / best-of (discovery 3.1) — public, permission-safe.
 Route::get('/trending', [\App\Http\Controllers\TrendingController::class, 'index'])->name('trending.index');
+
+// RSS/Atom feeds (discovery 3.2) — public; each exposes only guest-visible content (private forums 404).
+Route::get('/forums/{forum}/feed', [\App\Http\Controllers\FeedController::class, 'forum'])->name('feeds.forum');
+Route::get('/topics/{topic}/feed', [\App\Http\Controllers\FeedController::class, 'topic'])->name('feeds.topic');
+Route::get('/users/{user}/feed', [\App\Http\Controllers\FeedController::class, 'user'])->name('feeds.user');
 // withTrashed: a merged topic is soft-deleted but its URL must still resolve so show() can 301 it to the
 // merge target (P2-M4). An ordinary soft-deleted topic is re-checked and 404s inside the controller.
 Route::get('/topics/{topic}', [TopicController::class, 'show'])->name('topics.show')->withTrashed();

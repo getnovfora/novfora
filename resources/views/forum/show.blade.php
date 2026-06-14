@@ -1,6 +1,11 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 @extends('layouts.app', ['title' => $forum->title.' · '.config('app.name', 'NovFora')])
 
+@push('head')
+    {{-- RSS/Atom auto-discovery (discovery 3.2). --}}
+    <link rel="alternate" type="application/atom+xml" title="{{ $forum->title }} — feed" href="{{ route('feeds.forum', $forum) }}">
+@endpush
+
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[
         ['label' => 'Forums', 'url' => route('forums.index')],
