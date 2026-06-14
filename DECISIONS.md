@@ -1876,3 +1876,14 @@ actions are never hidden). **PMs:** unchanged — `IgnoreService::ignore()` writ
 `ConversationService` already reads, proven end-to-end (an ignored sender's PM is refused). Tests (7):
 ignore/unignore, self-ignore refuse, the IgnoreService→PM-block integration, the profile button, post collapse
 for a member, **never** for staff, and the settings list + unignore.
+
+**2.3 — Content warnings / spoiler blocks (editor + renderer).** The server-side render path **already existed**
+(`CanonicalRenderer::spoiler` → `<details><summary>…</summary>…</details>`; `details`/`summary` on the
+`ContentSanitizer` allowlist) — added tests pinning it (summary escaped, body sanitised, text projection
+intact: no XSS through a content warning). The missing half was the WYSIWYG **editor**: a TipTap `SpoilerNode`
+(content-bearing block, `parseHTML` `details`, editor-display `renderHTML`) + a `/spoiler` slash command + a
+toolbar button (⚠), all emitting the canonical `{type:'spoiler', attrs:{summary}, content:[…]}` the renderer
+consumes. Assets rebuilt (`npm run build`, host node) so the bundle carries the node — a clean build confirms
+the JS compiles. **Caveat (flagged):** there is no browser/Dusk harness in the gate env, so the editor UI
+itself was NOT browser-tested — the owner should smoke-test inserting a spoiler after pulling. The renderer
+guarantee (the security-relevant part) IS tested.

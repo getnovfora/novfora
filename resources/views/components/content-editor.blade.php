@@ -41,6 +41,7 @@
         <button type="button" x-on:click="cmd('blockquote')" :class="{ 'is-active': isActive('blockquote') }" aria-label="Quote">&ldquo;</button>
         <button type="button" x-on:click="cmd('codeBlock')" :class="{ 'is-active': isActive('codeBlock') }" aria-label="Code block">&lt;/&gt;</button>
         <button type="button" x-on:click="cmd('link')" aria-label="Insert link">&#128279;</button>
+        <button type="button" x-on:click="cmd('spoiler')" aria-label="Spoiler / content warning">&#9888;</button>
         @if ($uploadUrl)
             <button type="button" x-on:click="$refs.file.click()" aria-label="Upload image">&#128247;</button>
         @endif

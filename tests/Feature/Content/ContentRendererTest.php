@@ -32,6 +32,35 @@ it('renders markdown to sanitized HTML, escaping embedded raw HTML and unsafe li
     expect($out['text'])->toContain('Title');
 });
 
+it('renders a spoiler / content-warning block to a sanitized <details>/<summary> (member tool 2.3)', function () {
+    $out = app(ContentRenderer::class)->render('tiptap_json', [
+        'type' => 'doc',
+        'content' => [[
+            'type' => 'spoiler',
+            'attrs' => ['summary' => 'Ending'],
+            'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'the butler did it']]]],
+        ]],
+    ]);
+
+    expect($out['html'])->toContain('<details>')
+        ->toContain('<summary>Ending</summary>')
+        ->toContain('the butler did it');
+    expect($out['text'])->toContain('the butler did it'); // text projection still extracts the inner text
+});
+
+it('escapes a spoiler summary and sanitises its body (no XSS through a content warning)', function () {
+    $out = app(ContentRenderer::class)->render('tiptap_json', [
+        'type' => 'doc',
+        'content' => [[
+            'type' => 'spoiler',
+            'attrs' => ['summary' => '<script>alert(1)</script>'],
+            'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'safe body']]]],
+        ]],
+    ]);
+
+    expect($out['html'])->not->toContain('<script')->toContain('safe body');
+});
+
 it('treats an unknown format as tiptap canonical', function () {
     $out = app(ContentRenderer::class)->render('tiptap_json', ['type' => 'doc', 'content' => []]);
 
