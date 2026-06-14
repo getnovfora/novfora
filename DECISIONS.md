@@ -1903,3 +1903,16 @@ into the topic, **no double-publish**, not-yet-due untouched, **skip-not-retry o
 command, composer scheduling, and the management list+cancel.
 
 **Wave 2 — COMPLETE** (2.1 bookmarks, 2.2 ignore/block, 2.3 spoilers, 2.4 scheduling), all gated + committed.
+
+### ADR-0040 — Discovery (Wave 3) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review.** Built unit-by-unit; grows per
+sub-unit.
+
+**3.1 — Trending / best-of.** `App\Discovery\TrendingService` ranks topics by an engagement SCORE built from
+the EXISTING all-time aggregates (`reply_count*4 + view_count + summed reaction tally` via a correlated
+subquery) — no new denormalisation. `trending()` windows on `last_posted_at` (recently active); `bestOf()` is
+all-time. **Permission-safe**: every query is gated through `VisibleForumIds::for($viewer)` (null = sees all →
+no clause; [] = none → empty; else `whereIn('forum_id', …)`), querying the LIVE topics table so `forum_id` is
+always current (no stale-scope re-check needed). Public `/trending` page (`trending.index`) + nav link, with a
+reusable `discovery.partials.topic-line`. Tests (4): engagement ranking, trending-window-vs-all-time-best-of,
+**exclusion of a forum the viewer can't see** (a guest NEVER), and the page render.

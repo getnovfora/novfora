@@ -53,6 +53,9 @@ Route::get('/health', HealthController::class)->name('health');
 // ── Forums (M2) — public read, per-node authorized; anonymous resolves as the Guests group ─────────────
 Route::get('/forums', [ForumController::class, 'index'])->name('forums.index');
 Route::get('/forums/{forum}', [ForumController::class, 'show'])->name('forums.show');
+
+// Trending / best-of (discovery 3.1) — public, permission-safe.
+Route::get('/trending', [\App\Http\Controllers\TrendingController::class, 'index'])->name('trending.index');
 // withTrashed: a merged topic is soft-deleted but its URL must still resolve so show() can 301 it to the
 // merge target (P2-M4). An ordinary soft-deleted topic is re-checked and 404s inside the controller.
 Route::get('/topics/{topic}', [TopicController::class, 'show'])->name('topics.show')->withTrashed();

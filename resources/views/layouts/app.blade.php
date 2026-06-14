@@ -154,6 +154,7 @@
             {{-- Desktop primary nav --}}
             <nav class="hidden sm:flex items-center gap-0.5" aria-label="Primary">
                 <a href="{{ route('forums.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Forums</a>
+                <a href="{{ route('trending.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Trending</a>
                 @if (\App\Community\MembersDirectory::visibleTo(auth()->user()))
                     <a href="{{ route('members.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Members</a>
                 @endif
