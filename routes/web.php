@@ -266,6 +266,7 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/settings/antispam', 'admin.settings.antispam')->name('settings.antispam');
         Route::view('/settings/appearance', 'admin.settings.appearance')->name('settings.appearance');
         Route::view('/settings/themes', 'admin.settings.themes')->name('settings.themes'); // visual theme editor
+        Route::view('/settings/templates', 'admin.settings.templates')->name('settings.templates'); // sandboxed template editor (ADR-0038)
 
         // Members directory visibility (the public /members listing is gated on this setting).
         Route::view('/members/directory', 'admin.members.directory')->name('members.directory');

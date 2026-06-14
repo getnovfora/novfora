@@ -226,6 +226,10 @@
             </x-ui.card>
         @endauth
 
+        {{-- Overridable sandbox template (ADR-0038): a topic-footer note, rendered only when enabled. --}}
+        <x-sandbox-template name="topic_footer"
+            :data="['topic' => ['title' => $topic->title, 'reply_count' => (int) $topic->reply_count]]" />
+
         {{-- Theme Studio 1.3: configurable region — admin-placed widgets at the bottom of a topic. --}}
         <x-region name="topic_bottom" />
     </x-ui.container>

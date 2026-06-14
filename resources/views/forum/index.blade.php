@@ -12,6 +12,9 @@
             <h1 class="text-2xl font-semibold tracking-tight text-ink">Forums</h1>
         </div>
 
+        {{-- Overridable sandbox template (ADR-0038): a welcome panel, rendered only when an admin enables it. --}}
+        <x-sandbox-template name="home_welcome" />
+
         {{-- Configurable layout region (ADR-0032) — admin-placed widgets above the forum list. --}}
         <x-region name="forum_top" />
 

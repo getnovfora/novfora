@@ -1786,3 +1786,55 @@ since seed is restored during an upgrade, and an upgrade still SUCCEEDS when `pe
   rule; asset cleanup on theme delete; a Livewire upload through the editor; and a route-integration test
   that the active theme's favicon + logo render on the page. (Uploads are faked GD-free — `create()` not
   `image()` — since the gate container has no GD.)
+
+### ADR-0038 — Sandboxed template editing (Theme Studio 1.6, APEX, ISOLATED) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; FLAGGED FOR DEDICATED HUMAN SECURITY REVIEW.** Its own
+ADR + threat model (`docs/architecture/sandbox-template-threat-model.md`) per the build fence. Committed on its
+own. **Truly-safe sandbox was FINISHED this run** (the fence's fallback — ship 1.2 + a PROPOSED ADR — was not
+needed); the adversarial battery is green.
+
+**Decision — Option A: a bespoke, restricted template language, NOT Blade/Twig/eval.** A lexer → parser →
+evaluator under `app/Theme/Sandbox/`: literal author HTML, `{{ expression }}` output, `{% if/elseif/else %}` /
+`{% for … in … %}`, dotted variable paths, the boolean/comparison operators, and a fixed set of **pure**
+helpers. A versioned contract (`TemplateContract::VERSION = 1.0.0`) lists the OVERRIDABLE templates (key,
+label, exposed variables, shipped default) — `home_welcome` (forum index) + `topic_footer` are wired via a
+`<x-sandbox-template name="…">` component; the registry holds many. Admin overrides live in `site_templates`
+(reversible); a template renders only once enabled. The in-admin editor (`admin.settings.templates`) has live
+validation, a default to **diff against**, and **revert**, gated `admin.access` + staff-2FA.
+
+**The safety model (the load-bearing call):**
+- **Data-only context** — `TemplateService` builds the render context from models into PLAIN scalars/arrays;
+  `SandboxRenderer::resolvePath()` does ARRAY-KEY access only. No object property/method is reachable even if
+  one leaks in. **This is what makes it safe** — there is no expressible path to PHP, a model, or the container.
+- **Whitelist-only calls** — `{{ name(args) }}` resolves `name` against `SandboxRenderer::helpers()`; unknown →
+  error. No `eval`, no `app()`, no closures.
+- **Allowlist tokenizer** — `SandboxExpression` accepts only a tiny char set; `$ ; :: -> [] {}` arithmetic,
+  backticks, etc. are hard parse errors.
+- **Auto-escaped output** — every `{{ }}` value is `e()`-escaped; no raw construct; data carrying `{{ }}` is
+  NOT re-parsed (no double-render).
+- **Bounded** — source/nodes/template-depth/expression-depth/iterations/output caps → no hang, OOM, or
+  parse-time stack overflow (the expression-depth cap was added during the build's own adversarial pass).
+- **Fail-safe** — errors throw `SandboxException`; `render()` catches → `''`; a broken template breaks nothing.
+- **Save-lint (defence-in-depth)** — rejects literal `<script>/<style>/<iframe>/handlers/javascript:` + requires
+  the source to parse, on top of the output escaping.
+
+**Documented residual (Blade parity):** `e()` is correct for text + QUOTED attributes; a dynamic value placed in
+an UNQUOTED attribute / CSS context with user-derived data could inject, exactly as Blade's `{{ }}`. The editor
+copy + threat model state "use quoted attributes/text"; a context-aware/structural sanitiser is a future
+hardening (needed before exposing the engine to non-admin authors).
+
+**Tests (51, apex adversarial):** the escape battery — PHP operators/sigils/`::`/`->`/`[]`/braces/backticks
+rejected; every non-whitelisted function (`system`/`eval`/`app`/…) refused; object property/method never
+reached; data-value template syntax not re-evaluated; `{{ }}` HTML-escaped (no stored XSS); iteration/output/
+source/expression-depth caps; malformed/unbalanced tags rejected; save-lint blocks scripts/handlers/js-urls; a
+broken stored template degrades to ''. Plus the functional language (paths, if/elseif/else, for+loop.index,
+helpers), service (save/revert/remove/render), the page integration, and the editor authz + customise/save/
+revert.
+
+**Adversarial review (verify-then-refute):** an independent sub-agent reviewed the engine and verified the
+core guarantees (no PHP exec, no model/method reach, no `e()` bypass, all DoS/parse limits) safe — and **found
+one HIGH**: the save-lint scanned the RAW source, so a forbidden token split across a tag
+(`<scr{{ x }}ipt>`) bypassed it and rendered live `<script>` (stored XSS under the default permissive CSP).
+**Fixed in this build** — the lint now scans the literal SKELETON (source with all tags stripped), and the 4
+PoCs are must-block cases in the battery (now 55 tests). Recommendation recorded: enable strict nonce CSP
+before delegating template authoring beyond full admins.
