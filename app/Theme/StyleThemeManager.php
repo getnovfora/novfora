@@ -10,8 +10,10 @@ use App\Content\ContentSanitizer;
 use App\Models\SiteTheme;
 use App\Support\AccentPalette;
 use App\Support\Audit;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -27,6 +29,11 @@ final class StyleThemeManager
     public const CACHE_KEY = 'novfora:style-theme:css';
 
     public const CHROME_CACHE_KEY = 'novfora:style-theme:chrome';
+
+    public const ASSET_CACHE_KEY = 'novfora:style-theme:assets';
+
+    /** @var array<string,string> asset kind => the column it lives in */
+    private const ASSET_COLUMNS = ['logo' => 'logo_path', 'favicon' => 'favicon_path', 'background' => 'background_path'];
 
     /** The active style theme, or null when none is active / the table isn't ready (pre-install). */
     public function active(): ?SiteTheme
@@ -89,6 +96,69 @@ final class StyleThemeManager
         }
     }
 
+    /**
+     * The active theme's logo + favicon URLs (the background is emitted via CSS in buildCss). Cached forever,
+     * invalidated on every write; defensive against a missing table exactly like css()/chrome().
+     *
+     * @return array{logo:?string,favicon:?string}
+     */
+    public function assets(): array
+    {
+        try {
+            $cached = Cache::get(self::ASSET_CACHE_KEY);
+            if (is_array($cached) && array_key_exists('logo', $cached) && array_key_exists('favicon', $cached)) {
+                return $cached;
+            }
+
+            $theme = $this->active();
+            $url = static fn (?string $p): ?string => $p !== null && $p !== '' ? Storage::disk('public')->url($p) : null;
+            $assets = [
+                'logo' => $theme instanceof SiteTheme ? $url($theme->logo_path) : null,
+                'favicon' => $theme instanceof SiteTheme ? $url($theme->favicon_path) : null,
+            ];
+            Cache::forever(self::ASSET_CACHE_KEY, $assets);
+
+            return $assets;
+        } catch (\Throwable) {
+            return ['logo' => null, 'favicon' => null];
+        }
+    }
+
+    /** Store an uploaded asset on the public disk, replacing any previous file, and bind it to the theme. */
+    public function storeAsset(SiteTheme $theme, string $kind, UploadedFile $file): void
+    {
+        $column = self::ASSET_COLUMNS[$kind] ?? throw new \InvalidArgumentException("Unknown theme asset '{$kind}'.");
+
+        $old = (string) ($theme->{$column} ?? '');
+        $path = (string) $file->store('theme-assets', 'public');
+        if ($path === '') {
+            throw new \RuntimeException('Could not store the theme asset.');
+        }
+
+        $theme->update([$column => $path]);
+        if ($old !== '' && $old !== $path) {
+            Storage::disk('public')->delete($old);
+        }
+
+        $this->invalidate();
+        Audit::log('theme.asset.updated', $theme, ['kind' => $kind]);
+    }
+
+    /** Remove a bound asset (delete the file + clear the column). */
+    public function clearAsset(SiteTheme $theme, string $kind): void
+    {
+        $column = self::ASSET_COLUMNS[$kind] ?? throw new \InvalidArgumentException("Unknown theme asset '{$kind}'.");
+
+        $old = (string) ($theme->{$column} ?? '');
+        if ($old !== '') {
+            Storage::disk('public')->delete($old);
+        }
+
+        $theme->update([$column => null]);
+        $this->invalidate();
+        Audit::log('theme.asset.removed', $theme, ['kind' => $kind]);
+    }
+
     private function buildCss(?SiteTheme $theme): string
     {
         if (! $theme instanceof SiteTheme) {
@@ -111,6 +181,13 @@ final class StyleThemeManager
         // in light mode while the higher-specificity dark rules preserve the tuned dark palette. Values are
         // already strict-validated (cleanTokens), so this can never inject beyond a declaration.
         $css .= self::tokenCss(is_array($theme->tokens) ? $theme->tokens : null);
+
+        // Background image (Theme Studio 1.5) — a full-page background behind the board. The path is one we
+        // generated (hashed name on the public disk); addcslashes is belt-and-braces against the url() quote.
+        if (is_string($theme->background_path) && $theme->background_path !== '') {
+            $bg = Storage::disk('public')->url($theme->background_path);
+            $css .= "body{background-image:url('".addcslashes($bg, "'\\\n\r")."');background-size:cover;background-position:center;background-attachment:fixed;}";
+        }
 
         $css .= self::sanitizeCss((string) $theme->custom_css);
 
@@ -228,16 +305,26 @@ final class StyleThemeManager
     public function delete(SiteTheme $theme): void
     {
         $name = (string) $theme->name;
+
+        // Clean up any bound asset files so a deleted theme leaves nothing orphaned on disk.
+        foreach (self::ASSET_COLUMNS as $column) {
+            $path = (string) ($theme->{$column} ?? '');
+            if ($path !== '') {
+                Storage::disk('public')->delete($path);
+            }
+        }
+
         $theme->delete();
         $this->invalidate();
         Audit::log('theme.deleted', null, ['name' => $name]);
     }
 
-    /** Drop the cached compiled CSS + chrome HTML. Called on every write. */
+    /** Drop the cached compiled CSS + chrome HTML + asset URLs. Called on every write. */
     public function invalidate(): void
     {
         Cache::forget(self::CACHE_KEY);
         Cache::forget(self::CHROME_CACHE_KEY);
+        Cache::forget(self::ASSET_CACHE_KEY);
     }
 
     /**

@@ -42,6 +42,9 @@
 
     // Theme Studio 1.2: the active theme's custom header/footer HTML (sanitised at write time, cached).
     $themeChrome = app(\App\Theme\StyleThemeManager::class)->chrome();
+
+    // Theme Studio 1.5: the active theme's logo + favicon URLs (the background rides $styleThemeCss).
+    $themeAssets = app(\App\Theme\StyleThemeManager::class)->assets();
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
@@ -53,6 +56,10 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @auth <meta name="novfora-auth" content="1"> @endauth
     <title>{{ $title ?? config('app.name', 'NovFora') }}</title>
+    @if (($themeAssets['favicon'] ?? null))
+        {{-- Theme Studio 1.5: the active theme's favicon. --}}
+        <link rel="icon" href="{{ $themeAssets['favicon'] }}">
+    @endif
 
     {{-- No-flash-of-wrong-theme: apply the stored colour-mode/density BEFORE first paint. nonce-aware for the
          strict CSP (phase-1.5 F-M3); harmless under the baseline policy. --}}
@@ -134,7 +141,14 @@
             </div>
 
             {{-- Wordmark (text, per the brief; overridable via the Appearance setting). --}}
-            <a href="{{ route('forums.index') }}" class="font-bold text-base sm:text-lg tracking-tight text-ink hover:text-accent">{{ $wordmark }}</a>
+            <a href="{{ route('forums.index') }}" class="flex items-center font-bold text-base sm:text-lg tracking-tight text-ink hover:text-accent">
+                @if (($themeAssets['logo'] ?? null))
+                    {{-- Theme Studio 1.5: the active theme's logo (alt = the wordmark for a11y). --}}
+                    <img src="{{ $themeAssets['logo'] }}" alt="{{ $wordmark }}" class="h-7 w-auto sm:h-8">
+                @else
+                    {{ $wordmark }}
+                @endif
+            </a>
 
             {{-- Desktop primary nav --}}
             <nav class="hidden sm:flex items-center gap-0.5" aria-label="Primary">

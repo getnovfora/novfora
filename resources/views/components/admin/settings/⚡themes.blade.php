@@ -5,6 +5,7 @@ use App\Models\User;
 use App\Permissions\Scope;
 use App\Theme\StyleThemeManager;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 /**
  * Admin → Settings → Themes (the visual theme editor). Create / edit / activate / delete DB-backed style
@@ -16,9 +17,21 @@ use Livewire\Component;
  */
 new class extends Component
 {
+    use WithFileUploads;
+
     public bool $showForm = false;
 
     public ?int $formId = null;
+
+    /** Temporary Livewire uploads (logo / favicon / background). */
+    public $logoUpload = null;
+
+    public $faviconUpload = null;
+
+    public $backgroundUpload = null;
+
+    /** Currently-stored asset URLs (shown while editing). @var array<string,?string> */
+    public array $assetUrls = ['logo' => null, 'favicon' => null, 'background' => null];
 
     public string $name = '';
 
@@ -62,6 +75,13 @@ new class extends Component
         $this->customCss = (string) ($theme->custom_css ?? '');
         $this->headerHtml = (string) ($theme->header_html ?? '');
         $this->footerHtml = (string) ($theme->footer_html ?? '');
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        $this->assetUrls = [
+            'logo' => $theme->logo_path ? $disk->url($theme->logo_path) : null,
+            'favicon' => $theme->favicon_path ? $disk->url($theme->favicon_path) : null,
+            'background' => $theme->background_path ? $disk->url($theme->background_path) : null,
+        ];
+        $this->reset(['logoUpload', 'faviconUpload', 'backgroundUpload']);
         $this->deleteId = null;
         $this->showForm = true;
     }
@@ -75,6 +95,9 @@ new class extends Component
             'customCss' => ['nullable', 'string', 'max:20000'],
             'headerHtml' => ['nullable', 'string', 'max:20000'],
             'footerHtml' => ['nullable', 'string', 'max:20000'],
+            'logoUpload' => ['nullable', 'image', 'max:2048'],
+            'faviconUpload' => ['nullable', 'image', 'max:512'],
+            'backgroundUpload' => ['nullable', 'image', 'max:4096'],
         ]);
 
         $payload = [
@@ -93,6 +116,14 @@ new class extends Component
             $theme = $manager->update(SiteTheme::findOrFail($this->formId), $payload);
             $this->flash("Saved theme “{$theme->name}”.", 'success');
         }
+
+        // Bind any freshly-uploaded assets to the saved theme (validated 'image' above).
+        foreach (['logo' => $this->logoUpload, 'favicon' => $this->faviconUpload, 'background' => $this->backgroundUpload] as $kind => $upload) {
+            if ($upload !== null) {
+                $manager->storeAsset($theme, $kind, $upload);
+            }
+        }
+
         $this->cancelForm();
     }
 
@@ -133,6 +164,17 @@ new class extends Component
         $manager->delete($theme);
         $this->flash("Deleted “{$theme->name}”.", 'success');
         $this->deleteId = null;
+    }
+
+    public function removeAsset(string $kind, StyleThemeManager $manager): void
+    {
+        $this->ensureAdmin();
+        if ($this->formId === null || ! array_key_exists($kind, $this->assetUrls)) {
+            return;
+        }
+        $manager->clearAsset(SiteTheme::findOrFail($this->formId), $kind);
+        $this->assetUrls[$kind] = null;
+        $this->flash('Removed the '.$kind.'.', 'success');
     }
 
     public function cancelForm(): void
@@ -179,7 +221,8 @@ new class extends Component
 
     private function resetForm(): void
     {
-        $this->reset(['formId', 'name', 'accentColor', 'tokens', 'customCss', 'headerHtml', 'footerHtml']);
+        $this->reset(['formId', 'name', 'accentColor', 'tokens', 'customCss', 'headerHtml', 'footerHtml',
+            'logoUpload', 'faviconUpload', 'backgroundUpload', 'assetUrls']);
         $this->resetErrorBag();
     }
 
@@ -292,6 +335,31 @@ new class extends Component
                     <x-ui.textarea label="Custom footer HTML" name="footerHtml" wire:model="footerHtml" rows="5"
                                    hint="Shown in the footer above the credit line. Sanitised like a post — scripts & styles are stripped."
                                    class="font-mono text-xs" />
+                </div>
+
+                {{-- Theme assets (Theme Studio 1.5): logo / favicon / background, stored on the public disk. --}}
+                <div class="rounded-md border border-line p-4 space-y-3" dusk="acp-theme-assets">
+                    <h3 class="text-sm font-semibold text-ink">Logo, favicon &amp; background</h3>
+                    @if ($formId === null)
+                        <p class="text-xs text-ink-subtle">Save the theme first, then re-open it to add images — or pick them now and they’ll be attached on save.</p>
+                    @endif
+                    <div class="grid gap-4 sm:grid-cols-3">
+                        @foreach (['logo' => ['label' => 'Logo', 'prop' => 'logoUpload', 'hint' => 'Shown in the header · ≤2 MB'], 'favicon' => ['label' => 'Favicon', 'prop' => 'faviconUpload', 'hint' => 'Browser tab icon · ≤512 KB'], 'background' => ['label' => 'Background', 'prop' => 'backgroundUpload', 'hint' => 'Full-page background · ≤4 MB']] as $kind => $meta)
+                            <div class="space-y-1">
+                                <label class="block text-xs font-medium text-ink-muted">{{ $meta['label'] }}</label>
+                                @if ($assetUrls[$kind] ?? null)
+                                    <div class="flex items-center gap-2">
+                                        <img src="{{ $assetUrls[$kind] }}" alt="" class="h-8 w-8 rounded border border-line object-contain bg-surface">
+                                        <button type="button" wire:click="removeAsset('{{ $kind }}')" class="text-xs text-red-600 hover:underline" dusk="acp-theme-remove-{{ $kind }}">Remove</button>
+                                    </div>
+                                @endif
+                                <input type="file" accept="image/*" wire:model="{{ $meta['prop'] }}"
+                                       class="block w-full text-xs text-ink-muted file:mr-2 file:rounded file:border-0 file:bg-surface-sunken file:px-2 file:py-1 file:text-xs file:text-ink" />
+                                @error($meta['prop']) <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                                <p class="text-xs text-ink-subtle">{{ $meta['hint'] }}</p>
+                            </div>
+                        @endforeach
+                    </div>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">

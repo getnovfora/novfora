@@ -1769,3 +1769,20 @@ since seed is restored during an upgrade, and an upgrade still SUCCEEDS when `pe
   (escaped recent-topic titles + links; online-window inclusion/exclusion; search form → search route;
   featured sanitisation + empty-hides); and a route-integration test placing a widget in `board_top` and
   seeing it on the board page.
+
+**1.5 — Theme assets (logo / favicon / background bound to the active theme).**
+- New nullable `logo_path` / `favicon_path` / `background_path` columns on `site_themes` (reversible).
+  `StyleThemeManager::storeAsset()` stores an upload on the **public** disk (web-accessible, the same disk
+  avatars use) under `theme-assets/`, replacing + deleting any previous file; `clearAsset()` removes one;
+  `delete()` now cleans up all bound files so a deleted theme orphans nothing.
+- The active theme's logo + favicon URLs come from a cached `assets()` (same defensive/cached discipline as
+  `css()`/`chrome()`); the background is emitted as a `body{background-image:url(...)}` rule inside the
+  compiled CSS (the URL is `addcslashes`-escaped into the `url()`). The layout renders the favicon
+  `<link rel="icon">` in `<head>`, the logo in the header brand (alt = wordmark, falls back to the wordmark
+  text), and the background via the injected CSS.
+- The editor gains logo/favicon/background file inputs (Livewire `WithFileUploads`, `image` + size-validated)
+  with a current-image preview + Remove button per asset.
+- **Tests (8):** store/replace/clear on the public disk; `assets()` URLs + empty state; the background CSS
+  rule; asset cleanup on theme delete; a Livewire upload through the editor; and a route-integration test
+  that the active theme's favicon + logo render on the page. (Uploads are faked GD-free — `create()` not
+  `image()` — since the gate container has no GD.)
