@@ -1645,3 +1645,63 @@ node-less `forum-app` container after assets are built on the host (Docker php:8
 invariant-#4 `php artisan optimize:clear` now runs **before** `package:discover`, because in Laravel 13
 `optimize:clear`'s `clear-compiled` step also deletes `bootstrap/cache/packages.php` — so discovery must be the
 LAST cache writer or the RH-1 manifest wouldn't ship.
+
+---
+
+## Mega-build — scoped, Phase-4-independent waves (2026-06-13, owner-authorized overnight build)
+
+> The owner authorized a long unattended build of the "mega-build" feature set, but **Option 2 only**: run
+> the waves that do **not** depend on Phase 4 (Clubs, PWA/push, SSO/OAuth2/SAML social login, paid-membership
+> scaffold), because Phase 4 was confirmed **never built** (not in `main`, not on any branch — see ROADMAP §4).
+> Branch `claude/mega-build` off `main` (Phase 3 + hardening). Each unit is its own gated, DCO-signed,
+> conventional commit. Gates: `php artisan migrate` · `pest` · `pint` · `phpstan` (PHP-8.3 baseline, run in the
+> `forum-dev` container). Every ADR here is **Accepted — owner-authorized overnight build; flagged for review**.
+>
+> **EXPLICITLY DEFERRED pending Phase 4 (NOT built, NOT stubbed under another name):** Theme-Studio 1.4
+> per-forum/club assignment hook · SAML (5.3) · Meilisearch (6.2) · Reverb (6.3) · monetization (Wave 7).
+> These stay out until Phase 4 lands so this work cannot collide with the real Phase-4 design.
+
+### ADR-0036 — `permissions:sync`: additive re-provisioning of role presets on upgrade (Wave 0.1) (2026-06-13)
+**Status: Accepted — owner-authorized overnight build; flagged for review.** (APEX — `acl_entries` / preset
+expansion / wired into the upgrade-concurrency path.)
+
+**Context — the live "Badges 403" class.** On the no-SSH baseline upgrade (RH-10), `UpgradeRunner` applies
+migrations but does **not** run seeders. So when a release ADDS a permission key to a preset (e.g.
+`badge.manage` joined the `administrator` preset), an already-installed site keeps its pre-release
+`role_permissions` + `acl_entries`, and the admin gets a 403 on the new screen (the Badges ACP checks
+`badge.manage`). Nothing re-derived presets at upgrade time.
+
+**Decision.** New `App\Permissions\PermissionSync` service + `novfora:permissions:sync` command (with
+`--dry-run`), wired into `UpgradeRunner::execute()` after a successful `migrate` and before the cache refresh.
+It re-derives the built-in presets (reusing `RoleSeeder::presets()`/`groupAssignments()` and
+`PermissionCatalogSeeder::catalog()` as the single source of truth) onto existing roles + system groups.
+
+**Semantics — ADDITIVE ONLY (the load-bearing call).** The service only ever INSERTS what is missing:
+- catalog → upsert the reference `permissions` table (code-owned docs; refreshing labels is safe);
+- preset → `role_permissions`: add a preset key only if ABSENT from the role; never modify/delete an existing key;
+- expansion → `acl_entries`: write a system group's GLOBAL-scope entry only when MISSING; never overwrite a value.
+
+**Why additive, not `RoleExpander::reexpand()` (deliberate deviation from the brief's "via RoleExpander").**
+`reexpand()` is a blunt `updateOrCreate` that would overwrite an admin-customised global value on a system
+group — **re-granting a permission an admin deliberately revoked is a security regression.** Additive
+provisioning fixes the 403, heals partial states (a `role_permission` present but its `acl_entry` lost), is a
+**true no-op** on a healthy install (no writes → no `AclVersion` bump → no cache churn), and preserves every
+admin customisation (a NEVER/NO on a system group, per-forum overrides, custom roles). **Known consequence:** a
+baseline entry an admin *deleted* is re-provisioned; the documented way to deny permanently is to set the
+entry's value to **NEVER** (which add-only preserves), not delete it. Flagged for review.
+
+**Idempotency / concurrency / safety.** A single code path serves both `sync()` and `preview()` (so `--dry-run`
+can never disagree with a real run). `sync()` is wrapped in a DB transaction. Cache invalidation rides the
+existing `AclEntry::saved → AclVersion::bump` event (a sync that writes N entries bumps the version; a no-op
+bumps nothing). In the upgrade pipeline the call holds the upgrade lock already, and is **best-effort**: a sync
+throw is caught, `report()`ed, audited as `upgrade.permissions_sync_failed`, and does **not** fail an
+otherwise-good schema upgrade (the migrations already applied) — the success audit records `permissions_synced`.
+
+**Tests (8 unit + 2 upgrade-wiring, apex-level).** Repro+fix of the Badges-403 propagation (incl. the resolver
+verdict flipping once the `AclVersion` bump invalidates the cached DENY); true-no-op-with-no-version-bump;
+**never-clobber a customised NEVER**; partial-state heal; catalog re-insert; `--dry-run` writes nothing yet
+reports the exact plan; the command + idempotent re-run; and in the real upgrade path — a preset key dropped
+since seed is restored during an upgrade, and an upgrade still SUCCEEDS when `permissions:sync` throws.
+
+**Operator command (clears a live 403 without a redeploy):** `php artisan novfora:permissions:sync`
+(preview with `--dry-run`).

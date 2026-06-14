@@ -9,6 +9,7 @@ namespace App\Upgrade;
 use App\Backup\BackupService;
 use App\Backup\RestoreState;
 use App\Install\Installer;
+use App\Permissions\PermissionSync;
 use App\Support\Audit;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -171,6 +172,10 @@ class UpgradeRunner
             return $this->fail($auto, 'migrate', $e, backup: $backup);
         }
 
+        // (c.1) Re-provision role presets so a permission ADDED to a preset in this release reaches the
+        // already-seeded site (ADR-0036 — closes the "403 on a new admin screen" class). Best-effort.
+        $permissionsSynced = $this->syncPermissions();
+
         // (d) refresh the caches that could hold a pre-migration shape. Compiled views are content-hashed;
         // config isn't cached on the baseline tier; the schema-state flag is rewritten by recordSuccess().
         $this->clearAppCaches();
@@ -185,6 +190,7 @@ class UpgradeRunner
             'names' => array_slice($pending, 0, 50),
             'duration_ms' => $durationMs,
             'backup' => $backup,
+            'permissions_synced' => $permissionsSynced,
             'mode' => $auto ? 'auto' : 'manual',
         ]);
 
@@ -214,6 +220,25 @@ class UpgradeRunner
         report($e); // to the log channel for the operator
 
         return UpgradeResult::failed($stage, $e->getMessage(), $backup);
+    }
+
+    /**
+     * Re-provision role presets onto existing roles/groups so a permission ADDED to a preset in this
+     * release reaches the already-seeded install (ADR-0036). ADDITIVE + idempotent, so it is safe on every
+     * upgrade. BEST-EFFORT: a sync hiccup must never fail (or un-record) an otherwise-good schema upgrade —
+     * the migrations already applied. Returns the number of changes applied, or null on failure (surfaced
+     * via report() + an audit line so it isn't silent).
+     */
+    private function syncPermissions(): ?int
+    {
+        try {
+            return app(PermissionSync::class)->sync()->totalChanges();
+        } catch (Throwable $e) {
+            report($e);
+            $this->audit('upgrade.permissions_sync_failed', ['error' => mb_substr($e->getMessage(), 0, 500)]);
+
+            return null;
+        }
     }
 
     /** Best-effort audit write — a logging hiccup must never fail (or un-record) an otherwise-good upgrade. */
