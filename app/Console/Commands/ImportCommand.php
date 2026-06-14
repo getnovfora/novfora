@@ -10,6 +10,7 @@ use App\Import\Contracts\SourceDriver;
 use App\Import\Drivers\MybbDriver;
 use App\Import\Drivers\PhpbbDriver;
 use App\Import\Drivers\SmfDriver;
+use App\Import\Drivers\XenForoDriver;
 use App\Import\ImportException;
 use App\Import\ImportRunner;
 use Illuminate\Console\Command;
@@ -23,13 +24,14 @@ use Illuminate\Support\Facades\DB;
  */
 final class ImportCommand extends Command
 {
-    protected $signature = 'novfora:import {source : phpbb|mybb|smf}
+    protected $signature = 'novfora:import {source : phpbb|mybb|smf|xenforo}
         {--connection=legacy : a configured DB connection to the legacy board}
         {--prefix= : legacy table prefix (default per source)}
+        {--attachments= : absolute path to the legacy attachments/files dir (enables attachment import)}
         {--preflight : count + plan only, no writes}
         {--batch=500 : rows per batch}';
 
-    protected $description = 'Import a legacy forum (phpBB/MyBB/SMF) — clean-room, idempotent, resumable.';
+    protected $description = 'Import a legacy forum (phpBB/MyBB/SMF/XenForo) — clean-room, idempotent, resumable.';
 
     public function handle(ImportRunner $runner): int
     {
@@ -65,12 +67,14 @@ final class ImportCommand extends Command
         $source = (string) $this->argument('source');
         $connection = DB::connection((string) $this->option('connection'));
         $prefix = (string) ($this->option('prefix') ?: '');
+        $attachments = ($this->option('attachments') ?: null);
 
         return match ($source) {
-            'phpbb' => new PhpbbDriver($connection, $prefix !== '' ? $prefix : 'phpbb_'),
-            'mybb' => new MybbDriver($connection, $prefix !== '' ? $prefix : 'mybb_'),
-            'smf' => new SmfDriver($connection, $prefix !== '' ? $prefix : 'smf_'),
-            default => throw new ImportException("Unknown source '{$source}' — use phpbb, mybb, or smf."),
+            'phpbb' => new PhpbbDriver($connection, $prefix !== '' ? $prefix : 'phpbb_', $attachments),
+            'mybb' => new MybbDriver($connection, $prefix !== '' ? $prefix : 'mybb_', $attachments),
+            'smf' => new SmfDriver($connection, $prefix !== '' ? $prefix : 'smf_', $attachments),
+            'xenforo' => new XenForoDriver($connection, $prefix !== '' ? $prefix : 'xf_', $attachments),
+            default => throw new ImportException("Unknown source '{$source}' — use phpbb, mybb, smf, or xenforo."),
         };
     }
 }

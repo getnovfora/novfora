@@ -1938,3 +1938,33 @@ SEO polish: canonical + Open Graph added to the board page (`forums.show`) and a
 unused tag, and the board page emits canonical + og:title.
 
 **Wave 3 — COMPLETE** (trending/best-of, RSS/Atom feeds, recommendations, sitemap/SEO), all gated + committed.
+
+### ADR-0041 — XenForo importer (Wave 4) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review.** Mirrors the phpBB driver's bar.
+
+**Decision.** `App\Import\Drivers\XenForoDriver implements SourceDriver, ProvidesAttachments` — a CLEAN-ROOM
+driver that encodes only XenForo's PUBLIC table schema (`xf_user`, `xf_node`, `xf_thread`, `xf_post`,
+`xf_attachment` + `xf_attachment_data`) to copy DATA, reading the legacy DB READ-ONLY; no XenForo code/templates
+are touched. The existing `ImportRunner` provides idempotency/resume (the `import_maps` keyset cursor + per-row
+guard), 301 redirects, and content/checksum verification unchanged — the driver only supplies normalised rows.
+Registered as `'xenforo'` in `ImportCommand` (which also gains an `--attachments=` option, additive, wired to
+all four drivers).
+
+**XenForo specifics handled:** the unified `xf_node` tree (`node_type_id` Category/Forum/LinkForum →
+category/forum/link; the runner's topological sort handles parent-before-child); filters to `user_state=valid`
+/ `discussion_state=visible` / `message_state=visible` (counts() applies the SAME filters so verify reconciles);
+XenForo password hashes aren't Laravel-verifiable → `password_hash=''` → runner assigns a random password +
+the user resets (like MyBB/SMF); BBCode bodies via the shared `BbcodeConverter`; attachments join
+`xf_attachment`→`xf_attachment_data`, mime derived from the filename, path = the XF2
+`internal_data/attachments/<data_id/1000>/<data_id>-<file_hash>.data` layout.
+
+**NOT validated against a live XenForo install** (flagged): the on-disk attachment path layout and the slugged
+legacy-URL shapes (`/threads/<slug>.<id>/`) vary by version/config — the DATA mapping is fixture-verified, but
+the operator must point `--attachments` at the real internal data dir, and only bare-id/index.php URL redirects
+are emitted (slugged-URL redirects need a per-topic slug lookup, a future enhancement).
+
+**Tests (3, mirroring PhpbbImportTest):** full fidelity from a fake in-memory XF schema (valid-users-only, node
+hierarchy category→forum, BBCode→md→html, 301 redirects served), idempotency + resume (re-run no-op, then new
+rows imported), and attachment import with sha-256 checksum + post-content reconciliation.
+
+**Wave 4 — COMPLETE.**
