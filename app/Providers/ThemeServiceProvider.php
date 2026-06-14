@@ -8,8 +8,12 @@ namespace App\Providers;
 
 use App\Theme\ThemeManager;
 use App\Theme\WidgetRegistry;
+use App\Theme\Widgets\FeaturedWidget;
 use App\Theme\Widgets\ForumStatsWidget;
 use App\Theme\Widgets\HtmlBlockWidget;
+use App\Theme\Widgets\OnlineUsersWidget;
+use App\Theme\Widgets\RecentTopicsWidget;
+use App\Theme\Widgets\SearchWidget;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -37,5 +41,10 @@ class ThemeServiceProvider extends ServiceProvider
         $registry = $this->app->make(WidgetRegistry::class);
         $registry->register($this->app->make(HtmlBlockWidget::class));
         $registry->register($this->app->make(ForumStatsWidget::class));
+        // Theme Studio 1.3 — the fuller first-party widget set.
+        $registry->register($this->app->make(RecentTopicsWidget::class));
+        $registry->register($this->app->make(OnlineUsersWidget::class));
+        $registry->register($this->app->make(SearchWidget::class));
+        $registry->register($this->app->make(FeaturedWidget::class));
     }
 }

@@ -226,6 +226,14 @@
         </div>
     @endif
 
+    {{-- Theme Studio 1.3: configurable site-header region (all pages) — admin-placed widgets. --}}
+    @php($siteHeaderRegion = app(\App\Theme\LayoutManager::class)->render('site_header'))
+    @if ($siteHeaderRegion !== '')
+        <div class="border-b border-line bg-surface-raised">
+            <x-ui.container size="lg" class="py-3" data-region="site_header">{!! $siteHeaderRegion !!}</x-ui.container>
+        </div>
+    @endif
+
     {{-- Site-wide notice (ACP v1 General settings) — shown on every page when an admin sets one. --}}
     @if (($site['notice'] ?? '') !== '')
         <div class="border-b border-line bg-accent-soft text-accent-soft-ink">
@@ -261,6 +269,14 @@
         @if (($themeChrome['footer'] ?? '') !== '')
             <div class="novfora-theme-footer border-b border-line">
                 <x-ui.container size="xl" class="py-4 text-sm text-ink-muted">{!! $themeChrome['footer'] !!}</x-ui.container>
+            </div>
+        @endif
+
+        {{-- Theme Studio 1.3: configurable site-footer region (all pages) — admin-placed widgets. --}}
+        @php($siteFooterRegion = app(\App\Theme\LayoutManager::class)->render('site_footer'))
+        @if ($siteFooterRegion !== '')
+            <div class="border-b border-line">
+                <x-ui.container size="xl" class="py-4" data-region="site_footer">{!! $siteFooterRegion !!}</x-ui.container>
             </div>
         @endif
         <x-ui.container size="xl" class="flex flex-col sm:flex-row items-center justify-between gap-3 py-6 text-sm text-ink-muted">

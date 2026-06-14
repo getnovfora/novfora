@@ -30,6 +30,14 @@ final class LayoutManager
     public const REGIONS = [
         'forum_top' => 'Forum index — top',
         'forum_bottom' => 'Forum index — bottom',
+        'forum_sidebar' => 'Forum index — sidebar',
+        'board_top' => 'Board (forum) — top',
+        'board_bottom' => 'Board (forum) — bottom',
+        'topic_top' => 'Topic — top',
+        'topic_bottom' => 'Topic — bottom',
+        'profile_top' => 'Profile — top',
+        'site_header' => 'Site header (all pages)',
+        'site_footer' => 'Site footer (all pages)',
     ];
 
     public function __construct(private readonly WidgetRegistry $widgets) {}
@@ -57,8 +65,17 @@ final class LayoutManager
         if (! $this->isRegion($region)) {
             return '';
         }
+
+        // Site-wide regions render on EVERY page, so degrade gracefully when the table isn't available
+        // (pre-install / mid-migration / a no-DB render context) — the same discipline as StyleThemeManager.
+        try {
+            $placements = $this->placements($region);
+        } catch (\Throwable) {
+            return '';
+        }
+
         $html = '';
-        foreach ($this->placements($region) as $placement) {
+        foreach ($placements as $placement) {
             if (! $placement->is_enabled) {
                 continue;
             }

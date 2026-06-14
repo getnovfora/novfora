@@ -45,6 +45,8 @@
          which read the global $store.bulkSelect; nested Livewire components keep their own Alpine scopes. --}}
     <x-ui.container size="lg" class="space-y-5" x-data="{}"
         x-bind:style="$store.bulkSelect.active ? 'padding-bottom: 7rem' : ''">
+        {{-- Theme Studio 1.3: configurable region — admin-placed widgets at the top of a topic. --}}
+        <x-region name="topic_top" />
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 space-y-2">
                 @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix || $topic->tags->isNotEmpty())
@@ -223,5 +225,8 @@
                 <x-ui.button :href="route('login')" size="sm">Sign in to reply</x-ui.button>
             </x-ui.card>
         @endauth
+
+        {{-- Theme Studio 1.3: configurable region — admin-placed widgets at the bottom of a topic. --}}
+        <x-region name="topic_bottom" />
     </x-ui.container>
 @endsection

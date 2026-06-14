@@ -37,6 +37,9 @@
             </div>
         </div>
 
+        {{-- Theme Studio 1.3: configurable region — admin-placed widgets at the top of a board. --}}
+        <x-region name="board_top" />
+
         @if ($canModerate)
             @include('partials.bulk-select-store')
             <livewire:forum.bulk-actions context="topics" :forum-id="$forum->id" />
@@ -221,5 +224,8 @@
                 </x-ui.empty>
             </x-ui.card>
         @endif
+
+        {{-- Theme Studio 1.3: configurable region — admin-placed widgets at the bottom of a board. --}}
+        <x-region name="board_bottom" />
     </x-ui.container>
 @endsection

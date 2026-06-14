@@ -2,7 +2,12 @@
 @extends('layouts.app', ['title' => 'Forums · '.config('app.name', 'NovFora')])
 
 @section('content')
+    @php $sidebarHtml = app(\App\Theme\LayoutManager::class)->render('forum_sidebar'); @endphp
     <x-ui.container size="lg" class="space-y-6">
+        @if ($sidebarHtml !== '')
+        <div class="grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-start">
+            <div class="space-y-6 min-w-0">
+        @endif
         <div class="flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-2xl font-semibold tracking-tight text-ink">Forums</h1>
         </div>
@@ -49,5 +54,11 @@
 
         {{-- Community activity feed (P2-M3): global, per-viewer permission-filtered, cached primitives. --}}
         <livewire:community.activity-feed />
+        @if ($sidebarHtml !== '')
+            </div>
+            {{-- Theme Studio 1.3: configurable sidebar (admin-placed widgets); only shown when filled. --}}
+            <aside class="space-y-3 lg:sticky lg:top-20" data-region="forum_sidebar" aria-label="Sidebar">{!! $sidebarHtml !!}</aside>
+        </div>
+        @endif
     </x-ui.container>
 @endsection

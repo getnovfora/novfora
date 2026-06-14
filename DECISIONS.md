@@ -1752,3 +1752,20 @@ since seed is restored during an upgrade, and an upgrade still SUCCEEDS when `pe
 - **Tests (5):** script/style/`onclick` stripped at save; null when nothing survives; `chrome()` reflects the
   active theme and clears when none is active / on edit; and a route-integration test that the active theme's
   header & footer HTML render on the forum index (and vanish when deactivated).
+
+**1.3 — Layout configurator everywhere + a fuller widget set.**
+- **8 new regions** added to `LayoutManager::REGIONS` (a MINOR theme-API change → `ThemeApi::VERSION`
+  **1.2.0**): `board_top/bottom`, `topic_top/bottom`, `profile_top`, `forum_sidebar`, `site_header`,
+  `site_footer`. `<x-region>` outlets were added to the board, topic and profile views; site header/footer
+  regions render on every page from the layout; the forum-index sidebar uses a conditional 2-column grid that
+  **only** appears when filled (the single-column default is byte-identical when empty). Region keys are stored
+  in `layout_widgets.region`, so they are stable identifiers — never renamed.
+- **Four new first-party widgets** registered in `ThemeServiceProvider`: `recent_topics` (clamped 1–20, links
+  to topics), `online_users` (members with `last_active_at` inside a window — BASELINE-SAFE, no WebSocket
+  presence; cached a minute), `search` (a GET form to the existing search page), `featured` (admin
+  title + HTML body, sanitised through the post allowlist). All escape every dynamic value; the two
+  HTML-bearing widgets reuse `ContentSanitizer`.
+- **Tests (8):** the expanded region set + `isRegion`; all six widgets registered; each new widget's render
+  (escaped recent-topic titles + links; online-window inclusion/exclusion; search form → search route;
+  featured sanitisation + empty-hides); and a route-integration test placing a widget in `board_top` and
+  seeing it on the board page.

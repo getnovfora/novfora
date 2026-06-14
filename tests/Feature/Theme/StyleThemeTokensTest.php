@@ -20,8 +20,8 @@ use Tests\Support\Users;
 
 uses(RefreshDatabase::class);
 
-it('publishes the editable-token contract at API v1.1', function () {
-    expect(ThemeApi::VERSION)->toBe('1.1.0');
+it('publishes the editable-token contract (API v1.1+)', function () {
+    expect(ThemeApi::VERSION)->toBe('1.2.0');
 
     $keys = array_keys(ThemeApi::editableTokens());
     expect($keys)->toContain('surface', 'ink', 'ink_muted', 'line', 'radius');

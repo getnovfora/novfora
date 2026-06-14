@@ -10,6 +10,8 @@
 
 @section('content')
     <x-ui.container size="md" class="space-y-5">
+        {{-- Theme Studio 1.3: configurable region — admin-placed widgets at the top of a profile. --}}
+        <x-region name="profile_top" />
         <x-ui.card flush class="overflow-hidden">
             @if ($user->cover_path)
                 <img src="{{ Storage::disk('public')->url($user->cover_path) }}" alt=""

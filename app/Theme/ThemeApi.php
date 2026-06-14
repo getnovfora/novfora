@@ -19,7 +19,7 @@ namespace App\Theme;
  */
 final class ThemeApi
 {
-    public const VERSION = '1.1.0';
+    public const VERSION = '1.2.0';
 
     /**
      * The stable CSS-variable token contract. A theme/widget may read or override any of these and rely on it
