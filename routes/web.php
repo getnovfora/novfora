@@ -164,6 +164,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Saved topics + posts (member tool 2.1).
     Route::get('/saved', [\App\Http\Controllers\BookmarkController::class, 'index'])->name('saved.index');
 
+    // Scheduled replies (member tool 2.4).
+    Route::view('/scheduled', 'scheduled.index')->name('scheduled.index');
+
     Route::view('/settings/two-factor', 'settings.two-factor')->name('settings.two-factor');
 
     // Consolidated display preferences (P2-M4): posts-per-page + thread sort order. The ⚡user-preferences SFC

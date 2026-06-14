@@ -1887,3 +1887,19 @@ consumes. Assets rebuilt (`npm run build`, host node) so the bundle carries the 
 the JS compiles. **Caveat (flagged):** there is no browser/Dusk harness in the gate env, so the editor UI
 itself was NOT browser-tested — the owner should smoke-test inserting a spoiler after pulling. The renderer
 guarantee (the security-relevant part) IS tested.
+
+**2.4 — Post scheduling (publish-at, cron-tolerant).** A scheduled REPLY is HELD in a new `scheduled_posts`
+table (reversible) — NOT created in the topic — until its time; the publish cron then creates the REAL post
+through `PostService::reply()`, so every side-effect (counters, last-post pointers, notifications, search) is
+exactly a normal reply's (no duplicated pipeline). `PostScheduler` is the writer: `scheduleReply()`
+(future-only), `cancel()`, `pendingFor()`, and `publishDue()`. **Cron-tolerant idempotency:** `publishOne()`
+runs each item in a transaction that LOCKS the row and proceeds only if still unpublished — so an overlapping
+or coarse tick can never double-publish; a transient failure throws → the tx rolls back → the next tick
+retries; a permanent one (topic gone/locked, lost permission, content rejected) is marked done with a null
+`post_id` (skipped, never retried). `novfora:posts:publish-scheduled` runs every minute (`withoutOverlapping(5)`,
+restore-skipped). The reply composer gains a "schedule for" datetime that routes to `scheduleReply` + redirects
+to a `/scheduled` management view (list + cancel). Tests (10): schedule-without-post, future-only, due publish
+into the topic, **no double-publish**, not-yet-due untouched, **skip-not-retry on a locked topic**, cancel, the
+command, composer scheduling, and the management list+cancel.
+
+**Wave 2 — COMPLETE** (2.1 bookmarks, 2.2 ignore/block, 2.3 spoilers, 2.4 scheduling), all gated + committed.
