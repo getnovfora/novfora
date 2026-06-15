@@ -2065,3 +2065,29 @@ targets are set.
 **Tested.** The seeder has a feature test at small scale (creates the requested counts via the real write
 path, maintains `reply_count`, additive/idempotent on re-run). The driver scripts are static assets — no
 k6/artillery binary exists in the gate, so they are not executed there (validating them is a manual run).
+
+### ADR-0046 — Security review sweep (Wave 8.4) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** Run an adversarial **verify-then-refute** sweep over the new attack surface of this build
+(untrusted-input parsing, permission/visibility, own-only authz, locale handling, HTML parsing, the new
+commands/routes/middleware). Two independent reviewers ran in parallel over non-overlapping surfaces plus a
+first-party apex pass on the permission core. Each candidate was chased to the failing line with a concrete
+exploit and refuted by default unless that exploit held. Record: `docs/architecture/security-review-wave8.md`.
+
+**One MEDIUM, fixed.** `SearchQueryParser` resolved each inline operator with its own DB lookup inside the
+token loop, uncapped, on the public unthrottled `/search` — a crafted multi-operator `?q` amplified into
+~1000+ synchronous lookups per request (unauthenticated resource exhaustion). Fixed by resolving operators
+**once after the loop** (≤1 author + ≤1 forum lookup, one batched tag `whereIn` capped at MAX_TAGS=16, ≤2 date
+parses), a 512-char `?q` length cap, and `throttle:120,1` on `/search`+`/suggest` (defence-in-depth). Bounded
+to a constant regardless of token count; missing→empty (id 0) semantics preserved. Regression tests added.
+
+**Everything else refuted (verified safe).** No SQL injection (term escaped, facets bound); **no forum-visibility
+bypass** — `SearchService::effectiveForumIds` intersects any forum facet with `VisibleForumIds`, so a forged
+`in:`/`?forum=` yields an empty result, not a leak/oracle; no IDOR (saved searches scoped to `user_id`); no
+mass assignment (`user_id` server-set, `locale` not fillable + `Rule::in` validated); no XSS (Blade `{{ }}`
+throughout; `icon.blade.php` emits only trusted map values); no open redirect; CSRF intact; **no XXE/XPath
+injection** in the a11y auditor (`loadHTML` HTML parser expands no custom/external entities; XPath values sit
+in a quoted literal with `"` stripped); SSRF surface is operator-CLI-only; load-test creds random + prod
+guard; `SetLocale` middleware order correct (lazy auth, gates run first). Also tidied a misleading field name
+(`Finding::criterion` → `level`; rendered label was already correct).

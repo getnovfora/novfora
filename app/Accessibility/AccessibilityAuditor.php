@@ -65,10 +65,10 @@ final class AccessibilityAuditor
         return $this->findings;
     }
 
-    private function add(string $criterion, string $message, string $level, DOMElement|string $context = ''): void
+    private function add(string $rule, string $message, string $level, DOMElement|string $context = ''): void
     {
         $snippet = $context instanceof DOMElement ? $this->snippet($context) : $context;
-        $this->findings[] = new Finding($criterion, $level, $message, $snippet);
+        $this->findings[] = new Finding($rule, $level, $message, $snippet);
     }
 
     // ── document-level ───────────────────────────────────────────────────────────────────────────────────

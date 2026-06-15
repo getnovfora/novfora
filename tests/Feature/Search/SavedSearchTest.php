@@ -14,6 +14,7 @@ use App\Search\SavedSearchService;
 use App\Search\SearchQueryParser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\Content;
 use Tests\Support\Users;
 
@@ -47,6 +48,34 @@ it('parses inline operators into facet fields, leaving the residual term', funct
 it('forces an empty result for an unknown author/forum operator (id 0)', function () {
     $parsed = SearchQueryParser::parse('hi author:ghost in:nope');
     expect($parsed['authorId'])->toBe(0)->and($parsed['forumId'])->toBe(0);
+});
+
+it('bounds operator resolution to a constant number of queries (no per-token amplification)', function () {
+    Forum::create(['slug' => 'general', 'title' => 'General', 'type' => 'forum']);
+    User::factory()->create(['username' => 'alice']);
+
+    // A pathological query: hundreds of operator tokens (keyword first so the length cap can't trim it).
+    // Pre-fix this was ~1 DB query PER token.
+    $raw = 'keyword '.str_repeat('tag:t author:alice in:general ', 100);
+
+    DB::connection()->enableQueryLog();
+    $parsed = SearchQueryParser::parse($raw);
+    $queries = count(DB::connection()->getQueryLog());
+    DB::connection()->disableQueryLog();
+
+    // At most three lookups total (author, forum, batched tags) regardless of token count.
+    expect($queries)->toBeLessThanOrEqual(3)
+        ->and($parsed['term'])->toBe('keyword');
+});
+
+it('caps the number of tag operators honoured per query', function () {
+    for ($i = 0; $i < 20; $i++) {
+        Tag::create(['name' => "t{$i}", 'slug' => "t{$i}", 'usage_count' => 1]);
+    }
+    $raw = collect(range(0, 19))->map(fn ($i) => "tag:t{$i}")->implode(' ');
+
+    // MAX_TAGS = 16: only the first 16 distinct tag operators are resolved.
+    expect(count(SearchQueryParser::parse($raw)['tagIds']))->toBeLessThanOrEqual(16);
 });
 
 it('applies the author: operator end-to-end on the search page', function () {
