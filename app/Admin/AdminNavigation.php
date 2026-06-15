@@ -81,6 +81,7 @@ final class AdminNavigation
                 ['Approval queue', 'moderation.queue', 'check-circle', true],
                 ['Reports', 'moderation.reports', 'flag', true],
                 ['Mod control panel', 'moderation.dashboard', 'shield', true],
+                ['Spam intelligence', 'admin.spam-intelligence', 'shield'],
             ]],
             ['System', 'database', [
                 ['Service tier', 'admin.system.tier', 'database'],

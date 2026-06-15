@@ -2783,3 +2783,19 @@ duplicate is held (`pending`) + records the assessment + is **never deleted** (t
 member's repost is approved with no assessment. One unrelated pagination fixture (20 rapid replies from a fresh
 account) was retargeted to a trusted author — the burst behaviour it tripped is correct. Gate green: **full
 suite 1513 passed / 1 skipped / 0 failed** (12618 assertions), pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0068 — Spam-intelligence review surface (Phase 4 · M6.2) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** Admin → Spam intelligence (`admin.spam-intelligence`) renders the `spam_assessments` recorded in
+M6.1 for posts still held — each held post with its **score**, its **per-signal breakdown** (similarity/burst/…
+with point values), the moderation **reasons**, the author, the thread, and a content excerpt — highest score
+first. Two actions: **approve** (clears the hold → `approved` + dispatches the post's notifications, reusing
+`PostService::dispatchPostNotifications`) and **reject** (`rejected` + a **soft-delete** to the recycle bin —
+never a hard delete, preserving the M6.1 hold-only/human-in-the-loop posture). The page is staff-gated in
+`mount()` (admin.access + 2FA), and approve/reject **re-check `topic.moderate` on the post's thread** (mirrors
+`ModerationController`), so the surface never widens authority.
+
+**Tested.** 4 tests: non-admin 403 (page + Livewire); held posts listed with score + signals; approve clears the
+hold; reject soft-deletes (and the row is still recoverable, `approved_state = 'rejected'`). Gate green: **full
+suite 1517 passed / 1 skipped / 0 failed** (12634 assertions), pint clean, phpstan (level 5) 0 errors.

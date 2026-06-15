@@ -356,6 +356,9 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         // Membership tiers (Phase 4 · M5.1) — the <livewire:admin.tiers /> manager. No money is charged here.
         Route::view('/tiers', 'admin.tiers')->name('tiers');
 
+        // Spam intelligence review (Phase 4 · M6.2) — the <livewire:admin.spam-intelligence /> queue of held posts.
+        Route::view('/spam-intelligence', 'admin.spam-intelligence')->name('spam-intelligence');
+
         // Memberships (Phase 4 · M5.2) — the <livewire:admin.member-grants /> manual grant/revoke surface.
         Route::view('/memberships', 'admin.memberships')->name('memberships');
 
