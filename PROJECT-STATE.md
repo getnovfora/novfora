@@ -11,7 +11,84 @@
 
 ---
 
-## 🌙 Overnight mega-build on `claude/mega-build` — 2026-06-14 (LATEST · REVIEW + PUSH THIS)
+## 🌙 Phase 4 build (M1 Clubs · M2 SSO · M3 PWA+Push) on `claude/phase-4-features` — 2026-06-15 (LATEST · REVIEW + PUSH THIS)
+
+**Unattended, owner-authorized autonomous build off `main` (the merged mega-build base). 14 conventional,
+DCO-signed, `Tommy Huynh`-authored commits on branch `claude/phase-4-features`. NOTHING IS PUSHED** — push is
+interactive-only in the sandbox; the owner pushes + opens the PR. Built M1 → M2 → M3 in order; each unit is its
+own gated commit. Every ADR (0047–0059) is **"Accepted — owner-authorized overnight build; flagged for review."**
+
+**Final gate (branch HEAD, run in `forum-dev`):** `pest --parallel` **1428 passed / 1 skipped / 0 failed**
+(baseline 1302 → +126 Phase-4 tests) · `phpstan` (level 5) **0 errors** · `pint` clean · `php artisan migrate`
++ seed clean. Every unit was committed only at a green boundary.
+
+### Per-unit status (commit · ADR)
+- **M1 Clubs** — `d28226f` 1.1 data model + CRUD + directory/home (ADR-0047) · `7cb93c2` 1.2 **(APEX)** club-scoped
+  permissions through the engine — new `club` Scope + `ClubRoleProjector`, `permissions:sync` aware (ADR-0048) ·
+  `71f1e60` 1.3 membership flows (join/request/invite-token/leave/roster/transfer) + the global-staff rank
+  ceiling (ADR-0049) · `eae4b6b` 1.4 discussion on the existing forum stack via `forums.club_id` (ADR-0050) ·
+  `52c654f` 1.5 **(APEX)** the no-leak privacy sweep across every surface + an adversarial review that found +
+  fixed **2 leaks** (reaction-notify emit, stored-notification render) (ADR-0051) · `9bb75f3` 1.6 configurable
+  creation policy (ADR-0052).
+- **M2 SSO** — `fc7a1fa` 2.1 **(APEX)** OAuth login (Google/GitHub/Discord), encrypted secrets, email-collision
+  **no-merge** (ADR-0053) · `0e72a6d` 2.2 **(APEX)** account linking + the proven-control flow (ADR-0054) ·
+  `d6100ae` 2.3 **(APEX)** PKCE + state + CSRF + the outbound-SSRF analysis (ADR-0055) · `c9a152e` 2.4 SAML
+  **scaffold only** (ADR-0056).
+- **M3 PWA + Push** — `3a60a8d` 3.1 installable PWA + a no-PII service worker (ADR-0057) · `a17e412` 3.2 Web Push
+  (VAPID) opt-in cron-tolerant channel (ADR-0058) · `9931254` 3.3 push preferences UI (ADR-0059).
+
+### ⚠ SCAFFOLDED — NOT VALIDATED against a live service (validate before relying on)
+- **OAuth (2.1–2.3):** no real Google/GitHub/Discord apps/credentials in the build env → the end-to-end provider
+  round-trip is **unproven**; the flow is tested against **mocked** Socialite. Validate with real client ids +
+  the published redirect URI before enabling in production.
+- **SAML (2.4):** **scaffold only** — interface + detection + mocked tests; **NO concrete provider ships** and it
+  **does not work end to end**. Inert by default (every SAML route 404s until an operator binds a provider).
+- **Web Push delivery (3.2):** no browser subscription / push endpoint in the build env → the encrypt-and-POST to
+  a real push service is **unproven**; wiring tested with a mocked sender. The PWA service worker's offline cache
+  + the push client JS are browser-only and unvalidated against a live service.
+
+### Recorded assumptions (also inline + in DECISIONS.md)
+- **Club-creation default:** `clubs.creation_policy = trust`, `clubs.creation_min_trust_level = 2` (verified
+  member at TL ≥ 2). The brief's "admin-approved" option is realised as **staff-only** creation; a
+  request→approval queue is deferred (ADR-0052).
+- **SSO provider set:** Google + GitHub (core Socialite) + Discord (socialiteproviders/discord). All providers
+  **OFF by default**; secrets stored **encrypted**. New composer deps (all MIT, Apache-2.0-compatible):
+  `laravel/socialite ^5.27`, `socialiteproviders/discord ^4.2`, `minishlink/web-push ^10.1`.
+- **Club privacy (APEX):** because the board is public-by-default (global guests `forum.view=ALLOW`), pure-ACL
+  cannot hide a private club from a logged-in non-member — content-hiding is a **query-level gate**
+  (`Forum::clubContentVisibleTo` + extended `VisibleForumIds`) consulted by every surface, with the engine
+  carrying club CAPABILITIES + a guests-`NEVER` for anonymous defence-in-depth (ADR-0047/0051).
+- **Sole club owner + account deletion:** deleting a sole owner's account leaves the club ownerless — an
+  ownership-transfer-before-deletion guard is a documented fast-follow (ADR-0047).
+- **PWA icons:** ship a maskable SVG; production should add 192/512 raster PNGs for the widest install prompt
+  (ADR-0057).
+
+### What remains for Phase 4 (NOT built this run — record only)
+**M4 — Meilisearch + Reverb** (enhanced-tier search execution path + real-time, carried from prior scaffolding);
+**M5 — paid memberships / subscriptions** (out of scope this run per the brief); **M6 — advanced anti-spam
+intelligence.** Also: the OAuth/SAML/Web-Push validation against live services/providers (above).
+
+### Pre-existing uncommitted WIP — STASHED (not mine)
+On session start, `main`'s working tree carried **53 uncommitted files** from the prior `claude/mega-build`
+session (idempotent `Schema::hasTable` guards on migrations + an `UpgradeCommand` restore-path fix — coherent
+upgrade-robustness WIP, never committed). To keep the Phase-4 branch clean it was **`git stash`ed**
+(`stash@{0}: "preexisting-upgrade-wip-from-mega-build …"`) with a backup patch saved at
+`storage/handoff/preexisting-upgrade-wip-13afedd.patch`. **Owner: review + `git stash pop` (or apply the patch)
+on `main` if that work should land.** A few pre-existing untracked artifacts (`.env.root-stale`,
+`provider-symfony~var-dumper.json`, `docs/product/rh4-subdirectory-install-spike.md`, `storage/.backups-root-stale/`)
+were left untouched.
+
+### ☀️ Morning report — what the owner does next
+1. **Review** the 14 commits on `claude/phase-4-features` (ADRs 0047–0059, all flagged-for-review), then **push**
+   + open the PR from your terminal.
+2. **Restore the stashed upgrade WIP** if wanted (see above).
+3. **Before enabling SSO / Web Push in production:** create real OAuth apps + VAPID keys
+   (`php artisan novfora:push:vapid`) and validate end to end — they are scaffolded, not live-validated.
+4. New docs to skim: `docs/architecture/phase-4/{clubs,sso,pwa-and-push}.md`.
+
+---
+
+## 🌙 Overnight mega-build on `claude/mega-build` — 2026-06-14 (REVIEW + PUSH THIS)
 
 **Unattended, owner-authorized autonomous build (Option 2): only Phase-4-INDEPENDENT units, off `main`
 (Phase-3 base). 19 conventional, DCO-signed, `Tommy Huynh`-authored commits on branch `claude/mega-build`
