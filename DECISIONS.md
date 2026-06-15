@@ -2736,3 +2736,19 @@ paste the secret/publishable keys, toggle on; (3) add a Stripe webhook endpoint 
 for `checkout.session.completed`, paste its signing secret; (4) run a real test-mode checkout and confirm the
 grant; (5) consider `invoice.payment_succeeded`/`customer.subscription.deleted` handling before relying on
 auto-renewal. Until then, the **offline/manual** provider (ADR-0064) remains the live-granting path.
+
+### ADR-0066 — Paid-clubs hook: gate club creation on a membership perk (Phase 4 · M5.4) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision (money-fenced, NO new money path).** The "could-have" hook tying M1 (clubs) to M5 (memberships):
+a new setting `clubs.require_membership` (bool, **default false**). When ON, `ClubCreation::canCreate()` ALSO
+requires the non-staff member to hold the `tier.create_clubs` membership perk — granted through the engine by an
+active subscription (manual or Stripe). It introduces **no new payment path**: the perk is acquired via the
+existing M5.1–M5.3 mechanisms. Staff always create; the gate is additive to the existing trust/policy gate, so
+with the flag OFF the baseline is unchanged. A toggle was added to Admin → Settings → Clubs.
+
+**Tested.** 5 tests: default off leaves baseline behaviour; flag-on blocks a qualifying member without the perk
+(service + the `clubs.create` route 403); flag-on allows a member who holds the perk (route 200); staff always
+create; the admin toggle persists. Gate green: **full suite 1505 passed / 1 skipped / 0 failed** (12601
+assertions), pint clean, phpstan (level 5) 0 errors. *(No real money involved — the hook gates on a perk, not a
+charge; the perk itself is granted by the audited M5.1–M5.3 paths.)*

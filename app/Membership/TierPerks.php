@@ -26,6 +26,7 @@ final class TierPerks
         'tier.signature_images' => 'Images in signature',
         'tier.increased_uploads' => 'Increased upload quota',
         'tier.early_access' => 'Early access to new features',
+        'tier.create_clubs' => 'Create clubs (when memberships gate club creation)',
     ];
 
     /** @return list<string> */

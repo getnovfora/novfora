@@ -152,6 +152,10 @@ final class SettingsRegistry
             // always create regardless. Read by App\Clubs\ClubCreation.
             new SettingDefinition('clubs.creation_policy', 'string', default: 'trust', group: 'clubs', label: 'Who can create clubs', options: ['any', 'trust', 'staff']),
             new SettingDefinition('clubs.creation_min_trust_level', 'int', default: 2, group: 'clubs', label: 'Minimum trust level to create a club'),
+            // Paid-clubs hook (Phase 4 · M5.4) — money-fenced: when ON, a non-staff member must ALSO hold the
+            // `tier.create_clubs` membership perk (granted via the existing manual/Stripe path; no new money
+            // path) to create a club. OFF by default. Read by App\Clubs\ClubCreation.
+            new SettingDefinition('clubs.require_membership', 'bool', default: false, group: 'clubs', label: 'Require a membership to create clubs'),
 
             // ── SSO / social login (Phase 4 · M2) ───────────────────────────────────────────────────
             // Per-provider OFF by default; secrets stored ENCRYPTED at rest. The password login path is
