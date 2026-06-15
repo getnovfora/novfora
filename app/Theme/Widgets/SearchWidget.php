@@ -40,7 +40,9 @@ final class SearchWidget extends Widget
             : __('Search…');
 
         return '<form class="rounded-lg border border-line bg-surface-raised p-4" role="search" method="GET" action="'.e(route('search.index')).'">'
-            .'<label class="sr-only" for="novfora-widget-q">'.e(__('Search')).'</label>'
+            // Namespaced key (not bare __('Search')) — a bare key collides with the lang/en/search.php
+            // group on case-insensitive filesystems and resolves to the whole array (Wave 8.1).
+            .'<label class="sr-only" for="novfora-widget-q">'.e(__('search.title')).'</label>'
             .'<input id="novfora-widget-q" type="search" name="q" placeholder="'.e($placeholder).'" '
             .'class="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-subtle" />'
             .'</form>';

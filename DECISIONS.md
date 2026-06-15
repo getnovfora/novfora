@@ -1988,3 +1988,29 @@ control on the results page (auth-only) captures the full GET query string (oper
 **replays verbatim**; `/saved-searches` lists + re-runs + deletes; nav link added. `SavedSearchController` is
 auth-gated; delete is own-only (a member can't remove another's). Tests (7): operator parse + unknown→empty +
 end-to-end author filter; save/list, **own-only delete**, store-from-page, and the page control.
+
+### ADR-0043 — i18n framework + RTL scaffolding (Wave 8.1) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** Stand up Laravel's native localisation as the translation framework rather than a package:
+`lang/<code>/*.php` PHP arrays (`__('search.save_this')`, `trans_choice`), the `app.locale`/`fallback_locale`
+config already present, and a single allowlist in `config('novfora.locales')`. `en` is authoritative and
+fully authored for the surfaces externalised so far; six more locales (es/fr/de/pt_BR + RTL ar/he) are
+registered as **scaffolding** — the switcher, middleware and RTL path are exercised end-to-end, but their
+`lang/<code>/` files are unwritten, so every string falls back to `en` until a translator fills them.
+
+**Untrusted-input boundary.** The locale is reader-supplied (a `?locale` POST, a session value). All of it is
+funnelled through `App\Support\Locales` (the allowlist guard) — `SetLocale` middleware checks `isSupported()`
+before `App::setLocale()`, and `LocaleController` validates with `Rule::in(Locales::codes())` before touching
+the session/profile. There is **no path** that hands an unvalidated code to the framework. Resolution
+precedence: signed-in member's stored `users.locale` → session (switcher) → configured default.
+
+**RTL.** Direction is data, not a second translation: each allowlist entry carries `dir`, and `<html dir>`
+is rendered from `Locales::direction(app()->getLocale())`. That is the only RTL switch the layout needs;
+CSS is expected to use logical properties so the existing utilities mirror automatically.
+
+**Scope.** This wave ships the framework + the switcher + RTL plumbing and externalises the Wave-6.1 search /
+saved-search surface + shared chrome as the proven pattern. Externalising the remaining ~100 Blade views is
+**mechanical follow-up** (string-by-string `__()` extraction, no design left to make) and is tracked as such,
+not built here. Tests (9): allowlist guard + direction, resolution precedence (user/session/fallback),
+RTL `dir="rtl"` vs `dir="ltr"`, switcher persistence, out-of-list rejection, externalised-string lookup.

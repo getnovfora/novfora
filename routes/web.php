@@ -74,6 +74,11 @@ Route::get('/tags/{tag:slug}', [TagController::class, 'show'])->name('tags.show'
 Route::get('/search', [SearchController::class, 'index'])->name('search.index');
 Route::get('/search/suggest', [SearchController::class, 'suggest'])->name('search.suggest');
 
+// Language switcher (Wave 8.1) — open to guests and members; the controller validates the locale against
+// the allowlist before it touches the session/profile. Throttled as a cheap write endpoint.
+Route::post('/locale', [\App\Http\Controllers\LocaleController::class, 'update'])
+    ->middleware('throttle:30,1')->name('locale.update');
+
 // SEO (system-architecture §6): XML sitemap + robots pointing at it.
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 Route::get('/robots.txt', function () {

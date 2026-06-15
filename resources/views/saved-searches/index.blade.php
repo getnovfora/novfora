@@ -1,13 +1,13 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => 'Saved searches · '.config('app.name', 'NovFora')])
+@extends('layouts.app', ['title' => __('search.saved').' · '.config('app.name', 'NovFora')])
 
 @section('breadcrumbs')
-    <x-ui.breadcrumbs :items="[['label' => 'Forums', 'url' => route('forums.index')], ['label' => 'Saved searches']]" />
+    <x-ui.breadcrumbs :items="[['label' => __('common.forums'), 'url' => route('forums.index')], ['label' => __('search.saved')]]" />
 @endsection
 
 @section('content')
     <x-ui.container size="md" class="space-y-5">
-        <h1 class="text-2xl font-semibold tracking-tight text-ink">Saved searches</h1>
+        <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ __('search.saved') }}</h1>
 
         @if (session('status'))
             <x-ui.alert variant="success">{{ session('status') }}</x-ui.alert>
@@ -26,12 +26,12 @@
                         </div>
                         <form method="POST" action="{{ route('saved-searches.destroy', $search->id) }}">
                             @csrf @method('DELETE')
-                            <x-ui.button type="submit" variant="danger-ghost" size="sm" dusk="delete-saved-search-{{ $search->id }}">Delete</x-ui.button>
+                            <x-ui.button type="submit" variant="danger-ghost" size="sm" dusk="delete-saved-search-{{ $search->id }}">{{ __('common.delete') }}</x-ui.button>
                         </form>
                     </li>
                 @empty
                     <li class="px-4 py-6 sm:px-5 text-sm text-ink-subtle">
-                        No saved searches yet. Run a search, then use <strong>Save this search</strong>.
+                        {{ __('search.saved_empty') }}
                     </li>
                 @endforelse
             </ul>

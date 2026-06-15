@@ -2,6 +2,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 
+use App\Permissions\VisibleForumIds;
 use Tests\DuskTestCase;
 use Tests\TestCase;
 
@@ -22,6 +23,14 @@ uses(TestCase::class)->beforeEach(function () {
         'novfora.backup.restore_state_path' => $base.DIRECTORY_SEPARATOR.'novfora-restore.json',
         'novfora.backup.restore_lock_path' => $base.DIRECTORY_SEPARATOR.'novfora-restore.lock',
     ]);
+
+    // VisibleForumIds keeps a STATIC per-viewer memo that — unlike the array cache store — survives the
+    // per-test app rebuild, so it persists across tests within a parallel worker. With sqlite + the
+    // RefreshDatabase transaction rollback, autoincrement ids are reused between tests, so a stale memo
+    // entry for a reused viewer id could bleed a "sees all forums" verdict into the next test (a
+    // visibility-leak-shaped flake under --parallel). Flush it before every feature test so each starts
+    // from a cold cache — the production resolver is unaffected.
+    VisibleForumIds::flush();
 })->in('Feature');
 
 // Dusk browser journeys — the Spike-0 editor battery, run via `php artisan dusk` (Chrome-enabled CI).

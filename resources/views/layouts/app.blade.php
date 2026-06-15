@@ -48,6 +48,7 @@
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
+      dir="{{ \App\Support\Locales::direction(app()->getLocale()) }}"
       data-color-mode="{{ $colorMode }}" data-density="{{ $density }}"
       @if ($htmlTheme) data-theme="{{ $htmlTheme }}" @endif>
 <head>
@@ -302,6 +303,8 @@
             <p>@include('partials.footer-tagline')</p>
             {{-- Module UI-slot extension point (ADR-0031): modules may inject sanitised footer widgets here. --}}
             <x-slot-outlet name="footer.widgets" />
+            {{-- Language switcher (Wave 8.1) — available to everyone; persists server-side when signed in. --}}
+            @include('partials.language-switcher')
             {{-- Density quick-switch (available to everyone; persists server-side when signed in). --}}
             <div x-data="{ d: document.documentElement.getAttribute('data-density') || 'comfortable' }"
                  x-on:novfora:density.window="d = $event.detail"

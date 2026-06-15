@@ -30,6 +30,24 @@ $trusted = [
 
 return [
 
+    // Internationalisation (Wave 8.1). The allowlist of locales the UI may switch to — SetLocale and the
+    // language switcher validate untrusted ?lang= input against these KEYS only; an unknown code is ignored
+    // and the request falls back to the default, so a forged value can never reach App::setLocale(). Each
+    // entry carries its writing direction; `dir => 'rtl'` flips <html dir> and is the only RTL switch the
+    // layout needs (CSS uses logical properties). `en` ships full strings (lang/en/*); the others are
+    // SCAFFOLDING — registered so the switcher, middleware and RTL path are exercised end-to-end, but their
+    // lang/<code>/ files are not yet authored, so Laravel falls back to en per string until a translator
+    // fills them in. Add a locale by adding a key here + a lang/<code>/ directory; nothing else changes.
+    'locales' => [
+        'en' => ['name' => 'English',              'native' => 'English',    'dir' => 'ltr'],
+        'es' => ['name' => 'Spanish',              'native' => 'Español',    'dir' => 'ltr'],
+        'fr' => ['name' => 'French',               'native' => 'Français',   'dir' => 'ltr'],
+        'de' => ['name' => 'German',               'native' => 'Deutsch',    'dir' => 'ltr'],
+        'pt_BR' => ['name' => 'Portuguese (Brazil)',  'native' => 'Português',  'dir' => 'ltr'],
+        'ar' => ['name' => 'Arabic',               'native' => 'العربية',    'dir' => 'rtl'],
+        'he' => ['name' => 'Hebrew',               'native' => 'עברית',      'dir' => 'rtl'],
+    ],
+
     // Post reactions (P2-M1). XF-style single-choice typed reactions: a user picks at most one type per post.
     // Each type carries a `score` weight — LIVE since P2-M5 (the amendment-#4 light-up): a received reaction
     // awards the post author that many reputation points via the idempotent ledger (ReputationService);
