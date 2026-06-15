@@ -94,6 +94,12 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(SocialAccount::class);
     }
 
+    /** Web Push subscriptions — one per opted-in device (Phase 4 · M3.2). @return HasMany<PushSubscription, $this> */
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
+    }
+
     /** @return list<int> the user's group ids (primary + secondary) */
     public function groupIds(): array
     {

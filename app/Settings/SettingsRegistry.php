@@ -166,6 +166,14 @@ final class SettingsRegistry
             new SettingDefinition('auth.saml.idp_sso_url', 'string', default: '', group: 'saml', label: 'IdP single-sign-on URL'),
             new SettingDefinition('auth.saml.idp_x509_cert', 'string', default: '', group: 'saml', label: 'IdP signing certificate (X.509)'),
             new SettingDefinition('auth.saml.sp_entity_id', 'string', default: '', group: 'saml', label: 'Service-provider entity ID'),
+
+            // ── Web Push (Phase 4 · M3.2) ───────────────────────────────────────────────────────────
+            // VAPID keypair for Web Push. Generate with `php artisan novfora:push:vapid`. The public key is
+            // served to the browser to subscribe; the private key signs the push JWT (stored encrypted). Push
+            // is an OPT-IN extra channel — it does nothing until a user subscribes a device AND keys are set.
+            new SettingDefinition('push.vapid_public_key', 'string', default: '', group: 'push', label: 'VAPID public key'),
+            new SettingDefinition('push.vapid_private_key', 'string', encrypted: true, default: '', group: 'push', label: 'VAPID private key'),
+            new SettingDefinition('push.vapid_subject', 'string', default: '', group: 'push', label: 'VAPID subject (mailto: or site URL)'),
         ];
     }
 }

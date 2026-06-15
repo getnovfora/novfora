@@ -8,9 +8,11 @@ namespace App\Notifications;
 
 use App\Deliverability\Digest\DigestQueue;
 use App\Deliverability\SuppressionGate;
+use App\Jobs\SendPushNotification;
 use App\Mail\NotificationMail;
 use App\Models\DigestPreference;
 use App\Models\NotificationPreference;
+use App\Models\PushSubscription;
 use App\Models\User;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Mail;
@@ -73,6 +75,15 @@ final class Notifier
             }
             // else $cadence === DigestPreference::OFF: 1-click unsubscribe — no notification mail at all
             // (neither an immediate send nor a digest). The in-app notification above still landed.
+        }
+
+        // Web Push (M3.2) — an OPT-IN additional channel. The opt-in IS having ≥1 device subscription; absent a
+        // subscription nothing is dispatched (so push degrades silently to in-app/email). Per-event push
+        // preference is honoured (default on once subscribed). Delivery is a queued job, cron-drained on
+        // baseline — never on the hot path. A guard query (subscriptions exist) keeps the no-push case cheap.
+        if ($this->prefers($recipient, $event, 'push')
+            && PushSubscription::query()->where('user_id', $recipient->getKey())->exists()) {
+            SendPushNotification::dispatch((int) $recipient->getKey(), $event, $actor->username ?? 'Someone', $payload);
         }
     }
 

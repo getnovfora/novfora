@@ -23,6 +23,7 @@ use App\Http\Controllers\ModerationController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileFieldController;
+use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\PwaController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SavedSearchController;
@@ -259,6 +260,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('/settings/notifications', [NotificationController::class, 'preferences'])->name('settings.notifications');
     Route::post('/settings/notifications', [NotificationController::class, 'savePreferences'])->name('settings.notifications.save');
+
+    // Web Push subscription lifecycle (Phase 4 · M3.2) — own-account device subscriptions. Throttled.
+    Route::middleware('throttle:60,1')->group(function () {
+        Route::get('/push/public-key', [PushSubscriptionController::class, 'publicKey'])->name('push.public-key');
+        Route::post('/push/subscribe', [PushSubscriptionController::class, 'subscribe'])->name('push.subscribe');
+        Route::post('/push/unsubscribe', [PushSubscriptionController::class, 'unsubscribe'])->name('push.unsubscribe');
+    });
 
     // Profile (signature, custom fields, avatar/cover) — own account.
     Route::get('/settings/profile', [ProfileController::class, 'edit'])->name('settings.profile');

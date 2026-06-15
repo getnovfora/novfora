@@ -2456,3 +2456,32 @@ flagged cacheable; an **authenticated page is NOT** (PII protection); an auth-su
 for guests; the head wires the manifest + SW. Gate green: full suite full suite 1415 passed / 1 skipped / 0 failed, pint clean, phpstan
 (level 5) 0 errors. *(Production should add 192/512 raster icons for the widest install-prompt support; the SVG
 maskable icon covers modern browsers.)*
+
+### ADR-0058 — Web Push (VAPID) as an opt-in notification channel (Phase 4 · M3.2) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Dependency.** `minishlink/web-push ^10.1` (**MIT**, Apache-2.0-compatible) for VAPID signing + payload
+encryption — pure PHP (ext-openssl/mbstring; no gmp needed in v10), Baseline-safe.
+
+**Decision.** A third notification channel — **push** — built FROM the existing notification system, strictly
+**opt-in** and **cron-tolerant**. The opt-in IS a device subscription: the browser subscribes with the site's
+VAPID public key and POSTs its `PushSubscription` to `/push/subscribe`; the row's existence enables push for
+that device. `Notifier::send()` gains one branch after the mail block — if the recipient prefers push (default
+on once subscribed) AND has ≥ 1 subscription, it dispatches a **queued** `SendPushNotification` job drained by
+the baseline cron `queue:work` (no persistent worker). Absent a subscription, **nothing is dispatched** and the
+in-app/email channels deliver unchanged (the no-push fallback). The job builds the message via `PushPayload`
+(pure mapping from the same notification data), sends to every device via `WebPushService`, and **prunes** any
+subscription the push service reports gone (HTTP 410/404). VAPID keys live in **encrypted settings**
+(`push.vapid_*`); `php artisan novfora:push:vapid` generates them (refusing to overwrite without `--force`).
+`push` is registered in the notification channel set so the M3.3 preferences UI renders it.
+
+**⚠ SCAFFOLDED delivery — not validated against a live push service.** No browser subscription / push endpoint
+exists in this environment, so the encrypt-and-POST round-trip to a real push service (FCM/Mozilla/etc.) is
+**unproven**; the library is real and the wiring is tested with a mocked sender. Validate end to end against a
+real browser + push service before relying on delivery.
+
+**Tested.** 10 tests: subscribe stores one row per endpoint (re-subscribe refreshes, no dup); unsubscribe;
+auth required; the VAPID public-key endpoint reports disabled→enabled; the Notifier dispatches a push job ONLY
+with a subscription; the in-app notification still lands with no subscription (fallback); per-event push opt-out
+suppresses it; the payload build; the job sends + prunes the gone subscription (mocked sender); the job no-ops
+when VAPID is unset. Gate green: full suite full suite 1425 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors.

@@ -26,7 +26,7 @@ class NotificationController extends Controller
     // milestones (no fake emitters here).
     public const EVENTS = ['reply', 'mention', 'reaction', 'pm.received', 'follow', 'moderation'];
 
-    public const CHANNELS = ['database', 'mail'];
+    public const CHANNELS = ['database', 'mail', 'push'];
 
     public function index(Request $request): View
     {
