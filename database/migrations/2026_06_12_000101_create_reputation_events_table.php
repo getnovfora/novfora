@@ -17,18 +17,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('reputation_events', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete(); // the RECIPIENT (denorm sum owner)
-            $table->string('source_type', 100);                             // polymorphic source (e.g. Reaction)
-            $table->unsignedBigInteger('source_id');
-            $table->integer('points');                                      // signed weight at award time
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamp('created_at')->nullable();                    // append-only — no updated_at (mirrors activities)
+        if (! Schema::hasTable('reputation_events')) {
+            Schema::create('reputation_events', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete(); // the RECIPIENT (denorm sum owner)
+                $table->string('source_type', 100);                             // polymorphic source (e.g. Reaction)
+                $table->unsignedBigInteger('source_id');
+                $table->integer('points');                                      // signed weight at award time
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamp('created_at')->nullable();                    // append-only — no updated_at (mirrors activities)
 
-            $table->unique(['source_type', 'source_id']);                   // idempotency: one source, one award
-            $table->index(['user_id', 'points']);                           // recipient sums
-        });
+                $table->unique(['source_type', 'source_id']);                   // idempotency: one source, one award
+                $table->index(['user_id', 'points']);                           // recipient sums
+            });
+        }
     }
 
     public function down(): void

@@ -12,21 +12,23 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('reports', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('reporter_id')->nullable(); // the reporting user (nullable: system/auto reports)
-            $table->string('reportable_type');
-            $table->unsignedBigInteger('reportable_id');
-            $table->string('reason', 500)->nullable();
-            $table->string('status', 20)->default('open')->index(); // open | resolved | dismissed
-            $table->foreignId('handled_by')->nullable();
-            $table->string('resolution', 500)->nullable();
-            $table->timestamp('handled_at')->nullable();
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
+        if (! Schema::hasTable('reports')) {
+            Schema::create('reports', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('reporter_id')->nullable(); // the reporting user (nullable: system/auto reports)
+                $table->string('reportable_type');
+                $table->unsignedBigInteger('reportable_id');
+                $table->string('reason', 500)->nullable();
+                $table->string('status', 20)->default('open')->index(); // open | resolved | dismissed
+                $table->foreignId('handled_by')->nullable();
+                $table->string('resolution', 500)->nullable();
+                $table->timestamp('handled_at')->nullable();
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
 
-            $table->index(['reportable_type', 'reportable_id']);
-        });
+                $table->index(['reportable_type', 'reportable_id']);
+            });
+        }
     }
 
     public function down(): void

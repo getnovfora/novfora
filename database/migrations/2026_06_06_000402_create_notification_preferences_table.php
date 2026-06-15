@@ -12,16 +12,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('notification_preferences', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('event_type', 40);  // reply | mention | moderation
-            $table->string('channel', 20);      // database | mail
-            $table->boolean('enabled')->default(true);
-            $table->timestamps();
+        if (! Schema::hasTable('notification_preferences')) {
+            Schema::create('notification_preferences', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->string('event_type', 40);  // reply | mention | moderation
+                $table->string('channel', 20);      // database | mail
+                $table->boolean('enabled')->default(true);
+                $table->timestamps();
 
-            $table->unique(['user_id', 'event_type', 'channel']);
-        });
+                $table->unique(['user_id', 'event_type', 'channel']);
+            });
+        }
     }
 
     public function down(): void

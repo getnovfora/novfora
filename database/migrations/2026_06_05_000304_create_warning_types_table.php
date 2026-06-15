@@ -13,17 +13,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('warning_types', function (Blueprint $table) {
-            $table->id();
-            $table->string('slug')->unique();
-            $table->string('label');
-            $table->unsignedInteger('default_points')->default(0);
-            $table->unsignedInteger('decay_days')->nullable();   // points expire after N days (time-decay); null = never
-            $table->json('default_action')->nullable();           // {action: restrict|moderate|temp_ban|ban, days?: int}
-            $table->boolean('is_active')->default(true);
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('warning_types')) {
+            Schema::create('warning_types', function (Blueprint $table) {
+                $table->id();
+                $table->string('slug')->unique();
+                $table->string('label');
+                $table->unsignedInteger('default_points')->default(0);
+                $table->unsignedInteger('decay_days')->nullable();   // points expire after N days (time-decay); null = never
+                $table->json('default_action')->nullable();           // {action: restrict|moderate|temp_ban|ban, days?: int}
+                $table->boolean('is_active')->default(true);
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
+            });
+        }
     }
 
     public function down(): void

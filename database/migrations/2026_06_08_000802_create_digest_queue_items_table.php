@@ -15,26 +15,28 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('digest_queue_items', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('event_type', 40);              // reply | mention | moderation | …
-            $table->string('actor_username')->nullable();
-            $table->json('payload');                       // {thread_id, topic_title, post_id, url}
-            $table->string('cadence', 10);                 // the user's chosen cadence at enqueue time
-            $table->char('notification_id', 36)->nullable(); // source DatabaseNotification UUID, when known
-            // NULL until claimed; set to the owning run inside the assembler txn. nullOnDelete so deleting a
-            // run (e.g. test teardown) un-claims its items rather than cascading them away.
-            $table->foreignId('digest_run_id')->nullable()->constrained('digest_runs')->nullOnDelete();
-            $table->timestamp('created_at')->nullable();
+        if (! Schema::hasTable('digest_queue_items')) {
+            Schema::create('digest_queue_items', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->string('event_type', 40);              // reply | mention | moderation | …
+                $table->string('actor_username')->nullable();
+                $table->json('payload');                       // {thread_id, topic_title, post_id, url}
+                $table->string('cadence', 10);                 // the user's chosen cadence at enqueue time
+                $table->char('notification_id', 36)->nullable(); // source DatabaseNotification UUID, when known
+                // NULL until claimed; set to the owning run inside the assembler txn. nullOnDelete so deleting a
+                // run (e.g. test teardown) un-claims its items rather than cascading them away.
+                $table->foreignId('digest_run_id')->nullable()->constrained('digest_runs')->nullOnDelete();
+                $table->timestamp('created_at')->nullable();
 
-            // Defensive: the same source event can't be staged twice for one cadence. notification_id is
-            // nullable, and MySQL treats NULLs as distinct in a UNIQUE index, so non-notification items are
-            // exempt (multiple NULLs allowed).
-            $table->unique(['notification_id', 'cadence']);
-            $table->index(['user_id', 'cadence', 'digest_run_id']); // due-user / per-user claim scan
-            $table->index(['cadence', 'digest_run_id', 'id']);      // cap-bounded ordered claim
-        });
+                // Defensive: the same source event can't be staged twice for one cadence. notification_id is
+                // nullable, and MySQL treats NULLs as distinct in a UNIQUE index, so non-notification items are
+                // exempt (multiple NULLs allowed).
+                $table->unique(['notification_id', 'cadence']);
+                $table->index(['user_id', 'cadence', 'digest_run_id']); // due-user / per-user claim scan
+                $table->index(['cadence', 'digest_run_id', 'id']);      // cap-bounded ordered claim
+            });
+        }
     }
 
     public function down(): void

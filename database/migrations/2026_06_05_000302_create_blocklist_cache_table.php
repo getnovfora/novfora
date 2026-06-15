@@ -15,18 +15,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('blocklist_cache', function (Blueprint $table) {
-            $table->id();
-            $table->string('type', 20);             // ip | email | username | email_domain
-            $table->string('value', 191);
-            $table->string('source', 40)->default('stopforumspam'); // stopforumspam | disposable | manual
-            $table->unsignedInteger('confidence')->default(100);    // 0–100; the registration threshold compares against this
-            $table->timestamp('expires_at')->nullable()->index();   // null = never expires (e.g. a maintained disposable list)
-            $table->timestamps();
+        if (! Schema::hasTable('blocklist_cache')) {
+            Schema::create('blocklist_cache', function (Blueprint $table) {
+                $table->id();
+                $table->string('type', 20);             // ip | email | username | email_domain
+                $table->string('value', 191);
+                $table->string('source', 40)->default('stopforumspam'); // stopforumspam | disposable | manual
+                $table->unsignedInteger('confidence')->default(100);    // 0–100; the registration threshold compares against this
+                $table->timestamp('expires_at')->nullable()->index();   // null = never expires (e.g. a maintained disposable list)
+                $table->timestamps();
 
-            $table->unique(['type', 'value', 'source']);
-            $table->index(['type', 'value']); // the registration lookup path
-        });
+                $table->unique(['type', 'value', 'source']);
+                $table->index(['type', 'value']); // the registration lookup path
+            });
+        }
     }
 
     public function down(): void

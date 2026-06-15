@@ -15,6 +15,15 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Resumable on the non-transactional MySQL baseline: a prior run can commit the CREATE (DDL
+        // auto-commits) yet die before the migrator records the row, leaving an orphaned table that makes
+        // every retry fail with 1050. Skipping when the table is already present lets the migrator record
+        // this migration as run and move on. (Caveat: this won't detect a table that exists with a DIFFERENT
+        // shape — acceptable on the no-SSH tier, where manual reconciliation isn't an option.)
+        if (Schema::hasTable('staff_notes')) {
+            return;
+        }
+
         Schema::create('staff_notes', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete(); // the subject the note is about

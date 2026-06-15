@@ -14,19 +14,21 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('modules', function (Blueprint $table) {
-            $table->id();
-            $table->string('slug')->unique();              // vendor/name (validated, path-safe)
-            $table->string('name');
-            $table->string('version', 50);                 // the installed module's own semver
-            $table->string('api_version', 50);             // the MODULE API constraint the module targets
-            $table->boolean('enabled')->default(false);
-            $table->json('permission_keys')->nullable();   // catalog keys this module owns (clean removal)
-            $table->json('meta')->nullable();              // description/author/provider for display
-            $table->timestamp('installed_at')->nullable();
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('modules')) {
+            Schema::create('modules', function (Blueprint $table) {
+                $table->id();
+                $table->string('slug')->unique();              // vendor/name (validated, path-safe)
+                $table->string('name');
+                $table->string('version', 50);                 // the installed module's own semver
+                $table->string('api_version', 50);             // the MODULE API constraint the module targets
+                $table->boolean('enabled')->default(false);
+                $table->json('permission_keys')->nullable();   // catalog keys this module owns (clean removal)
+                $table->json('meta')->nullable();              // description/author/provider for display
+                $table->timestamp('installed_at')->nullable();
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
+            });
+        }
     }
 
     public function down(): void

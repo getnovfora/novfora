@@ -18,28 +18,32 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('badges', function (Blueprint $table) {
-            $table->id();
-            $table->string('slug')->unique();
-            $table->string('name');
-            $table->string('description')->nullable();
-            $table->json('criteria');
-            $table->string('icon_token', 50)->nullable();
-            $table->string('color_token', 50)->nullable();
-            $table->boolean('is_active')->default(true);
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('badges')) {
+            Schema::create('badges', function (Blueprint $table) {
+                $table->id();
+                $table->string('slug')->unique();
+                $table->string('name');
+                $table->string('description')->nullable();
+                $table->json('criteria');
+                $table->string('icon_token', 50)->nullable();
+                $table->string('color_token', 50)->nullable();
+                $table->boolean('is_active')->default(true);
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
+            });
+        }
 
-        Schema::create('user_badges', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('badge_id')->constrained()->cascadeOnDelete();
-            $table->timestamp('awarded_at');
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
+        if (! Schema::hasTable('user_badges')) {
+            Schema::create('user_badges', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('badge_id')->constrained()->cascadeOnDelete();
+                $table->timestamp('awarded_at');
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
 
-            $table->unique(['user_id', 'badge_id']); // idempotency: one award per (user, badge)
-        });
+                $table->unique(['user_id', 'badge_id']); // idempotency: one award per (user, badge)
+            });
+        }
 
         // Seed the starter set HERE too (guarded — only into an empty catalog) so an UPGRADED board gets the
         // same defaults as a fresh install without manual surgery (ADR rule: upgrades never require it — the

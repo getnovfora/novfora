@@ -10,17 +10,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('prefixes', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('forum_id')->nullable()->constrained()->nullOnDelete(); // null = global
-            $table->string('label');
-            $table->string('color_token')->nullable();
-            $table->unsignedInteger('position')->default(0);
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
+        if (! Schema::hasTable('prefixes')) {
+            Schema::create('prefixes', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('forum_id')->nullable()->constrained()->nullOnDelete(); // null = global
+                $table->string('label');
+                $table->string('color_token')->nullable();
+                $table->unsignedInteger('position')->default(0);
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
 
-            $table->index(['forum_id', 'position']);
-        });
+                $table->index(['forum_id', 'position']);
+            });
+        }
     }
 
     public function down(): void

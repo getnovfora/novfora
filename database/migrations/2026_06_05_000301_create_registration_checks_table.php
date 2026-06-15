@@ -14,18 +14,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('registration_checks', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->nullable(); // the created account, if the attempt was allowed/flagged
-            $table->string('ip_address', 45)->nullable()->index();
-            $table->string('email')->nullable()->index();
-            $table->string('username')->nullable();
-            $table->json('provider_scores')->nullable();          // {stopforumspam: {...}, heuristics: {...}, ...}
-            $table->string('decision', 20)->default('allow');     // allow | flag | block
-            $table->boolean('degraded')->default(false);          // true when a provider was unreachable → local fallback
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamp('created_at')->nullable()->index(); // indexed for the retention purge
-        });
+        if (! Schema::hasTable('registration_checks')) {
+            Schema::create('registration_checks', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->nullable(); // the created account, if the attempt was allowed/flagged
+                $table->string('ip_address', 45)->nullable()->index();
+                $table->string('email')->nullable()->index();
+                $table->string('username')->nullable();
+                $table->json('provider_scores')->nullable();          // {stopforumspam: {...}, heuristics: {...}, ...}
+                $table->string('decision', 20)->default('allow');     // allow | flag | block
+                $table->boolean('degraded')->default(false);          // true when a provider was unreachable → local fallback
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamp('created_at')->nullable()->index(); // indexed for the retention purge
+            });
+        }
     }
 
     public function down(): void
