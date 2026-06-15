@@ -2293,3 +2293,24 @@ non-member (ADR-0047), so this milestone wires THREE single-source-of-truth gate
 member who must), plus the two adversarial-review regression tests. Gate green: full suite full suite 1370 passed / 1 skipped / 0 failed,
 pint clean, phpstan (level 5) 0 errors. The full per-surface verdict + residuals: this ADR + the M1.5 test
 suite are the record.
+
+### ADR-0052 — Configurable club-creation policy (Phase 4 · M1.6) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** `App\Clubs\ClubCreation` (the single creation gate from M1.1) becomes setting-driven via two new
+`SettingsRegistry` definitions read on the hot path: `clubs.creation_policy` ∈ **any** | **trust** | **staff**
+(default `trust`) and `clubs.creation_min_trust_level` (default 2). Semantics: *any* = any verified member;
+*trust* = a verified member at trust level ≥ the threshold; *staff* = administrators & moderators only. Global
+**staff may always create**, and an **unverified** member never can, regardless of policy. An ACP page (Admin →
+Settings → Clubs, `admin.settings.clubs`) edits it via a self-guarding Livewire SFC (the standard `ensureAdmin`
++ 2FA pattern).
+
+**Assumption (recorded).** The brief's third option, "admin-approved", is realised as **staff-only creation**
+(the `staff` policy) rather than a request→approval queue — a full club-creation approval workflow (pending
+clubs, an approval inbox) is deferred as a fast-follow. This keeps M1.6 a pure settings unit; flagged for the
+human pass.
+
+**Tested.** 8 tests: the `any` policy (TL0 yes, unverified no); the `trust` policy at the default threshold 2
+(TL1 no / TL2 yes) and a custom threshold 3 (TL2 no / TL3 yes); the `staff` policy (TL4 no, moderator + admin
+yes); staff-always; the ACP page saves; a non-admin is 403. Gate green: full suite full suite 1378 passed / 1 skipped / 0 failed, pint clean,
+phpstan (level 5) 0 errors.

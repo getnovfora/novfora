@@ -135,6 +135,14 @@ final class SettingsRegistry
             // Gates the public /members directory. 'everyone' (incl. guests) → 'members' (signed-in) →
             // 'staff' → 'disabled' (off). Read by App\Community\MembersDirectory::visibleTo().
             new SettingDefinition('members.directory_visibility', 'string', default: 'everyone', group: 'members', label: 'Members directory visibility', options: ['disabled', 'staff', 'members', 'everyone']),
+
+            // ── Clubs (Phase 4 · M1.6) ──────────────────────────────────────────────────────────────
+            // Who may create a club. 'any' = any verified member; 'trust' = a verified member at trust level
+            // ≥ clubs.creation_min_trust_level (default 2); 'staff' = administrators & moderators only (the
+            // conservative realisation of "admin-approved" — a request→approval queue is deferred). Staff may
+            // always create regardless. Read by App\Clubs\ClubCreation.
+            new SettingDefinition('clubs.creation_policy', 'string', default: 'trust', group: 'clubs', label: 'Who can create clubs', options: ['any', 'trust', 'staff']),
+            new SettingDefinition('clubs.creation_min_trust_level', 'int', default: 2, group: 'clubs', label: 'Minimum trust level to create a club'),
         ];
     }
 }
