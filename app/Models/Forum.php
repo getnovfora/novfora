@@ -27,6 +27,7 @@ class Forum extends Model
         'topic_count' => 'integer',
         'post_count' => 'integer',
         'last_posted_at' => 'datetime',
+        'club_id' => 'integer',
     ];
 
     protected static function booted(): void
@@ -97,5 +98,47 @@ class Forum extends Model
     public function permissionScope(): Scope
     {
         return $this->isCategory() ? Scope::category((int) $this->id) : Scope::forum((int) $this->id);
+    }
+
+    // ── Club discussion (Phase 4 · M1.4) ─────────────────────────────────────────────────────────────────
+
+    /** @return BelongsTo<Club, $this> */
+    public function club(): BelongsTo
+    {
+        return $this->belongsTo(Club::class);
+    }
+
+    public function isClubForum(): bool
+    {
+        return $this->club_id !== null;
+    }
+
+    /**
+     * May the viewer READ this forum's content? A board forum is governed solely by `forum.view` (checked by
+     * the caller); a CLUB forum additionally requires the club's content to be visible to the viewer (public
+     * club, or active member, or global staff). A soft-deleted/missing club resolves to hidden. This is the
+     * single club read-gate the exposure surfaces consult (M1.5).
+     */
+    public function clubContentVisibleTo(?User $user): bool
+    {
+        if ($this->club_id === null) {
+            return true;
+        }
+
+        return $this->club?->isContentVisibleTo($user) ?? false;
+    }
+
+    /**
+     * May the viewer POST in this forum (start a topic / reply)? A board forum defers to the ACL; a CLUB forum
+     * additionally requires ACTIVE membership (or global staff) — reading a public club is open, but posting
+     * always requires joining first.
+     */
+    public function clubParticipationAllowed(?User $user): bool
+    {
+        if ($this->club_id === null) {
+            return true;
+        }
+
+        return $this->club?->canParticipate($user) ?? false;
     }
 }

@@ -247,7 +247,14 @@ new class extends Component
     private function ensureCanCreate(): void
     {
         $user = auth()->user();
-        abort_unless($user instanceof User && $user->canDo('topic.create', $this->forum()->permissionScope()), 403);
+        $forum = $this->forum();
+        // Club forums (M1.4): posting also requires active club membership (or staff), not just topic.create.
+        abort_unless(
+            $user instanceof User
+            && $user->canDo('topic.create', $forum->permissionScope())
+            && $forum->clubParticipationAllowed($user),
+            403,
+        );
     }
 
     private function forum(): Forum

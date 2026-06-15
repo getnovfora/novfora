@@ -158,6 +158,14 @@ class Club extends Model
             || ($user !== null && $user->exists && $user->isStaff());
     }
 
+    /** May the viewer POST in this club (start topics / reply)? Posting always requires joining (active member
+     *  or global staff) — even in a public club, where reading is open but writing is not. */
+    public function canParticipate(?User $user): bool
+    {
+        return $this->isActiveMember($user)
+            || ($user !== null && $user->exists && $user->isStaff());
+    }
+
     /** May the viewer SEE THAT THIS CLUB EXISTS (directory/search/profile)? (listed OR member OR staff) */
     public function isListingVisibleTo(?User $user): bool
     {

@@ -2218,3 +2218,31 @@ non-manager refusal, invite mint/accept/single-use/expired/email-bound, leave + 
 ex-owner-leave, the rank ceiling (owner cannot touch an admin in the club; can remove an equal-rank member),
 the join-button SFC, roster 404 for a private-club outsider, and the invite-accept route. Gate green: full
 suite **1347 passed / 1 skipped / 0 failed**, pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0050 — Club discussion space on the existing forum stack (Phase 4 · M1.4) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** A club owns its discussion through the **existing** `forums`/`topics`/`posts` stack — no parallel
+system. A nullable `forums.club_id` (FK, nullOnDelete) tags a forum (and the topics/posts under it) as a club's
+space; `ClubService::create()` auto-creates one top-level (`parent_id=null`) forum per club tagged with its
+`club_id` and stores `clubs.forum_id`. `ScopeChain::forumChain()` injects `Scope::club(club_id)` right after
+global for such a forum, so a club moderator's club-scoped `topic.moderate` (M1.2) resolves for **every topic in
+the club** — proven by a thread-scope test — and a private club's guests-group `forum.view=NEVER` (M1.5)
+hard-denies anonymous reads through that node.
+
+**Visibility wiring (the part the public-by-default board needs):**
+- Club forums are **excluded from the main board index** (`ForumController::index` adds `whereNull('club_id')`).
+- `ForumController::show` and `TopicController::show` add a **club content gate** after the existing `forum.view`
+  check: `Forum::clubContentVisibleTo($viewer)` (404 = no disclosure) — because `forum.view` alone is granted to
+  everyone, the club gate is the real read-enforcement (the engine cannot soft-deny a logged-in non-member;
+  ADR-0047). Members + global staff read; others 404.
+- **Participation** (start topic / reply) requires `Forum::clubParticipationAllowed($viewer)` = active member or
+  staff — wired into the create-topic and reply SFCs and the `canPost` flag. So a **public** club is readable by
+  all but postable only by members (join is open — join first). Closed/private clubs gate both.
+
+**Tested.** 9 tests: auto-forum tagged + `forum_id` set; club forum absent from the board index; club scope
+injected into the chain; club moderator moderates a club topic while a plain member cannot; private club
+forum/topic 404 for guest+non-member, 200 for member+staff; non-member blocked from starting/replying in a club
+forum; member can. Gate green: full suite **1356 passed / 1 skipped / 0 failed**, pint clean, phpstan (level 5)
+0 errors. The remaining indirect surfaces (search/feeds/sitemap/activity/profiles/API/notifications/attachments)
++ the guests-NEVER + the exhaustive no-leak matrix are M1.5.

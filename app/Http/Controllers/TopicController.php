@@ -11,6 +11,7 @@ use App\Discovery\RecommendationService;
 use App\Forum\BookmarkService;
 use App\Forum\PollService;
 use App\Forum\ReactionService;
+use App\Models\Forum;
 use App\Models\Post;
 use App\Models\Topic;
 use App\Models\TopicRead;
@@ -53,6 +54,9 @@ class TopicController extends Controller
         }
 
         abort_unless($viewer->canDo('forum.view', $topic->permissionScope()), 403);
+        // M1.4/M1.5: a topic in a CLUB forum is gated by club visibility (404 = no disclosure).
+        $topicForum = $topic->forum;
+        abort_unless($topicForum instanceof Forum && $topicForum->clubContentVisibleTo($request->user()), 404);
 
         // View count (P2-M3) — throttled per viewer (or guest session) to one count per topic per hour, so a
         // refresh/F5 storm can't inflate it. A raw increment, no model hydration → no events fire.

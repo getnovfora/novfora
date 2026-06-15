@@ -8,7 +8,9 @@ namespace App\Clubs;
 
 use App\Models\Club;
 use App\Models\ClubMembership;
+use App\Models\Forum;
 use App\Models\User;
+use App\Permissions\AclVersion;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -42,6 +44,20 @@ class ClubService
                 'member_count' => 1,
             ]);
 
+            // M1.4: every club owns one discussion forum, reusing the existing forum/topic/post stack. It is a
+            // top-level (parent_id=null) forum tagged with club_id; ScopeChain injects the club scope into its
+            // resolution chain. It is excluded from the main board index (ForumController) by the club_id tag.
+            $forum = Forum::create([
+                'title' => $club->name,
+                'slug' => 'club-'.$club->slug,
+                'type' => 'forum',
+                'parent_id' => null,
+                'club_id' => $club->getKey(),
+                'description' => $club->tagline,
+                'position' => 0,
+            ]);
+            $club->forceFill(['forum_id' => $forum->getKey()])->save();
+
             $membership = ClubMembership::create([
                 'club_id' => $club->getKey(),
                 'user_id' => $founder->getKey(),
@@ -53,6 +69,9 @@ class ClubService
             // Mirror the owner role into club-scoped acl_entries so management/moderation resolve through the
             // permission engine (M1.2). The roster row above stays the source of truth.
             app(ClubRoleProjector::class)->project($membership);
+
+            // A brand-new forum + its club-scope grants: bump so any cached "sees-all" resolutions re-evaluate.
+            app(AclVersion::class)->bump();
 
             return $club;
         });

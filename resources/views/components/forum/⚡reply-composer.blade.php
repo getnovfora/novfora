@@ -107,7 +107,9 @@ new class extends Component
         abort_unless(
             $topic->status !== 'locked'
             && $user instanceof User
-            && $user->canDo('post.create', $topic->forum->permissionScope()),
+            && $user->canDo('post.create', $topic->forum->permissionScope())
+            // Club forums (M1.4): replying also requires active club membership (or staff).
+            && $topic->forum->clubParticipationAllowed($user),
             403,
         );
     }

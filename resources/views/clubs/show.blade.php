@@ -48,7 +48,12 @@
                     @endif
                 </div>
 
-                <livewire:clubs.join-button :club="$club" :key="'join-'.$club->id" />
+                <div class="flex flex-wrap items-center gap-2">
+                    @if ($contentVisible && $club->forum)
+                        <x-ui.button :href="route('forums.show', $club->forum)" dusk="club-discussion">{{ __('Open discussion') }}</x-ui.button>
+                    @endif
+                    <livewire:clubs.join-button :club="$club" :key="'join-'.$club->id" />
+                </div>
             </div>
         </x-ui.card>
 
