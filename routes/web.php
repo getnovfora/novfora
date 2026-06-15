@@ -70,7 +70,14 @@ Route::get('/clubs', [ClubController::class, 'index'])->name('clubs.index');
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/clubs/create', [ClubController::class, 'create'])->name('clubs.create');
     Route::get('/clubs/{club:slug}/edit', [ClubController::class, 'edit'])->name('clubs.edit');
+    // Invitation accept (M1.3) — the token is the secret; GET confirms, POST accepts. Throttled.
+    Route::middleware('throttle:30,1')->group(function () {
+        Route::get('/clubs/{club:slug}/invite/{invitation:token}', [ClubController::class, 'invite'])->name('clubs.invite.show');
+        Route::post('/clubs/{club:slug}/invite/{invitation:token}', [ClubController::class, 'acceptInvite'])->name('clubs.invite.accept');
+    });
 });
+// Roster — public route, gated in-controller to content-visible viewers (404 otherwise, no disclosure).
+Route::get('/clubs/{club:slug}/members', [ClubController::class, 'members'])->name('clubs.members');
 Route::get('/clubs/{club:slug}', [ClubController::class, 'show'])->name('clubs.show');
 
 // RSS/Atom feeds (discovery 3.2) — public; each exposes only guest-visible content (private forums 404).

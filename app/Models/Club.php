@@ -61,6 +61,12 @@ class Club extends Model
         return $this->hasMany(ClubMembership::class);
     }
 
+    /** @return HasMany<ClubInvitation, $this> */
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(ClubInvitation::class);
+    }
+
     /** @return BelongsToMany<User, $this> */
     public function members(): BelongsToMany
     {

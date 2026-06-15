@@ -2182,3 +2182,39 @@ not another; owner club-scoped moderation isolated from other forums; moderator 
 none; global admin manages any club; clear revokes; role-change re-projects; `permissions:sync` re-provisions
 `club.manage` idempotently. Gate green: full suite **1328 passed / 1 skipped / 0 failed**, pint clean, phpstan
 (level 5) 0 errors.
+
+### ADR-0049 — Club membership flows + the rank ceiling (Phase 4 · M1.3) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** `ClubMembershipService` is the single authority for join / request→approve / invite / leave /
+role-change / removal / ownership-transfer. Every mutation keeps `club_user` (the source of truth) consistent,
+re-projects club-scope `acl_entries` via `ClubRoleProjector`, and recomputes `clubs.member_count` from the
+table (a COUNT, so no lost-update). Join policy follows privacy: public→open, closed→request, private→invite.
+
+**Invitations** are a `club_invitations` table: a 48-char random **token is the secret** carried in the
+accept link (so no session needed to address it), optional **email binding**, a hard **expiry** (14 days), and
+**single-use** enforced under a `lockForUpdate` re-check inside the accept transaction. The accept route is
+`auth+verified+throttle:30,1`; GET only renders a confirm page (resists prefetch), POST accepts.
+
+**Invariants (defence-in-depth, enforced in the service on top of the UI gates):**
+- **Sole-owner guard** — a club always keeps ≥ 1 active owner; leave / demote / remove of the last owner is
+  refused (transfer first).
+- **Global-staff rank ceiling** — `assertRankCeiling()` reuses `ActorRank` verbatim: a club action may land on a
+  global **staff** target ONLY if the actor out-ranks them, so a club owner (a regular member globally) can
+  **never** remove/demote a global admin/moderator who is in the club. Non-staff targets follow the club role
+  hierarchy (owner > moderator > member) and pass — that's the design: club rank is club-local and never
+  escalates global rank.
+- Roster management (approve/reject/role/remove/invite) is **owner+admin only** (`isManageableBy` →
+  `club.manage`); join/leave are self-actions. Both the Livewire SFC and the service re-assert.
+
+**UI.** A `clubs.join-button` SFC (join/request/leave) on the club home; a `clubs.roster` SFC (members + pending
+requests + role select + remove + invite-link minting) on `/clubs/{slug}/members` (gated to content-visible
+viewers, 404 otherwise); an invite confirm page. Nested route binding scopes the invitation to its club via the
+new `Club::invitations()` relation.
+
+**Tested.** 22 tests (19 in the M1.3 suite): join/public, request/closed, private-needs-invite, approve/reject,
+non-manager refusal, invite mint/accept/single-use/expired/email-bound, leave + grant-clear, sole-owner guard
+(leave/demote/remove), promote→moderator grants club-scope `topic.moderate`, ownership transfer then
+ex-owner-leave, the rank ceiling (owner cannot touch an admin in the club; can remove an equal-rank member),
+the join-button SFC, roster 404 for a private-club outsider, and the invite-accept route. Gate green: full
+suite **1347 passed / 1 skipped / 0 failed**, pint clean, phpstan (level 5) 0 errors.

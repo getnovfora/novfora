@@ -7,9 +7,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Clubs\ClubCreation;
+use App\Clubs\ClubMembershipException;
+use App\Clubs\ClubMembershipService;
 use App\Models\Club;
+use App\Models\ClubInvitation;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 /**
@@ -75,5 +79,41 @@ class ClubController extends Controller
         abort_unless($viewer instanceof User && $club->isManageableBy($viewer), 403);
 
         return view('clubs.edit', ['club' => $club]);
+    }
+
+    /** The roster page (M1.3). Gated to content-visible viewers; the SFC exposes management to owners only. */
+    public function members(Request $request, Club $club): View
+    {
+        abort_unless($club->isContentVisibleTo($request->user()), 404);
+
+        return view('clubs.members', ['club' => $club]);
+    }
+
+    /** Invitation confirm page (M1.3). The token is the secret; this only renders a confirm form (POST accepts). */
+    public function invite(Request $request, Club $club, ClubInvitation $invitation): View
+    {
+        abort_unless((int) $invitation->club_id === (int) $club->id, 404);
+
+        return view('clubs.invite', [
+            'club' => $club,
+            'invitation' => $invitation,
+            'valid' => $invitation->isPending(),
+        ]);
+    }
+
+    /** Accept an invitation (M1.3). Validates ownership, single-use, expiry, and email binding in the service. */
+    public function acceptInvite(Request $request, Club $club, ClubInvitation $invitation): RedirectResponse
+    {
+        abort_unless((int) $invitation->club_id === (int) $club->id, 404);
+        $user = $request->user();
+        abort_unless($user instanceof User, 403);
+
+        try {
+            app(ClubMembershipService::class)->acceptInvite($invitation, $user);
+        } catch (ClubMembershipException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('clubs.show', $club)->with('status', __('Welcome to :club!', ['club' => $club->name]));
     }
 }

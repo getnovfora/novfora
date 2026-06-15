@@ -42,11 +42,13 @@
                 @endif
 
                 <div class="flex flex-wrap items-center gap-4 text-xs text-ink-subtle">
-                    <span>{{ trans_choice(':count member|:count members', (int) $club->member_count, ['count' => number_format((int) $club->member_count)]) }}</span>
+                    <a href="{{ route('clubs.members', $club) }}" class="hover:text-accent">{{ trans_choice(':count member|:count members', (int) $club->member_count, ['count' => number_format((int) $club->member_count)]) }}</a>
                     @if ($viewerRole)
                         <x-ui.badge>{{ __('You are :role', ['role' => __(ucfirst($viewerRole))]) }}</x-ui.badge>
                     @endif
                 </div>
+
+                <livewire:clubs.join-button :club="$club" :key="'join-'.$club->id" />
             </div>
         </x-ui.card>
 
