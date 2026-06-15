@@ -54,14 +54,18 @@ it('renders recent topics with escaped titles and links', function () {
         ->and($html)->toContain('/topics/');
 });
 
-it('shows only members active within the window in the online widget', function () {
-    User::factory()->create(['username' => 'onlinejane', 'status' => 'active', 'last_active_at' => now()]);
-    User::factory()->create(['username' => 'awaybob', 'status' => 'active', 'last_active_at' => now()->subHours(2)]);
+it('shows only opted-in members active within the window in the online widget', function () {
+    // Phase 4 · M4.3: presence is now opt-in (show_online_status). An opted-in, recently-active member shows;
+    // an opted-OUT member (default) is invisible even when active; a stale member is outside the window.
+    User::factory()->create(['username' => 'onlinejane', 'status' => 'active', 'show_online_status' => true, 'last_active_at' => now()]);
+    User::factory()->create(['username' => 'shybea', 'status' => 'active', 'show_online_status' => false, 'last_active_at' => now()]);
+    User::factory()->create(['username' => 'awaybob', 'status' => 'active', 'show_online_status' => true, 'last_active_at' => now()->subHours(2)]);
 
     $html = app(OnlineUsersWidget::class)->render(['minutes' => 15]);
 
     expect($html)->toContain('onlinejane')
-        ->and($html)->not->toContain('awaybob');
+        ->and($html)->not->toContain('shybea')   // opted out → never shown
+        ->and($html)->not->toContain('awaybob'); // outside the recent window
 });
 
 it('renders a search form to the search page', function () {

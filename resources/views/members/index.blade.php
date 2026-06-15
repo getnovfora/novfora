@@ -14,6 +14,8 @@
             ['label' => 'Directory', 'url' => route('members.index'), 'active' => true],
             ['label' => 'Top members', 'url' => route('members.top')],
         ]" />
+        {{-- Live "who's online" (Phase 4 · M4.3) — polls on baseline; presence-channel updates on the enhanced tier. --}}
+        <livewire:online-members />
         <livewire:members-directory />
     </x-ui.container>
 @endsection

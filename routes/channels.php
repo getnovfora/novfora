@@ -36,3 +36,14 @@ Broadcast::channel('thread.{topicId}', function (User $user, int $topicId) {
 Broadcast::channel('conversation.{conversationId}', function (User $user, int $conversationId) {
     return app(ChannelAuthorizer::class)->canViewConversation($user, $conversationId);
 });
+
+// Presence channels (Phase 4 · M4.3). A presence callback returns the member's public info (→ they appear +
+// can see the roster) or null (→ join denied). Opt-in governs the global channel; active-membership governs
+// the per-club channel so a private club's online roster never leaks.
+Broadcast::channel('online', function (User $user) {
+    return app(ChannelAuthorizer::class)->onlinePresenceInfo($user);
+});
+
+Broadcast::channel('club-presence.{clubId}', function (User $user, int $clubId) {
+    return app(ChannelAuthorizer::class)->clubPresenceInfo($user, $clubId);
+});

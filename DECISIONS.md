@@ -2594,3 +2594,39 @@ server-side only. **Enable steps:** `composer require laravel/reverb pusher/push
 `php artisan reverb:install`; set `BROADCAST_CONNECTION=reverb` + `REVERB_*` env; `npm install laravel-echo pusher-js`,
 configure `window.Echo` (reverb/pusher), `npm run build`; run `php artisan reverb:start` under a supervisor.
 See PROJECT-STATE "SCAFFOLDED — NOT VALIDATED".
+
+### ADR-0062 — Presence / "who's online", opt-in with a presence-channel no-leak fence (Phase 4 · M4.3) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context.** The board already had an "online" heuristic (`User::isOnline`, `last_active_at` stamped by
+`ThrottledLastActive`) and a theme `OnlineUsersWidget`, but it showed **every** recently-active member with **no
+opt-in** — a privacy gap. M4.3 turns presence into a privacy-respecting, opt-in feature with a live (enhanced)
+path and a baseline polling fallback, and closes the gap.
+
+**Decision.**
+1. **Opt-in, security-by-default.** A new `users.show_online_status` column (boolean, **default false**,
+   reversible migration) governs whether a member appears in any presence surface. A member is **invisible
+   until they deliberately opt in** via a privacy toggle on the appearance settings page. *(Assumption: "opt-in"
+   in the brief + the project's "security by default" rule ⇒ default OFF; this makes the list sparse until
+   members opt in — an admin-default could be added later. Recorded as a non-obvious assumption.)*
+2. **One source of truth.** `App\Presence\OnlineMembers` is the only place the opt-in + active + recent-window
+   rule lives (`recent()`, `count()`, `inClub()`); the theme widget, the new live widget, and any future
+   surface read it, so the privacy rule can never drift. The existing `OnlineUsersWidget` was refactored onto it.
+3. **Baseline-safe + enhanced.** A new `⚡online-members` Livewire widget (on the members directory) polls
+   `OnlineMembers` every 60s on the baseline (no daemon), and on the enhanced tier *additionally* joins the
+   `online` **presence channel** via Echo (inert if `window.Echo` is absent).
+4. **Presence no-leak (apex extension of M4.2).** Two presence channels in `routes/channels.php` →
+   `ChannelAuthorizer`: `online` returns the member's info **only if opted in** (symmetric — a non-opted-in user
+   neither appears nor sees over the socket); `club-presence.{clubId}` returns info **only for an active member
+   of that club** who opted in, so a non-member can never enumerate a private club's online roster.
+
+**Tested.** 6 tests + 1 existing widget test updated. `OnlineMembers` lists only opted-in + recent + active;
+club presence intersects the active roster + opt-in (non-member never enumerated); the `online` presence channel
+authorizes only opted-in members; `club-presence` authorizes only active opted-in members and never a
+non-member; the live widget lists only opted-in members; the opt-in toggle persists. The theme-widget test now
+asserts an opted-out active member is hidden. Gate green: **full suite 1458 passed / 1 skipped / 0 failed**
+(12466 assertions), pint clean, phpstan (level 5) 0 errors.
+
+**⚠ SCAFFOLDED — NOT VALIDATED against a real Reverb.** The baseline polling path is fully real; the presence
+**channel** (live join/leave) shares the M4.2 broadcaster, so it is proven only at the authorization level —
+the websocket presence round-trip needs a real Reverb + bundled Echo (same enable steps as ADR-0061).

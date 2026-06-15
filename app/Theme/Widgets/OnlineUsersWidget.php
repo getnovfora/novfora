@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Theme\Widgets;
 
 use App\Models\User;
+use App\Presence\OnlineMembers;
 use App\Theme\Widget;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -15,6 +16,9 @@ use Illuminate\Support\Facades\Cache;
  * "Who's online" — members whose `last_active_at` falls inside a recent window. BASELINE-SAFE: it reads the
  * existing last-active timestamp (no WebSocket presence required) and is cached for a minute so it never adds
  * a query to every render. Names are escaped and link to the public profile.
+ *
+ * Phase 4 · M4.3: it resolves through {@see OnlineMembers} so the presence OPT-IN (show_online_status,
+ * default false) is enforced here as on every other surface — a member who has not opted in never appears.
  */
 final class OnlineUsersWidget extends Widget
 {
@@ -43,11 +47,7 @@ final class OnlineUsersWidget extends Widget
 
         /** @var Collection<int,User> $users */
         $users = Cache::remember('novfora:widget:online:'.$minutes, now()->addMinute(), function () use ($minutes) {
-            return User::query()
-                ->where('status', 'active')
-                ->where('last_active_at', '>=', now()->subMinutes($minutes))
-                ->orderByDesc('last_active_at')
-                ->limit(30)->get(['id', 'username', 'last_active_at']);
+            return app(OnlineMembers::class)->recent(30, $minutes);
         });
 
         $body = $users->isEmpty()

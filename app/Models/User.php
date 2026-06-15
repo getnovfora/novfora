@@ -51,6 +51,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'reputation_points' => 'integer',
             'signature_doc' => 'array',
             'posts_per_page' => 'integer',
+            'show_online_status' => 'boolean',
         ];
     }
 
@@ -159,6 +160,13 @@ class User extends Authenticatable implements MustVerifyEmail
         $last = $this->last_active_at;
 
         return $last !== null && Carbon::parse($last)->gt(now()->subMinutes(15));
+    }
+
+    /** Presence opt-in (Phase 4 · M4.3): whether the member has chosen to appear in the online/presence
+     *  surfaces. Default false (security-by-default) — a member is invisible until they opt in. */
+    public function showsOnlineStatus(): bool
+    {
+        return (bool) $this->show_online_status;
     }
 
     /** The viewer's chosen posts-per-thread-page (P2-M4), clamped to the allowed set; null → the default (15). */

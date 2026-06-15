@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Broadcasting;
 
+use App\Models\Club;
 use App\Models\Conversation;
 use App\Models\Forum;
 use App\Models\Topic;
@@ -63,5 +64,40 @@ final class ChannelAuthorizer
         $conversation = Conversation::find($conversationId);
 
         return $conversation !== null && $user->can('view', $conversation);
+    }
+
+    /**
+     * presence-online — the global "who's online" presence channel (Phase 4 · M4.3). Returns the member's
+     * public presence info ONLY if they have opted in (`show_online_status`); otherwise null DENIES the join,
+     * so a non-opted-in user neither appears nor sees the list over the socket (the privacy rule is symmetric).
+     *
+     * @return array{id:int, username:string}|null
+     */
+    public function onlinePresenceInfo(User $user): ?array
+    {
+        return $user->showsOnlineStatus() ? $this->presenceInfo($user) : null;
+    }
+
+    /**
+     * club-presence.{clubId} — per-club presence. Returns info ONLY for an ACTIVE member of the club who has
+     * opted in. A non-member is denied (null), so a private club's online roster can never leak over a socket.
+     *
+     * @return array{id:int, username:string}|null
+     */
+    public function clubPresenceInfo(User $user, int $clubId): ?array
+    {
+        $club = Club::find($clubId);
+
+        if ($club === null || ! $club->isActiveMember($user) || ! $user->showsOnlineStatus()) {
+            return null;
+        }
+
+        return $this->presenceInfo($user);
+    }
+
+    /** @return array{id:int, username:string} */
+    private function presenceInfo(User $user): array
+    {
+        return ['id' => (int) $user->getKey(), 'username' => (string) $user->username];
     }
 }
