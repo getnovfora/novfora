@@ -43,6 +43,7 @@ function mockSocialiteReturning(SocialiteUser $user): void
 {
     $driver = Mockery::mock(AbstractProvider::class);
     $driver->shouldReceive('scopes')->andReturnSelf();
+    $driver->shouldReceive('enablePKCE')->andReturnSelf();
     $driver->shouldReceive('user')->andReturn($user);
     Socialite::shouldReceive('driver')->andReturn($driver);
 }
@@ -112,6 +113,7 @@ it('redirects an enabled provider to its consent screen', function () {
     enableProvider('google');
     $driver = Mockery::mock(AbstractProvider::class);
     $driver->shouldReceive('scopes')->andReturnSelf();
+    $driver->shouldReceive('enablePKCE')->andReturnSelf();
     $driver->shouldReceive('redirect')->andReturn(redirect('https://accounts.example.com/o/oauth2/auth'));
     Socialite::shouldReceive('driver')->andReturn($driver);
 
@@ -124,6 +126,7 @@ it('fails closed on an invalid OAuth state', function () {
     enableProvider('google');
     $driver = Mockery::mock(AbstractProvider::class);
     $driver->shouldReceive('scopes')->andReturnSelf();
+    $driver->shouldReceive('enablePKCE')->andReturnSelf();
     $driver->shouldReceive('user')->andThrow(new InvalidStateException);
     Socialite::shouldReceive('driver')->andReturn($driver);
 

@@ -19,11 +19,16 @@ use Laravel\Socialite\Two\AbstractProvider;
  */
 class SocialProviders
 {
-    /** @var array<string, array{label: string, scopes: list<string>}> */
+    /**
+     * Supported providers. `pkce` marks those that support RFC 7636 PKCE (Google + Discord); GitHub OAuth Apps
+     * do not, and rely on the `state` nonce alone (M2.3).
+     *
+     * @var array<string, array{label: string, scopes: list<string>, pkce: bool}>
+     */
     public const PROVIDERS = [
-        'google' => ['label' => 'Google', 'scopes' => ['openid', 'profile', 'email']],
-        'github' => ['label' => 'GitHub', 'scopes' => ['read:user', 'user:email']],
-        'discord' => ['label' => 'Discord', 'scopes' => ['identify', 'email']],
+        'google' => ['label' => 'Google', 'scopes' => ['openid', 'profile', 'email'], 'pkce' => true],
+        'github' => ['label' => 'GitHub', 'scopes' => ['read:user', 'user:email'], 'pkce' => false],
+        'discord' => ['label' => 'Discord', 'scopes' => ['identify', 'email'], 'pkce' => true],
     ];
 
     public function __construct(private readonly Settings $settings) {}
@@ -68,9 +73,16 @@ class SocialProviders
         /** @var Provider $driver */
         $driver = Socialite::driver($provider);
 
-        // scopes() lives on the OAuth2 base driver (all three providers extend it), not the bare contract.
-        if ($driver instanceof AbstractProvider && ! empty(self::PROVIDERS[$provider]['scopes'])) {
-            $driver->scopes(self::PROVIDERS[$provider]['scopes']);
+        // scopes() + PKCE live on the OAuth2 base driver (all three providers extend it), not the bare contract.
+        if ($driver instanceof AbstractProvider) {
+            if (! empty(self::PROVIDERS[$provider]['scopes'])) {
+                $driver->scopes(self::PROVIDERS[$provider]['scopes']);
+            }
+            // PKCE (M2.3) — a per-request code_verifier/challenge (S256) on top of the state nonce, for
+            // providers that support it. Defends the authorization-code exchange against interception.
+            if (self::PROVIDERS[$provider]['pkce']) {
+                $driver->enablePKCE();
+            }
         }
 
         return $driver;

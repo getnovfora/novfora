@@ -41,6 +41,7 @@ function lkMock(SocialiteUser $user): void
 {
     $driver = Mockery::mock(AbstractProvider::class);
     $driver->shouldReceive('scopes')->andReturnSelf();
+    $driver->shouldReceive('enablePKCE')->andReturnSelf();
     $driver->shouldReceive('user')->andReturn($user);
     $driver->shouldReceive('redirect')->andReturn(redirect('https://provider.test/auth'));
     Socialite::shouldReceive('driver')->andReturn($driver);

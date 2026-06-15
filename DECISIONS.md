@@ -2370,3 +2370,34 @@ existing account ONLY after proven control" rule, demonstrated by a single test 
 attaches the identity; link refused when the identity is already linked elsewhere (no row written for the
 attacker); unlink removes it; the **full collision→password-login→link** APEX flow; the page renders. Gate
 green: full suite full suite 1393 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0055 — OAuth flow hardening: PKCE, state, CSRF, outbound-request analysis (Phase 4 · M2.3) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**State / CSRF (already in place, now pinned).** Socialite runs **stateful**: a `state` nonce is stored in the
+session at redirect and validated on callback; a mismatch throws `InvalidStateException` and the controller
+**fails closed** to the login (or settings) page. A test asserts every authorize URL carries `state=`. The
+round-trip is **GET-only** (protected by the state nonce, not an app CSRF token); the linking initiator is a
+**POST with `@csrf`**, and `oauth.redirect` rejects POST (405) — proven by test.
+
+**PKCE (new, M2.3).** `SocialProviders::driver()` calls Socialite's `enablePKCE()` for providers that support
+RFC 7636 — **Google + Discord** (a per-request S256 `code_verifier`/`code_challenge` defending the
+authorization-code exchange against interception). **GitHub** OAuth Apps do not support PKCE, so it is omitted
+there and the `state` nonce is the sole CSRF defence. Tests assert `code_challenge`/`code_challenge_method=S256`
+present for Google + Discord and absent for GitHub.
+
+**Discord driver registration.** Registered via `Socialite::extend('discord', …)` in `SocialiteServiceProvider`
+(not the `SocialiteWasCalled` event), so the driver resolves without depending on the SocialiteProviders manager
+replacing Socialite's binding — proven by a real-driver test.
+
+**Outbound-request guard analysis (the SSRF question).** The brief asked to "reuse existing outbound-request
+guards for provider calls." **Finding: not applicable / no SSRF surface.** Socialite's outbound HTTP — the
+authorization redirect, the token exchange, and the userinfo fetch — targets **library-fixed provider
+endpoints** (`accounts.google.com`, `github.com`, `discord.com`), never an attacker-influenced URL, so the
+`WebhookUrlGuard`/`IpClassifier` SSRF kernel has nothing to gate. The only attacker-supplied value we persist is
+the avatar URL, which is **clamped to `https://` + length and never fetched server-side**. Recorded here so the
+absence of a guard is a deliberate, reasoned decision rather than an oversight.
+
+**Tested.** 5 hardening tests (real drivers): state present; PKCE present (Google + Discord); PKCE absent
+(GitHub); Discord resolves + PKCE; POST-to-redirect 405. The M2.1/M2.2 mocked suites were updated to stub
+`enablePKCE`. Gate green: full suite full suite 1398 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors.
