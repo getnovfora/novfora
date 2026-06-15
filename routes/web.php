@@ -9,6 +9,7 @@ use App\Http\Controllers\AppearanceController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\BanController;
 use App\Http\Controllers\BookmarkController;
+use App\Http\Controllers\ClubController;
 use App\Http\Controllers\FeedController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\HealthController;
@@ -61,6 +62,16 @@ Route::get('/forums/{forum}', [ForumController::class, 'show'])->name('forums.sh
 
 // Trending / best-of (discovery 3.1) — public, permission-safe.
 Route::get('/trending', [TrendingController::class, 'index'])->name('trending.index');
+
+// ── Clubs (Phase 4 · M1.1) — sub-communities. The directory is public; per-club listing visibility is
+// enforced in the controller (an unlisted club a viewer may not see 404s — no disclosure). The literal
+// "create" segment is registered (auth+verified) BEFORE the {club} wildcard so it is never read as a slug.
+Route::get('/clubs', [ClubController::class, 'index'])->name('clubs.index');
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/clubs/create', [ClubController::class, 'create'])->name('clubs.create');
+    Route::get('/clubs/{club:slug}/edit', [ClubController::class, 'edit'])->name('clubs.edit');
+});
+Route::get('/clubs/{club:slug}', [ClubController::class, 'show'])->name('clubs.show');
 
 // RSS/Atom feeds (discovery 3.2) — public; each exposes only guest-visible content (private forums 404).
 Route::get('/forums/{forum}/feed', [FeedController::class, 'forum'])->name('feeds.forum');

@@ -2091,3 +2091,60 @@ injection** in the a11y auditor (`loadHTML` HTML parser expands no custom/extern
 in a quoted literal with `"` stripped); SSRF surface is operator-CLI-only; load-test creds random + prod
 guard; `SetLocale` middleware order correct (lazy auth, gates run first). Also tidied a misleading field name
 (`Finding::criterion` → `level`; rendered label was already correct).
+### ADR-0047 — Clubs (sub-communities): data model + the two-axis privacy architecture (Phase 4 · M1.1) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context.** Phase 4 · M1 introduces **clubs** — named sub-communities that own a discussion space and a
+roster, with public / members-only / invite-only variants. The #1 fence is **club privacy**: a private-hidden
+club and its content must never leak through any surface. This ADR fixes the data model and the privacy model;
+M1.2 (club scope through the engine), M1.4 (discussion via the existing forum stack), and M1.5 (per-surface
+no-leak enforcement) implement it.
+
+**Decision — schema.** Two tables, both reversible. `clubs` (name, unique slug, tagline, description, privacy,
+is_listed, color, avatar/banner, `created_by`→users nullOnDelete, `forum_id` plain pointer set in M1.4,
+member_count, settings json, tenant_id seam, softDeletes). `club_user` (club_id, user_id, **role** ∈
+owner|moderator|member, **status** ∈ active|pending|invited|banned, invited_by, joined_at; unique(club_id,
+user_id)). `club_user.role/status` is the **source of truth** for club rank; M1.2 PROJECTS active roles into
+club-scoped `acl_entries`. The discussion space reuses the existing `forums`/`topics`/`posts` stack via a
+nullable `forums.club_id` (M1.4) — **no parallel forum system**.
+
+**Decision — two orthogonal privacy axes (not one enum).**
+- `privacy` ∈ public|closed|private drives **content** visibility + the join policy: public → world-readable,
+  open join; closed → members-only content, join by request→approve; private → members-only content, invite-only.
+- `is_listed` (bool) drives **existence/metadata** visibility to non-members. A `private`+unlisted club is the
+  **"private-hidden"** fence case — its name/existence never appears to non-members. (A public club is forced
+  listed.) The model exposes the single-source-of-truth gates `isContentVisibleTo()` / `isListingVisibleTo()`
+  (= the axis OR active-member OR global-staff) and the `scopeListableTo()` query scope.
+
+**Decision — THE APEX CALL: club content-hiding is a query-level gate, NOT pure ACL inheritance.** The board is
+**public-by-default**: the `guests` system group holds `forum.view = ALLOW` at **global** scope and the `member`
+preset inherits it, so **every** logged-in user resolves `forum.view = true` for any forum via global
+inheritance. The three-state engine **cannot** express "members of this private club see it, other logged-in
+users don't": `NO` is neutral (inherits, never stops), and `NEVER` is **absolute** and checked across **all**
+holders before the scope walk — so a `members`-group `NEVER` at club scope would also hard-deny real club
+members (who are themselves in `members`), and no per-user ALLOW can lift it. Therefore:
+  1. **Content hiding** for closed/private clubs is enforced at the **query/visibility layer** — a single
+     authoritative `Club` visibility gate that **every** exposure surface consults (search, activity feed,
+     RSS/Atom, sitemap, profiles, REST API, notifications, the club's own forum/topic controllers). This is the
+     same *kind* of helper as the existing `VisibleForumIds`, not a second permission system.
+  2. **Capabilities** (post/reply/moderate/manage) flow **through the engine** at **club scope** (M1.2) — a club
+     moderator's `topic.moderate` resolves true only within the club; `ActorRank` still prevents a club owner
+     from out-ranking global staff.
+  3. **Anonymous defence-in-depth**: closed/private clubs seed `forum.view = NEVER` for the **guests** group at
+     club scope (no real member is ever a guest), which hard-blocks every anonymous surface (sitemap, RSS,
+     guest search) through the `forum.view` checks they already perform — zero new code on those paths.
+  This corrects a tempting-but-wrong simplification ("set forum.view=NEVER for members → auto-hidden"): it would
+  break for real members. The reasoning is pinned by the M1.5 per-surface no-leak tests.
+
+**Decision — creation gate.** `App\Clubs\ClubCreation::canCreate()` is the single call site; M1.1 baseline =
+verified member at **trust level ≥ 2** (plus global staff always). M1.6 swaps the body for a setting-driven
+policy (any / TL-threshold / admin-approved) without touching any surface. The founder is seated as the first
+**owner** in `ClubService::create()` (transactional); `created_by` nullOnDelete means deleting the founder's
+account never destroys the club — the sole-owner-leaves / account-deletion case is handled by M1.3 ownership
+transfer.
+
+**Tested (M1.1).** 16 feature tests: creation-policy gate (TL2 yes / TL1 no / guest redirect / staff always);
+create flow seats owner + member_count + unique slug + public-forced-listed; directory listing visibility
+(public/listed shown, hidden absent for non-members, present for members + staff); hidden-club home 404s for
+guest & logged-in non-member, 200 for member & staff; owner/staff manage, stranger 403, owner soft-delete. Gate
+green: full suite 1318 passed / 1 skipped / 0 failed, migrate+seed clean, pint clean, phpstan (level 5) 0 errors.
