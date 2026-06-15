@@ -61,7 +61,9 @@ it('requires authentication to reach the preferences page', function () {
 
 it('paginates a thread by the viewer’s posts-per-page preference', function () {
     $forum = prefForum();
-    $author = Users::inGroups(['members', 'tl1']);
+    // Trusted author (TL3) so the bulk replies aren't held by the M6.1 burst detector — this test isolates
+    // pagination, not anti-spam (a fresh account posting 20 replies in seconds is correctly held elsewhere).
+    $author = Users::inGroups(['members', 'tl3']);
     $topic = app(PostService::class)->createTopic($author, $forum, 'Long thread', 'tiptap_json', Content::doc('op'));
     for ($i = 0; $i < 20; $i++) {
         app(PostService::class)->reply($author, $topic, 'tiptap_json', Content::doc("reply {$i}"));

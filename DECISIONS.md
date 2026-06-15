@@ -2752,3 +2752,34 @@ with the flag OFF the baseline is unchanged. A toggle was added to Admin → Set
 create; the admin toggle persists. Gate green: **full suite 1505 passed / 1 skipped / 0 failed** (12601
 assertions), pint clean, phpstan (level 5) 0 errors. *(No real money involved — the hook gates on a perk, not a
 charge; the perk itself is granted by the audited M5.1–M5.3 paths.)*
+
+### ADR-0067 — Advanced spam intelligence: HOLD-only scoring with FP guards (Phase 4 · M6.1) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**APEX (untrusted-input).** A new `SpamScorer` adds reputation/behavioural scoring to the post-time pipeline.
+It is **HOLD-ONLY** — `ContentModerator` caps its effect at HOLD, so it can never reject or delete a post; the
+strongest action is routing to the existing moderation queue (`approved_state = 'pending'`). Human-in-the-loop
+is preserved.
+
+**Decision.**
+1. **Signals (config-tunable, `antispam.intelligence`).** Content **similarity** (the author reposted
+   near-identical content recently — a normalised-fingerprint match against their last N posts in a window),
+   **burst** (more than a threshold of posts in a short window, beyond the per-minute rate limiter),
+   **new-account**, and **tl0**. Each contributes weighted points; at/above `hold_threshold` (default 3) the
+   post is held, with per-signal reasons (`spam:similarity`, …) appended to the verdict.
+2. **False-positive guards (the priority).** Trusted members are **EXEMPT** and never scored — staff, trust
+   level ≥ `trusted_floor` (3), or ≥ `established_posts` (50) approved posts. Short content (< 12 fingerprint
+   chars) never triggers the similarity signal, so common short replies ("thanks", "+1") are never flagged. A
+   new member's first *normal* post scores below the threshold (tl0 + new = 2 < 3), so onboarding isn't punished.
+3. **Evidence for review.** A held post records a `spam_assessments` row (score + per-signal breakdown +
+   moderation reasons, linked to the post) + an audit-log entry (`post.spam_held`) — the data the M6.2 review
+   surface renders. Approved posts add no rows on the hot path. `SpamScorer` integrates via a single new step
+   in `ContentModerator::review()`; the verdict now carries the `SpamScore`.
+
+**Tested.** 8 tests. FP guards (4): trusted member exempt even with duplicate+burst; established-by-post-count
+exempt; a new member's first normal post not held; a short repeated reply not flagged. Detections (2): a new
+member reposting identical content held (similarity); a bursting new member held. Pipeline (2): a reposted
+duplicate is held (`pending`) + records the assessment + is **never deleted** (the row still exists); a trusted
+member's repost is approved with no assessment. One unrelated pagination fixture (20 rapid replies from a fresh
+account) was retargeted to a trusted author — the burst behaviour it tripped is correct. Gate green: **full
+suite 1513 passed / 1 skipped / 0 failed** (12618 assertions), pint clean, phpstan (level 5) 0 errors.
