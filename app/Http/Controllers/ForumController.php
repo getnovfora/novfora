@@ -47,10 +47,11 @@ class ForumController extends Controller
     public function show(Request $request, Forum $forum): View
     {
         $viewer = $request->user() ?? User::guest();
-        abort_unless($viewer->canDo('forum.view', $forum->permissionScope()), 403);
         // M1.4/M1.5: a CLUB forum's content is gated by club visibility (members/staff for closed/private),
-        // not just forum.view (which the public-by-default board grants everyone). 404 = no disclosure.
+        // not just forum.view. The club gate runs FIRST so a private club consistently 404s (no disclosure)
+        // rather than 403ing a guest on the seeded guests-NEVER. A board forum (club_id=null) passes through.
         abort_unless($forum->clubContentVisibleTo($request->user()), 404);
+        abort_unless($viewer->canDo('forum.view', $forum->permissionScope()), 403);
 
         $user = $request->user();
         $canModerate = $user?->canDo('topic.moderate', $forum->permissionScope()) ?? false;

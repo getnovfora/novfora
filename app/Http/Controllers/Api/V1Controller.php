@@ -41,8 +41,10 @@ final class V1Controller extends Controller
     public function forums(Request $request): JsonResponse
     {
         $user = $this->user($request);
+        // Club privacy (M1.5): a club forum is only listed when its content is visible to the token's user.
         $forums = Forum::query()->where('type', 'forum')->orderBy('position')->orderBy('id')->get()
-            ->filter(fn (Forum $forum): bool => $user->canDo('forum.view', $forum->permissionScope()))
+            ->filter(fn (Forum $forum): bool => $user->canDo('forum.view', $forum->permissionScope())
+                && $forum->clubContentVisibleTo($user))
             ->map(fn (Forum $forum): array => $this->forumData($forum))
             ->values();
 
@@ -53,6 +55,7 @@ final class V1Controller extends Controller
     {
         $user = $this->user($request);
         abort_unless($user->canDo('forum.view', $forum->permissionScope()), 403);
+        abort_unless($forum->clubContentVisibleTo($user), 404); // club content gate (no disclosure)
 
         $topics = Topic::query()->where('forum_id', $forum->getKey())
             ->orderByDesc('id')->paginate(min(50, max(1, (int) $request->integer('per_page', 20))));
@@ -64,6 +67,8 @@ final class V1Controller extends Controller
     {
         $user = $this->user($request);
         abort_unless($user->canDo('forum.view', $topic->permissionScope()), 403);
+        $topicForum = $topic->forum;
+        abort_unless($topicForum instanceof Forum && $topicForum->clubContentVisibleTo($user), 404);
 
         $posts = Post::query()->where('topic_id', $topic->getKey())->where('approved_state', 'approved')
             ->orderBy('position')->orderBy('id')
@@ -80,6 +85,10 @@ final class V1Controller extends Controller
     {
         $user = $this->user($request);
         abort_unless($user->canDo('post.create', $topic->permissionScope()), 403);
+        // Club privacy (M1.5): replying in a club forum requires active membership (or staff), not just
+        // post.create (which the board grants everyone). 404 = no disclosure of the club's existence.
+        $topicForum = $topic->forum;
+        abort_unless($topicForum instanceof Forum && $topicForum->clubParticipationAllowed($user), 404);
 
         $data = $request->validate(['body' => ['required', 'string', 'max:50000']]);
         $post = $posts->reply($user, $topic, 'markdown', ['source' => $data['body']]);

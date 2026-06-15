@@ -11,6 +11,8 @@ use App\Events\MessageSent;
 use App\Events\PostCreated;
 use App\Events\ReputationAwarded;
 use App\Events\TopicCreated;
+use App\Models\Forum;
+use App\Models\Topic;
 use Illuminate\Events\Dispatcher;
 
 /**
@@ -24,6 +26,12 @@ final class WebhookEventSubscriber
 
     public function handlePostCreated(PostCreated $event): void
     {
+        $topic = Topic::find($event->post->topic_id);
+        $forumId = $topic instanceof Topic ? (int) $topic->forum_id : 0;
+        if ($this->inClubForum($forumId)) {
+            return; // M1.5: club discussion never goes out to third-party webhooks
+        }
+
         $this->dispatcher->dispatch('post.created', [
             'post_id' => $event->post->getKey(),
             'topic_id' => (int) $event->post->topic_id,
@@ -33,11 +41,21 @@ final class WebhookEventSubscriber
 
     public function handleTopicCreated(TopicCreated $event): void
     {
+        if ($this->inClubForum((int) $event->topic->forum_id)) {
+            return; // M1.5: club discussion never goes out to third-party webhooks
+        }
+
         $this->dispatcher->dispatch('topic.created', [
             'topic_id' => $event->topic->getKey(),
             'forum_id' => (int) $event->topic->forum_id,
             'author_id' => $event->topic->user_id === null ? null : (int) $event->topic->user_id,
         ]);
+    }
+
+    /** A club discussion forum (any privacy) is excluded from outbound webhooks — sub-community, not integration. */
+    private function inClubForum(int $forumId): bool
+    {
+        return $forumId > 0 && Forum::query()->whereKey($forumId)->whereNotNull('club_id')->exists();
     }
 
     public function handleFollowed(Followed $event): void

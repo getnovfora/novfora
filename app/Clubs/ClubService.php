@@ -10,7 +10,6 @@ use App\Models\Club;
 use App\Models\ClubMembership;
 use App\Models\Forum;
 use App\Models\User;
-use App\Permissions\AclVersion;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -68,10 +67,10 @@ class ClubService
 
             // Mirror the owner role into club-scoped acl_entries so management/moderation resolve through the
             // permission engine (M1.2). The roster row above stays the source of truth.
-            app(ClubRoleProjector::class)->project($membership);
-
-            // A brand-new forum + its club-scope grants: bump so any cached "sees-all" resolutions re-evaluate.
-            app(AclVersion::class)->bump();
+            $projector = app(ClubRoleProjector::class);
+            $projector->project($membership);
+            // M1.5: seed the guests-group forum.view=NEVER at club scope for a closed/private club.
+            $projector->projectPrivacy($club);
 
             return $club;
         });
@@ -107,7 +106,13 @@ class ClubService
             $club->is_listed = true;
         }
 
+        $privacyChanged = $club->isDirty('privacy');
         $club->save();
+
+        // M1.5: a privacy change flips the anonymous guests-NEVER gate on the club's discussion forum.
+        if ($privacyChanged) {
+            app(ClubRoleProjector::class)->projectPrivacy($club);
+        }
 
         return $club;
     }

@@ -2246,3 +2246,50 @@ forum/topic 404 for guest+non-member, 200 for member+staff; non-member blocked f
 forum; member can. Gate green: full suite **1356 passed / 1 skipped / 0 failed**, pint clean, phpstan (level 5)
 0 errors. The remaining indirect surfaces (search/feeds/sitemap/activity/profiles/API/notifications/attachments)
 + the guests-NEVER + the exhaustive no-leak matrix are M1.5.
+
+### ADR-0051 — Club privacy: the no-leak sweep across every surface (Phase 4 · M1.5) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context.** The #1 fence: a private-hidden club and its content must NEVER leak through search, activity feed,
+RSS/Atom, sitemap, member profiles, notifications, the REST API, or any other surface. Because the board is
+public-by-default (global guests `forum.view=ALLOW`), `forum.view` alone cannot hide a club from a logged-in
+non-member (ADR-0047), so this milestone wires THREE single-source-of-truth gates across every exposure path.
+
+**The three gates.**
+1. **Anonymous** — closed/private clubs seed `forum.view = NEVER` for the **guests** group at club scope
+   (`ClubRoleProjector::projectPrivacy`, applied on create + every privacy change). Since the club forum's chain
+   includes the club node (M1.4), every guest-resolving surface (sitemap, RSS forum/topic/user feeds, guest
+   search) is hard-denied through the `forum.view` checks it already performs — **zero new code on those paths**.
+2. **Bulk (logged-in)** — `VisibleForumIds::for($viewer)` now also excludes club forums whose content the viewer
+   may not see (public-club OR active-member OR staff), via two upfront queries (no per-forum N+1). This
+   auto-protects every consumer: the activity feed, faceted `SearchService`, `TrendingService`,
+   `RecommendationService`, and the user RSS feed.
+3. **Per-row (logged-in)** — surfaces that resolve the actual viewer per item call `Forum::clubContentVisibleTo`
+   in addition to `forum.view`: REST API (forums/topics/topic/createPost → 404 / participation), tag show + tag
+   **index** (a club-exclusive tag is omitted), what's-new, attachments, bookmarks, search typeahead. Webhooks
+   skip **all** club-forum `topic.created`/`post.created` events. `PostService::dispatchPostNotifications` only
+   notifies recipients who can still see the club's content.
+
+**Adversarial review found + fixed TWO leaks the first pass missed** (independent reviewer, verify-then-refute):
+- **Reaction-notification emit** (`SendReactionNotification`): emitted a `reaction` notification carrying the
+  club topic title to the post author with no club gate — a leak if the author later lost club access. Fixed
+  with the same `clubContentVisibleTo($author)` guard `PostService` uses.
+- **Stored notification render** (`NotificationController::index`): rendered stored `reply`/`mention`/`reaction`
+  notifications (whose JSON snapshots the club topic title) without re-checking current access. Fixed by
+  re-gating each topic notification against the recipient's CURRENT club visibility at render time — the same
+  pattern `BookmarkController::present()` already uses for saved references. Both fixes have dedicated tests.
+
+**Documented residuals (not user-facing leaks; recorded for the human pass).**
+- Scout/Meilisearch **indexing** stores private-club post bodies in the operator's own external index; all
+  app-layer search paths re-filter via `VisibleForumIds`, so this is operator-infra (the operator already has DB
+  access), not a cross-user leak. A `club is public` guard on `Post::shouldBeSearchable` would harden the
+  enhanced tier but adds hot-path queries — deferred.
+- `tags.usage_count` includes private-club usage (count-only, no titles/bodies). Leaderboard `users.post_count`
+  / reputation are coarse global aggregates that include club activity but reveal no club identity or content.
+- Bulk-moderation move-target lists are reachable only by global staff under the default seed (club moderators
+  hold `topic.moderate` at club scope only), so they are safe as shipped; flagged as defense-in-depth.
+
+**Tested.** 14 no-leak tests, one per surface (each contrasting a non-member/guest who must NOT see with a
+member who must), plus the two adversarial-review regression tests. Gate green: full suite full suite 1370 passed / 1 skipped / 0 failed,
+pint clean, phpstan (level 5) 0 errors. The full per-surface verdict + residuals: this ADR + the M1.5 test
+suite are the record.

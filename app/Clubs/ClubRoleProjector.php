@@ -7,7 +7,9 @@ declare(strict_types=1);
 namespace App\Clubs;
 
 use App\Models\AclEntry;
+use App\Models\Club;
 use App\Models\ClubMembership;
+use App\Models\Group;
 use App\Permissions\AclVersion;
 use App\Permissions\PermissionValue;
 
@@ -70,6 +72,40 @@ class ClubRoleProjector
     public function clear(int $clubId, int $userId): void
     {
         $this->clearWithoutBump($clubId, $userId);
+        app(AclVersion::class)->bump();
+    }
+
+    /**
+     * Anonymous-leak defence-in-depth (Phase 4 · M1.5): a closed/private club seeds `forum.view = NEVER` for
+     * the GUESTS group at club scope. No real member is ever a guest, so this hard-denies every anonymous
+     * surface (sitemap, RSS, guest search, the forum-facet dropdown) through the `forum.view` checks they
+     * already perform — the club forum's chain includes the club node (M1.4). A public club carries no such
+     * entry. Idempotent; call on create and on any privacy change.
+     */
+    public function projectPrivacy(Club $club): void
+    {
+        $guests = Group::query()->where('slug', 'guests')->first();
+        if (! $guests instanceof Group) {
+            return;
+        }
+
+        AclEntry::query()
+            ->where('permission_key', 'forum.view')
+            ->where('holder_type', 'group')->where('holder_id', (int) $guests->id)
+            ->where('scope_type', 'club')->where('scope_id', (int) $club->id)
+            ->delete();
+
+        if ($club->privacy !== 'public') {
+            AclEntry::create([
+                'permission_key' => 'forum.view',
+                'holder_type' => 'group',
+                'holder_id' => (int) $guests->id,
+                'scope_type' => 'club',
+                'scope_id' => (int) $club->id,
+                'value' => PermissionValue::Never->value,
+            ]);
+        }
+
         app(AclVersion::class)->bump();
     }
 

@@ -206,11 +206,17 @@ final class PostService
             'url' => route('topics.show', $topic->id),
         ];
 
+        // Club privacy (Phase 4 · M1.5): a notification carries the topic title + url, so a reply/mention in a
+        // CLUB forum must NEVER reach a recipient who cannot see the club's content (someone mentioned across
+        // the club boundary, or a former member). For a board forum this gate is a no-op.
+        $forum = $topic->forum_id ? Forum::find($topic->forum_id) : null;
+        $mayNotify = fn (User $recipient): bool => $forum === null || $forum->clubContentVisibleTo($recipient);
+
         // A reply (any earlier post exists) notifies the topic's author.
         $isReply = Post::where('topic_id', $post->topic_id)->where('id', '<', $post->id)->exists();
         if ($isReply && $topic->user_id && (int) $topic->user_id !== (int) $author->getKey()) {
             $opAuthor = User::find($topic->user_id);
-            if ($opAuthor instanceof User) {
+            if ($opAuthor instanceof User && $mayNotify($opAuthor)) {
                 $this->notifier->send($opAuthor, 'reply', $author, $payload);
             }
         }
@@ -218,7 +224,7 @@ final class PostService
         // @mentions in the canonical body (cast to array — tiptap docs are arrays; markdown yields none).
         foreach (Mentions::idsIn((array) $post->body_canonical) as $id) {
             $mentioned = User::find($id);
-            if ($mentioned instanceof User) {
+            if ($mentioned instanceof User && $mayNotify($mentioned)) {
                 $this->notifier->send($mentioned, 'mention', $author, $payload);
             }
         }

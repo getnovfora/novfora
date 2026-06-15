@@ -53,10 +53,11 @@ class TopicController extends Controller
             abort(404);
         }
 
-        abort_unless($viewer->canDo('forum.view', $topic->permissionScope()), 403);
-        // M1.4/M1.5: a topic in a CLUB forum is gated by club visibility (404 = no disclosure).
+        // M1.4/M1.5: a topic in a CLUB forum is gated by club visibility FIRST (404 = no disclosure), so a
+        // private club never 403s a guest on the seeded guests-NEVER. A board topic passes through.
         $topicForum = $topic->forum;
-        abort_unless($topicForum instanceof Forum && $topicForum->clubContentVisibleTo($request->user()), 404);
+        abort_if($topicForum instanceof Forum && ! $topicForum->clubContentVisibleTo($request->user()), 404);
+        abort_unless($viewer->canDo('forum.view', $topic->permissionScope()), 403);
 
         // View count (P2-M3) — throttled per viewer (or guest session) to one count per topic per hour, so a
         // refresh/F5 storm can't inflate it. A raw increment, no model hydration → no events fire.
