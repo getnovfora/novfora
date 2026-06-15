@@ -2799,3 +2799,35 @@ never a hard delete, preserving the M6.1 hold-only/human-in-the-loop posture). T
 **Tested.** 4 tests: non-admin 403 (page + Livewire); held posts listed with score + signals; approve clears the
 hold; reject soft-deletes (and the row is still recoverable, `approved_state = 'rejected'`). Gate green: **full
 suite 1517 passed / 1 skipped / 0 failed** (12634 assertions), pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0069 — External-signal tuning + the content-privacy fence (Phase 4 · M6.3) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**APEX (untrusted-input + privacy).** Centralises the operator's control over the already-wired StopForumSpam
+signal and enforces the fence: **a community's post content never leaves the server without an explicit admin
+opt-in.**
+
+**Decision.**
+1. **`ExternalSignalPolicy`** is the single gate: `apiEnabled()` (the existing live-API opt-in — metadata
+   lookups only), `confidenceThreshold()` (admin-tunable block threshold, DB setting → config → 75),
+   `maySubmitContent()` (the fence — **default false**), and `apiKey()` (encrypted). `RegistrationGuard` now
+   reads the threshold from the policy, so admins can tune block-vs-flag without a deploy (default behaviour
+   unchanged at 75).
+2. **`SpamReporter` (opt-in, inert by default).** Reports a confirmed spammer to StopForumSpam, but makes **no
+   outbound call** unless the API is enabled AND a submission key is set. The spammer's **post content** is
+   included as evidence **only** when `maySubmitContent()` is on; otherwise only metadata (IP/email/username) —
+   already the SFS posture — is sent. Wired into the M6.2 reject action (so rejecting genuine spam can report
+   it), inert unless opted in.
+3. **Admin surface.** Admin → Settings → Anti-spam gains the threshold, the SFS submission key (encrypted), and
+   a prominent **"send post content to external services"** toggle with a privacy explanation — off by default.
+
+**Tested.** 8 tests. Policy (2): content-submission denied by default; threshold reflects the setting.
+RegistrationGuard (1): the tuned threshold flips block↔flag (faked SFS API at confidence 70). Reporter (4): no
+call without a key; no call when the API is disabled; **metadata-only (no post content) without the content
+opt-in**; content included only with the explicit opt-in. Admin (1): threshold + opt-in + encrypted key persist.
+Gate green: **full suite 1525 passed / 1 skipped / 0 failed** (12652 assertions), pint clean, phpstan (level 5)
+0 errors.
+
+**⚠ SCAFFOLDED — NOT VALIDATED against the live StopForumSpam submission API.** No submission key in this build;
+the gate logic + request shape are proven with a mocked HTTP client. The reporting feature stays inert until an
+operator sets a key and opts in.

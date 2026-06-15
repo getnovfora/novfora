@@ -120,6 +120,12 @@ final class SettingsRegistry
             new SettingDefinition('antispam.turnstile_site_key', 'string', config: 'novfora.antispam.registration.captcha.turnstile.site_key', default: '', group: 'antispam', label: 'Turnstile site key'),
             new SettingDefinition('antispam.turnstile_secret', 'string', encrypted: true, config: 'novfora.antispam.registration.captcha.turnstile.secret', default: '', group: 'antispam', label: 'Turnstile secret key'),
             new SettingDefinition('antispam.sfs_use_api', 'bool', config: 'novfora.antispam.registration.stopforumspam.use_api', default: true, group: 'antispam', label: 'StopForumSpam live API'),
+            // External-signal tuning + privacy (Phase 4 · M6.3). The confidence threshold is admin-tunable;
+            // external_content_optin is the PRIVACY FENCE (default false) — post content is NEVER sent to a third
+            // party unless this is on; the SFS submission key (encrypted) enables opt-in spammer reporting.
+            new SettingDefinition('antispam.sfs_confidence_threshold', 'int', config: 'novfora.antispam.registration.stopforumspam.confidence_threshold', default: 75, group: 'antispam', label: 'StopForumSpam block confidence threshold'),
+            new SettingDefinition('antispam.external_content_optin', 'bool', default: false, group: 'antispam', label: 'Allow sending post content to external anti-spam services'),
+            new SettingDefinition('antispam.sfs_api_key', 'string', encrypted: true, default: '', group: 'antispam', label: 'StopForumSpam submission API key'),
 
             // ── Appearance, site-level (PART 3.6) ───────────────────────────────────────────────────
             new SettingDefinition('appearance.active_theme', 'string', config: 'novfora.theme.active', default: '', group: 'appearance', label: 'Active theme'),

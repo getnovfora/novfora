@@ -74,7 +74,8 @@ final class RegistrationGuard
             $scores['stopforumspam'] = $sfs;
 
             if ($sfs['listed']) {
-                $threshold = (int) ($reg['stopforumspam']['confidence_threshold'] ?? 75);
+                // Admin-tunable block threshold (Phase 4 · M6.3) — DB setting → config → 75.
+                $threshold = app(ExternalSignalPolicy::class)->confidenceThreshold();
                 $escalate(($sfs['confidence'] ?? 0) >= $threshold ? ScreeningResult::BLOCK : ScreeningResult::FLAG);
                 $reasons[] = 'stopforumspam';
             }

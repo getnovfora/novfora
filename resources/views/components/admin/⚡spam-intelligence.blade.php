@@ -1,5 +1,6 @@
 <?php
 // SPDX-License-Identifier: Apache-2.0
+use App\AntiSpam\SpamReporter;
 use App\Forum\PostService;
 use App\Models\Post;
 use App\Models\SpamAssessment;
@@ -37,7 +38,7 @@ new class extends Component
         $this->saved = 'Post approved.';
     }
 
-    public function reject(int $assessmentId): void
+    public function reject(int $assessmentId, SpamReporter $reporter): void
     {
         $post = $this->postFor($assessmentId);
         if ($post === null) {
@@ -45,9 +46,17 @@ new class extends Component
         }
         $this->authorizePost($post);
 
+        $author = $post->author;
         $post->update(['approved_state' => 'rejected']);
         $post->delete(); // soft-delete to the recycle bin — never a hard delete
         Audit::log('post.rejected', $post);
+
+        // Opt-in external reporting (Phase 4 · M6.3): inert unless the admin enabled SFS reporting AND set a key.
+        // Post content is included ONLY with the explicit content opt-in (ExternalSignalPolicy::maySubmitContent).
+        if ($author instanceof User) {
+            $reporter->reportSpammer((string) $post->ip_address, (string) $author->email, (string) $author->username, (string) $post->body_text);
+        }
+
         $this->saved = 'Post rejected.';
     }
 
@@ -65,7 +74,7 @@ new class extends Component
 
     private function postFor(int $assessmentId): ?Post
     {
-        $assessment = SpamAssessment::with('post')->find($assessmentId);
+        $assessment = SpamAssessment::with('post.author')->find($assessmentId);
         $post = $assessment?->post;
 
         return $post instanceof Post ? $post : null;

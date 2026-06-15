@@ -23,6 +23,14 @@ new class extends Component
 
     public bool $sfsUseApi = true;
 
+    public int $sfsThreshold = 75;
+
+    public bool $externalContentOptIn = false;
+
+    public string $sfsApiKey = ''; // never pre-filled — secret
+
+    public bool $sfsApiKeySet = false;
+
     public ?string $saved = null;
 
     public function mount(Settings $settings): void
@@ -32,6 +40,9 @@ new class extends Component
         $this->turnstileSiteKey = $settings->string('antispam.turnstile_site_key');
         $this->turnstileSecretSet = $settings->secretIsSet('antispam.turnstile_secret');
         $this->sfsUseApi = $settings->bool('antispam.sfs_use_api');
+        $this->sfsThreshold = (int) $settings->int('antispam.sfs_confidence_threshold');
+        $this->externalContentOptIn = $settings->bool('antispam.external_content_optin');
+        $this->sfsApiKeySet = $settings->secretIsSet('antispam.sfs_api_key');
     }
 
     public function save(Settings $settings): void
@@ -42,15 +53,22 @@ new class extends Component
             'turnstileSiteKey' => ['nullable', 'string', 'max:255'],
             'turnstileSecret' => ['nullable', 'string', 'max:255'],
             'sfsUseApi' => ['boolean'],
+            'sfsThreshold' => ['required', 'integer', 'min:1', 'max:100'],
+            'externalContentOptIn' => ['boolean'],
+            'sfsApiKey' => ['nullable', 'string', 'max:255'],
         ]);
 
         $settings->set('antispam.captcha_provider', $data['captchaProvider']);
         $settings->set('antispam.turnstile_site_key', $data['turnstileSiteKey'] ?? '');
         $settings->set('antispam.turnstile_secret', $data['turnstileSecret']); // blank ⇒ keep
         $settings->set('antispam.sfs_use_api', $data['sfsUseApi']);
+        $settings->set('antispam.sfs_confidence_threshold', (string) $data['sfsThreshold']);
+        $settings->set('antispam.external_content_optin', $data['externalContentOptIn']);
+        $settings->set('antispam.sfs_api_key', $data['sfsApiKey']); // blank ⇒ keep
 
-        $this->turnstileSecret = '';
+        $this->turnstileSecret = $this->sfsApiKey = '';
         $this->turnstileSecretSet = $settings->secretIsSet('antispam.turnstile_secret');
+        $this->sfsApiKeySet = $settings->secretIsSet('antispam.sfs_api_key');
         $this->saved = 'Saved.';
     }
 
@@ -103,6 +121,29 @@ new class extends Component
         <div class="space-y-3 border-t border-line pt-5" id="setting-antispam-sfs-use-api">
             <x-ui.toggle name="sfsUseApi" wire:model="sfsUseApi" :checked="$sfsUseApi" label="Use the StopForumSpam live API" />
             <p class="text-xs text-ink-subtle">When off (or unreachable), registration falls back to the cron-warmed cached blocklist — never blocking on the network.</p>
+        </div>
+
+        {{-- External-signal tuning + privacy (Phase 4 · M6.3) --}}
+        <fieldset class="grid gap-5 border-t border-line pt-5 sm:grid-cols-2" id="setting-antispam-sfs-confidence-threshold">
+            <legend class="sr-only">External signal tuning</legend>
+            <div>
+                <x-ui.input type="number" name="sfsThreshold" label="StopForumSpam block threshold" wire:model="sfsThreshold"
+                            min="1" max="100" hint="Confidence at/above which a registration is blocked (else flagged). Default 75." />
+            </div>
+            <div id="setting-antispam-sfs-api-key">
+                <x-ui.input label="StopForumSpam submission key" name="sfsApiKey" type="password" wire:model="sfsApiKey"
+                            autocomplete="new-password" :placeholder="$sfsApiKeySet ? '•••••• (leave blank to keep)' : ''"
+                            hint="Optional — enables opt-in spammer reporting. Stored encrypted." />
+            </div>
+        </fieldset>
+
+        <div class="space-y-2 rounded-lg border border-amber-300/40 bg-amber-50/40 p-4" id="setting-antispam-external-content-optin">
+            <x-ui.toggle name="externalContentOptIn" wire:model="externalContentOptIn" :checked="$externalContentOptIn"
+                         label="Allow sending post content to external anti-spam services" />
+            <p class="text-xs text-ink-muted">
+                <strong>Privacy:</strong> off by default. When off, only metadata (IP, email, username) is ever sent to StopForumSpam —
+                never the text of members' posts. Turn this on only if your community consents to sharing post content as spam evidence.
+            </p>
         </div>
 
         <div>
