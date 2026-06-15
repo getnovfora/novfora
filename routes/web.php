@@ -18,6 +18,7 @@ use App\Http\Controllers\HealthController;
 use App\Http\Controllers\LegacyRedirectController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MailWebhookController;
+use App\Http\Controllers\MembershipController;
 use App\Http\Controllers\MentionController;
 use App\Http\Controllers\ModerationController;
 use App\Http\Controllers\NotificationController;
@@ -285,6 +286,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/settings/linked-accounts/{provider}/link', [SocialAuthController::class, 'startLink'])->name('oauth.link')->middleware('throttle:30,1');
     Route::delete('/settings/linked-accounts/{provider}', [SocialAuthController::class, 'unlink'])->name('oauth.unlink');
 
+    // Membership / upgrade surface (Phase 4 · M5.1) — list active tiers + the member's current subscription.
+    Route::get('/membership', [MembershipController::class, 'index'])->name('membership.index');
+
     // Private messages (P2-M2 Half-B). The /messages/new route MUST be registered before {conversation}
     // so the literal "new" segment is never captured as a conversation id.
     Route::get('/messages', fn () => view('pm.inbox'))->name('pm.inbox');
@@ -339,6 +343,9 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
 
         // Badge manager (P2-M5 Slice 3) — the <livewire:admin.badges /> manager.
         Route::view('/badges', 'admin.badges')->name('badges');
+
+        // Membership tiers (Phase 4 · M5.1) — the <livewire:admin.tiers /> manager. No money is charged here.
+        Route::view('/tiers', 'admin.tiers')->name('tiers');
 
         // Module / plugin manager (ADR-0031, B1) — the <livewire:admin.modules /> lifecycle surface.
         Route::view('/modules', 'admin.modules')->name('modules');

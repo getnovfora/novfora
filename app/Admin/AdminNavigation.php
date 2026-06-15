@@ -63,6 +63,7 @@ final class AdminNavigation
                 ['Permissions', 'admin.system.permissions', 'shield'],
                 ['Custom fields', 'admin.system.profile-fields', 'list'],
                 ['Directory', 'admin.members.directory', 'users'],
+                ['Membership tiers', 'admin.tiers', 'check-circle'],
             ]],
             ['Content', 'folder', [
                 ['Forums & structure', 'admin.structure', 'folder'],

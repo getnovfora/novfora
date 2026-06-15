@@ -2630,3 +2630,40 @@ asserts an opted-out active member is hidden. Gate green: **full suite 1458 pass
 **⚠ SCAFFOLDED — NOT VALIDATED against a real Reverb.** The baseline polling path is fully real; the presence
 **channel** (live join/leave) shares the M4.2 broadcaster, so it is proven only at the authorization level —
 the websocket presence round-trip needs a real Reverb + bundled Echo (same enable steps as ADR-0061).
+
+### ADR-0063 — Membership tiers: perk gating through the permission engine (Phase 4 · M5.1) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context.** M5 adds paid memberships. M5.1 is the foundation: a tier model whose perks gate THROUGH the
+existing permission engine (no parallel authz system), an admin tier manager, and a member-facing surface.
+**No money is taken anywhere in M5.1** — granting is done by a PaymentProvider (M5.2 manual / M5.3 Stripe) or an
+admin; this milestone is the catalogue + the grant/revoke mechanism.
+
+**Decision.**
+1. **Perks ARE permission keys (engine-true).** `App\Membership\TierProjector` mirrors the proven
+   `ClubRoleProjector`: it projects a member's ACTIVE subscriptions into per-user, **global-scope** acl_entries,
+   so a perk is a normal `$user->canDo('tier.ad_free', Scope::global())`. The 30-min resolver cache drops on the
+   `AclVersion::bump()` every projection performs.
+2. **Fixed perk universe (a security boundary).** `App\Membership\TierPerks::ALL` is a FIXED set of `tier.*`
+   keys. The projector's clear step is **bounded to that universe**, and the admin form validates against it, so
+   a tier can never grant an arbitrary capability (`admin.access`) and the clear never touches other global user
+   grants — proven by a test that feeds a poisoned perk list (`admin.access`, `tier.bogus`) and asserts only the
+   valid perk lands.
+3. **Lifecycle through one service.** `MembershipService::activate/cancel/expireDue` are the only writers of a
+   subscription's status, and every transition re-projects. Expiry is a baseline-safe hourly cron
+   (`novfora:tiers:expire`, `withoutOverlapping`, skipped during a restore) — no worker needed. Every transition
+   is audit-logged.
+4. **Surfaces.** An admin manager (`admin.tiers`, staff + 2FA gated) does tier CRUD + perk selection; a
+   member page (`/membership`) lists active tiers and the current subscription. Reversible migrations
+   (`membership_tiers`, `member_subscriptions`); **no card data is ever stored** (`provider_ref` is an opaque id).
+
+**Tested.** 14 tests. Gating (7): activate grants the right perks (and only those); cancel revokes; the hourly
+expiry revokes; an inactive tier grants nothing; multiple active subscriptions union their perks; an arbitrary
+key outside the universe is NEVER granted. Admin (5): non-admin 403; create-with-perks; a non-universe perk is
+rejected at the form; edit/deactivate; delete-on-confirm. Member page (3): guest redirected; active tiers listed
++ inactive hidden; the current plan is shown. Gate green: **full suite 1472 passed / 1 skipped / 0 failed**
+(12512 assertions), pint clean, phpstan (level 5) 0 errors.
+
+**Assumption (recorded).** Each perk's *effect* (actually hiding ads, allowing a custom title, etc.) is wired
+per-feature; M5.1 delivers the **gating mechanism** — the engine grant/revoke — which is what the brief specifies
+("tier gating grants/revokes the right capabilities"). The starter perk set is illustrative and admin-editable.

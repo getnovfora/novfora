@@ -101,6 +101,21 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(PushSubscription::class);
     }
 
+    /** Membership subscriptions (Phase 4 · M5.1). @return HasMany<MemberSubscription, $this> */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(MemberSubscription::class);
+    }
+
+    /** The member's current ACTIVE subscription (most-recent), if any (Phase 4 · M5.1). */
+    public function activeSubscription(): ?MemberSubscription
+    {
+        /** @var MemberSubscription|null $subscription */
+        $subscription = $this->subscriptions()->where('status', 'active')->latest('started_at')->first();
+
+        return $subscription;
+    }
+
     /** @return list<int> the user's group ids (primary + secondary) */
     public function groupIds(): array
     {
