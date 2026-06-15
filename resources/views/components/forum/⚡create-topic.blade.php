@@ -354,7 +354,7 @@ new class extends Component
 
     @if ($canApplyTags)
         <div class="space-y-2" dusk="create-tags-block">
-            <label class="block text-sm font-medium text-ink">
+            <label for="create-tag-input" class="block text-sm font-medium text-ink">
                 Tags <span class="text-ink-subtle font-normal">(optional)</span>
             </label>
 
@@ -377,6 +377,7 @@ new class extends Component
             {{-- Tag autocomplete input --}}
             <div class="relative" x-data="{ open: false }">
                 <input type="text"
+                       id="create-tag-input"
                        wire:model.live.debounce.200ms="tagInput"
                        wire:keydown.enter.prevent="addTag"
                        wire:keydown.comma.prevent="addTag"

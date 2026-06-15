@@ -181,6 +181,9 @@
                         x-data="{ mode: document.documentElement.getAttribute('data-color-mode') || 'auto' }"
                         x-on:novfora:color-mode.window="mode = $event.detail"
                         @click="window.NovFora.cycleColorMode()"
+                        {{-- Static accessible name for the pre-hydration / no-JS state; Alpine enhances it
+                             with the live mode once mounted (a11y, Wave 8.2). --}}
+                        aria-label="Change colour theme"
                         :aria-label="'Theme: ' + mode + ' (click to change)'" :title="'Theme: ' + mode"
                         class="inline-flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink">
                     <span x-show="mode === 'auto'" @if ($colorMode !== 'auto') x-cloak @endif><x-ui.icon name="monitor" /></span>

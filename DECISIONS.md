@@ -2014,3 +2014,30 @@ saved-search surface + shared chrome as the proven pattern. Externalising the re
 **mechanical follow-up** (string-by-string `__()` extraction, no design left to make) and is tracked as such,
 not built here. Tests (9): allowlist guard + direction, resolution precedence (user/session/fallback),
 RTL `dir="rtl"` vs `dir="ltr"`, switcher persistence, out-of-list rejection, externalised-string lookup.
+
+### ADR-0044 — WCAG 2.1 AA automated audit + fixes (Wave 8.2) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** Enforce accessibility in two layers. (1) A **deterministic parser-level auditor**
+(`App\Accessibility\AccessibilityAuditor`, DOMDocument) that flags the machine-checkable WCAG 2.1 AA
+failures — missing `img` alt, unlabelled form controls, links/buttons with no accessible name, missing
+`html lang` / `title` / `h1` / `main` / skip link, positive `tabindex`, broken `for`/`aria-*` id references.
+It backs both a Pest **page gate** (`WcagAuditTest` renders the high-traffic surfaces and asserts zero
+findings — so an a11y regression fails CI) and an ad-hoc command `novfora:a11y:audit <url|file>`. (2) A
+**manual checklist** (`docs/architecture/accessibility.md`) for what static HTML cannot prove — contrast,
+keyboard operability, focus order/visibility, reduced-motion, live regions, screen-reader journeys, RTL
+visual mirroring.
+
+**Why a bespoke engine, not axe-core.** axe-core needs a real browser (headless Chrome) — unavailable on the
+cron-only baseline tier and absent from the default `pest` gate. A DOMDocument auditor runs in the standard
+PHP test process with no extra service, consistent with the progressive-enhancement rule. It is explicitly a
+**floor, not a conformance guarantee**: zero findings means no machine-detectable violation on the audited
+pages, not full AA — hence the mandatory manual pass.
+
+**Fixes shipped.** Three real bugs the gate surfaced: the header colour-mode toggle had only an Alpine
+`:aria-label` binding (no name in server HTML) → static `aria-label` added; the Wave-6.1 "Save this search"
+field had only a `placeholder` → `aria-label` added; the create-topic tag input's visible "Tags" label was
+unassociated → wired with `for`/`id`.
+
+**Tests.** Engine unit suite (14) proves it catches each violation class AND does not false-positive on
+conformant markup; page gate (14 surfaces) asserts zero findings end-to-end.
