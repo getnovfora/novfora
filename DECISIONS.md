@@ -2696,3 +2696,43 @@ as enabled with an empty self-checkout set. Admin (5): non-admin 403; grant-by-u
 grant-by-email honours an expiry; an unknown member yields a soft error and grants nothing; revoke drops the
 capability. Gate green: **full suite 1482 passed / 1 skipped / 0 failed** (12545 assertions), pint clean, phpstan
 (level 5) 0 errors. *(No SCAFFOLDED caveat — the manual path is fully real and is the only live-granting path.)*
+
+### ADR-0065 — Stripe hosted checkout (charging DISABLED) + a hardened webhook (Phase 4 · M5.3) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**MONEY FENCE (APEX).** This build NEVER initiates a charge. `StripePaymentProvider::isEnabled()` is **false by
+default** (requires both the enable flag AND a configured secret key), so `checkout()` hard-throws and the
+provider never reaches the Stripe API. Enabling Stripe is a deliberate, documented owner step (below).
+
+**Decision.**
+1. **Hosted Checkout, minimal PCI.** When enabled, `checkout()` creates a Stripe-hosted Checkout Session and
+   redirects the member to Stripe — **card data never touches our server**. The grant happens later, only on a
+   signed webhook, never on the checkout request. No `stripe/stripe-php` dependency is added: the session is a
+   single `Http::asForm()->post()` to a **constant** API URL (no SSRF surface — success/cancel URLs come from
+   our own named routes, never from input).
+2. **Hardened webhook (APEX untrusted-input).** `POST /webhooks/stripe` mirrors the mail webhook's fail-closed
+   discipline: dormant **404** until enabled + a webhook secret is set; **413** oversize; the
+   `Stripe-Signature` HMAC verified FIRST (`StripeWebhookVerifier`: `hash_hmac('sha256', "{t}.{body}")` +
+   `hash_equals` + a 300s replay window) → **401** on forgery/stale, no DB write; **422** malformed/incomplete;
+   a valid `checkout.session.completed` GRANTS the tier **idempotently** (deduped on the Stripe session id);
+   any other event type is acknowledged 200 without action. It never fetches a URL from the payload.
+3. **Surfaces.** Admin → Settings → Payments stores the keys (secret + webhook secret **encrypted**) and refuses
+   to flip `enabled` without a secret. The member page shows a "Subscribe" button only when a self-checkout
+   provider is enabled (Stripe in `PaymentProviders::selfCheckout()`); otherwise "contact an administrator".
+
+**Tested.** 18 tests, all with **synthetic signed events / a mocked HTTP client** (no real Stripe). Webhook (9):
+dormant-404; forged-401; stale-401; oversize-413; valid grant flips the capability; replay idempotent;
+unrelated event ignored; missing-metadata 422; unmappable user/tier acknowledged without grant. Provider (6):
+disabled-by-default refuses checkout; enabled creates a hosted session with metadata + NO card data; registry
+self-checkout only when enabled; route 404 when disabled / redirects when enabled. Admin (3): non-admin 403;
+won't enable without a secret; secret stored encrypted. Gate green: **full suite 1500 passed / 1 skipped / 0
+failed** (12593 assertions), pint clean, phpstan (level 5) 0 errors.
+
+**⚠ SCAFFOLDED — NOT VALIDATED against live Stripe.** No Stripe account/keys in this build; the request SHAPE +
+signature scheme are proven, but the real API round-trip, the exact form-encoding, and renewal handling
+(`invoice.*` events extend an expiry — NOT built; this receiver handles `checkout.session.completed` only) are
+unproven. **Enable steps (owner):** (1) create a Stripe account + products; (2) Admin → Settings → Payments:
+paste the secret/publishable keys, toggle on; (3) add a Stripe webhook endpoint → `https://<site>/webhooks/stripe`
+for `checkout.session.completed`, paste its signing secret; (4) run a real test-mode checkout and confirm the
+grant; (5) consider `invoice.payment_succeeded`/`customer.subscription.deleted` handling before relying on
+auto-renewal. Until then, the **offline/manual** provider (ADR-0064) remains the live-granting path.

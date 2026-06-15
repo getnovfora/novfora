@@ -183,6 +183,15 @@ final class SettingsRegistry
             new SettingDefinition('push.vapid_public_key', 'string', default: '', group: 'push', label: 'VAPID public key'),
             new SettingDefinition('push.vapid_private_key', 'string', encrypted: true, default: '', group: 'push', label: 'VAPID private key'),
             new SettingDefinition('push.vapid_subject', 'string', default: '', group: 'push', label: 'VAPID subject (mailto: or site URL)'),
+
+            // ── Payments / Stripe (Phase 4 · M5.3 — CHARGING DISABLED by default) ──────────────────────
+            // Stripe HOSTED Checkout for paid memberships. OFF by default and unconfigured: no charge can be
+            // initiated until an operator sets the keys AND flips `enabled`. Secrets stored ENCRYPTED. The
+            // webhook secret signs the inbound checkout.session.completed event (StripeWebhookVerifier).
+            new SettingDefinition('payments.stripe.enabled', 'bool', default: false, group: 'payments', label: 'Stripe payments enabled'),
+            new SettingDefinition('payments.stripe.publishable_key', 'string', default: '', group: 'payments', label: 'Stripe publishable key'),
+            new SettingDefinition('payments.stripe.secret_key', 'string', encrypted: true, default: '', group: 'payments', label: 'Stripe secret key'),
+            new SettingDefinition('payments.stripe.webhook_secret', 'string', encrypted: true, default: '', group: 'payments', label: 'Stripe webhook signing secret'),
         ];
     }
 }

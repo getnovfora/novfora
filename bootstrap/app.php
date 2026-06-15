@@ -64,6 +64,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // patterns; they simply match nothing while the (dormant-by-default) webhook route is unregistered.
         $middleware->validateCsrfTokens(except: [
             'webhooks/mail/*',
+            // Stripe webhook (Phase 4 · M5.3): machine-to-machine, no session/CSRF token — authenticated by the
+            // Stripe-Signature HMAC inside StripeWebhookVerifier. Inert (404) until Stripe is enabled.
+            'webhooks/stripe',
             'unsubscribe/*',
             // SAML ACS (Phase 4 · M2.4 SCAFFOLD): the IdP POSTs the assertion cross-site with no session/CSRF
             // token; it is authenticated by the IdP's XML signature inside the provider. Inert by default

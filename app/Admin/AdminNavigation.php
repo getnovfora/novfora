@@ -31,6 +31,7 @@ final class AdminNavigation
         'appearance' => ['admin.settings.appearance', 'Appearance'],
         'members' => ['admin.members.directory', 'Members'],
         'search' => ['admin.settings.search', 'Search'],
+        'payments' => ['admin.settings.payments', 'Payments'],
     ];
 
     /**
@@ -57,6 +58,7 @@ final class AdminNavigation
                 ['Clubs', 'admin.settings.clubs', 'users'],
                 ['Social login', 'admin.settings.sso', 'lock'],
                 ['Search', 'admin.settings.search', 'database'],
+                ['Payments', 'admin.settings.payments', 'check-circle'],
             ]],
             ['Members', 'users', [
                 ['Groups', 'admin.members.groups', 'users'],

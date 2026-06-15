@@ -43,11 +43,20 @@
                                     @endforeach
                                 </ul>
                             @endif
+
+                            @if ($canCheckout && ! $tier->isFree())
+                                <form method="POST" action="{{ route('membership.checkout', $tier) }}">
+                                    @csrf
+                                    <x-ui.button type="submit" class="w-full">Subscribe</x-ui.button>
+                                </form>
+                            @endif
                         </div>
                     </x-ui.card>
                 @endforeach
             </div>
-            <p class="text-xs text-ink-subtle">To join a plan, contact an administrator. Online checkout availability depends on this site’s configuration.</p>
+            @unless ($canCheckout)
+                <p class="text-xs text-ink-subtle">To join a plan, contact an administrator. Online checkout availability depends on this site’s configuration.</p>
+            @endunless
         @endif
     </x-ui.container>
 @endsection

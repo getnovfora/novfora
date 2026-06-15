@@ -42,9 +42,9 @@ final class PaymentProviders
     /** @return list<PaymentProvider> every known provider implementation (filtered by isEnabled in enabled()). */
     private function candidates(): array
     {
-        // Stripe (M5.3) is appended here behind its enabled flag in that milestone.
         return [
             app(ManualPaymentProvider::class),
+            app(StripePaymentProvider::class), // disabled by default (charging off until an operator enables it)
         ];
     }
 }
