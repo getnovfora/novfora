@@ -2505,3 +2505,46 @@ a per-event push opt-out persists (`enabled=false`); push stays on by default. G
 full suite 1428 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors. *(The browser subscribe round-trip is exercised
 server-side via the M3.2 endpoints; the client JS itself is browser-only and unvalidated against a real push
 service — ADR-0058.)*
+
+### ADR-0060 — Meilisearch execution path via Scout, behind service-detection (Phase 4 · M4.1) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context.** Search shipped (ADR-0010) with two paths: `SearchService::posts()` (typeahead) already ran the
+configured Scout engine with a DB fallback, but the faceted search page (`SearchService::search()`) ran
+**always** on the database engine. M4.1 adds the enhanced Meilisearch execution path to the faceted page —
+typo-tolerance + relevance at scale — **without** making it a hard dependency on the baseline tier.
+
+**Decision.**
+1. **Detection, not configuration.** `search()` routes to the Scout engine only when
+   `ServiceTier::isEnhanced(Capability::Search)` (driver ∈ meilisearch/typesense/algolia). On the baseline
+   `database` driver — the test/CI default — the engine path is never reached. Any engine error (unreachable,
+   client absent, malformed response) returns `null` from the engine path and **degrades to the always-correct
+   `databaseSearch()`**. The baseline tier can never break.
+2. **Privacy: the index is NEVER the sole gate (apex).** The visibility filter `forum_id IN [...visible]` is
+   applied natively (via `meiliFilter()`), AND every returned hit is **re-gated in PHP** against approval + the
+   visible-forum set + the authoritative `Forum::clubContentVisibleTo()` club gate (mirroring the typeahead
+   path's `SearchController::visible()`). A stale or poisoned index cannot leak a private-club or hidden post —
+   proven by a test where the faked engine deliberately returns a hidden-club hit and the re-gate drops it.
+3. **Engine-expressible queries only.** The engine path is taken only for a keyword query with no tag/type
+   facet (`meiliFilter()` does not translate those); tag/type-faceted queries stay on the DB engine to remain
+   correct. *(Assumption: this is acceptable — the keyword relevance/typo win is the enhanced-tier value; full
+   facet translation to Meili is a future refinement.)*
+4. **In-admin setup/health.** Admin → Settings → Search picks the driver (database|meilisearch) and the host +
+   **encrypted** API key, pushed into `scout.driver` / `scout.meilisearch.*`. It **refuses to switch to
+   meilisearch unless the host responds** (a pre-save `/health` probe) so an admin can never strand search on a
+   dead engine, and surfaces live engine status. A **Reindex** action queues `ReindexSearch` (cron-drained,
+   `WithoutOverlapping`); it is a no-op on the database driver. The published `config/scout.php` declares the
+   Meili `index-settings` (`filterableAttributes: [forum_id, user_id, created_at]` — forum_id is load-bearing
+   for privacy) and Typesense schema.
+
+**Tested.** 10 tests. Search path (5, faked Scout engine — no real Meili): enhanced engine runs + re-gates a
+hidden-club hit out (no leak); an active member sees their own club hit; engine error degrades to DB; a
+type-facet stays on DB; the baseline driver never reaches the engine. Admin panel (5): non-admin 403; save host
+on database driver; switch to meilisearch only when reachable + key stored encrypted; switch refused when
+unreachable (stays on DB); reindex queues the job. Gate green: **full suite 1438 passed / 1 skipped / 0 failed**
+(12409 assertions), pint clean, phpstan (level 5) 0 errors.
+
+**⚠ SCAFFOLDED — NOT VALIDATED against a real Meilisearch.** No Meili instance exists in the build env; the
+engine path is proven only against a faked Scout engine. Validate by pointing `MEILISEARCH_HOST`/`MEILISEARCH_KEY`
+(or the ACP) at a real Meilisearch, running `php artisan scout:sync-index-settings` then `scout:import 'App\Models\Post'`,
+and confirming relevance + that `forum_id` filtering holds. See PROJECT-STATE "SCAFFOLDED — NOT VALIDATED".

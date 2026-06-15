@@ -136,6 +136,15 @@ final class SettingsRegistry
             // 'staff' → 'disabled' (off). Read by App\Community\MembersDirectory::visibleTo().
             new SettingDefinition('members.directory_visibility', 'string', default: 'everyone', group: 'members', label: 'Members directory visibility', options: ['disabled', 'staff', 'members', 'everyone']),
 
+            // ── Search engine (Phase 4 · M4.1) ──────────────────────────────────────────────────────
+            // The Scout driver + Meilisearch connection. `database` is the baseline (no service); switching
+            // to `meilisearch` is an OPT-IN enhanced upgrade — the ACP refuses the switch unless the host is
+            // reachable, and the runtime degrades to `database` automatically if it later becomes unreachable.
+            // The key is stored ENCRYPTED. These push into scout.driver / scout.meilisearch.* at boot.
+            new SettingDefinition('search.driver', 'string', config: 'scout.driver', default: 'database', group: 'search', label: 'Search driver', options: ['database', 'meilisearch']),
+            new SettingDefinition('search.meilisearch_host', 'string', config: 'scout.meilisearch.host', default: 'http://localhost:7700', group: 'search', label: 'Meilisearch host'),
+            new SettingDefinition('search.meilisearch_key', 'string', encrypted: true, config: 'scout.meilisearch.key', default: '', group: 'search', label: 'Meilisearch API key'),
+
             // ── Clubs (Phase 4 · M1.6) ──────────────────────────────────────────────────────────────
             // Who may create a club. 'any' = any verified member; 'trust' = a verified member at trust level
             // ≥ clubs.creation_min_trust_level (default 2); 'staff' = administrators & moderators only (the

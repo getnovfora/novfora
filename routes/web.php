@@ -363,6 +363,7 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/settings/templates', 'admin.settings.templates')->name('settings.templates'); // sandboxed template editor (ADR-0038)
         Route::view('/settings/clubs', 'admin.settings.clubs')->name('settings.clubs'); // who may create clubs (Phase 4 · M1.6)
         Route::view('/settings/sso', 'admin.settings.sso')->name('settings.sso'); // OAuth social login (Phase 4 · M2.1)
+        Route::view('/settings/search', 'admin.settings.search')->name('settings.search'); // Scout driver + Meilisearch (Phase 4 · M4.1)
 
         // Members directory visibility (the public /members listing is gated on this setting).
         Route::view('/members/directory', 'admin.members.directory')->name('members.directory');

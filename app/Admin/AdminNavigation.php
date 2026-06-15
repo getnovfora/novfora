@@ -30,6 +30,7 @@ final class AdminNavigation
         'antispam' => ['admin.settings.antispam', 'Anti-spam'],
         'appearance' => ['admin.settings.appearance', 'Appearance'],
         'members' => ['admin.members.directory', 'Members'],
+        'search' => ['admin.settings.search', 'Search'],
     ];
 
     /**
@@ -55,6 +56,7 @@ final class AdminNavigation
                 ['Templates', 'admin.settings.templates', 'pencil'],
                 ['Clubs', 'admin.settings.clubs', 'users'],
                 ['Social login', 'admin.settings.sso', 'lock'],
+                ['Search', 'admin.settings.search', 'database'],
             ]],
             ['Members', 'users', [
                 ['Groups', 'admin.members.groups', 'users'],
