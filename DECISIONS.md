@@ -2485,3 +2485,23 @@ auth required; the VAPID public-key endpoint reports disabled→enabled; the Not
 with a subscription; the in-app notification still lands with no subscription (fallback); per-event push opt-out
 suppresses it; the payload build; the job sends + prunes the gone subscription (mocked sender); the job no-ops
 when VAPID is unset. Gate green: full suite full suite 1425 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0059 — Push preferences UI: per-type opt-in + device enablement (Phase 4 · M3.3) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** The Settings → Notifications page gains the push controls. (1) The existing per-event × per-channel
+matrix now renders a **Push** column alongside In-app and Email (the `push` channel added in M3.2), so each
+event has a per-type push opt-in — saved as `NotificationPreference(channel='push')`, default on. (2) A new
+**"Push notifications on this device"** card drives the browser subscription: inline **Alpine** (no Vite/Node
+rebuild — the project ships prebuilt assets) reads the VAPID public key from `/push/public-key`, requests
+permission, subscribes via the service worker's `pushManager`, and POSTs the subscription to `/push/subscribe`
+(unsubscribe reverses it). It **degrades silently** where the browser lacks SW/PushManager support or the site
+has no VAPID keys ("not enabled on this site yet"). Two-layer model: the device card is the per-device opt-in;
+the matrix is the per-event delivery preference; the M3.2 Notifier requires BOTH (a subscription + the
+per-event push pref) before dispatching.
+
+**Tested.** 3 tests: the page renders the Push column + the device-enable control + all three channel headers;
+a per-event push opt-out persists (`enabled=false`); push stays on by default. Gate green: full suite
+full suite 1428 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors. *(The browser subscribe round-trip is exercised
+server-side via the M3.2 endpoints; the client JS itself is browser-only and unvalidated against a real push
+service — ADR-0058.)*
