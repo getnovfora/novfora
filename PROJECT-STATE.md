@@ -11,7 +11,105 @@
 
 ---
 
-## 🌙 Phase 4 build (M1 Clubs · M2 SSO · M3 PWA+Push) on `claude/phase-4-features` — 2026-06-15 (LATEST · REVIEW + PUSH THIS)
+## 🌙 Phase 4 ENHANCED build (M4 Search/Realtime · M5 Paid memberships · M6 Anti-spam) on `claude/phase-4-enhanced` — 2026-06-15 (LATEST · REVIEW + PUSH THIS)
+
+**Unattended, owner-authorized autonomous build off `main` (with M1–M3 already merged). 11 conventional,
+DCO-signed, `Tommy Huynh`-authored commits on branch `claude/phase-4-enhanced` (10 feature + 1 wrap-docs).
+NOTHING IS PUSHED** — push is interactive-only in the sandbox; the owner pushes + opens the PR. Built M4 → M5 →
+M6 in order; each unit is its own gated commit. Every ADR (0060–0069) is **"Accepted — owner-authorized
+overnight build; flagged for review."**
+
+**Final gate (branch HEAD, run in `forum-dev`):** `pest --parallel` **1525 passed / 1 skipped / 0 failed**
+(baseline 1428 → **+97** Phase-4-enhanced tests) · `phpstan` (level 5) **0 errors** · `pint` clean ·
+`php artisan migrate` clean. Every unit was committed only at a green boundary; APEX units (broadcast authz,
+money/Stripe webhook, spam intelligence, external-signal privacy) got dedicated security tests.
+
+### Per-unit status (commit · ADR)
+- **M4 Enhanced tier** — `aa42e0c` 4.1 Meilisearch via Scout behind service-detection, DB-driver fallback, the
+  **no-leak re-gate** (the index is never the sole privacy boundary), in-admin setup/health (ADR-0060) ·
+  `87e259b` 4.2 **(APEX)** Reverb broadcasting + **channel-authorization no-leak fence** (private club / PM /
+  hidden thread can never leak over a socket) + polling fallback (ADR-0061) · `95c528f` 4.3 opt-in presence /
+  online-member list + presence-channel no-leak (ADR-0062).
+- **M5 Paid memberships** — `9b81022` 5.1 tier model + **perk gating through the engine** (TierProjector →
+  acl_entries, fixed perk universe) + admin/member surfaces (ADR-0063) · `5695399` 5.2 PaymentProvider contract
+  + **offline/manual provider — the only live-granting path** (ADR-0064) · `88c7455` 5.3 **(APEX)** Stripe
+  hosted checkout **charging DISABLED** + hardened webhook (HMAC + replay + SSRF posture) (ADR-0065) · `fcdf247`
+  5.4 money-fenced paid-clubs hook (ADR-0066).
+- **M6 Advanced anti-spam** — `ea896ba` 6.1 **(APEX)** HOLD-only spam intelligence (similarity/burst/reputation)
+  + false-positive guards (ADR-0067) · `17426c9` 6.2 staff-gated review surface (scores/signals/actions)
+  (ADR-0068) · `d0d3ddc` 6.3 **(APEX)** external-signal tuning + **content-privacy fence** (no post content to a
+  third party without an explicit opt-in) (ADR-0069).
+- **Wrap docs** — `docs/architecture/phase-4/{search-meilisearch,realtime-reverb,memberships,anti-spam-intelligence}.md`,
+  ROADMAP, this handoff.
+
+### ⚠ SCAFFOLDED — NOT VALIDATED against a live service (validate before relying on)
+No external service / paid account exists in the build env, so these are proven only against
+faked/mocked clients. **Exact enable + validate steps:**
+
+1. **Meilisearch (M4.1).** Run a Meilisearch instance; set `SCOUT_DRIVER=meilisearch` + `MEILISEARCH_HOST` +
+   `MEILISEARCH_KEY` (or Admin → Settings → Search); `php artisan scout:sync-index-settings`; `php artisan
+   scout:import 'App\Models\Post'`; confirm relevance + that a private-club post never appears for a non-member.
+2. **Reverb realtime (M4.2/M4.3).** `composer require laravel/reverb pusher/pusher-php-server`; `php artisan
+   reverb:install`; set `BROADCAST_CONNECTION=reverb` + `REVERB_*`; `npm install laravel-echo pusher-js`,
+   configure `window.Echo`, `npm run build`; run `php artisan reverb:start` under a supervisor. The
+   **channel-authorization logic is fully tested**; the websocket round-trip + thread-page live-append are not.
+3. **Live Stripe payments (M5.3).** Create a Stripe account + products; Admin → Settings → Payments: paste
+   secret/publishable keys + toggle on; add a Stripe webhook → `https://<site>/webhooks/stripe` for
+   `checkout.session.completed` and paste its signing secret; run a **test-mode** checkout and confirm the grant.
+   Add `invoice.*` / `customer.subscription.deleted` handling before relying on auto-renewal. **Until enabled,
+   the offline/manual provider is the live-granting path; no charge can be initiated.**
+4. **StopForumSpam submission (M6.3).** Optional. Set the SFS submission key + enable the live API in Admin →
+   Settings → Anti-spam to enable opt-in spammer reporting. Leave "send post content to external services" OFF
+   unless your community consents. The scoring/holding pipeline (M6.1) + the review surface (M6.2) are fully real.
+
+### Recorded assumptions (also inline + in DECISIONS.md)
+- **Search (M4.1):** engine path taken only for keyword queries with no tag/type facet (those stay on DB to
+  remain correct); the visibility filter is applied natively AND re-gated in PHP (ADR-0060).
+- **Realtime (M4.2):** events broadcast with **id-only payloads** (no bodies/PII; client refetches); broadcast
+  gated on the enhanced tier so baseline pays nothing. No `laravel/reverb`/`pusher-php-server` installed (added
+  at enable time) — channel authz tested on the null driver (ADR-0061).
+- **Presence (M4.3):** `users.show_online_status` **default FALSE** (opt-in / security-by-default) — the
+  "who's online" list is sparse until members opt in; this also closed a prior gap where the theme widget showed
+  every active member (ADR-0062).
+- **Memberships (M5.1):** perks are a **fixed `TierPerks` universe** (a tier can never grant an arbitrary
+  capability); each perk's *effect* is wired per-feature — M5.1 delivers the gating. Tier expiry is an hourly
+  cron `novfora:tiers:expire`. No card data stored (ADR-0063).
+- **Payments (M5.2/M5.3):** **manual provider is the only live-granting path**; Stripe is **disabled by default**
+  (needs the enable flag AND a secret key) — no charge possible. Stripe is hosted-checkout (card data never
+  touches the server); no `stripe/stripe-php` dependency (hand-rolled). Webhook handles `checkout.session.completed`
+  only (renewal events are a documented follow-up) (ADR-0064/0065).
+- **Paid clubs (M5.4):** `clubs.require_membership` **default FALSE**; when on, creation needs the
+  `tier.create_clubs` perk — **no new money path** (the perk comes from the membership system) (ADR-0066).
+- **Spam intelligence (M6.1):** **HOLD-only** (never deletes); trusted members exempt (staff / `trusted_floor` 3 /
+  `established_posts` 50); thresholds in `config/novfora.php → antispam.intelligence` (ADR-0067). One unrelated
+  pagination fixture was retargeted to a trusted author (its 20-rapid-replies setup correctly tripped burst).
+- **External signals (M6.3):** the SFS block threshold is admin-tunable (default 75 unchanged);
+  `antispam.external_content_optin` **default FALSE** is the privacy fence — only metadata is ever sent unless an
+  admin opts in (ADR-0069).
+
+### What remains for Phase 4 / toward 1.0 (NOT built this run — record only)
+This **completes Phase 4's planned surface (M1–M6).** Remaining is **validation against live
+services/providers** (the four items above) + the standing Phase-5 items (full i18n string externalisation,
+captured load-test numbers on both tiers, docs → 1.0). No new feature work is queued for Phase 4.
+
+### Pre-existing uncommitted WIP — STASHED again (not mine)
+On session start, `main`'s working tree again carried the **prior `claude/mega-build` upgrade WIP** (idempotent
+`Schema::hasTable` migration guards + an `UpgradeCommand` restore-path fix — the stash had been popped back since
+the last session). To keep this branch clean it was **`git stash`ed** with a backup patch at
+`storage/handoff/preexisting-upgrade-wip-13afedd.patch` (the working-tree diff matched the patch exactly).
+**Owner: review + `git stash pop` (or apply the patch) on `main` if that work should land.**
+
+### ☀️ Morning report — what the owner does next
+1. **Review** the 11 commits on `claude/phase-4-enhanced` (ADRs 0060–0069, all flagged-for-review), then
+   **push** + open the PR from your terminal.
+2. **Restore the stashed upgrade WIP** on `main` if wanted (see above).
+3. **Before relying on the enhanced tier in production:** follow the four "SCAFFOLDED — NOT VALIDATED" enable
+   steps above (Meilisearch, Reverb, live Stripe, SFS submission).
+4. New docs to skim: `docs/architecture/phase-4/{search-meilisearch,realtime-reverb,memberships,anti-spam-intelligence}.md`.
+
+---
+
+## 🌙 Phase 4 build (M1 Clubs · M2 SSO · M3 PWA+Push) on `claude/phase-4-features` — 2026-06-15 (REVIEW + PUSH THIS)
 
 **Unattended, owner-authorized autonomous build off `main` (the merged mega-build base). 14 conventional,
 DCO-signed, `Tommy Huynh`-authored commits on branch `claude/phase-4-features`. NOTHING IS PUSHED** — push is
