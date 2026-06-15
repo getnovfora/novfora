@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureBoardOnline;
 use App\Http\Middleware\EnsureNotInstalled;
 use App\Http\Middleware\PreventRequestsDuringUpgrade;
+use App\Http\Middleware\PwaResponseHeaders;
 use App\Http\Middleware\RedirectIfNotInstalled;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetLocale;
@@ -39,6 +40,10 @@ return Application::configure(basePath: dirname(__DIR__))
             // Resolve the UI locale (Wave 8.1) from the member preference / session switcher / default,
             // validated against the allowlist. Appended so the session is already started when it reads.
             SetLocale::class,
+            // PWA (Phase 4 · M3.1): flag guest, no-PII GET pages as safe for the service worker to cache for
+            // offline read. Authenticated pages never get the flag, so the SW never stores PII. Appended LAST
+            // so auth is resolved when it checks. Cheap (one guest + path check).
+            PwaResponseHeaders::class,
         ]);
 
         // The installer lock — applied to the installer routes so they 403 once installed.

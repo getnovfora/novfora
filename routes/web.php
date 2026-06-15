@@ -23,6 +23,7 @@ use App\Http\Controllers\ModerationController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileFieldController;
+use App\Http\Controllers\PwaController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SavedSearchController;
 use App\Http\Controllers\SearchController;
@@ -57,6 +58,13 @@ Route::middleware('novfora.not-installed')->group(function () {
 
 // Health/status endpoint for uptime monitoring (M5) — works before AND after install; no auth, no secrets.
 Route::get('/health', HealthController::class)->name('health');
+
+// ── PWA (Phase 4 · M3.1) — installable manifest + service worker (root scope) + offline fallback. Public;
+// progressive enhancement (ignored by browsers without SW support). The SW caches only static shell + guest,
+// no-PII pages (flagged by PwaResponseHeaders) — never authenticated mutations or personal data.
+Route::get('/manifest.webmanifest', [PwaController::class, 'manifest'])->name('pwa.manifest');
+Route::get('/sw.js', [PwaController::class, 'serviceWorker'])->name('pwa.service-worker');
+Route::view('/offline', 'pwa.offline')->name('pwa.offline');
 
 // ── OAuth social sign-in (Phase 4 · M2.1) — alternative to password login; per-provider OFF by default.
 // Stateful Socialite (session state nonce = CSRF defence). A disabled/unknown provider 404s. Throttled.

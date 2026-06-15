@@ -62,6 +62,18 @@
         <link rel="icon" href="{{ $themeAssets['favicon'] }}">
     @endif
 
+    {{-- PWA (Phase 4 · M3.1): installable manifest + theme colour + maskable icon + a no-PII service worker. --}}
+    <link rel="manifest" href="{{ route('pwa.manifest') }}">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="apple-touch-icon" href="/icons/novfora.svg">
+    <script @if ($nonce) nonce="{{ $nonce }}" @endif>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/sw.js').catch(function () {});
+            });
+        }
+    </script>
+
     {{-- No-flash-of-wrong-theme: apply the stored colour-mode/density BEFORE first paint. nonce-aware for the
          strict CSP (phase-1.5 F-M3); harmless under the baseline policy. --}}
     <script @if ($nonce) nonce="{{ $nonce }}" @endif>

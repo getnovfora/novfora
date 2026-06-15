@@ -2429,3 +2429,30 @@ setting-off / provider-not-configured; redirect to the IdP SSO URL; SP metadata 
 signs in at the ACS; unknown subject refused (no JIT); invalid response fails closed; the DTO contract. Gate
 green: full suite full suite 1407 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors. **Validate against a real IdP +
 implement a concrete provider before claiming SAML works.**
+
+### ADR-0057 — Installable PWA: manifest + a no-PII service worker (Phase 4 · M3.1) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** NovFora is an installable PWA. A web app **manifest** (`/manifest.webmanifest`: name, `start_url`/
+`scope` `/`, `display: standalone`, theme/background colours, a scalable maskable SVG icon at
+`/icons/novfora.svg`) + a root-scoped **service worker** (`/sw.js`) wired into the layout head, with an
+`/offline` fallback page. Pure **progressive enhancement** — a browser without SW support ignores it and the
+site is unchanged; nothing on the Baseline tier depends on it.
+
+**The "never authed mutations / PII" fence — enforced two ways.**
+1. The SW **only handles GET**; every mutation (POST/PUT/PATCH/DELETE) passes straight through to the network —
+   never cached, never replayed.
+2. Page HTML is cached **only when the server flags it safe**. The `PwaResponseHeaders` middleware sets
+   `X-PWA-Cacheable: 1` solely on **guest, GET, 200** responses for **public** content paths (auth surfaces,
+   `/api`, installer, feeds, sitemap are denylisted); an **authenticated** page never gets the flag, so the SW
+   never stores a personal/PII page. This server-authoritative gate is more reliable than the SW trying to infer
+   auth state from the response. Static shell assets (`/build`, `/icons`, fonts/images) are cache-first (no PII
+   possible); navigations are network-first with the `/offline` fallback.
+
+**Tested.** 8 tests: manifest is valid + installable (start_url/scope/display/icons, `application/manifest+json`);
+the SW serves at root with `Service-Worker-Allowed: /` and its source contains the no-mutation
+(`req.method !== 'GET'`) + header-gated-caching invariants; the offline page renders; a guest public page is
+flagged cacheable; an **authenticated page is NOT** (PII protection); an auth-surface page is not flagged even
+for guests; the head wires the manifest + SW. Gate green: full suite full suite 1415 passed / 1 skipped / 0 failed, pint clean, phpstan
+(level 5) 0 errors. *(Production should add 192/512 raster icons for the widest install-prompt support; the SVG
+maskable icon covers modern browsers.)*
