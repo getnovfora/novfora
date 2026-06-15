@@ -347,6 +347,9 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         // Membership tiers (Phase 4 · M5.1) — the <livewire:admin.tiers /> manager. No money is charged here.
         Route::view('/tiers', 'admin.tiers')->name('tiers');
 
+        // Memberships (Phase 4 · M5.2) — the <livewire:admin.member-grants /> manual grant/revoke surface.
+        Route::view('/memberships', 'admin.memberships')->name('memberships');
+
         // Module / plugin manager (ADR-0031, B1) — the <livewire:admin.modules /> lifecycle surface.
         Route::view('/modules', 'admin.modules')->name('modules');
 

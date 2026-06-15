@@ -64,6 +64,7 @@ final class AdminNavigation
                 ['Custom fields', 'admin.system.profile-fields', 'list'],
                 ['Directory', 'admin.members.directory', 'users'],
                 ['Membership tiers', 'admin.tiers', 'check-circle'],
+                ['Memberships', 'admin.memberships', 'check-circle'],
             ]],
             ['Content', 'folder', [
                 ['Forums & structure', 'admin.structure', 'folder'],

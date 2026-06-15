@@ -2667,3 +2667,32 @@ rejected at the form; edit/deactivate; delete-on-confirm. Member page (3): guest
 **Assumption (recorded).** Each perk's *effect* (actually hiding ads, allowing a custom title, etc.) is wired
 per-feature; M5.1 delivers the **gating mechanism** — the engine grant/revoke — which is what the brief specifies
 ("tier gating grants/revokes the right capabilities"). The starter perk set is illustrative and admin-editable.
+
+### ADR-0064 — Payment-provider interface + the offline/manual provider (Phase 4 · M5.2) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**MONEY FENCE.** This build NEVER initiates a real charge. The only path that actually grants a membership is
+the **offline/manual** provider: an admin records that a member paid (cash/transfer/comp) and grants the tier.
+Stripe (M5.3) is a separate, charging-DISABLED adapter behind the same interface.
+
+**Decision.**
+1. **A small, semver'd `PaymentProvider` contract** (`key/label/isEnabled/supportsSelfCheckout/checkout`) so the
+   member surface + ACP are provider-agnostic. The GRANT always flows through `MembershipService` (ADR-0063), so
+   capabilities resolve identically regardless of how payment was collected.
+2. **`ManualPaymentProvider` — the live-granting path.** `isEnabled() = true` (no external service), but
+   `supportsSelfCheckout() = false` (it never shows a member "buy" button, and `checkout()` throws). It exposes
+   `grant(user, tier, ?expiresAt)` → `MembershipService::activate(provider: 'manual', ...)` and `revoke()` →
+   `cancel()`. Driven entirely from the admin surface.
+3. **`PaymentProviders` registry** reports which providers are enabled and which support self-checkout. In M5.2
+   it knows only `manual`; `selfCheckout()` is **empty** (so no online "buy" appears anywhere until Stripe is
+   added + enabled in M5.3). Stripe is appended to `candidates()` in that milestone.
+4. **Admin Memberships surface** (`admin.memberships`, staff + 2FA gated): resolve a member by username/email,
+   pick an active tier, optionally set an expiry (days), grant — and a list of active grants with revoke. No
+   card data is handled or stored.
+
+**Tested.** 10 tests. Provider (5): grant activates + grants perks through the engine; grant honours an expiry;
+revoke cancels + revokes; `checkout()` throws + `supportsSelfCheckout()` is false; the registry lists `manual`
+as enabled with an empty self-checkout set. Admin (5): non-admin 403; grant-by-username flips the capability;
+grant-by-email honours an expiry; an unknown member yields a soft error and grants nothing; revoke drops the
+capability. Gate green: **full suite 1482 passed / 1 skipped / 0 failed** (12545 assertions), pint clean, phpstan
+(level 5) 0 errors. *(No SCAFFOLDED caveat — the manual path is fully real and is the only live-granting path.)*
