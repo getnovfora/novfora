@@ -95,6 +95,18 @@ class SocialLogin
         ]);
     }
 
+    /**
+     * Unlink a provider from an account (M2.2). Always safe: the account keeps its email + password (or can
+     * reset it), so it is never locked out. Idempotent — a no-op if the provider is not linked.
+     */
+    public function unlink(User $user, string $provider): void
+    {
+        SocialAccount::query()
+            ->where('user_id', $user->getKey())
+            ->where('provider', $provider)
+            ->delete();
+    }
+
     /** Create a fresh local account from a provider profile and attach the identity. */
     private function createUser(string $provider, string $providerUserId, string $email, SocialiteUser $socialUser): User
     {

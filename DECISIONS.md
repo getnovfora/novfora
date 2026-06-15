@@ -2350,3 +2350,23 @@ before relying on it. (PKCE + an outbound-request review are M2.3.)
 returning identity (same user, no duplicate), **email collision refused (no merge, stays guest, no identity
 attached)**, disabled provider 404, unknown provider 404, redirect kicks off, invalid-state fails closed,
 declined consent handled. Gate green: full suite full suite 1386 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0054 — OAuth account linking + email-collision safety (Phase 4 · M2.2) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** A Settings → Linked accounts page lets an authenticated user **link** or **unlink** each enabled
+provider. Linking reuses the SAME `/auth/{provider}/callback` as login, disambiguated by an `oauth.link_intent`
+session flag set by the POST `oauth.link` action — so a single registered redirect URI per provider serves both
+flows. `SocialLogin::link()` attaches the identity to the CURRENT account and **refuses** if that identity is
+already linked to a DIFFERENT account; `unlink()` is always safe (the account keeps its email + password, so it
+is never locked out) and idempotent.
+
+**The APEX flow, end to end.** A provider email that collides with an existing local account does NOT auto-merge
+at login (ADR-0053). Instead the user **proves control** by signing in with their password, then links the
+provider from settings — at which point the SAME identity attaches successfully. This is the "link to an
+existing account ONLY after proven control" rule, demonstrated by a single test that walks both halves.
+
+**Tested.** 7 feature tests: start-link flags the session + redirects; disabled-provider link 404s; link
+attaches the identity; link refused when the identity is already linked elsewhere (no row written for the
+attacker); unlink removes it; the **full collision→password-login→link** APEX flow; the page renders. Gate
+green: full suite full suite 1393 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors.

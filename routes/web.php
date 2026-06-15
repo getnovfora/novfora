@@ -5,9 +5,9 @@
 use App\Community\MembersDirectory;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\TasksController;
-use App\Http\Controllers\Auth\SocialAuthController;
 use App\Http\Controllers\AppearanceController;
 use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\Auth\SocialAuthController;
 use App\Http\Controllers\BanController;
 use App\Http\Controllers\BookmarkController;
 use App\Http\Controllers\ClubController;
@@ -253,6 +253,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Personal API tokens (ADR-0033, B3) — the ⚡api-tokens SFC issues/revokes the user's own tokens.
     Route::view('/settings/api-tokens', 'settings.api-tokens')->name('settings.api-tokens');
+
+    // Linked social accounts (Phase 4 · M2.2) — link/unlink OAuth providers to this account. The link
+    // round-trip reuses the shared /auth/{provider}/callback (disambiguated by an oauth.link_intent flag).
+    Route::get('/settings/linked-accounts', [SocialAuthController::class, 'linkedAccounts'])->name('settings.linked-accounts');
+    Route::post('/settings/linked-accounts/{provider}/link', [SocialAuthController::class, 'startLink'])->name('oauth.link')->middleware('throttle:30,1');
+    Route::delete('/settings/linked-accounts/{provider}', [SocialAuthController::class, 'unlink'])->name('oauth.unlink');
 
     // Private messages (P2-M2 Half-B). The /messages/new route MUST be registered before {conversation}
     // so the literal "new" segment is never captured as a conversation id.
