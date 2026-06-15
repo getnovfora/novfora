@@ -8,12 +8,15 @@ namespace App\Notifications;
 
 use App\Deliverability\Digest\DigestQueue;
 use App\Deliverability\SuppressionGate;
+use App\Events\NotificationReceived;
 use App\Jobs\SendPushNotification;
 use App\Mail\NotificationMail;
 use App\Models\DigestPreference;
 use App\Models\NotificationPreference;
 use App\Models\PushSubscription;
 use App\Models\User;
+use App\Services\Tier\Capability;
+use App\Services\Tier\ServiceTier;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -54,6 +57,13 @@ final class Notifier
         $notificationId = null;
         if ($this->prefers($recipient, $event, 'database')) {
             $notificationId = $this->writeDatabase($recipient, $event, $actor, $payload);
+
+            // Realtime ping (Phase 4 · M4.2) — on the enhanced tier only, so the recipient's bell updates
+            // instantly over their PRIVATE notifications channel. Guarded so the baseline pays nothing (no
+            // extra count query, no event): the bell keeps its 30s poll. Carries only the unread count.
+            if (app(ServiceTier::class)->isEnhanced(Capability::Broadcast)) {
+                NotificationReceived::dispatch((int) $recipient->getKey(), $recipient->unreadNotifications()->count());
+            }
         }
 
         if ($this->prefers($recipient, $event, 'mail') && $recipient->email && ! $this->gate->suppressed($recipient->email)) {

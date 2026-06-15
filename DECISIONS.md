@@ -2548,3 +2548,49 @@ unreachable (stays on DB); reindex queues the job. Gate green: **full suite 1438
 engine path is proven only against a faked Scout engine. Validate by pointing `MEILISEARCH_HOST`/`MEILISEARCH_KEY`
 (or the ACP) at a real Meilisearch, running `php artisan scout:sync-index-settings` then `scout:import 'App\Models\Post'`,
 and confirming relevance + that `forum_id` filtering holds. See PROJECT-STATE "SCAFFOLDED — NOT VALIDATED".
+
+### ADR-0061 — Realtime broadcasting + channel authorization, behind service-detection (Phase 4 · M4.2) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context.** The baseline tier has no realtime daemon, so the UI updates by Livewire polling (the notification
+bell @30s, the PM badge @60s). M4.2 adds the enhanced realtime path — instant updates over websockets when an
+operator runs Reverb — **without** any baseline dependency, and with the **socket as a first-class security
+boundary**: a user must never receive an event for content they cannot already view.
+
+**Decision.**
+1. **Channel authorization is the apex surface.** `routes/channels.php` authorizes three private channels —
+   `notifications.{userId}` (owner only), `thread.{topicId}`, `conversation.{conversationId}` — each a thin
+   delegate over `App\Broadcasting\ChannelAuthorizer`. The thread check resolves through the **same**
+   permission engine (`forum.view` at the thread scope) **and** the query-level club gate
+   (`Forum::clubContentVisibleTo`) the HTTP surfaces use; the conversation check is the participant-only
+   `ConversationPolicy` (PMs live outside the ACL scope tree). Every method **fails closed**. The board is
+   public-by-default, so a non-member can hold global `forum.view=ALLOW` yet is still denied a private-club
+   thread by the club gate — proven by a test. Authorization is registered on **every** tier
+   (`withBroadcasting` in `bootstrap/app.php`), so the no-leak boundary holds even with a null/log broadcaster.
+2. **Events broadcast only when enhanced.** `PostCreated` (→ `thread.{id}`), `MessageSent` (→
+   `conversation.{id}`), and a new `NotificationReceived` (→ `notifications.{id}`) implement `ShouldBroadcast`
+   with `broadcastWhen()` gated on `ServiceTier::isEnhanced(Capability::Broadcast)` — so the baseline pays
+   nothing (no queue, no broadcast). Payloads are **ids only** (no post/message body, no PII): the client
+   refetches the rendered content it is already entitled to. `PostCreated` additionally requires
+   `approved_state === 'approved'` so a held/pending reply never broadcasts.
+3. **Polling stays as the fallback.** The notification bell keeps `wire:poll.30s` as the always-correct
+   backstop and *additionally* subscribes to its private channel via Echo **only if `window.Echo` is present**
+   (inert otherwise) — pure progressive enhancement. `config/broadcasting.php` ships the `reverb`/`pusher`
+   connections, default `null`.
+
+**Tested.** 14 tests. Channel authz (8): notifications owner-only; normal-forum thread allowed; `forum.view`
+NEVER denied; unknown thread fails closed; **hidden-club thread denied to a non-member, allowed to an active
+member + staff**; conversation participant-only; soft-left participant denied; unknown conversation fails
+closed. Events (6): each broadcasts on the correct private channel with id-only payloads and the right
+`broadcastWhen` gating; a pending reply never broadcasts; the Notifier pings only on the enhanced tier; the
+auth endpoint is registered. Gate green: **full suite 1452 passed / 1 skipped / 0 failed** (12442 assertions),
+pint clean, phpstan (level 5) 0 errors.
+
+**⚠ SCAFFOLDED — NOT VALIDATED against a real Reverb.** No Reverb/Pusher server (nor the `laravel/reverb` +
+`pusher/pusher-php-server` packages) is installed in the build env — the channel-authz **logic** is fully
+proven server-side, but the websocket round-trip is not. The client-side live-append on the **thread page**
+needs `laravel-echo`+`pusher-js` bundled (this repo ships prebuilt assets / no Node), so it is wired
+server-side only. **Enable steps:** `composer require laravel/reverb pusher/pusher-php-server`;
+`php artisan reverb:install`; set `BROADCAST_CONNECTION=reverb` + `REVERB_*` env; `npm install laravel-echo pusher-js`,
+configure `window.Echo` (reverb/pusher), `npm run build`; run `php artisan reverb:start` under a supervisor.
+See PROJECT-STATE "SCAFFOLDED — NOT VALIDATED".

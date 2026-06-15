@@ -20,6 +20,13 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    // Realtime broadcast channel authorization (Phase 4 · M4.2). Registers the session-authenticated
+    // /broadcasting/auth endpoint and the private-channel callbacks (routes/channels.php → ChannelAuthorizer).
+    // Runs on every tier — the no-leak boundary holds even when the broadcaster is null/log on the baseline.
+    ->withBroadcasting(
+        __DIR__.'/../routes/channels.php',
+        ['middleware' => ['web']],
+    )
     ->withMiddleware(function (Middleware $middleware): void {
         // Until NovFora is installed, force every web request to the no-SSH installer (M5). Appended so it
         // runs after the session has started — the wizard is a Livewire component and needs the session.
