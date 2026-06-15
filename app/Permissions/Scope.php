@@ -45,7 +45,7 @@ final readonly class Scope
     }
 
     /**
-     * Parse a human/CLI scope reference: "global", "category:3", "forum:2", "thread:1".
+     * Parse a human/CLI scope reference: "global", "category:3", "forum:2", "thread:1", "club:5".
      *
      * @throws \InvalidArgumentException on an unknown scope type or a missing id
      */
@@ -59,8 +59,8 @@ final readonly class Scope
         [$type, $id] = array_pad(explode(':', $ref, 2), 2, null);
         $type = strtolower((string) $type);
 
-        if (! in_array($type, ['category', 'forum', 'thread'], true) || ! is_numeric($id)) {
-            throw new \InvalidArgumentException("Unrecognised scope reference: {$ref} (expected global|category:ID|forum:ID|thread:ID).");
+        if (! in_array($type, ['category', 'forum', 'thread', 'club'], true) || ! is_numeric($id)) {
+            throw new \InvalidArgumentException("Unrecognised scope reference: {$ref} (expected global|category:ID|forum:ID|thread:ID|club:ID).");
         }
 
         return new self($type, (int) $id);

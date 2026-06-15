@@ -160,11 +160,16 @@ class Club extends Model
             || ($user !== null && $user->exists && $user->isStaff());
     }
 
-    /** May the viewer MANAGE the club (settings/roster/roles)? (owner OR global staff) */
+    /**
+     * May the viewer MANAGE the club (settings/roster/roles)? Resolved THROUGH the permission engine (M1.2):
+     * club owners hold `club.manage` at club scope (projected from their roster role) and global administrators
+     * hold it at global scope (the administrator preset, inherited into every club). A global *moderator* is
+     * deliberately NOT a club manager — they moderate content (isModeratableBy), they do not own clubs.
+     */
     public function isManageableBy(?User $user): bool
     {
         return $user !== null && $user->exists
-            && ($this->isOwner($user) || $user->isStaff());
+            && $user->canDo('club.manage', $this->permissionScope());
     }
 
     /** May the viewer MODERATE club content (lock/pin/delete)? (owner|moderator OR global staff) */

@@ -24,6 +24,13 @@ final class ScopeChain
             return [Scope::global()];
         }
 
+        // A club scope inherits only from global (Phase 4 · M1.2) — club membership grants live at club scope,
+        // and a club's discussion forums inject this club node into THEIR chain in M1.4 (forums.club_id), so a
+        // club moderator's club-scoped capability reaches every topic in the club.
+        if ($target->type === 'club') {
+            return [Scope::global(), Scope::club((int) $target->id)];
+        }
+
         if ($target->type === 'thread') {
             $topic = Topic::find($target->id);
             if (! $topic) {

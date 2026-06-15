@@ -73,6 +73,9 @@ class RoleSeeder extends Seeder
             'prefix.manage' => $allow,
             'badge.manage' => $allow,
             'permissions.manage' => $allow,
+            // Clubs (Phase 4 · M1.2): a global admin manages ANY club. Held at global scope so it inherits into
+            // every club scope; club OWNERS get it per-club via ClubRoleProjector (scope_type='club').
+            'club.manage' => $allow,
         ];
 
         return [

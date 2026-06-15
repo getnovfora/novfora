@@ -2148,3 +2148,37 @@ create flow seats owner + member_count + unique slug + public-forced-listed; dir
 (public/listed shown, hidden absent for non-members, present for members + staff); hidden-club home 404s for
 guest & logged-in non-member, 200 for member & staff; owner/staff manage, stranger 403, owner soft-delete. Gate
 green: full suite 1318 passed / 1 skipped / 0 failed, migrate+seed clean, pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0048 — Club-scoped permissions through the existing engine (Phase 4 · M1.2) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** Clubs resolve their roles through the SAME `PermissionResolver`/`acl_entries` — **no second
+permission system**. A new **`club` scope type** joins global/category/forum/thread: `Scope::parse()` accepts
+`club:ID`, and `ScopeChain::for(club)` returns `[global, club:ID]` (club membership inherits the global board
+defaults, e.g. a member's `post.create`). A club's discussion forums inject the club node into THEIR chain in
+M1.4 (via `forums.club_id`), so a club moderator's scoped power reaches every topic in the club and nowhere
+else. `acl_entries.scope_type` is already an open varchar — **no migration**.
+
+**`club.manage` (scope_kind=club)** is the one new permission key. Global **administrators** hold it at global
+scope (added to the administrator preset → inherited into every club), so they manage any club; **club owners**
+hold it per-club. `permissions:sync` re-provisions it additively on upgrade (catalog + admins group) — proven
+by test. A global **moderator** is deliberately NOT a club manager (they moderate content; they do not own
+clubs) — `Club::isManageableBy()` now resolves through `canDo('club.manage', club-scope)`, so management is
+engine-driven, not an ad-hoc role check.
+
+**`ClubRoleProjector`** mirrors the roster (`club_user.role/status`, the source of truth) into per-user
+club-scope `acl_entries`: **owner** → `club.manage` + `topic.moderate`/`post.edit.any`/`post.delete.any`/
+`post.history.view`; **moderator** → the moderation set; **member** → none (a plain member relies on the global
+`member` preset for posting and on the M1.5 visibility gate for access — minimising rows). Projection is
+idempotent (clear-then-write), runs on create/role-change/leave, and bumps `AclVersion` so cached verdicts
+drop. Club moderation reuses the existing **forum-scope** keys at club scope — no bespoke keys.
+
+**Rank safety.** Club roles never touch global rank: `ActorRank` (M1.3) still guards actor-vs-target, so a club
+owner can never act on global staff who happen to be in the club. The club grants are **scope-isolated** —
+proven by a test that an owner's club-scoped `topic.moderate` does NOT apply in an unrelated forum.
+
+**Tested.** 10 feature tests (club-scope truth-table): parse + chain shape; owner `club.manage` at own club but
+not another; owner club-scoped moderation isolated from other forums; moderator moderate-yes/manage-no; member
+none; global admin manages any club; clear revokes; role-change re-projects; `permissions:sync` re-provisions
+`club.manage` idempotently. Gate green: full suite **1328 passed / 1 skipped / 0 failed**, pint clean, phpstan
+(level 5) 0 errors.

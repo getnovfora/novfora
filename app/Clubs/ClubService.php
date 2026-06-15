@@ -42,13 +42,17 @@ class ClubService
                 'member_count' => 1,
             ]);
 
-            ClubMembership::create([
+            $membership = ClubMembership::create([
                 'club_id' => $club->getKey(),
                 'user_id' => $founder->getKey(),
                 'role' => 'owner',
                 'status' => 'active',
                 'joined_at' => now(),
             ]);
+
+            // Mirror the owner role into club-scoped acl_entries so management/moderation resolve through the
+            // permission engine (M1.2). The roster row above stays the source of truth.
+            app(ClubRoleProjector::class)->project($membership);
 
             return $club;
         });
