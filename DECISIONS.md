@@ -2401,3 +2401,31 @@ absence of a guard is a deliberate, reasoned decision rather than an oversight.
 **Tested.** 5 hardening tests (real drivers): state present; PKCE present (Google + Discord); PKCE absent
 (GitHub); Discord resolves + PKCE; POST-to-redirect 405. The M2.1/M2.2 mocked suites were updated to stub
 `enablePKCE`. Gate green: full suite full suite 1398 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0056 — SAML SSO: scaffold only, not validated against a real IdP (Phase 4 · M2.4) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review. ⚠ SCAFFOLD — NOT VALIDATED.**
+
+**Decision.** Ship the **seam** for SAML SSO, not a working integration. NovFora provides the `SamlProvider`
+contract (`isConfigured`, `loginUrl`, `consume → SamlAssertion`, `metadata`), a `SamlAssertion` DTO, a
+`SamlException`, a `SamlManager` (detection), a detection-gated `SamlController` (login / ACS / metadata), the
+IdP-config settings (`auth.saml.*`), and the routes — but **NO concrete provider implementation**. A real one
+needs a SAML toolkit (e.g. `onelogin/php-saml`) and a **live IdP** to validate the XML-signature, replay, and
+metadata handling; none exists in this environment, and shipping an unvalidated crypto/auth path would be worse
+than shipping the interface. **This explicitly does NOT work end to end.**
+
+**Behind detection (inert by default).** `SamlManager::enabled()` is true only when `auth.saml.enabled` is on
+AND a concrete `SamlProvider` is bound in the container AND it reports `isConfigured()`. Since nothing binds a
+provider by default, **every SAML route 404s** out of the box. An operator or a future module binds a real
+implementation to light it up. The ACS POST is CSRF-exempt (the IdP posts cross-site, authenticated by the XML
+signature inside the provider) — harmless while the route 404s.
+
+**Account mapping.** The scaffold reuses the `social_accounts` table (`provider='saml'`, `provider_user_id` =
+the SAML NameID): a **pre-linked** subject signs in; **just-in-time provisioning is deliberately NOT
+implemented** (it would carry the same no-silent-merge rule as OAuth, ADR-0053). Fail-closed on any invalid
+response.
+
+**Tested (mocked, no real IdP).** 9 tests with a **fake** bound `SamlProvider`: all routes 404 by default /
+setting-off / provider-not-configured; redirect to the IdP SSO URL; SP metadata served; pre-linked subject
+signs in at the ACS; unknown subject refused (no JIT); invalid response fails closed; the DTO contract. Gate
+green: full suite full suite 1407 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors. **Validate against a real IdP +
+implement a concrete provider before claiming SAML works.**

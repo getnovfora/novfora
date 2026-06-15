@@ -157,6 +157,15 @@ final class SettingsRegistry
             new SettingDefinition('oauth.discord.enabled', 'bool', default: false, group: 'sso', label: 'Discord login enabled'),
             new SettingDefinition('oauth.discord.client_id', 'string', default: '', group: 'sso', label: 'Discord client ID'),
             new SettingDefinition('oauth.discord.client_secret', 'string', encrypted: true, default: '', group: 'sso', label: 'Discord client secret'),
+
+            // ── SAML SSO (Phase 4 · M2.4 — SCAFFOLD, not validated against a real IdP) ─────────────────
+            // Inert unless `auth.saml.enabled` is on AND a concrete SamlProvider is bound (none ships). These
+            // fields are the IdP metadata a real provider implementation would read. See ADR-0056.
+            new SettingDefinition('auth.saml.enabled', 'bool', default: false, group: 'saml', label: 'SAML SSO enabled (requires a bound provider)'),
+            new SettingDefinition('auth.saml.idp_entity_id', 'string', default: '', group: 'saml', label: 'IdP entity ID'),
+            new SettingDefinition('auth.saml.idp_sso_url', 'string', default: '', group: 'saml', label: 'IdP single-sign-on URL'),
+            new SettingDefinition('auth.saml.idp_x509_cert', 'string', default: '', group: 'saml', label: 'IdP signing certificate (X.509)'),
+            new SettingDefinition('auth.saml.sp_entity_id', 'string', default: '', group: 'saml', label: 'Service-provider entity ID'),
         ];
     }
 }

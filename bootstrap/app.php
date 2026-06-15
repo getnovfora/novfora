@@ -53,6 +53,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'webhooks/mail/*',
             'unsubscribe/*',
+            // SAML ACS (Phase 4 · M2.4 SCAFFOLD): the IdP POSTs the assertion cross-site with no session/CSRF
+            // token; it is authenticated by the IdP's XML signature inside the provider. Inert by default
+            // (the route 404s unless SAML is enabled AND a provider is bound).
+            'auth/saml/acs',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

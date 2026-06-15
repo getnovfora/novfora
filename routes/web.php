@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\TasksController;
 use App\Http\Controllers\AppearanceController;
 use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\Auth\SamlController;
 use App\Http\Controllers\Auth\SocialAuthController;
 use App\Http\Controllers\BanController;
 use App\Http\Controllers\BookmarkController;
@@ -62,6 +63,14 @@ Route::get('/health', HealthController::class)->name('health');
 Route::middleware('throttle:30,1')->group(function () {
     Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirect'])->name('oauth.redirect');
     Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback'])->name('oauth.callback');
+});
+
+// ── SAML SSO (Phase 4 · M2.4 — SCAFFOLD, not validated against a real IdP). Every route 404s unless SAML is
+// enabled AND a concrete SamlProvider is bound (none ships). The ACS POST is CSRF-exempt (bootstrap/app.php).
+Route::middleware('throttle:30,1')->group(function () {
+    Route::get('/auth/saml/login', [SamlController::class, 'login'])->name('saml.login');
+    Route::post('/auth/saml/acs', [SamlController::class, 'consume'])->name('saml.acs');
+    Route::get('/auth/saml/metadata', [SamlController::class, 'metadata'])->name('saml.metadata');
 });
 
 // ── Forums (M2) — public read, per-node authorized; anonymous resolves as the Guests group ─────────────
