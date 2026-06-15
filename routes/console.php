@@ -98,6 +98,11 @@ Schedule::command('novfora:trust:recompute')->hourly()->withoutOverlapping()->sk
 // run safe (never a double-publish). Skipped during a restore (it writes posts).
 Schedule::command('novfora:posts:publish-scheduled')->everyMinute()->withoutOverlapping(5)->skip($duringRestore);
 
+// Membership expiry (Phase 4 · M5.1): expire subscriptions past their expiry and revoke their perks through
+// the engine. Hourly is granular enough for membership; overlap-guarded + skipped during a restore (it writes
+// users' acl_entries). Baseline-safe — no worker required.
+Schedule::command('novfora:tiers:expire')->hourly()->withoutOverlapping()->skip($duringRestore);
+
 // Reputation denorm self-heal (P2-M5 ⚙): reconcile users.reputation_points to the reputation_events
 // ledger — belt-and-braces under any missed/reordered queue event. Idempotent + bounded, with a SHORT
 // overlap mutex (not Laravel's 24h default) so a hard-killed run can't strand the heal (RH-10 lesson).

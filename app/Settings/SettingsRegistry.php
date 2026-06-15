@@ -120,6 +120,12 @@ final class SettingsRegistry
             new SettingDefinition('antispam.turnstile_site_key', 'string', config: 'novfora.antispam.registration.captcha.turnstile.site_key', default: '', group: 'antispam', label: 'Turnstile site key'),
             new SettingDefinition('antispam.turnstile_secret', 'string', encrypted: true, config: 'novfora.antispam.registration.captcha.turnstile.secret', default: '', group: 'antispam', label: 'Turnstile secret key'),
             new SettingDefinition('antispam.sfs_use_api', 'bool', config: 'novfora.antispam.registration.stopforumspam.use_api', default: true, group: 'antispam', label: 'StopForumSpam live API'),
+            // External-signal tuning + privacy (Phase 4 · M6.3). The confidence threshold is admin-tunable;
+            // external_content_optin is the PRIVACY FENCE (default false) — post content is NEVER sent to a third
+            // party unless this is on; the SFS submission key (encrypted) enables opt-in spammer reporting.
+            new SettingDefinition('antispam.sfs_confidence_threshold', 'int', config: 'novfora.antispam.registration.stopforumspam.confidence_threshold', default: 75, group: 'antispam', label: 'StopForumSpam block confidence threshold'),
+            new SettingDefinition('antispam.external_content_optin', 'bool', default: false, group: 'antispam', label: 'Allow sending post content to external anti-spam services'),
+            new SettingDefinition('antispam.sfs_api_key', 'string', encrypted: true, default: '', group: 'antispam', label: 'StopForumSpam submission API key'),
 
             // ── Appearance, site-level (PART 3.6) ───────────────────────────────────────────────────
             new SettingDefinition('appearance.active_theme', 'string', config: 'novfora.theme.active', default: '', group: 'appearance', label: 'Active theme'),
@@ -136,6 +142,15 @@ final class SettingsRegistry
             // 'staff' → 'disabled' (off). Read by App\Community\MembersDirectory::visibleTo().
             new SettingDefinition('members.directory_visibility', 'string', default: 'everyone', group: 'members', label: 'Members directory visibility', options: ['disabled', 'staff', 'members', 'everyone']),
 
+            // ── Search engine (Phase 4 · M4.1) ──────────────────────────────────────────────────────
+            // The Scout driver + Meilisearch connection. `database` is the baseline (no service); switching
+            // to `meilisearch` is an OPT-IN enhanced upgrade — the ACP refuses the switch unless the host is
+            // reachable, and the runtime degrades to `database` automatically if it later becomes unreachable.
+            // The key is stored ENCRYPTED. These push into scout.driver / scout.meilisearch.* at boot.
+            new SettingDefinition('search.driver', 'string', config: 'scout.driver', default: 'database', group: 'search', label: 'Search driver', options: ['database', 'meilisearch']),
+            new SettingDefinition('search.meilisearch_host', 'string', config: 'scout.meilisearch.host', default: 'http://localhost:7700', group: 'search', label: 'Meilisearch host'),
+            new SettingDefinition('search.meilisearch_key', 'string', encrypted: true, config: 'scout.meilisearch.key', default: '', group: 'search', label: 'Meilisearch API key'),
+
             // ── Clubs (Phase 4 · M1.6) ──────────────────────────────────────────────────────────────
             // Who may create a club. 'any' = any verified member; 'trust' = a verified member at trust level
             // ≥ clubs.creation_min_trust_level (default 2); 'staff' = administrators & moderators only (the
@@ -143,6 +158,10 @@ final class SettingsRegistry
             // always create regardless. Read by App\Clubs\ClubCreation.
             new SettingDefinition('clubs.creation_policy', 'string', default: 'trust', group: 'clubs', label: 'Who can create clubs', options: ['any', 'trust', 'staff']),
             new SettingDefinition('clubs.creation_min_trust_level', 'int', default: 2, group: 'clubs', label: 'Minimum trust level to create a club'),
+            // Paid-clubs hook (Phase 4 · M5.4) — money-fenced: when ON, a non-staff member must ALSO hold the
+            // `tier.create_clubs` membership perk (granted via the existing manual/Stripe path; no new money
+            // path) to create a club. OFF by default. Read by App\Clubs\ClubCreation.
+            new SettingDefinition('clubs.require_membership', 'bool', default: false, group: 'clubs', label: 'Require a membership to create clubs'),
 
             // ── SSO / social login (Phase 4 · M2) ───────────────────────────────────────────────────
             // Per-provider OFF by default; secrets stored ENCRYPTED at rest. The password login path is
@@ -174,6 +193,15 @@ final class SettingsRegistry
             new SettingDefinition('push.vapid_public_key', 'string', default: '', group: 'push', label: 'VAPID public key'),
             new SettingDefinition('push.vapid_private_key', 'string', encrypted: true, default: '', group: 'push', label: 'VAPID private key'),
             new SettingDefinition('push.vapid_subject', 'string', default: '', group: 'push', label: 'VAPID subject (mailto: or site URL)'),
+
+            // ── Payments / Stripe (Phase 4 · M5.3 — CHARGING DISABLED by default) ──────────────────────
+            // Stripe HOSTED Checkout for paid memberships. OFF by default and unconfigured: no charge can be
+            // initiated until an operator sets the keys AND flips `enabled`. Secrets stored ENCRYPTED. The
+            // webhook secret signs the inbound checkout.session.completed event (StripeWebhookVerifier).
+            new SettingDefinition('payments.stripe.enabled', 'bool', default: false, group: 'payments', label: 'Stripe payments enabled'),
+            new SettingDefinition('payments.stripe.publishable_key', 'string', default: '', group: 'payments', label: 'Stripe publishable key'),
+            new SettingDefinition('payments.stripe.secret_key', 'string', encrypted: true, default: '', group: 'payments', label: 'Stripe secret key'),
+            new SettingDefinition('payments.stripe.webhook_secret', 'string', encrypted: true, default: '', group: 'payments', label: 'Stripe webhook signing secret'),
         ];
     }
 }

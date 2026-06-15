@@ -57,6 +57,21 @@
                 </fieldset>
             </x-ui.card>
 
+            {{-- Presence privacy (Phase 4 · M4.3) — opt in to appear in the "who's online" list. Default off. --}}
+            <x-ui.card>
+                <fieldset>
+                    <legend class="text-sm font-semibold text-ink">Online status</legend>
+                    <p class="text-xs text-ink-muted mt-0.5 mb-3">When on, other members can see that you’re online in the “Who’s online” list. Off by default.</p>
+                    {{-- Hidden 0 so an unchecked box still posts a value (off). --}}
+                    <input type="hidden" name="show_online_status" value="0">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" name="show_online_status" value="1" @checked($user->show_online_status)
+                               class="h-4 w-4 rounded border-line text-accent focus:ring-accent">
+                        <span class="text-sm font-medium text-ink">Show my online status to other members</span>
+                    </label>
+                </fieldset>
+            </x-ui.card>
+
             <div class="flex items-center gap-3">
                 <x-ui.button type="submit">Save appearance</x-ui.button>
                 <span class="text-xs text-ink-subtle">Changes preview instantly; Save stores them to your account.</span>

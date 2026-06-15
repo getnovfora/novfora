@@ -6,8 +6,11 @@ declare(strict_types=1);
 
 namespace App\Search;
 
+use App\Models\Forum;
 use App\Models\Post;
 use App\Permissions\VisibleForumIds;
+use App\Services\Tier\Capability;
+use App\Services\Tier\ServiceTier;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -64,7 +67,82 @@ final class SearchService
             return collect(); // the chosen forum is not visible to this viewer → empty
         }
 
+        // ENHANCED TIER (Phase 4 · M4.1): when Meilisearch/Typesense is the active Scout driver, run the
+        // keyword query through the engine for typo-tolerance + relevance, applying forum_id IN [visible]
+        // as a native filter. The engine result is then RE-GATED against the visibility set here — the
+        // index is NEVER trusted as the sole privacy boundary (a private-club or hidden post must never
+        // surface even if the index is stale/poisoned). Any engine error degrades to the baseline DB path.
+        if ($this->shouldUseEngine($query)) {
+            $engineResult = $this->engineSearch($query, $forumIds);
+            if ($engineResult !== null) {
+                return $engineResult;
+            }
+            // null = engine unreachable / failed → fall through to the always-correct DB tier.
+        }
+
         return $this->databaseSearch($query, $forumIds);
+    }
+
+    /**
+     * Route to the enhanced engine only when it is the active driver AND the query is engine-expressible:
+     * a keyword is present, and no tag/type facet is set (meiliFilter() does not translate those, so they
+     * stay on the DB engine to remain correct — documented in ADR-0060). Visibility (forum_id) IS expressed.
+     */
+    private function shouldUseEngine(SearchQuery $query): bool
+    {
+        return app(ServiceTier::class)->isEnhanced(Capability::Search)
+            && $query->term !== ''
+            && $query->tagIds === []
+            && $query->type !== 'topic';
+    }
+
+    /**
+     * Run the keyword query through the configured Scout engine with the visibility filter applied natively,
+     * then RE-GATE every returned post against approval + the visible forum set + the authoritative club
+     * gate. Returns null on ANY engine failure so the caller degrades to the DB tier. Never throws.
+     *
+     * @param  list<int>|null  $forumIds  the already-resolved visible∩facet forum set (null = unconstrained)
+     * @return Collection<int, Post>|null
+     */
+    private function engineSearch(SearchQuery $query, ?array $forumIds): ?Collection
+    {
+        try {
+            $filter = $this->meiliFilter($query, $forumIds);
+
+            $results = Post::search($query->term, function (object $engine, string $term, array $options) use ($filter) {
+                // Engine-native filter (Meilisearch/Typesense). Only invoked for those engines; ignored otherwise.
+                if ($filter !== []) {
+                    $options['filter'] = implode(' AND ', $filter);
+                }
+
+                return $engine->search($term, $options);
+            })->take($query->limit)->get();
+
+            // DEFENSE IN DEPTH: re-derive visibility from the source of truth, never from the index.
+            return $results
+                ->load('topic.forum')
+                ->filter(fn (Post $p) => $p->approved_state === 'approved')
+                ->filter(fn (Post $p) => $this->engineHitVisible($p, $query, $forumIds))
+                ->values();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /** A re-gate identical in spirit to the DB WHEREs: approved + within the visible forum set + club-gated. */
+    private function engineHitVisible(Post $post, SearchQuery $query, ?array $forumIds): bool
+    {
+        $topic = $post->topic;
+        if ($topic === null) {
+            return false;
+        }
+        if ($forumIds !== null && ! in_array((int) $topic->forum_id, $forumIds, true)) {
+            return false;
+        }
+        $forum = $topic->forum;
+
+        // The authoritative club content gate (mirrors SearchController::visible() for the typeahead path).
+        return $forum instanceof Forum && $forum->clubContentVisibleTo($query->viewer);
     }
 
     /**

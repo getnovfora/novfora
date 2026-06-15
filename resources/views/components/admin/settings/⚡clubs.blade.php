@@ -18,6 +18,8 @@ new class extends Component
 
     public int $minTrustLevel = 2;
 
+    public bool $requireMembership = false;
+
     public ?string $saved = null;
 
     public function mount(Settings $settings): void
@@ -25,6 +27,7 @@ new class extends Component
         $this->ensureAdmin();
         $this->policy = $settings->string('clubs.creation_policy') ?: 'trust';
         $this->minTrustLevel = (int) $settings->int('clubs.creation_min_trust_level');
+        $this->requireMembership = $settings->bool('clubs.require_membership');
     }
 
     public function save(Settings $settings): void
@@ -33,10 +36,12 @@ new class extends Component
         $data = $this->validate([
             'policy' => ['required', 'in:any,trust,staff'],
             'minTrustLevel' => ['required', 'integer', 'min:0', 'max:4'],
+            'requireMembership' => ['boolean'],
         ]);
 
         $settings->set('clubs.creation_policy', $data['policy']);
         $settings->set('clubs.creation_min_trust_level', (string) $data['minTrustLevel']);
+        $settings->set('clubs.require_membership', (bool) $data['requireMembership']);
         $this->saved = 'Saved. Club-creation permission updated.';
     }
 
@@ -69,6 +74,13 @@ new class extends Component
                         min="0" max="4" hint="0 = new accounts; 2 = established members (recommended)." />
         </div>
     @endif
+
+    {{-- Paid-clubs hook (Phase 4 · M5.4) — money-fenced: requires the tier.create_clubs membership perk. --}}
+    <div id="setting-clubs-require-membership" class="space-y-1 border-t border-line pt-5">
+        <x-ui.toggle name="requireMembership" wire:model="requireMembership" :checked="$requireMembership"
+                     label="Require a membership to create clubs" />
+        <p class="text-xs text-ink-subtle">When on, a member also needs the “Create clubs” membership perk (granted by an admin or via Stripe). Staff can always create.</p>
+    </div>
 
     <div>
         <x-ui.button type="submit" wire:loading.attr="disabled" wire:target="save">

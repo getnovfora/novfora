@@ -18,6 +18,7 @@ use App\Http\Controllers\HealthController;
 use App\Http\Controllers\LegacyRedirectController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MailWebhookController;
+use App\Http\Controllers\MembershipController;
 use App\Http\Controllers\MentionController;
 use App\Http\Controllers\ModerationController;
 use App\Http\Controllers\NotificationController;
@@ -29,6 +30,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SavedSearchController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\TopicController;
 use App\Http\Controllers\TrendingController;
@@ -152,6 +154,11 @@ Route::match(['GET', 'POST'], '/unsubscribe/{user}', UnsubscribeController::clas
 if ((bool) config('novfora.deliverability.webhook.enabled') && (string) config('novfora.deliverability.webhook.secret', '') !== '') {
     Route::post('/webhooks/mail/{provider}', MailWebhookController::class)->name('deliverability.webhook');
 }
+
+// Stripe webhook (Phase 4 · M5.3) — always registered, but the controller 404s until Stripe is enabled + a
+// webhook secret is set (StripeWebhookVerifier). Auth is the HMAC over the raw body; CSRF-exempt
+// (bootstrap/app.php). It NEVER charges — it only receives the signed result of a hosted-checkout payment.
+Route::post('/webhooks/stripe', StripeWebhookController::class)->name('payments.stripe.webhook');
 
 // Member profiles (data-model §1) — public read.
 Route::get('/users/{user}', [ProfileController::class, 'show'])->name('profiles.show');
@@ -285,6 +292,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/settings/linked-accounts/{provider}/link', [SocialAuthController::class, 'startLink'])->name('oauth.link')->middleware('throttle:30,1');
     Route::delete('/settings/linked-accounts/{provider}', [SocialAuthController::class, 'unlink'])->name('oauth.unlink');
 
+    // Membership / upgrade surface (Phase 4 · M5.1) — list active tiers + the member's current subscription.
+    Route::get('/membership', [MembershipController::class, 'index'])->name('membership.index');
+    // Self-checkout (Phase 4 · M5.3) — start a hosted Stripe Checkout for a tier. 404s unless a self-checkout
+    // provider is enabled (Stripe is OFF by default), so no charge can be initiated in the baseline build.
+    Route::post('/membership/{tier}/checkout', [MembershipController::class, 'checkout'])->name('membership.checkout')->middleware('throttle:20,1');
+
     // Private messages (P2-M2 Half-B). The /messages/new route MUST be registered before {conversation}
     // so the literal "new" segment is never captured as a conversation id.
     Route::get('/messages', fn () => view('pm.inbox'))->name('pm.inbox');
@@ -340,6 +353,15 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         // Badge manager (P2-M5 Slice 3) — the <livewire:admin.badges /> manager.
         Route::view('/badges', 'admin.badges')->name('badges');
 
+        // Membership tiers (Phase 4 · M5.1) — the <livewire:admin.tiers /> manager. No money is charged here.
+        Route::view('/tiers', 'admin.tiers')->name('tiers');
+
+        // Spam intelligence review (Phase 4 · M6.2) — the <livewire:admin.spam-intelligence /> queue of held posts.
+        Route::view('/spam-intelligence', 'admin.spam-intelligence')->name('spam-intelligence');
+
+        // Memberships (Phase 4 · M5.2) — the <livewire:admin.member-grants /> manual grant/revoke surface.
+        Route::view('/memberships', 'admin.memberships')->name('memberships');
+
         // Module / plugin manager (ADR-0031, B1) — the <livewire:admin.modules /> lifecycle surface.
         Route::view('/modules', 'admin.modules')->name('modules');
 
@@ -363,6 +385,8 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/settings/templates', 'admin.settings.templates')->name('settings.templates'); // sandboxed template editor (ADR-0038)
         Route::view('/settings/clubs', 'admin.settings.clubs')->name('settings.clubs'); // who may create clubs (Phase 4 · M1.6)
         Route::view('/settings/sso', 'admin.settings.sso')->name('settings.sso'); // OAuth social login (Phase 4 · M2.1)
+        Route::view('/settings/search', 'admin.settings.search')->name('settings.search'); // Scout driver + Meilisearch (Phase 4 · M4.1)
+        Route::view('/settings/payments', 'admin.settings.payments')->name('settings.payments'); // Stripe keys, charging disabled (Phase 4 · M5.3)
 
         // Members directory visibility (the public /members listing is gated on this setting).
         Route::view('/members/directory', 'admin.members.directory')->name('members.directory');

@@ -6,13 +6,15 @@ declare(strict_types=1);
 
 namespace App\AntiSpam;
 
+use App\AntiSpam\Intelligence\SpamScorer;
 use App\Models\User;
 
 /**
- * Post-time moderation orchestrator (ADR-0007 §2.4): combines word filters, content scanning, and the
- * new-user queue into one tri-state verdict (allow / hold / reject). Reject beats hold beats allow. The
- * scanner is resolved through the {@see ContentScanner} contract, so Akismet can replace the local
- * heuristics in Phase 2 with no change here.
+ * Post-time moderation orchestrator (ADR-0007 §2.4): combines word filters, content scanning, the new-user
+ * queue, and the advanced spam intelligence (Phase 4 · M6.1) into one tri-state verdict (allow / hold /
+ * reject). Reject beats hold beats allow. The scanner is resolved through the {@see ContentScanner} contract,
+ * so Akismet can replace the local heuristics with no change here. The spam intelligence may only ever HOLD —
+ * it can never reject/delete.
  */
 final class ContentModerator
 {
@@ -20,6 +22,7 @@ final class ContentModerator
         private readonly ContentScanner $scanner,
         private readonly WordFilterService $words,
         private readonly NewUserModeration $newUser,
+        private readonly SpamScorer $spam,
     ) {}
 
     public function review(User $author, string $text): ModerationVerdict
@@ -54,6 +57,14 @@ final class ContentModerator
             $reasons[] = 'new_user';
         }
 
-        return new ModerationVerdict($action, $reasons);
+        // Advanced spam intelligence (Phase 4 · M6.1). HOLD-ONLY: a high score can never escalate past HOLD,
+        // so this layer can never reject/delete a post — it only routes to the moderation queue.
+        $spam = $this->spam->score($author, $text);
+        if ($spam->held) {
+            $escalate(ModerationVerdict::HOLD);
+            $reasons = array_merge($reasons, array_map(fn (string $r) => 'spam:'.$r, $spam->reasons));
+        }
+
+        return new ModerationVerdict($action, $reasons, $spam);
     }
 }

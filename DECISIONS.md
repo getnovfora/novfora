@@ -2505,3 +2505,329 @@ a per-event push opt-out persists (`enabled=false`); push stays on by default. G
 full suite 1428 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors. *(The browser subscribe round-trip is exercised
 server-side via the M3.2 endpoints; the client JS itself is browser-only and unvalidated against a real push
 service — ADR-0058.)*
+
+### ADR-0060 — Meilisearch execution path via Scout, behind service-detection (Phase 4 · M4.1) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context.** Search shipped (ADR-0010) with two paths: `SearchService::posts()` (typeahead) already ran the
+configured Scout engine with a DB fallback, but the faceted search page (`SearchService::search()`) ran
+**always** on the database engine. M4.1 adds the enhanced Meilisearch execution path to the faceted page —
+typo-tolerance + relevance at scale — **without** making it a hard dependency on the baseline tier.
+
+**Decision.**
+1. **Detection, not configuration.** `search()` routes to the Scout engine only when
+   `ServiceTier::isEnhanced(Capability::Search)` (driver ∈ meilisearch/typesense/algolia). On the baseline
+   `database` driver — the test/CI default — the engine path is never reached. Any engine error (unreachable,
+   client absent, malformed response) returns `null` from the engine path and **degrades to the always-correct
+   `databaseSearch()`**. The baseline tier can never break.
+2. **Privacy: the index is NEVER the sole gate (apex).** The visibility filter `forum_id IN [...visible]` is
+   applied natively (via `meiliFilter()`), AND every returned hit is **re-gated in PHP** against approval + the
+   visible-forum set + the authoritative `Forum::clubContentVisibleTo()` club gate (mirroring the typeahead
+   path's `SearchController::visible()`). A stale or poisoned index cannot leak a private-club or hidden post —
+   proven by a test where the faked engine deliberately returns a hidden-club hit and the re-gate drops it.
+3. **Engine-expressible queries only.** The engine path is taken only for a keyword query with no tag/type
+   facet (`meiliFilter()` does not translate those); tag/type-faceted queries stay on the DB engine to remain
+   correct. *(Assumption: this is acceptable — the keyword relevance/typo win is the enhanced-tier value; full
+   facet translation to Meili is a future refinement.)*
+4. **In-admin setup/health.** Admin → Settings → Search picks the driver (database|meilisearch) and the host +
+   **encrypted** API key, pushed into `scout.driver` / `scout.meilisearch.*`. It **refuses to switch to
+   meilisearch unless the host responds** (a pre-save `/health` probe) so an admin can never strand search on a
+   dead engine, and surfaces live engine status. A **Reindex** action queues `ReindexSearch` (cron-drained,
+   `WithoutOverlapping`); it is a no-op on the database driver. The published `config/scout.php` declares the
+   Meili `index-settings` (`filterableAttributes: [forum_id, user_id, created_at]` — forum_id is load-bearing
+   for privacy) and Typesense schema.
+
+**Tested.** 10 tests. Search path (5, faked Scout engine — no real Meili): enhanced engine runs + re-gates a
+hidden-club hit out (no leak); an active member sees their own club hit; engine error degrades to DB; a
+type-facet stays on DB; the baseline driver never reaches the engine. Admin panel (5): non-admin 403; save host
+on database driver; switch to meilisearch only when reachable + key stored encrypted; switch refused when
+unreachable (stays on DB); reindex queues the job. Gate green: **full suite 1438 passed / 1 skipped / 0 failed**
+(12409 assertions), pint clean, phpstan (level 5) 0 errors.
+
+**⚠ SCAFFOLDED — NOT VALIDATED against a real Meilisearch.** No Meili instance exists in the build env; the
+engine path is proven only against a faked Scout engine. Validate by pointing `MEILISEARCH_HOST`/`MEILISEARCH_KEY`
+(or the ACP) at a real Meilisearch, running `php artisan scout:sync-index-settings` then `scout:import 'App\Models\Post'`,
+and confirming relevance + that `forum_id` filtering holds. See PROJECT-STATE "SCAFFOLDED — NOT VALIDATED".
+
+### ADR-0061 — Realtime broadcasting + channel authorization, behind service-detection (Phase 4 · M4.2) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context.** The baseline tier has no realtime daemon, so the UI updates by Livewire polling (the notification
+bell @30s, the PM badge @60s). M4.2 adds the enhanced realtime path — instant updates over websockets when an
+operator runs Reverb — **without** any baseline dependency, and with the **socket as a first-class security
+boundary**: a user must never receive an event for content they cannot already view.
+
+**Decision.**
+1. **Channel authorization is the apex surface.** `routes/channels.php` authorizes three private channels —
+   `notifications.{userId}` (owner only), `thread.{topicId}`, `conversation.{conversationId}` — each a thin
+   delegate over `App\Broadcasting\ChannelAuthorizer`. The thread check resolves through the **same**
+   permission engine (`forum.view` at the thread scope) **and** the query-level club gate
+   (`Forum::clubContentVisibleTo`) the HTTP surfaces use; the conversation check is the participant-only
+   `ConversationPolicy` (PMs live outside the ACL scope tree). Every method **fails closed**. The board is
+   public-by-default, so a non-member can hold global `forum.view=ALLOW` yet is still denied a private-club
+   thread by the club gate — proven by a test. Authorization is registered on **every** tier
+   (`withBroadcasting` in `bootstrap/app.php`), so the no-leak boundary holds even with a null/log broadcaster.
+2. **Events broadcast only when enhanced.** `PostCreated` (→ `thread.{id}`), `MessageSent` (→
+   `conversation.{id}`), and a new `NotificationReceived` (→ `notifications.{id}`) implement `ShouldBroadcast`
+   with `broadcastWhen()` gated on `ServiceTier::isEnhanced(Capability::Broadcast)` — so the baseline pays
+   nothing (no queue, no broadcast). Payloads are **ids only** (no post/message body, no PII): the client
+   refetches the rendered content it is already entitled to. `PostCreated` additionally requires
+   `approved_state === 'approved'` so a held/pending reply never broadcasts.
+3. **Polling stays as the fallback.** The notification bell keeps `wire:poll.30s` as the always-correct
+   backstop and *additionally* subscribes to its private channel via Echo **only if `window.Echo` is present**
+   (inert otherwise) — pure progressive enhancement. `config/broadcasting.php` ships the `reverb`/`pusher`
+   connections, default `null`.
+
+**Tested.** 14 tests. Channel authz (8): notifications owner-only; normal-forum thread allowed; `forum.view`
+NEVER denied; unknown thread fails closed; **hidden-club thread denied to a non-member, allowed to an active
+member + staff**; conversation participant-only; soft-left participant denied; unknown conversation fails
+closed. Events (6): each broadcasts on the correct private channel with id-only payloads and the right
+`broadcastWhen` gating; a pending reply never broadcasts; the Notifier pings only on the enhanced tier; the
+auth endpoint is registered. Gate green: **full suite 1452 passed / 1 skipped / 0 failed** (12442 assertions),
+pint clean, phpstan (level 5) 0 errors.
+
+**⚠ SCAFFOLDED — NOT VALIDATED against a real Reverb.** No Reverb/Pusher server (nor the `laravel/reverb` +
+`pusher/pusher-php-server` packages) is installed in the build env — the channel-authz **logic** is fully
+proven server-side, but the websocket round-trip is not. The client-side live-append on the **thread page**
+needs `laravel-echo`+`pusher-js` bundled (this repo ships prebuilt assets / no Node), so it is wired
+server-side only. **Enable steps:** `composer require laravel/reverb pusher/pusher-php-server`;
+`php artisan reverb:install`; set `BROADCAST_CONNECTION=reverb` + `REVERB_*` env; `npm install laravel-echo pusher-js`,
+configure `window.Echo` (reverb/pusher), `npm run build`; run `php artisan reverb:start` under a supervisor.
+See PROJECT-STATE "SCAFFOLDED — NOT VALIDATED".
+
+### ADR-0062 — Presence / "who's online", opt-in with a presence-channel no-leak fence (Phase 4 · M4.3) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context.** The board already had an "online" heuristic (`User::isOnline`, `last_active_at` stamped by
+`ThrottledLastActive`) and a theme `OnlineUsersWidget`, but it showed **every** recently-active member with **no
+opt-in** — a privacy gap. M4.3 turns presence into a privacy-respecting, opt-in feature with a live (enhanced)
+path and a baseline polling fallback, and closes the gap.
+
+**Decision.**
+1. **Opt-in, security-by-default.** A new `users.show_online_status` column (boolean, **default false**,
+   reversible migration) governs whether a member appears in any presence surface. A member is **invisible
+   until they deliberately opt in** via a privacy toggle on the appearance settings page. *(Assumption: "opt-in"
+   in the brief + the project's "security by default" rule ⇒ default OFF; this makes the list sparse until
+   members opt in — an admin-default could be added later. Recorded as a non-obvious assumption.)*
+2. **One source of truth.** `App\Presence\OnlineMembers` is the only place the opt-in + active + recent-window
+   rule lives (`recent()`, `count()`, `inClub()`); the theme widget, the new live widget, and any future
+   surface read it, so the privacy rule can never drift. The existing `OnlineUsersWidget` was refactored onto it.
+3. **Baseline-safe + enhanced.** A new `⚡online-members` Livewire widget (on the members directory) polls
+   `OnlineMembers` every 60s on the baseline (no daemon), and on the enhanced tier *additionally* joins the
+   `online` **presence channel** via Echo (inert if `window.Echo` is absent).
+4. **Presence no-leak (apex extension of M4.2).** Two presence channels in `routes/channels.php` →
+   `ChannelAuthorizer`: `online` returns the member's info **only if opted in** (symmetric — a non-opted-in user
+   neither appears nor sees over the socket); `club-presence.{clubId}` returns info **only for an active member
+   of that club** who opted in, so a non-member can never enumerate a private club's online roster.
+
+**Tested.** 6 tests + 1 existing widget test updated. `OnlineMembers` lists only opted-in + recent + active;
+club presence intersects the active roster + opt-in (non-member never enumerated); the `online` presence channel
+authorizes only opted-in members; `club-presence` authorizes only active opted-in members and never a
+non-member; the live widget lists only opted-in members; the opt-in toggle persists. The theme-widget test now
+asserts an opted-out active member is hidden. Gate green: **full suite 1458 passed / 1 skipped / 0 failed**
+(12466 assertions), pint clean, phpstan (level 5) 0 errors.
+
+**⚠ SCAFFOLDED — NOT VALIDATED against a real Reverb.** The baseline polling path is fully real; the presence
+**channel** (live join/leave) shares the M4.2 broadcaster, so it is proven only at the authorization level —
+the websocket presence round-trip needs a real Reverb + bundled Echo (same enable steps as ADR-0061).
+
+### ADR-0063 — Membership tiers: perk gating through the permission engine (Phase 4 · M5.1) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context.** M5 adds paid memberships. M5.1 is the foundation: a tier model whose perks gate THROUGH the
+existing permission engine (no parallel authz system), an admin tier manager, and a member-facing surface.
+**No money is taken anywhere in M5.1** — granting is done by a PaymentProvider (M5.2 manual / M5.3 Stripe) or an
+admin; this milestone is the catalogue + the grant/revoke mechanism.
+
+**Decision.**
+1. **Perks ARE permission keys (engine-true).** `App\Membership\TierProjector` mirrors the proven
+   `ClubRoleProjector`: it projects a member's ACTIVE subscriptions into per-user, **global-scope** acl_entries,
+   so a perk is a normal `$user->canDo('tier.ad_free', Scope::global())`. The 30-min resolver cache drops on the
+   `AclVersion::bump()` every projection performs.
+2. **Fixed perk universe (a security boundary).** `App\Membership\TierPerks::ALL` is a FIXED set of `tier.*`
+   keys. The projector's clear step is **bounded to that universe**, and the admin form validates against it, so
+   a tier can never grant an arbitrary capability (`admin.access`) and the clear never touches other global user
+   grants — proven by a test that feeds a poisoned perk list (`admin.access`, `tier.bogus`) and asserts only the
+   valid perk lands.
+3. **Lifecycle through one service.** `MembershipService::activate/cancel/expireDue` are the only writers of a
+   subscription's status, and every transition re-projects. Expiry is a baseline-safe hourly cron
+   (`novfora:tiers:expire`, `withoutOverlapping`, skipped during a restore) — no worker needed. Every transition
+   is audit-logged.
+4. **Surfaces.** An admin manager (`admin.tiers`, staff + 2FA gated) does tier CRUD + perk selection; a
+   member page (`/membership`) lists active tiers and the current subscription. Reversible migrations
+   (`membership_tiers`, `member_subscriptions`); **no card data is ever stored** (`provider_ref` is an opaque id).
+
+**Tested.** 14 tests. Gating (7): activate grants the right perks (and only those); cancel revokes; the hourly
+expiry revokes; an inactive tier grants nothing; multiple active subscriptions union their perks; an arbitrary
+key outside the universe is NEVER granted. Admin (5): non-admin 403; create-with-perks; a non-universe perk is
+rejected at the form; edit/deactivate; delete-on-confirm. Member page (3): guest redirected; active tiers listed
++ inactive hidden; the current plan is shown. Gate green: **full suite 1472 passed / 1 skipped / 0 failed**
+(12512 assertions), pint clean, phpstan (level 5) 0 errors.
+
+**Assumption (recorded).** Each perk's *effect* (actually hiding ads, allowing a custom title, etc.) is wired
+per-feature; M5.1 delivers the **gating mechanism** — the engine grant/revoke — which is what the brief specifies
+("tier gating grants/revokes the right capabilities"). The starter perk set is illustrative and admin-editable.
+
+### ADR-0064 — Payment-provider interface + the offline/manual provider (Phase 4 · M5.2) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**MONEY FENCE.** This build NEVER initiates a real charge. The only path that actually grants a membership is
+the **offline/manual** provider: an admin records that a member paid (cash/transfer/comp) and grants the tier.
+Stripe (M5.3) is a separate, charging-DISABLED adapter behind the same interface.
+
+**Decision.**
+1. **A small, semver'd `PaymentProvider` contract** (`key/label/isEnabled/supportsSelfCheckout/checkout`) so the
+   member surface + ACP are provider-agnostic. The GRANT always flows through `MembershipService` (ADR-0063), so
+   capabilities resolve identically regardless of how payment was collected.
+2. **`ManualPaymentProvider` — the live-granting path.** `isEnabled() = true` (no external service), but
+   `supportsSelfCheckout() = false` (it never shows a member "buy" button, and `checkout()` throws). It exposes
+   `grant(user, tier, ?expiresAt)` → `MembershipService::activate(provider: 'manual', ...)` and `revoke()` →
+   `cancel()`. Driven entirely from the admin surface.
+3. **`PaymentProviders` registry** reports which providers are enabled and which support self-checkout. In M5.2
+   it knows only `manual`; `selfCheckout()` is **empty** (so no online "buy" appears anywhere until Stripe is
+   added + enabled in M5.3). Stripe is appended to `candidates()` in that milestone.
+4. **Admin Memberships surface** (`admin.memberships`, staff + 2FA gated): resolve a member by username/email,
+   pick an active tier, optionally set an expiry (days), grant — and a list of active grants with revoke. No
+   card data is handled or stored.
+
+**Tested.** 10 tests. Provider (5): grant activates + grants perks through the engine; grant honours an expiry;
+revoke cancels + revokes; `checkout()` throws + `supportsSelfCheckout()` is false; the registry lists `manual`
+as enabled with an empty self-checkout set. Admin (5): non-admin 403; grant-by-username flips the capability;
+grant-by-email honours an expiry; an unknown member yields a soft error and grants nothing; revoke drops the
+capability. Gate green: **full suite 1482 passed / 1 skipped / 0 failed** (12545 assertions), pint clean, phpstan
+(level 5) 0 errors. *(No SCAFFOLDED caveat — the manual path is fully real and is the only live-granting path.)*
+
+### ADR-0065 — Stripe hosted checkout (charging DISABLED) + a hardened webhook (Phase 4 · M5.3) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**MONEY FENCE (APEX).** This build NEVER initiates a charge. `StripePaymentProvider::isEnabled()` is **false by
+default** (requires both the enable flag AND a configured secret key), so `checkout()` hard-throws and the
+provider never reaches the Stripe API. Enabling Stripe is a deliberate, documented owner step (below).
+
+**Decision.**
+1. **Hosted Checkout, minimal PCI.** When enabled, `checkout()` creates a Stripe-hosted Checkout Session and
+   redirects the member to Stripe — **card data never touches our server**. The grant happens later, only on a
+   signed webhook, never on the checkout request. No `stripe/stripe-php` dependency is added: the session is a
+   single `Http::asForm()->post()` to a **constant** API URL (no SSRF surface — success/cancel URLs come from
+   our own named routes, never from input).
+2. **Hardened webhook (APEX untrusted-input).** `POST /webhooks/stripe` mirrors the mail webhook's fail-closed
+   discipline: dormant **404** until enabled + a webhook secret is set; **413** oversize; the
+   `Stripe-Signature` HMAC verified FIRST (`StripeWebhookVerifier`: `hash_hmac('sha256', "{t}.{body}")` +
+   `hash_equals` + a 300s replay window) → **401** on forgery/stale, no DB write; **422** malformed/incomplete;
+   a valid `checkout.session.completed` GRANTS the tier **idempotently** (deduped on the Stripe session id);
+   any other event type is acknowledged 200 without action. It never fetches a URL from the payload.
+3. **Surfaces.** Admin → Settings → Payments stores the keys (secret + webhook secret **encrypted**) and refuses
+   to flip `enabled` without a secret. The member page shows a "Subscribe" button only when a self-checkout
+   provider is enabled (Stripe in `PaymentProviders::selfCheckout()`); otherwise "contact an administrator".
+
+**Tested.** 18 tests, all with **synthetic signed events / a mocked HTTP client** (no real Stripe). Webhook (9):
+dormant-404; forged-401; stale-401; oversize-413; valid grant flips the capability; replay idempotent;
+unrelated event ignored; missing-metadata 422; unmappable user/tier acknowledged without grant. Provider (6):
+disabled-by-default refuses checkout; enabled creates a hosted session with metadata + NO card data; registry
+self-checkout only when enabled; route 404 when disabled / redirects when enabled. Admin (3): non-admin 403;
+won't enable without a secret; secret stored encrypted. Gate green: **full suite 1500 passed / 1 skipped / 0
+failed** (12593 assertions), pint clean, phpstan (level 5) 0 errors.
+
+**⚠ SCAFFOLDED — NOT VALIDATED against live Stripe.** No Stripe account/keys in this build; the request SHAPE +
+signature scheme are proven, but the real API round-trip, the exact form-encoding, and renewal handling
+(`invoice.*` events extend an expiry — NOT built; this receiver handles `checkout.session.completed` only) are
+unproven. **Enable steps (owner):** (1) create a Stripe account + products; (2) Admin → Settings → Payments:
+paste the secret/publishable keys, toggle on; (3) add a Stripe webhook endpoint → `https://<site>/webhooks/stripe`
+for `checkout.session.completed`, paste its signing secret; (4) run a real test-mode checkout and confirm the
+grant; (5) consider `invoice.payment_succeeded`/`customer.subscription.deleted` handling before relying on
+auto-renewal. Until then, the **offline/manual** provider (ADR-0064) remains the live-granting path.
+
+### ADR-0066 — Paid-clubs hook: gate club creation on a membership perk (Phase 4 · M5.4) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision (money-fenced, NO new money path).** The "could-have" hook tying M1 (clubs) to M5 (memberships):
+a new setting `clubs.require_membership` (bool, **default false**). When ON, `ClubCreation::canCreate()` ALSO
+requires the non-staff member to hold the `tier.create_clubs` membership perk — granted through the engine by an
+active subscription (manual or Stripe). It introduces **no new payment path**: the perk is acquired via the
+existing M5.1–M5.3 mechanisms. Staff always create; the gate is additive to the existing trust/policy gate, so
+with the flag OFF the baseline is unchanged. A toggle was added to Admin → Settings → Clubs.
+
+**Tested.** 5 tests: default off leaves baseline behaviour; flag-on blocks a qualifying member without the perk
+(service + the `clubs.create` route 403); flag-on allows a member who holds the perk (route 200); staff always
+create; the admin toggle persists. Gate green: **full suite 1505 passed / 1 skipped / 0 failed** (12601
+assertions), pint clean, phpstan (level 5) 0 errors. *(No real money involved — the hook gates on a perk, not a
+charge; the perk itself is granted by the audited M5.1–M5.3 paths.)*
+
+### ADR-0067 — Advanced spam intelligence: HOLD-only scoring with FP guards (Phase 4 · M6.1) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**APEX (untrusted-input).** A new `SpamScorer` adds reputation/behavioural scoring to the post-time pipeline.
+It is **HOLD-ONLY** — `ContentModerator` caps its effect at HOLD, so it can never reject or delete a post; the
+strongest action is routing to the existing moderation queue (`approved_state = 'pending'`). Human-in-the-loop
+is preserved.
+
+**Decision.**
+1. **Signals (config-tunable, `antispam.intelligence`).** Content **similarity** (the author reposted
+   near-identical content recently — a normalised-fingerprint match against their last N posts in a window),
+   **burst** (more than a threshold of posts in a short window, beyond the per-minute rate limiter),
+   **new-account**, and **tl0**. Each contributes weighted points; at/above `hold_threshold` (default 3) the
+   post is held, with per-signal reasons (`spam:similarity`, …) appended to the verdict.
+2. **False-positive guards (the priority).** Trusted members are **EXEMPT** and never scored — staff, trust
+   level ≥ `trusted_floor` (3), or ≥ `established_posts` (50) approved posts. Short content (< 12 fingerprint
+   chars) never triggers the similarity signal, so common short replies ("thanks", "+1") are never flagged. A
+   new member's first *normal* post scores below the threshold (tl0 + new = 2 < 3), so onboarding isn't punished.
+3. **Evidence for review.** A held post records a `spam_assessments` row (score + per-signal breakdown +
+   moderation reasons, linked to the post) + an audit-log entry (`post.spam_held`) — the data the M6.2 review
+   surface renders. Approved posts add no rows on the hot path. `SpamScorer` integrates via a single new step
+   in `ContentModerator::review()`; the verdict now carries the `SpamScore`.
+
+**Tested.** 8 tests. FP guards (4): trusted member exempt even with duplicate+burst; established-by-post-count
+exempt; a new member's first normal post not held; a short repeated reply not flagged. Detections (2): a new
+member reposting identical content held (similarity); a bursting new member held. Pipeline (2): a reposted
+duplicate is held (`pending`) + records the assessment + is **never deleted** (the row still exists); a trusted
+member's repost is approved with no assessment. One unrelated pagination fixture (20 rapid replies from a fresh
+account) was retargeted to a trusted author — the burst behaviour it tripped is correct. Gate green: **full
+suite 1513 passed / 1 skipped / 0 failed** (12618 assertions), pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0068 — Spam-intelligence review surface (Phase 4 · M6.2) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** Admin → Spam intelligence (`admin.spam-intelligence`) renders the `spam_assessments` recorded in
+M6.1 for posts still held — each held post with its **score**, its **per-signal breakdown** (similarity/burst/…
+with point values), the moderation **reasons**, the author, the thread, and a content excerpt — highest score
+first. Two actions: **approve** (clears the hold → `approved` + dispatches the post's notifications, reusing
+`PostService::dispatchPostNotifications`) and **reject** (`rejected` + a **soft-delete** to the recycle bin —
+never a hard delete, preserving the M6.1 hold-only/human-in-the-loop posture). The page is staff-gated in
+`mount()` (admin.access + 2FA), and approve/reject **re-check `topic.moderate` on the post's thread** (mirrors
+`ModerationController`), so the surface never widens authority.
+
+**Tested.** 4 tests: non-admin 403 (page + Livewire); held posts listed with score + signals; approve clears the
+hold; reject soft-deletes (and the row is still recoverable, `approved_state = 'rejected'`). Gate green: **full
+suite 1517 passed / 1 skipped / 0 failed** (12634 assertions), pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0069 — External-signal tuning + the content-privacy fence (Phase 4 · M6.3) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**APEX (untrusted-input + privacy).** Centralises the operator's control over the already-wired StopForumSpam
+signal and enforces the fence: **a community's post content never leaves the server without an explicit admin
+opt-in.**
+
+**Decision.**
+1. **`ExternalSignalPolicy`** is the single gate: `apiEnabled()` (the existing live-API opt-in — metadata
+   lookups only), `confidenceThreshold()` (admin-tunable block threshold, DB setting → config → 75),
+   `maySubmitContent()` (the fence — **default false**), and `apiKey()` (encrypted). `RegistrationGuard` now
+   reads the threshold from the policy, so admins can tune block-vs-flag without a deploy (default behaviour
+   unchanged at 75).
+2. **`SpamReporter` (opt-in, inert by default).** Reports a confirmed spammer to StopForumSpam, but makes **no
+   outbound call** unless the API is enabled AND a submission key is set. The spammer's **post content** is
+   included as evidence **only** when `maySubmitContent()` is on; otherwise only metadata (IP/email/username) —
+   already the SFS posture — is sent. Wired into the M6.2 reject action (so rejecting genuine spam can report
+   it), inert unless opted in.
+3. **Admin surface.** Admin → Settings → Anti-spam gains the threshold, the SFS submission key (encrypted), and
+   a prominent **"send post content to external services"** toggle with a privacy explanation — off by default.
+
+**Tested.** 8 tests. Policy (2): content-submission denied by default; threshold reflects the setting.
+RegistrationGuard (1): the tuned threshold flips block↔flag (faked SFS API at confidence 70). Reporter (4): no
+call without a key; no call when the API is disabled; **metadata-only (no post content) without the content
+opt-in**; content included only with the explicit opt-in. Admin (1): threshold + opt-in + encrypted key persist.
+Gate green: **full suite 1525 passed / 1 skipped / 0 failed** (12652 assertions), pint clean, phpstan (level 5)
+0 errors.
+
+**⚠ SCAFFOLDED — NOT VALIDATED against the live StopForumSpam submission API.** No submission key in this build;
+the gate logic + request shape are proven with a mocked HTTP client. The reporting feature stays inert until an
+operator sets a key and opts in.

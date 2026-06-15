@@ -42,6 +42,8 @@ class AppearanceController extends Controller
         $data = $request->validate([
             'color_mode' => ['sometimes', 'required', Rule::in(self::COLOR_MODES)],
             'density' => ['sometimes', 'required', Rule::in(self::DENSITIES)],
+            // Presence opt-in (Phase 4 · M4.3) — a privacy toggle; default false (security-by-default).
+            'show_online_status' => ['sometimes', 'boolean'],
         ]);
 
         if (array_key_exists('color_mode', $data)) {
@@ -49,6 +51,9 @@ class AppearanceController extends Controller
         }
         if (array_key_exists('density', $data)) {
             $user->density = $data['density'];
+        }
+        if (array_key_exists('show_online_status', $data)) {
+            $user->show_online_status = (bool) $data['show_online_status'];
         }
         $user->save();
 

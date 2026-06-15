@@ -1,17 +1,30 @@
 <?php
 // SPDX-License-Identifier: Apache-2.0
+use App\Services\Tier\Capability;
+use App\Services\Tier\ServiceTier;
 use Livewire\Component;
 
 new class extends Component
 {
     public int $count = 0;
 
+    public bool $realtime = false;
+
+    public ?int $userId = null;
+
     public function mount(): void
     {
+        $user = auth()->user();
+        $this->userId = $user?->getKey();
+        // Phase 4 · M4.2: when a realtime broadcaster is configured, the bell ALSO subscribes to the user's
+        // private notifications channel for instant updates. The wire:poll below always stays as the baseline
+        // fallback — the subscription is purely additive and inert if window.Echo isn't present.
+        $this->realtime = app(ServiceTier::class)->isEnhanced(Capability::Broadcast);
         $this->refreshCount();
     }
 
-    // Baseline near-real-time: poll the unread count (Reverb push is Phase 4).
+    // Baseline near-real-time: poll the unread count. On the enhanced tier the Echo subscription below pushes
+    // the same refresh instantly; the poll remains as the always-correct backstop.
     public function refreshCount(): void
     {
         $user = auth()->user();
@@ -21,6 +34,15 @@ new class extends Component
 ?>
 
 <a href="{{ route('notifications.index') }}" wire:poll.30s="refreshCount"
+   @if ($realtime && $userId)
+       x-data
+       x-init="
+           if (window.Echo) {
+               window.Echo.private('notifications.{{ $userId }}')
+                   .listen('.notification.received', () => $wire.refreshCount());
+           }
+       "
+   @endif
    title="Notifications" aria-label="Notifications{{ $count > 0 ? ' ('.$count.' unread)' : '' }}"
    class="relative inline-flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink">
     <x-ui.icon name="bell" />

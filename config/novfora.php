@@ -210,6 +210,28 @@ return [
             'suspicious_phrases' => [], // e.g. ['cheap viagra', 'casino bonus'] — each match adds to the score
         ],
 
+        // Advanced spam intelligence (Phase 4 · M6.1, SpamScorer). HOLD-only (never auto-deletes). Trusted
+        // users are EXEMPT (the false-positive guard): staff, trust level ≥ trusted_floor, or ≥ established_posts
+        // approved posts are never held by this scorer. Signals (content similarity / burst / new-account /
+        // tl0) sum to a score; at/above hold_threshold the post is held for the moderation queue.
+        'intelligence' => [
+            'enabled' => (bool) env('NOVFORA_SPAM_INTELLIGENCE', true),
+            'hold_threshold' => 3,        // score at/above which a post is held
+            'trusted_floor' => 3,         // trust level at/above which a member is exempt
+            'established_posts' => 50,    // approved-post count at/above which a member is exempt
+            'new_account_hours' => 48,    // accounts younger than this contribute the new-account signal
+            'similarity_window_hours' => 24, // look-back window for the author's recent posts (similarity)
+            'recent_posts_limit' => 25,   // max author posts compared for similarity
+            'burst_window_minutes' => 10, // window for the burst signal
+            'burst_threshold' => 5,       // author posts in the window at/above which burst fires
+            'weights' => [
+                'similarity' => 3,
+                'burst' => 2,
+                'new_account' => 1,
+                'tl0' => 1,
+            ],
+        ],
+
         // Per-trust post-rate limits (posts/minute), enforced via Laravel's cache-backed RateLimiter —
         // DB cache on the baseline tier, Redis on enhanced, with no code change (tier-graceful, ADR-0011).
         'rate_limits' => [

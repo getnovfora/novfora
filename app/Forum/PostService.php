@@ -18,6 +18,7 @@ use App\Models\Forum;
 use App\Models\Post;
 use App\Models\PostRevision;
 use App\Models\Prefix;
+use App\Models\SpamAssessment;
 use App\Models\Topic;
 use App\Models\User;
 use App\Notifications\Notifier;
@@ -169,7 +170,7 @@ final class PostService
 
         $position = (int) Post::where('topic_id', $topic->id)->max('position') + 1;
 
-        return Post::create([
+        $post = Post::create([
             'topic_id' => $topic->id,
             'user_id' => $author->id,
             'body_format' => $format,
@@ -180,6 +181,21 @@ final class PostService
             'ip_address' => request()->ip(),
             'approved_state' => $verdict->held() ? 'pending' : 'approved',
         ]);
+
+        // Record WHY a post was held (Phase 4 · M6.1) for the M6.2 review surface — the spam score + signals +
+        // the moderation reasons. Only held posts produce a record; approved posts add no rows on the hot path.
+        if ($verdict->held()) {
+            SpamAssessment::create([
+                'post_id' => $post->id,
+                'user_id' => $author->id,
+                'score' => $verdict->spam->score,
+                'signals' => $verdict->spam->signals,
+                'reasons' => $verdict->reasons,
+            ]);
+            Audit::log('post.spam_held', $post, ['score' => $verdict->spam->score, 'reasons' => $verdict->reasons]);
+        }
+
+        return $post;
     }
 
     /**

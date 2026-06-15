@@ -30,6 +30,8 @@ final class AdminNavigation
         'antispam' => ['admin.settings.antispam', 'Anti-spam'],
         'appearance' => ['admin.settings.appearance', 'Appearance'],
         'members' => ['admin.members.directory', 'Members'],
+        'search' => ['admin.settings.search', 'Search'],
+        'payments' => ['admin.settings.payments', 'Payments'],
     ];
 
     /**
@@ -55,12 +57,16 @@ final class AdminNavigation
                 ['Templates', 'admin.settings.templates', 'pencil'],
                 ['Clubs', 'admin.settings.clubs', 'users'],
                 ['Social login', 'admin.settings.sso', 'lock'],
+                ['Search', 'admin.settings.search', 'database'],
+                ['Payments', 'admin.settings.payments', 'check-circle'],
             ]],
             ['Members', 'users', [
                 ['Groups', 'admin.members.groups', 'users'],
                 ['Permissions', 'admin.system.permissions', 'shield'],
                 ['Custom fields', 'admin.system.profile-fields', 'list'],
                 ['Directory', 'admin.members.directory', 'users'],
+                ['Membership tiers', 'admin.tiers', 'check-circle'],
+                ['Memberships', 'admin.memberships', 'check-circle'],
             ]],
             ['Content', 'folder', [
                 ['Forums & structure', 'admin.structure', 'folder'],
@@ -75,6 +81,7 @@ final class AdminNavigation
                 ['Approval queue', 'moderation.queue', 'check-circle', true],
                 ['Reports', 'moderation.reports', 'flag', true],
                 ['Mod control panel', 'moderation.dashboard', 'shield', true],
+                ['Spam intelligence', 'admin.spam-intelligence', 'shield'],
             ]],
             ['System', 'database', [
                 ['Service tier', 'admin.system.tier', 'database'],
