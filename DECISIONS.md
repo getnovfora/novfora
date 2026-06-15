@@ -2314,3 +2314,39 @@ human pass.
 (TL1 no / TL2 yes) and a custom threshold 3 (TL2 no / TL3 yes); the `staff` policy (TL4 no, moderator + admin
 yes); staff-always; the ACP page saves; a non-admin is 403. Gate green: full suite full suite 1378 passed / 1 skipped / 0 failed, pint clean,
 phpstan (level 5) 0 errors.
+
+### ADR-0053 — OAuth social login via Socialite (Phase 4 · M2.1) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Dependencies (Apache-2.0-compat confirmed).** `laravel/socialite ^5.27` (**MIT** — permissive, Apache-2.0
+compatible) for Google + GitHub (core drivers) and `socialiteproviders/discord ^4.2` (**MIT**) for Discord,
+wired via `App\Providers\SocialiteServiceProvider` (a `SocialiteWasCalled` listener). Both are pure-PHP, no new
+system services — Baseline-safe.
+
+**Decision.** A social sign-in path **alongside** the unchanged Fortify password login. Every provider is **OFF
+by default**; an admin enables it and supplies a client id + **encrypted** client secret on the new Admin →
+Settings → Social login page (`oauth.{provider}.enabled|client_id|client_secret`, the secret stored via the
+encrypted-settings mechanism, never echoed). `App\Auth\Social\SocialProviders` configures the Socialite driver
+**per request** from those settings + our callback URL — **no env / config/services.php** entries needed, and a
+disabled/unconfigured provider 404s before any redirect. A `social_accounts` table links one local user to one
+identity per provider (`unique(provider, provider_user_id)` + `unique(user_id, provider)`).
+
+**APEX — the auth-boundary rules** (`App\Auth\Social\SocialLogin`):
+- A **known** `(provider, provider_user_id)` always resolves to the SAME account — never a duplicate.
+- A **new** identity creates a fresh, provider-verified account (members + TL0, random unknown password).
+- **EMAIL COLLISION → REFUSE.** If the provider email already belongs to a local account, sign-in is **refused
+  with no merge**; the user is told to sign in with their password and link the provider from settings (M2.2).
+  Account control is proven by the password session, NEVER asserted by a matching email.
+- Socialite runs **stateful** (a `state` nonce in the session, validated on callback) as the CSRF defence; an
+  `InvalidStateException` (expired session / forged callback) **fails closed** to the login page. SSO does not
+  bypass the staff-2FA gate.
+
+**⚠ SCAFFOLDED — not validated against a live provider.** No real OAuth apps / credentials exist in this
+environment, so the end-to-end round-trip with Google/GitHub/Discord is **unverified**; the flow is proven only
+against **mocked** Socialite responses. Validate with real client credentials + the published redirect URI
+before relying on it. (PKCE + an outbound-request review are M2.3.)
+
+**Tested.** 8 feature tests (mocked Socialite): new-user-via-provider (creates + verifies + links + groups),
+returning identity (same user, no duplicate), **email collision refused (no merge, stays guest, no identity
+attached)**, disabled provider 404, unknown provider 404, redirect kicks off, invalid-state fails closed,
+declined consent handled. Gate green: full suite full suite 1386 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors.

@@ -5,6 +5,7 @@
 use App\Community\MembersDirectory;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\TasksController;
+use App\Http\Controllers\Auth\SocialAuthController;
 use App\Http\Controllers\AppearanceController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\BanController;
@@ -55,6 +56,13 @@ Route::middleware('novfora.not-installed')->group(function () {
 
 // Health/status endpoint for uptime monitoring (M5) — works before AND after install; no auth, no secrets.
 Route::get('/health', HealthController::class)->name('health');
+
+// ── OAuth social sign-in (Phase 4 · M2.1) — alternative to password login; per-provider OFF by default.
+// Stateful Socialite (session state nonce = CSRF defence). A disabled/unknown provider 404s. Throttled.
+Route::middleware('throttle:30,1')->group(function () {
+    Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirect'])->name('oauth.redirect');
+    Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback'])->name('oauth.callback');
+});
 
 // ── Forums (M2) — public read, per-node authorized; anonymous resolves as the Guests group ─────────────
 Route::get('/forums', [ForumController::class, 'index'])->name('forums.index');
@@ -323,6 +331,7 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/settings/themes', 'admin.settings.themes')->name('settings.themes'); // visual theme editor
         Route::view('/settings/templates', 'admin.settings.templates')->name('settings.templates'); // sandboxed template editor (ADR-0038)
         Route::view('/settings/clubs', 'admin.settings.clubs')->name('settings.clubs'); // who may create clubs (Phase 4 · M1.6)
+        Route::view('/settings/sso', 'admin.settings.sso')->name('settings.sso'); // OAuth social login (Phase 4 · M2.1)
 
         // Members directory visibility (the public /members listing is gated on this setting).
         Route::view('/members/directory', 'admin.members.directory')->name('members.directory');

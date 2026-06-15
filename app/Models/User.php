@@ -88,6 +88,12 @@ class User extends Authenticatable implements MustVerifyEmail
             ->withTimestamps();
     }
 
+    /** Linked OAuth identities (Phase 4 · M2). @return HasMany<SocialAccount, $this> */
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(SocialAccount::class);
+    }
+
     /** @return list<int> the user's group ids (primary + secondary) */
     public function groupIds(): array
     {

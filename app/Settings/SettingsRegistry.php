@@ -143,6 +143,20 @@ final class SettingsRegistry
             // always create regardless. Read by App\Clubs\ClubCreation.
             new SettingDefinition('clubs.creation_policy', 'string', default: 'trust', group: 'clubs', label: 'Who can create clubs', options: ['any', 'trust', 'staff']),
             new SettingDefinition('clubs.creation_min_trust_level', 'int', default: 2, group: 'clubs', label: 'Minimum trust level to create a club'),
+
+            // ── SSO / social login (Phase 4 · M2) ───────────────────────────────────────────────────
+            // Per-provider OFF by default; secrets stored ENCRYPTED at rest. The password login path is
+            // unaffected. Read by App\Auth\Social\SocialProviders (which configures the Socialite driver
+            // from these at request time — no env required).
+            new SettingDefinition('oauth.google.enabled', 'bool', default: false, group: 'sso', label: 'Google login enabled'),
+            new SettingDefinition('oauth.google.client_id', 'string', default: '', group: 'sso', label: 'Google client ID'),
+            new SettingDefinition('oauth.google.client_secret', 'string', encrypted: true, default: '', group: 'sso', label: 'Google client secret'),
+            new SettingDefinition('oauth.github.enabled', 'bool', default: false, group: 'sso', label: 'GitHub login enabled'),
+            new SettingDefinition('oauth.github.client_id', 'string', default: '', group: 'sso', label: 'GitHub client ID'),
+            new SettingDefinition('oauth.github.client_secret', 'string', encrypted: true, default: '', group: 'sso', label: 'GitHub client secret'),
+            new SettingDefinition('oauth.discord.enabled', 'bool', default: false, group: 'sso', label: 'Discord login enabled'),
+            new SettingDefinition('oauth.discord.client_id', 'string', default: '', group: 'sso', label: 'Discord client ID'),
+            new SettingDefinition('oauth.discord.client_secret', 'string', encrypted: true, default: '', group: 'sso', label: 'Discord client secret'),
         ];
     }
 }

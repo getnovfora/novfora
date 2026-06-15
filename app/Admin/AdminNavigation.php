@@ -54,6 +54,7 @@ final class AdminNavigation
                 ['Themes', 'admin.settings.themes', 'palette'],
                 ['Templates', 'admin.settings.templates', 'pencil'],
                 ['Clubs', 'admin.settings.clubs', 'users'],
+                ['Social login', 'admin.settings.sso', 'lock'],
             ]],
             ['Members', 'users', [
                 ['Groups', 'admin.members.groups', 'users'],

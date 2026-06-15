@@ -10,8 +10,10 @@
         "laravel/fortify": "^1.37",
         "laravel/framework": "^13.8",
         "laravel/scout": "^11.2",
+        "laravel/socialite": "^5.27",
         "laravel/tinker": "^3.0",
         "livewire/livewire": "^4.0",
+        "socialiteproviders/discord": "^4.2",
         "symfony/html-sanitizer": "^7.4"
     },
     "require-dev": {
