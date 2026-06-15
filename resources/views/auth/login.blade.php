@@ -2,6 +2,27 @@
 @extends('layouts.auth', ['authTitle' => 'Sign in'])
 
 @section('auth')
+    @if (session('error'))
+        <x-ui.alert variant="danger" class="mb-4">{{ session('error') }}</x-ui.alert>
+    @endif
+
+    @php($socialProviders = app(\App\Auth\Social\SocialProviders::class)->available())
+    @if (! empty($socialProviders))
+        <div class="mb-5 space-y-2" aria-label="{{ __('Sign in with a provider') }}">
+            @foreach ($socialProviders as $provider)
+                <a href="{{ route('oauth.redirect', $provider) }}"
+                   class="flex w-full items-center justify-center gap-2 min-h-11 rounded-md border border-line bg-surface-raised px-4 text-sm font-medium text-ink hover:bg-surface-sunken"
+                   data-provider="{{ $provider }}">
+                    {{ __('Continue with :provider', ['provider' => app(\App\Auth\Social\SocialProviders::class)->label($provider)]) }}
+                </a>
+            @endforeach
+        </div>
+        <div class="relative mb-5 text-center text-xs text-ink-subtle">
+            <span class="bg-surface px-2">{{ __('or sign in with your password') }}</span>
+            <span class="absolute inset-x-0 top-1/2 -z-10 border-t border-line" aria-hidden="true"></span>
+        </div>
+    @endif
+
     <form method="POST" action="{{ route('login') }}" class="space-y-4">
         @csrf
 

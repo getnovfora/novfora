@@ -64,6 +64,14 @@ class SearchController extends Controller
 
     private function visible(User $viewer, Post $post): bool
     {
-        return $post->topic !== null && $viewer->canDo('forum.view', Scope::thread((int) $post->topic_id));
+        $topic = $post->topic;
+        if ($topic === null || ! $viewer->canDo('forum.view', Scope::thread((int) $post->topic_id))) {
+            return false;
+        }
+        // M1.5: a typeahead hit in a club forum is suppressed unless the viewer may see the club's content
+        // (the faceted search path is already gated by VisibleForumIds; this guards the Scout typeahead path).
+        $forum = $topic->forum;
+
+        return $forum instanceof Forum && $forum->clubContentVisibleTo($viewer);
     }
 }

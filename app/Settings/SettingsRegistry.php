@@ -135,6 +135,45 @@ final class SettingsRegistry
             // Gates the public /members directory. 'everyone' (incl. guests) → 'members' (signed-in) →
             // 'staff' → 'disabled' (off). Read by App\Community\MembersDirectory::visibleTo().
             new SettingDefinition('members.directory_visibility', 'string', default: 'everyone', group: 'members', label: 'Members directory visibility', options: ['disabled', 'staff', 'members', 'everyone']),
+
+            // ── Clubs (Phase 4 · M1.6) ──────────────────────────────────────────────────────────────
+            // Who may create a club. 'any' = any verified member; 'trust' = a verified member at trust level
+            // ≥ clubs.creation_min_trust_level (default 2); 'staff' = administrators & moderators only (the
+            // conservative realisation of "admin-approved" — a request→approval queue is deferred). Staff may
+            // always create regardless. Read by App\Clubs\ClubCreation.
+            new SettingDefinition('clubs.creation_policy', 'string', default: 'trust', group: 'clubs', label: 'Who can create clubs', options: ['any', 'trust', 'staff']),
+            new SettingDefinition('clubs.creation_min_trust_level', 'int', default: 2, group: 'clubs', label: 'Minimum trust level to create a club'),
+
+            // ── SSO / social login (Phase 4 · M2) ───────────────────────────────────────────────────
+            // Per-provider OFF by default; secrets stored ENCRYPTED at rest. The password login path is
+            // unaffected. Read by App\Auth\Social\SocialProviders (which configures the Socialite driver
+            // from these at request time — no env required).
+            new SettingDefinition('oauth.google.enabled', 'bool', default: false, group: 'sso', label: 'Google login enabled'),
+            new SettingDefinition('oauth.google.client_id', 'string', default: '', group: 'sso', label: 'Google client ID'),
+            new SettingDefinition('oauth.google.client_secret', 'string', encrypted: true, default: '', group: 'sso', label: 'Google client secret'),
+            new SettingDefinition('oauth.github.enabled', 'bool', default: false, group: 'sso', label: 'GitHub login enabled'),
+            new SettingDefinition('oauth.github.client_id', 'string', default: '', group: 'sso', label: 'GitHub client ID'),
+            new SettingDefinition('oauth.github.client_secret', 'string', encrypted: true, default: '', group: 'sso', label: 'GitHub client secret'),
+            new SettingDefinition('oauth.discord.enabled', 'bool', default: false, group: 'sso', label: 'Discord login enabled'),
+            new SettingDefinition('oauth.discord.client_id', 'string', default: '', group: 'sso', label: 'Discord client ID'),
+            new SettingDefinition('oauth.discord.client_secret', 'string', encrypted: true, default: '', group: 'sso', label: 'Discord client secret'),
+
+            // ── SAML SSO (Phase 4 · M2.4 — SCAFFOLD, not validated against a real IdP) ─────────────────
+            // Inert unless `auth.saml.enabled` is on AND a concrete SamlProvider is bound (none ships). These
+            // fields are the IdP metadata a real provider implementation would read. See ADR-0056.
+            new SettingDefinition('auth.saml.enabled', 'bool', default: false, group: 'saml', label: 'SAML SSO enabled (requires a bound provider)'),
+            new SettingDefinition('auth.saml.idp_entity_id', 'string', default: '', group: 'saml', label: 'IdP entity ID'),
+            new SettingDefinition('auth.saml.idp_sso_url', 'string', default: '', group: 'saml', label: 'IdP single-sign-on URL'),
+            new SettingDefinition('auth.saml.idp_x509_cert', 'string', default: '', group: 'saml', label: 'IdP signing certificate (X.509)'),
+            new SettingDefinition('auth.saml.sp_entity_id', 'string', default: '', group: 'saml', label: 'Service-provider entity ID'),
+
+            // ── Web Push (Phase 4 · M3.2) ───────────────────────────────────────────────────────────
+            // VAPID keypair for Web Push. Generate with `php artisan novfora:push:vapid`. The public key is
+            // served to the browser to subscribe; the private key signs the push JWT (stored encrypted). Push
+            // is an OPT-IN extra channel — it does nothing until a user subscribes a device AND keys are set.
+            new SettingDefinition('push.vapid_public_key', 'string', default: '', group: 'push', label: 'VAPID public key'),
+            new SettingDefinition('push.vapid_private_key', 'string', encrypted: true, default: '', group: 'push', label: 'VAPID private key'),
+            new SettingDefinition('push.vapid_subject', 'string', default: '', group: 'push', label: 'VAPID subject (mailto: or site URL)'),
         ];
     }
 }

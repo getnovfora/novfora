@@ -8,6 +8,7 @@ namespace App\Http\Controllers;
 
 use App\Forum\BookmarkService;
 use App\Models\Bookmark;
+use App\Models\Forum;
 use App\Models\Post;
 use App\Models\Topic;
 use App\Models\User;
@@ -60,6 +61,12 @@ class BookmarkController extends Controller
 
         if (! $user->canDo('forum.view', Scope::forum((int) $topic->forum_id))) {
             return null; // lost access since saving
+        }
+        // M1.5: a bookmark in a club forum drops out unless the user can still see the club's content
+        // (e.g. they left the club, or it went private after they saved).
+        $forum = $topic->forum;
+        if ($forum instanceof Forum && ! $forum->clubContentVisibleTo($user)) {
+            return null;
         }
 
         return ['kind' => $kind, 'title' => (string) $topic->title, 'url' => $url, 'saved_at' => $bookmark->created_at];

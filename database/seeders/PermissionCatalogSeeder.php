@@ -64,6 +64,12 @@ class PermissionCatalogSeeder extends Seeder
             // even after a demotion takes follow.create away.
             'follow.create' => ['Follow members', 'global', 'Community', 'Start following another member (they are notified). Trust-gated (soft): TL0 cannot by default; granted from TL1 — an admin may lift it. Rate-limited per trust level.'],
             'follow.delete' => ['Unfollow members', 'global', 'Community', 'Stop following a member you follow. Ungated participation — undoing your own follow is always allowed.'],
+
+            // Clubs (Phase 4 · M1.2) — sub-community management. CLUB scope: granted per-club to club owners by
+            // ClubRoleProjector (held at scope_type='club'); global admins hold it at global scope (the
+            // administrator preset) so they can manage any club. Club moderation reuses the existing forum-scope
+            // keys (topic.moderate / post.edit.any / post.delete.any), granted at club scope to owners/moderators.
+            'club.manage' => ['Manage a club', 'club', 'Clubs', 'Edit a club’s settings, roster, roles, and invitations. Held by club owners (per club) and global administrators (everywhere).'],
         ];
     }
 

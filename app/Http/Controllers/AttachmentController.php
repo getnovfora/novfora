@@ -8,6 +8,7 @@ namespace App\Http\Controllers;
 
 use App\Forum\AttachmentService;
 use App\Models\Attachment;
+use App\Models\Forum;
 use App\Models\Post;
 use App\Models\Topic;
 use App\Models\User;
@@ -53,7 +54,11 @@ class AttachmentController extends Controller
             $viewer = $request->user() instanceof User ? $request->user() : User::guest();
             $post = Post::withTrashed()->find($attachment->post_id);
             $topic = $post ? Topic::withTrashed()->find($post->topic_id) : null;
-            $canView = $topic instanceof Topic && $viewer->canDo('forum.view', $topic->permissionScope());
+            $topicForum = $topic instanceof Topic ? $topic->forum : null;
+            $canView = $topic instanceof Topic
+                && $viewer->canDo('forum.view', $topic->permissionScope())
+                // M1.5: an attachment in a club forum is gated by club content visibility.
+                && $topicForum instanceof Forum && $topicForum->clubContentVisibleTo($request->user());
             // The uploader keeps access to their own file (covers their own still-pending post).
             abort_unless($canView || $request->user()?->getKey() === $attachment->user_id, 403);
         }

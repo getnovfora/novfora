@@ -32,6 +32,7 @@ class ForumController extends Controller
         /** @var list<array<string, mixed>> $cached */
         $cached = Cache::remember('forum.index.tree', now()->addSeconds(60), fn () => Forum::query()
             ->whereNull('parent_id')
+            ->whereNull('club_id') // M1.4: club discussion forums never appear in the main board tree
             ->orderBy('position')->orderBy('id')
             ->with(['children' => fn ($q) => $q->orderBy('position')->orderBy('id')])
             ->get()
@@ -46,6 +47,10 @@ class ForumController extends Controller
     public function show(Request $request, Forum $forum): View
     {
         $viewer = $request->user() ?? User::guest();
+        // M1.4/M1.5: a CLUB forum's content is gated by club visibility (members/staff for closed/private),
+        // not just forum.view. The club gate runs FIRST so a private club consistently 404s (no disclosure)
+        // rather than 403ing a guest on the seeded guests-NEVER. A board forum (club_id=null) passes through.
+        abort_unless($forum->clubContentVisibleTo($request->user()), 404);
         abort_unless($viewer->canDo('forum.view', $forum->permissionScope()), 403);
 
         $user = $request->user();
@@ -69,7 +74,9 @@ class ForumController extends Controller
             ->orderByDesc('id')
             ->paginate(20);
 
-        $canPost = $user?->canDo('topic.create', $forum->permissionScope()) ?? false;
+        // Posting in a club forum requires active membership (or staff), even where reading is public.
+        $canPost = ($user?->canDo('topic.create', $forum->permissionScope()) ?? false)
+            && $forum->clubParticipationAllowed($user);
 
         // Sub-boards (ProBoards-style block above the topic table): the forum's child forums, filtered with
         // the SAME forum.view check the index uses. One bounded query; their counts/last-post are columns.

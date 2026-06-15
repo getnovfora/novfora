@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Listeners;
 
 use App\Events\Reacted;
+use App\Models\Forum;
 use App\Models\Topic;
 use App\Models\User;
 use App\Notifications\Notifier;
@@ -47,6 +48,13 @@ final class SendReactionNotification implements ShouldQueue
         }
 
         $topic = $post->topic_id ? Topic::find($post->topic_id) : null;
+
+        // Club privacy (Phase 4 · M1.5): a reaction notification carries the club topic title, so it must
+        // never reach an author who has since lost access to the club (mirrors PostService::dispatchPostNotifications).
+        $forum = $topic instanceof Topic && $topic->forum_id ? Forum::find($topic->forum_id) : null;
+        if ($forum instanceof Forum && ! $forum->clubContentVisibleTo($author)) {
+            return;
+        }
 
         $this->notifier->send($author, 'reaction', $event->actor, [
             'thread_id' => (int) $post->topic_id,

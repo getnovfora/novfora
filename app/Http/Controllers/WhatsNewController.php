@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Forum;
 use App\Models\Topic;
 use App\Models\TopicRead;
 use App\Models\User;
@@ -37,8 +38,11 @@ class WhatsNewController extends Controller
             ->filter(function (Topic $topic) use ($reads, $user) {
                 $read = $reads->get($topic->id)?->last_read_at;
                 $unread = $read === null || $topic->last_posted_at?->gt($read);
+                $forum = $topic->forum; // M1.5: a club topic is excluded unless the viewer may see the club.
 
-                return $unread && $user->canDo('forum.view', $topic->permissionScope());
+                return $unread
+                    && $user->canDo('forum.view', $topic->permissionScope())
+                    && $forum instanceof Forum && $forum->clubContentVisibleTo($user);
             })
             ->values();
 

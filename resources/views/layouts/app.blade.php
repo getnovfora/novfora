@@ -62,6 +62,18 @@
         <link rel="icon" href="{{ $themeAssets['favicon'] }}">
     @endif
 
+    {{-- PWA (Phase 4 · M3.1): installable manifest + theme colour + maskable icon + a no-PII service worker. --}}
+    <link rel="manifest" href="{{ route('pwa.manifest') }}">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="apple-touch-icon" href="/icons/novfora.svg">
+    <script @if ($nonce) nonce="{{ $nonce }}" @endif>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/sw.js').catch(function () {});
+            });
+        }
+    </script>
+
     {{-- No-flash-of-wrong-theme: apply the stored colour-mode/density BEFORE first paint. nonce-aware for the
          strict CSP (phase-1.5 F-M3); harmless under the baseline policy. --}}
     <script @if ($nonce) nonce="{{ $nonce }}" @endif>
@@ -128,6 +140,7 @@
                     </form>
                     <nav class="flex flex-col" aria-label="Mobile">
                         <a href="{{ route('forums.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Forums</a>
+                        <a href="{{ route('clubs.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Clubs</a>
                         @if (\App\Community\MembersDirectory::visibleTo(auth()->user()))
                             <a href="{{ route('members.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Members</a>
                         @endif
@@ -155,6 +168,7 @@
             {{-- Desktop primary nav --}}
             <nav class="hidden sm:flex items-center gap-0.5" aria-label="Primary">
                 <a href="{{ route('forums.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Forums</a>
+                <a href="{{ route('clubs.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Clubs</a>
                 <a href="{{ route('trending.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Trending</a>
                 @if (\App\Community\MembersDirectory::visibleTo(auth()->user()))
                     <a href="{{ route('members.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Members</a>

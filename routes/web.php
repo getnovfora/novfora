@@ -7,8 +7,11 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\TasksController;
 use App\Http\Controllers\AppearanceController;
 use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\Auth\SamlController;
+use App\Http\Controllers\Auth\SocialAuthController;
 use App\Http\Controllers\BanController;
 use App\Http\Controllers\BookmarkController;
+use App\Http\Controllers\ClubController;
 use App\Http\Controllers\FeedController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\HealthController;
@@ -20,6 +23,8 @@ use App\Http\Controllers\ModerationController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileFieldController;
+use App\Http\Controllers\PushSubscriptionController;
+use App\Http\Controllers\PwaController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SavedSearchController;
 use App\Http\Controllers\SearchController;
@@ -55,12 +60,51 @@ Route::middleware('novfora.not-installed')->group(function () {
 // Health/status endpoint for uptime monitoring (M5) — works before AND after install; no auth, no secrets.
 Route::get('/health', HealthController::class)->name('health');
 
+// ── PWA (Phase 4 · M3.1) — installable manifest + service worker (root scope) + offline fallback. Public;
+// progressive enhancement (ignored by browsers without SW support). The SW caches only static shell + guest,
+// no-PII pages (flagged by PwaResponseHeaders) — never authenticated mutations or personal data.
+Route::get('/manifest.webmanifest', [PwaController::class, 'manifest'])->name('pwa.manifest');
+Route::get('/sw.js', [PwaController::class, 'serviceWorker'])->name('pwa.service-worker');
+Route::view('/offline', 'pwa.offline')->name('pwa.offline');
+
+// ── OAuth social sign-in (Phase 4 · M2.1) — alternative to password login; per-provider OFF by default.
+// Stateful Socialite (session state nonce = CSRF defence). A disabled/unknown provider 404s. Throttled.
+Route::middleware('throttle:30,1')->group(function () {
+    Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirect'])->name('oauth.redirect');
+    Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback'])->name('oauth.callback');
+});
+
+// ── SAML SSO (Phase 4 · M2.4 — SCAFFOLD, not validated against a real IdP). Every route 404s unless SAML is
+// enabled AND a concrete SamlProvider is bound (none ships). The ACS POST is CSRF-exempt (bootstrap/app.php).
+Route::middleware('throttle:30,1')->group(function () {
+    Route::get('/auth/saml/login', [SamlController::class, 'login'])->name('saml.login');
+    Route::post('/auth/saml/acs', [SamlController::class, 'consume'])->name('saml.acs');
+    Route::get('/auth/saml/metadata', [SamlController::class, 'metadata'])->name('saml.metadata');
+});
+
 // ── Forums (M2) — public read, per-node authorized; anonymous resolves as the Guests group ─────────────
 Route::get('/forums', [ForumController::class, 'index'])->name('forums.index');
 Route::get('/forums/{forum}', [ForumController::class, 'show'])->name('forums.show');
 
 // Trending / best-of (discovery 3.1) — public, permission-safe.
 Route::get('/trending', [TrendingController::class, 'index'])->name('trending.index');
+
+// ── Clubs (Phase 4 · M1.1) — sub-communities. The directory is public; per-club listing visibility is
+// enforced in the controller (an unlisted club a viewer may not see 404s — no disclosure). The literal
+// "create" segment is registered (auth+verified) BEFORE the {club} wildcard so it is never read as a slug.
+Route::get('/clubs', [ClubController::class, 'index'])->name('clubs.index');
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/clubs/create', [ClubController::class, 'create'])->name('clubs.create');
+    Route::get('/clubs/{club:slug}/edit', [ClubController::class, 'edit'])->name('clubs.edit');
+    // Invitation accept (M1.3) — the token is the secret; GET confirms, POST accepts. Throttled.
+    Route::middleware('throttle:30,1')->group(function () {
+        Route::get('/clubs/{club:slug}/invite/{invitation:token}', [ClubController::class, 'invite'])->name('clubs.invite.show');
+        Route::post('/clubs/{club:slug}/invite/{invitation:token}', [ClubController::class, 'acceptInvite'])->name('clubs.invite.accept');
+    });
+});
+// Roster — public route, gated in-controller to content-visible viewers (404 otherwise, no disclosure).
+Route::get('/clubs/{club:slug}/members', [ClubController::class, 'members'])->name('clubs.members');
+Route::get('/clubs/{club:slug}', [ClubController::class, 'show'])->name('clubs.show');
 
 // RSS/Atom feeds (discovery 3.2) — public; each exposes only guest-visible content (private forums 404).
 Route::get('/forums/{forum}/feed', [FeedController::class, 'forum'])->name('feeds.forum');
@@ -217,6 +261,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/settings/notifications', [NotificationController::class, 'preferences'])->name('settings.notifications');
     Route::post('/settings/notifications', [NotificationController::class, 'savePreferences'])->name('settings.notifications.save');
 
+    // Web Push subscription lifecycle (Phase 4 · M3.2) — own-account device subscriptions. Throttled.
+    Route::middleware('throttle:60,1')->group(function () {
+        Route::get('/push/public-key', [PushSubscriptionController::class, 'publicKey'])->name('push.public-key');
+        Route::post('/push/subscribe', [PushSubscriptionController::class, 'subscribe'])->name('push.subscribe');
+        Route::post('/push/unsubscribe', [PushSubscriptionController::class, 'unsubscribe'])->name('push.unsubscribe');
+    });
+
     // Profile (signature, custom fields, avatar/cover) — own account.
     Route::get('/settings/profile', [ProfileController::class, 'edit'])->name('settings.profile');
     Route::post('/settings/profile', [ProfileController::class, 'update'])->name('settings.profile.save');
@@ -227,6 +278,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Personal API tokens (ADR-0033, B3) — the ⚡api-tokens SFC issues/revokes the user's own tokens.
     Route::view('/settings/api-tokens', 'settings.api-tokens')->name('settings.api-tokens');
+
+    // Linked social accounts (Phase 4 · M2.2) — link/unlink OAuth providers to this account. The link
+    // round-trip reuses the shared /auth/{provider}/callback (disambiguated by an oauth.link_intent flag).
+    Route::get('/settings/linked-accounts', [SocialAuthController::class, 'linkedAccounts'])->name('settings.linked-accounts');
+    Route::post('/settings/linked-accounts/{provider}/link', [SocialAuthController::class, 'startLink'])->name('oauth.link')->middleware('throttle:30,1');
+    Route::delete('/settings/linked-accounts/{provider}', [SocialAuthController::class, 'unlink'])->name('oauth.unlink');
 
     // Private messages (P2-M2 Half-B). The /messages/new route MUST be registered before {conversation}
     // so the literal "new" segment is never captured as a conversation id.
@@ -304,6 +361,8 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/settings/appearance', 'admin.settings.appearance')->name('settings.appearance');
         Route::view('/settings/themes', 'admin.settings.themes')->name('settings.themes'); // visual theme editor
         Route::view('/settings/templates', 'admin.settings.templates')->name('settings.templates'); // sandboxed template editor (ADR-0038)
+        Route::view('/settings/clubs', 'admin.settings.clubs')->name('settings.clubs'); // who may create clubs (Phase 4 · M1.6)
+        Route::view('/settings/sso', 'admin.settings.sso')->name('settings.sso'); // OAuth social login (Phase 4 · M2.1)
 
         // Members directory visibility (the public /members listing is gated on this setting).
         Route::view('/members/directory', 'admin.members.directory')->name('members.directory');

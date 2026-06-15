@@ -6,23 +6,44 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Club;
 use App\Models\Forum;
 use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class TagController extends Controller
 {
     /**
-     * All tags, ordered by usage (most-used first). Site-wide — no permission filter needed at this level
-     * (the tag listing is public; individual tagged topics are filtered on tags.show).
+     * All tags, ordered by usage (most-used first). The listing is public; individual tagged topics are
+     * filtered on tags.show. M1.5: a tag used ONLY in a closed/private club forum is omitted, so a club-exclusive
+     * tag name (and its existence) never leaks on the public index.
      */
     public function index(): View
     {
-        $tags = Tag::orderByDesc('usage_count')->orderBy('name')->paginate(50);
+        $hidden = $this->hiddenClubForumIds();
+
+        $tags = Tag::query()
+            ->when(
+                $hidden->isNotEmpty(),
+                fn ($q) => $q->whereHas('topics', fn ($t) => $t->whereNotIn('forum_id', $hidden->all())),
+            )
+            ->orderByDesc('usage_count')->orderBy('name')->paginate(50);
 
         return view('tags.index', compact('tags'));
+    }
+
+    /** Forum ids of closed/private club discussion forums — content that must not surface publicly. @return Collection<int,int> */
+    private function hiddenClubForumIds(): Collection
+    {
+        $closedClubIds = Club::query()->where('privacy', '!=', 'public')->pluck('id');
+        if ($closedClubIds->isEmpty()) {
+            return collect();
+        }
+
+        return Forum::query()->whereIn('club_id', $closedClubIds)->pluck('id')->map(fn ($id): int => (int) $id);
     }
 
     /**
@@ -52,7 +73,8 @@ class TagController extends Controller
                 if (! array_key_exists($forumId, $visibleForums)) {
                     $forum = $topic->forum;
                     $visibleForums[$forumId] = $forum instanceof Forum
-                        && $viewer->canDo('forum.view', $forum->permissionScope());
+                        && $viewer->canDo('forum.view', $forum->permissionScope())
+                        && $forum->clubContentVisibleTo($viewer); // M1.5 club content gate
                 }
 
                 return $visibleForums[$forumId];

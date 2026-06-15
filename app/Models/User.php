@@ -80,6 +80,26 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->belongsToMany(Badge::class, 'user_badges')->withPivot('awarded_at');
     }
 
+    /** Clubs this user belongs to (Phase 4 · M1.1), with their role/status on the pivot. @return BelongsToMany<Club, $this> */
+    public function clubs(): BelongsToMany
+    {
+        return $this->belongsToMany(Club::class, 'club_user')
+            ->withPivot(['role', 'status', 'joined_at'])
+            ->withTimestamps();
+    }
+
+    /** Linked OAuth identities (Phase 4 · M2). @return HasMany<SocialAccount, $this> */
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(SocialAccount::class);
+    }
+
+    /** Web Push subscriptions — one per opted-in device (Phase 4 · M3.2). @return HasMany<PushSubscription, $this> */
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
+    }
+
     /** @return list<int> the user's group ids (primary + secondary) */
     public function groupIds(): array
     {
@@ -115,6 +135,21 @@ class User extends Authenticatable implements MustVerifyEmail
     public function rankPriority(): int
     {
         return (int) ($this->groups->max('priority') ?? 0);
+    }
+
+    /**
+     * The user's effective trust level (0–4). A user belongs to exactly one type='trust' group (tl0…tl4),
+     * which is authoritative; we fall back to the denormalised `trust_level` column when the trust group is
+     * not loaded/seeded. Used by club-creation gating (M1.6) and other TL-threshold checks.
+     */
+    public function trustLevel(): int
+    {
+        $fromGroup = $this->groups
+            ->where('type', 'trust')
+            ->map(fn (Group $g): int => (int) str_replace('tl', '', (string) $g->slug))
+            ->max();
+
+        return $fromGroup !== null ? (int) $fromGroup : (int) ($this->trust_level ?? 0);
     }
 
     /** Activity heuristic (P2-M3): "online" = active within the last 15 minutes (last_active_at is written

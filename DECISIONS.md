@@ -2091,3 +2091,417 @@ injection** in the a11y auditor (`loadHTML` HTML parser expands no custom/extern
 in a quoted literal with `"` stripped); SSRF surface is operator-CLI-only; load-test creds random + prod
 guard; `SetLocale` middleware order correct (lazy auth, gates run first). Also tidied a misleading field name
 (`Finding::criterion` → `level`; rendered label was already correct).
+### ADR-0047 — Clubs (sub-communities): data model + the two-axis privacy architecture (Phase 4 · M1.1) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context.** Phase 4 · M1 introduces **clubs** — named sub-communities that own a discussion space and a
+roster, with public / members-only / invite-only variants. The #1 fence is **club privacy**: a private-hidden
+club and its content must never leak through any surface. This ADR fixes the data model and the privacy model;
+M1.2 (club scope through the engine), M1.4 (discussion via the existing forum stack), and M1.5 (per-surface
+no-leak enforcement) implement it.
+
+**Decision — schema.** Two tables, both reversible. `clubs` (name, unique slug, tagline, description, privacy,
+is_listed, color, avatar/banner, `created_by`→users nullOnDelete, `forum_id` plain pointer set in M1.4,
+member_count, settings json, tenant_id seam, softDeletes). `club_user` (club_id, user_id, **role** ∈
+owner|moderator|member, **status** ∈ active|pending|invited|banned, invited_by, joined_at; unique(club_id,
+user_id)). `club_user.role/status` is the **source of truth** for club rank; M1.2 PROJECTS active roles into
+club-scoped `acl_entries`. The discussion space reuses the existing `forums`/`topics`/`posts` stack via a
+nullable `forums.club_id` (M1.4) — **no parallel forum system**.
+
+**Decision — two orthogonal privacy axes (not one enum).**
+- `privacy` ∈ public|closed|private drives **content** visibility + the join policy: public → world-readable,
+  open join; closed → members-only content, join by request→approve; private → members-only content, invite-only.
+- `is_listed` (bool) drives **existence/metadata** visibility to non-members. A `private`+unlisted club is the
+  **"private-hidden"** fence case — its name/existence never appears to non-members. (A public club is forced
+  listed.) The model exposes the single-source-of-truth gates `isContentVisibleTo()` / `isListingVisibleTo()`
+  (= the axis OR active-member OR global-staff) and the `scopeListableTo()` query scope.
+
+**Decision — THE APEX CALL: club content-hiding is a query-level gate, NOT pure ACL inheritance.** The board is
+**public-by-default**: the `guests` system group holds `forum.view = ALLOW` at **global** scope and the `member`
+preset inherits it, so **every** logged-in user resolves `forum.view = true` for any forum via global
+inheritance. The three-state engine **cannot** express "members of this private club see it, other logged-in
+users don't": `NO` is neutral (inherits, never stops), and `NEVER` is **absolute** and checked across **all**
+holders before the scope walk — so a `members`-group `NEVER` at club scope would also hard-deny real club
+members (who are themselves in `members`), and no per-user ALLOW can lift it. Therefore:
+  1. **Content hiding** for closed/private clubs is enforced at the **query/visibility layer** — a single
+     authoritative `Club` visibility gate that **every** exposure surface consults (search, activity feed,
+     RSS/Atom, sitemap, profiles, REST API, notifications, the club's own forum/topic controllers). This is the
+     same *kind* of helper as the existing `VisibleForumIds`, not a second permission system.
+  2. **Capabilities** (post/reply/moderate/manage) flow **through the engine** at **club scope** (M1.2) — a club
+     moderator's `topic.moderate` resolves true only within the club; `ActorRank` still prevents a club owner
+     from out-ranking global staff.
+  3. **Anonymous defence-in-depth**: closed/private clubs seed `forum.view = NEVER` for the **guests** group at
+     club scope (no real member is ever a guest), which hard-blocks every anonymous surface (sitemap, RSS,
+     guest search) through the `forum.view` checks they already perform — zero new code on those paths.
+  This corrects a tempting-but-wrong simplification ("set forum.view=NEVER for members → auto-hidden"): it would
+  break for real members. The reasoning is pinned by the M1.5 per-surface no-leak tests.
+
+**Decision — creation gate.** `App\Clubs\ClubCreation::canCreate()` is the single call site; M1.1 baseline =
+verified member at **trust level ≥ 2** (plus global staff always). M1.6 swaps the body for a setting-driven
+policy (any / TL-threshold / admin-approved) without touching any surface. The founder is seated as the first
+**owner** in `ClubService::create()` (transactional); `created_by` nullOnDelete means deleting the founder's
+account never destroys the club — the sole-owner-leaves / account-deletion case is handled by M1.3 ownership
+transfer.
+
+**Tested (M1.1).** 16 feature tests: creation-policy gate (TL2 yes / TL1 no / guest redirect / staff always);
+create flow seats owner + member_count + unique slug + public-forced-listed; directory listing visibility
+(public/listed shown, hidden absent for non-members, present for members + staff); hidden-club home 404s for
+guest & logged-in non-member, 200 for member & staff; owner/staff manage, stranger 403, owner soft-delete. Gate
+green: full suite 1318 passed / 1 skipped / 0 failed, migrate+seed clean, pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0048 — Club-scoped permissions through the existing engine (Phase 4 · M1.2) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** Clubs resolve their roles through the SAME `PermissionResolver`/`acl_entries` — **no second
+permission system**. A new **`club` scope type** joins global/category/forum/thread: `Scope::parse()` accepts
+`club:ID`, and `ScopeChain::for(club)` returns `[global, club:ID]` (club membership inherits the global board
+defaults, e.g. a member's `post.create`). A club's discussion forums inject the club node into THEIR chain in
+M1.4 (via `forums.club_id`), so a club moderator's scoped power reaches every topic in the club and nowhere
+else. `acl_entries.scope_type` is already an open varchar — **no migration**.
+
+**`club.manage` (scope_kind=club)** is the one new permission key. Global **administrators** hold it at global
+scope (added to the administrator preset → inherited into every club), so they manage any club; **club owners**
+hold it per-club. `permissions:sync` re-provisions it additively on upgrade (catalog + admins group) — proven
+by test. A global **moderator** is deliberately NOT a club manager (they moderate content; they do not own
+clubs) — `Club::isManageableBy()` now resolves through `canDo('club.manage', club-scope)`, so management is
+engine-driven, not an ad-hoc role check.
+
+**`ClubRoleProjector`** mirrors the roster (`club_user.role/status`, the source of truth) into per-user
+club-scope `acl_entries`: **owner** → `club.manage` + `topic.moderate`/`post.edit.any`/`post.delete.any`/
+`post.history.view`; **moderator** → the moderation set; **member** → none (a plain member relies on the global
+`member` preset for posting and on the M1.5 visibility gate for access — minimising rows). Projection is
+idempotent (clear-then-write), runs on create/role-change/leave, and bumps `AclVersion` so cached verdicts
+drop. Club moderation reuses the existing **forum-scope** keys at club scope — no bespoke keys.
+
+**Rank safety.** Club roles never touch global rank: `ActorRank` (M1.3) still guards actor-vs-target, so a club
+owner can never act on global staff who happen to be in the club. The club grants are **scope-isolated** —
+proven by a test that an owner's club-scoped `topic.moderate` does NOT apply in an unrelated forum.
+
+**Tested.** 10 feature tests (club-scope truth-table): parse + chain shape; owner `club.manage` at own club but
+not another; owner club-scoped moderation isolated from other forums; moderator moderate-yes/manage-no; member
+none; global admin manages any club; clear revokes; role-change re-projects; `permissions:sync` re-provisions
+`club.manage` idempotently. Gate green: full suite **1328 passed / 1 skipped / 0 failed**, pint clean, phpstan
+(level 5) 0 errors.
+
+### ADR-0049 — Club membership flows + the rank ceiling (Phase 4 · M1.3) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** `ClubMembershipService` is the single authority for join / request→approve / invite / leave /
+role-change / removal / ownership-transfer. Every mutation keeps `club_user` (the source of truth) consistent,
+re-projects club-scope `acl_entries` via `ClubRoleProjector`, and recomputes `clubs.member_count` from the
+table (a COUNT, so no lost-update). Join policy follows privacy: public→open, closed→request, private→invite.
+
+**Invitations** are a `club_invitations` table: a 48-char random **token is the secret** carried in the
+accept link (so no session needed to address it), optional **email binding**, a hard **expiry** (14 days), and
+**single-use** enforced under a `lockForUpdate` re-check inside the accept transaction. The accept route is
+`auth+verified+throttle:30,1`; GET only renders a confirm page (resists prefetch), POST accepts.
+
+**Invariants (defence-in-depth, enforced in the service on top of the UI gates):**
+- **Sole-owner guard** — a club always keeps ≥ 1 active owner; leave / demote / remove of the last owner is
+  refused (transfer first).
+- **Global-staff rank ceiling** — `assertRankCeiling()` reuses `ActorRank` verbatim: a club action may land on a
+  global **staff** target ONLY if the actor out-ranks them, so a club owner (a regular member globally) can
+  **never** remove/demote a global admin/moderator who is in the club. Non-staff targets follow the club role
+  hierarchy (owner > moderator > member) and pass — that's the design: club rank is club-local and never
+  escalates global rank.
+- Roster management (approve/reject/role/remove/invite) is **owner+admin only** (`isManageableBy` →
+  `club.manage`); join/leave are self-actions. Both the Livewire SFC and the service re-assert.
+
+**UI.** A `clubs.join-button` SFC (join/request/leave) on the club home; a `clubs.roster` SFC (members + pending
+requests + role select + remove + invite-link minting) on `/clubs/{slug}/members` (gated to content-visible
+viewers, 404 otherwise); an invite confirm page. Nested route binding scopes the invitation to its club via the
+new `Club::invitations()` relation.
+
+**Tested.** 22 tests (19 in the M1.3 suite): join/public, request/closed, private-needs-invite, approve/reject,
+non-manager refusal, invite mint/accept/single-use/expired/email-bound, leave + grant-clear, sole-owner guard
+(leave/demote/remove), promote→moderator grants club-scope `topic.moderate`, ownership transfer then
+ex-owner-leave, the rank ceiling (owner cannot touch an admin in the club; can remove an equal-rank member),
+the join-button SFC, roster 404 for a private-club outsider, and the invite-accept route. Gate green: full
+suite **1347 passed / 1 skipped / 0 failed**, pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0050 — Club discussion space on the existing forum stack (Phase 4 · M1.4) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** A club owns its discussion through the **existing** `forums`/`topics`/`posts` stack — no parallel
+system. A nullable `forums.club_id` (FK, nullOnDelete) tags a forum (and the topics/posts under it) as a club's
+space; `ClubService::create()` auto-creates one top-level (`parent_id=null`) forum per club tagged with its
+`club_id` and stores `clubs.forum_id`. `ScopeChain::forumChain()` injects `Scope::club(club_id)` right after
+global for such a forum, so a club moderator's club-scoped `topic.moderate` (M1.2) resolves for **every topic in
+the club** — proven by a thread-scope test — and a private club's guests-group `forum.view=NEVER` (M1.5)
+hard-denies anonymous reads through that node.
+
+**Visibility wiring (the part the public-by-default board needs):**
+- Club forums are **excluded from the main board index** (`ForumController::index` adds `whereNull('club_id')`).
+- `ForumController::show` and `TopicController::show` add a **club content gate** after the existing `forum.view`
+  check: `Forum::clubContentVisibleTo($viewer)` (404 = no disclosure) — because `forum.view` alone is granted to
+  everyone, the club gate is the real read-enforcement (the engine cannot soft-deny a logged-in non-member;
+  ADR-0047). Members + global staff read; others 404.
+- **Participation** (start topic / reply) requires `Forum::clubParticipationAllowed($viewer)` = active member or
+  staff — wired into the create-topic and reply SFCs and the `canPost` flag. So a **public** club is readable by
+  all but postable only by members (join is open — join first). Closed/private clubs gate both.
+
+**Tested.** 9 tests: auto-forum tagged + `forum_id` set; club forum absent from the board index; club scope
+injected into the chain; club moderator moderates a club topic while a plain member cannot; private club
+forum/topic 404 for guest+non-member, 200 for member+staff; non-member blocked from starting/replying in a club
+forum; member can. Gate green: full suite **1356 passed / 1 skipped / 0 failed**, pint clean, phpstan (level 5)
+0 errors. The remaining indirect surfaces (search/feeds/sitemap/activity/profiles/API/notifications/attachments)
++ the guests-NEVER + the exhaustive no-leak matrix are M1.5.
+
+### ADR-0051 — Club privacy: the no-leak sweep across every surface (Phase 4 · M1.5) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Context.** The #1 fence: a private-hidden club and its content must NEVER leak through search, activity feed,
+RSS/Atom, sitemap, member profiles, notifications, the REST API, or any other surface. Because the board is
+public-by-default (global guests `forum.view=ALLOW`), `forum.view` alone cannot hide a club from a logged-in
+non-member (ADR-0047), so this milestone wires THREE single-source-of-truth gates across every exposure path.
+
+**The three gates.**
+1. **Anonymous** — closed/private clubs seed `forum.view = NEVER` for the **guests** group at club scope
+   (`ClubRoleProjector::projectPrivacy`, applied on create + every privacy change). Since the club forum's chain
+   includes the club node (M1.4), every guest-resolving surface (sitemap, RSS forum/topic/user feeds, guest
+   search) is hard-denied through the `forum.view` checks it already performs — **zero new code on those paths**.
+2. **Bulk (logged-in)** — `VisibleForumIds::for($viewer)` now also excludes club forums whose content the viewer
+   may not see (public-club OR active-member OR staff), via two upfront queries (no per-forum N+1). This
+   auto-protects every consumer: the activity feed, faceted `SearchService`, `TrendingService`,
+   `RecommendationService`, and the user RSS feed.
+3. **Per-row (logged-in)** — surfaces that resolve the actual viewer per item call `Forum::clubContentVisibleTo`
+   in addition to `forum.view`: REST API (forums/topics/topic/createPost → 404 / participation), tag show + tag
+   **index** (a club-exclusive tag is omitted), what's-new, attachments, bookmarks, search typeahead. Webhooks
+   skip **all** club-forum `topic.created`/`post.created` events. `PostService::dispatchPostNotifications` only
+   notifies recipients who can still see the club's content.
+
+**Adversarial review found + fixed TWO leaks the first pass missed** (independent reviewer, verify-then-refute):
+- **Reaction-notification emit** (`SendReactionNotification`): emitted a `reaction` notification carrying the
+  club topic title to the post author with no club gate — a leak if the author later lost club access. Fixed
+  with the same `clubContentVisibleTo($author)` guard `PostService` uses.
+- **Stored notification render** (`NotificationController::index`): rendered stored `reply`/`mention`/`reaction`
+  notifications (whose JSON snapshots the club topic title) without re-checking current access. Fixed by
+  re-gating each topic notification against the recipient's CURRENT club visibility at render time — the same
+  pattern `BookmarkController::present()` already uses for saved references. Both fixes have dedicated tests.
+
+**Documented residuals (not user-facing leaks; recorded for the human pass).**
+- Scout/Meilisearch **indexing** stores private-club post bodies in the operator's own external index; all
+  app-layer search paths re-filter via `VisibleForumIds`, so this is operator-infra (the operator already has DB
+  access), not a cross-user leak. A `club is public` guard on `Post::shouldBeSearchable` would harden the
+  enhanced tier but adds hot-path queries — deferred.
+- `tags.usage_count` includes private-club usage (count-only, no titles/bodies). Leaderboard `users.post_count`
+  / reputation are coarse global aggregates that include club activity but reveal no club identity or content.
+- Bulk-moderation move-target lists are reachable only by global staff under the default seed (club moderators
+  hold `topic.moderate` at club scope only), so they are safe as shipped; flagged as defense-in-depth.
+
+**Tested.** 14 no-leak tests, one per surface (each contrasting a non-member/guest who must NOT see with a
+member who must), plus the two adversarial-review regression tests. Gate green: full suite full suite 1370 passed / 1 skipped / 0 failed,
+pint clean, phpstan (level 5) 0 errors. The full per-surface verdict + residuals: this ADR + the M1.5 test
+suite are the record.
+
+### ADR-0052 — Configurable club-creation policy (Phase 4 · M1.6) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** `App\Clubs\ClubCreation` (the single creation gate from M1.1) becomes setting-driven via two new
+`SettingsRegistry` definitions read on the hot path: `clubs.creation_policy` ∈ **any** | **trust** | **staff**
+(default `trust`) and `clubs.creation_min_trust_level` (default 2). Semantics: *any* = any verified member;
+*trust* = a verified member at trust level ≥ the threshold; *staff* = administrators & moderators only. Global
+**staff may always create**, and an **unverified** member never can, regardless of policy. An ACP page (Admin →
+Settings → Clubs, `admin.settings.clubs`) edits it via a self-guarding Livewire SFC (the standard `ensureAdmin`
++ 2FA pattern).
+
+**Assumption (recorded).** The brief's third option, "admin-approved", is realised as **staff-only creation**
+(the `staff` policy) rather than a request→approval queue — a full club-creation approval workflow (pending
+clubs, an approval inbox) is deferred as a fast-follow. This keeps M1.6 a pure settings unit; flagged for the
+human pass.
+
+**Tested.** 8 tests: the `any` policy (TL0 yes, unverified no); the `trust` policy at the default threshold 2
+(TL1 no / TL2 yes) and a custom threshold 3 (TL2 no / TL3 yes); the `staff` policy (TL4 no, moderator + admin
+yes); staff-always; the ACP page saves; a non-admin is 403. Gate green: full suite full suite 1378 passed / 1 skipped / 0 failed, pint clean,
+phpstan (level 5) 0 errors.
+
+### ADR-0053 — OAuth social login via Socialite (Phase 4 · M2.1) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Dependencies (Apache-2.0-compat confirmed).** `laravel/socialite ^5.27` (**MIT** — permissive, Apache-2.0
+compatible) for Google + GitHub (core drivers) and `socialiteproviders/discord ^4.2` (**MIT**) for Discord,
+wired via `App\Providers\SocialiteServiceProvider` (a `SocialiteWasCalled` listener). Both are pure-PHP, no new
+system services — Baseline-safe.
+
+**Decision.** A social sign-in path **alongside** the unchanged Fortify password login. Every provider is **OFF
+by default**; an admin enables it and supplies a client id + **encrypted** client secret on the new Admin →
+Settings → Social login page (`oauth.{provider}.enabled|client_id|client_secret`, the secret stored via the
+encrypted-settings mechanism, never echoed). `App\Auth\Social\SocialProviders` configures the Socialite driver
+**per request** from those settings + our callback URL — **no env / config/services.php** entries needed, and a
+disabled/unconfigured provider 404s before any redirect. A `social_accounts` table links one local user to one
+identity per provider (`unique(provider, provider_user_id)` + `unique(user_id, provider)`).
+
+**APEX — the auth-boundary rules** (`App\Auth\Social\SocialLogin`):
+- A **known** `(provider, provider_user_id)` always resolves to the SAME account — never a duplicate.
+- A **new** identity creates a fresh, provider-verified account (members + TL0, random unknown password).
+- **EMAIL COLLISION → REFUSE.** If the provider email already belongs to a local account, sign-in is **refused
+  with no merge**; the user is told to sign in with their password and link the provider from settings (M2.2).
+  Account control is proven by the password session, NEVER asserted by a matching email.
+- Socialite runs **stateful** (a `state` nonce in the session, validated on callback) as the CSRF defence; an
+  `InvalidStateException` (expired session / forged callback) **fails closed** to the login page. SSO does not
+  bypass the staff-2FA gate.
+
+**⚠ SCAFFOLDED — not validated against a live provider.** No real OAuth apps / credentials exist in this
+environment, so the end-to-end round-trip with Google/GitHub/Discord is **unverified**; the flow is proven only
+against **mocked** Socialite responses. Validate with real client credentials + the published redirect URI
+before relying on it. (PKCE + an outbound-request review are M2.3.)
+
+**Tested.** 8 feature tests (mocked Socialite): new-user-via-provider (creates + verifies + links + groups),
+returning identity (same user, no duplicate), **email collision refused (no merge, stays guest, no identity
+attached)**, disabled provider 404, unknown provider 404, redirect kicks off, invalid-state fails closed,
+declined consent handled. Gate green: full suite full suite 1386 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0054 — OAuth account linking + email-collision safety (Phase 4 · M2.2) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** A Settings → Linked accounts page lets an authenticated user **link** or **unlink** each enabled
+provider. Linking reuses the SAME `/auth/{provider}/callback` as login, disambiguated by an `oauth.link_intent`
+session flag set by the POST `oauth.link` action — so a single registered redirect URI per provider serves both
+flows. `SocialLogin::link()` attaches the identity to the CURRENT account and **refuses** if that identity is
+already linked to a DIFFERENT account; `unlink()` is always safe (the account keeps its email + password, so it
+is never locked out) and idempotent.
+
+**The APEX flow, end to end.** A provider email that collides with an existing local account does NOT auto-merge
+at login (ADR-0053). Instead the user **proves control** by signing in with their password, then links the
+provider from settings — at which point the SAME identity attaches successfully. This is the "link to an
+existing account ONLY after proven control" rule, demonstrated by a single test that walks both halves.
+
+**Tested.** 7 feature tests: start-link flags the session + redirects; disabled-provider link 404s; link
+attaches the identity; link refused when the identity is already linked elsewhere (no row written for the
+attacker); unlink removes it; the **full collision→password-login→link** APEX flow; the page renders. Gate
+green: full suite full suite 1393 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0055 — OAuth flow hardening: PKCE, state, CSRF, outbound-request analysis (Phase 4 · M2.3) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**State / CSRF (already in place, now pinned).** Socialite runs **stateful**: a `state` nonce is stored in the
+session at redirect and validated on callback; a mismatch throws `InvalidStateException` and the controller
+**fails closed** to the login (or settings) page. A test asserts every authorize URL carries `state=`. The
+round-trip is **GET-only** (protected by the state nonce, not an app CSRF token); the linking initiator is a
+**POST with `@csrf`**, and `oauth.redirect` rejects POST (405) — proven by test.
+
+**PKCE (new, M2.3).** `SocialProviders::driver()` calls Socialite's `enablePKCE()` for providers that support
+RFC 7636 — **Google + Discord** (a per-request S256 `code_verifier`/`code_challenge` defending the
+authorization-code exchange against interception). **GitHub** OAuth Apps do not support PKCE, so it is omitted
+there and the `state` nonce is the sole CSRF defence. Tests assert `code_challenge`/`code_challenge_method=S256`
+present for Google + Discord and absent for GitHub.
+
+**Discord driver registration.** Registered via `Socialite::extend('discord', …)` in `SocialiteServiceProvider`
+(not the `SocialiteWasCalled` event), so the driver resolves without depending on the SocialiteProviders manager
+replacing Socialite's binding — proven by a real-driver test.
+
+**Outbound-request guard analysis (the SSRF question).** The brief asked to "reuse existing outbound-request
+guards for provider calls." **Finding: not applicable / no SSRF surface.** Socialite's outbound HTTP — the
+authorization redirect, the token exchange, and the userinfo fetch — targets **library-fixed provider
+endpoints** (`accounts.google.com`, `github.com`, `discord.com`), never an attacker-influenced URL, so the
+`WebhookUrlGuard`/`IpClassifier` SSRF kernel has nothing to gate. The only attacker-supplied value we persist is
+the avatar URL, which is **clamped to `https://` + length and never fetched server-side**. Recorded here so the
+absence of a guard is a deliberate, reasoned decision rather than an oversight.
+
+**Tested.** 5 hardening tests (real drivers): state present; PKCE present (Google + Discord); PKCE absent
+(GitHub); Discord resolves + PKCE; POST-to-redirect 405. The M2.1/M2.2 mocked suites were updated to stub
+`enablePKCE`. Gate green: full suite full suite 1398 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0056 — SAML SSO: scaffold only, not validated against a real IdP (Phase 4 · M2.4) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review. ⚠ SCAFFOLD — NOT VALIDATED.**
+
+**Decision.** Ship the **seam** for SAML SSO, not a working integration. NovFora provides the `SamlProvider`
+contract (`isConfigured`, `loginUrl`, `consume → SamlAssertion`, `metadata`), a `SamlAssertion` DTO, a
+`SamlException`, a `SamlManager` (detection), a detection-gated `SamlController` (login / ACS / metadata), the
+IdP-config settings (`auth.saml.*`), and the routes — but **NO concrete provider implementation**. A real one
+needs a SAML toolkit (e.g. `onelogin/php-saml`) and a **live IdP** to validate the XML-signature, replay, and
+metadata handling; none exists in this environment, and shipping an unvalidated crypto/auth path would be worse
+than shipping the interface. **This explicitly does NOT work end to end.**
+
+**Behind detection (inert by default).** `SamlManager::enabled()` is true only when `auth.saml.enabled` is on
+AND a concrete `SamlProvider` is bound in the container AND it reports `isConfigured()`. Since nothing binds a
+provider by default, **every SAML route 404s** out of the box. An operator or a future module binds a real
+implementation to light it up. The ACS POST is CSRF-exempt (the IdP posts cross-site, authenticated by the XML
+signature inside the provider) — harmless while the route 404s.
+
+**Account mapping.** The scaffold reuses the `social_accounts` table (`provider='saml'`, `provider_user_id` =
+the SAML NameID): a **pre-linked** subject signs in; **just-in-time provisioning is deliberately NOT
+implemented** (it would carry the same no-silent-merge rule as OAuth, ADR-0053). Fail-closed on any invalid
+response.
+
+**Tested (mocked, no real IdP).** 9 tests with a **fake** bound `SamlProvider`: all routes 404 by default /
+setting-off / provider-not-configured; redirect to the IdP SSO URL; SP metadata served; pre-linked subject
+signs in at the ACS; unknown subject refused (no JIT); invalid response fails closed; the DTO contract. Gate
+green: full suite full suite 1407 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors. **Validate against a real IdP +
+implement a concrete provider before claiming SAML works.**
+
+### ADR-0057 — Installable PWA: manifest + a no-PII service worker (Phase 4 · M3.1) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** NovFora is an installable PWA. A web app **manifest** (`/manifest.webmanifest`: name, `start_url`/
+`scope` `/`, `display: standalone`, theme/background colours, a scalable maskable SVG icon at
+`/icons/novfora.svg`) + a root-scoped **service worker** (`/sw.js`) wired into the layout head, with an
+`/offline` fallback page. Pure **progressive enhancement** — a browser without SW support ignores it and the
+site is unchanged; nothing on the Baseline tier depends on it.
+
+**The "never authed mutations / PII" fence — enforced two ways.**
+1. The SW **only handles GET**; every mutation (POST/PUT/PATCH/DELETE) passes straight through to the network —
+   never cached, never replayed.
+2. Page HTML is cached **only when the server flags it safe**. The `PwaResponseHeaders` middleware sets
+   `X-PWA-Cacheable: 1` solely on **guest, GET, 200** responses for **public** content paths (auth surfaces,
+   `/api`, installer, feeds, sitemap are denylisted); an **authenticated** page never gets the flag, so the SW
+   never stores a personal/PII page. This server-authoritative gate is more reliable than the SW trying to infer
+   auth state from the response. Static shell assets (`/build`, `/icons`, fonts/images) are cache-first (no PII
+   possible); navigations are network-first with the `/offline` fallback.
+
+**Tested.** 8 tests: manifest is valid + installable (start_url/scope/display/icons, `application/manifest+json`);
+the SW serves at root with `Service-Worker-Allowed: /` and its source contains the no-mutation
+(`req.method !== 'GET'`) + header-gated-caching invariants; the offline page renders; a guest public page is
+flagged cacheable; an **authenticated page is NOT** (PII protection); an auth-surface page is not flagged even
+for guests; the head wires the manifest + SW. Gate green: full suite full suite 1415 passed / 1 skipped / 0 failed, pint clean, phpstan
+(level 5) 0 errors. *(Production should add 192/512 raster icons for the widest install-prompt support; the SVG
+maskable icon covers modern browsers.)*
+
+### ADR-0058 — Web Push (VAPID) as an opt-in notification channel (Phase 4 · M3.2) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Dependency.** `minishlink/web-push ^10.1` (**MIT**, Apache-2.0-compatible) for VAPID signing + payload
+encryption — pure PHP (ext-openssl/mbstring; no gmp needed in v10), Baseline-safe.
+
+**Decision.** A third notification channel — **push** — built FROM the existing notification system, strictly
+**opt-in** and **cron-tolerant**. The opt-in IS a device subscription: the browser subscribes with the site's
+VAPID public key and POSTs its `PushSubscription` to `/push/subscribe`; the row's existence enables push for
+that device. `Notifier::send()` gains one branch after the mail block — if the recipient prefers push (default
+on once subscribed) AND has ≥ 1 subscription, it dispatches a **queued** `SendPushNotification` job drained by
+the baseline cron `queue:work` (no persistent worker). Absent a subscription, **nothing is dispatched** and the
+in-app/email channels deliver unchanged (the no-push fallback). The job builds the message via `PushPayload`
+(pure mapping from the same notification data), sends to every device via `WebPushService`, and **prunes** any
+subscription the push service reports gone (HTTP 410/404). VAPID keys live in **encrypted settings**
+(`push.vapid_*`); `php artisan novfora:push:vapid` generates them (refusing to overwrite without `--force`).
+`push` is registered in the notification channel set so the M3.3 preferences UI renders it.
+
+**⚠ SCAFFOLDED delivery — not validated against a live push service.** No browser subscription / push endpoint
+exists in this environment, so the encrypt-and-POST round-trip to a real push service (FCM/Mozilla/etc.) is
+**unproven**; the library is real and the wiring is tested with a mocked sender. Validate end to end against a
+real browser + push service before relying on delivery.
+
+**Tested.** 10 tests: subscribe stores one row per endpoint (re-subscribe refreshes, no dup); unsubscribe;
+auth required; the VAPID public-key endpoint reports disabled→enabled; the Notifier dispatches a push job ONLY
+with a subscription; the in-app notification still lands with no subscription (fallback); per-event push opt-out
+suppresses it; the payload build; the job sends + prunes the gone subscription (mocked sender); the job no-ops
+when VAPID is unset. Gate green: full suite full suite 1425 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors.
+
+### ADR-0059 — Push preferences UI: per-type opt-in + device enablement (Phase 4 · M3.3) (2026-06-15)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** The Settings → Notifications page gains the push controls. (1) The existing per-event × per-channel
+matrix now renders a **Push** column alongside In-app and Email (the `push` channel added in M3.2), so each
+event has a per-type push opt-in — saved as `NotificationPreference(channel='push')`, default on. (2) A new
+**"Push notifications on this device"** card drives the browser subscription: inline **Alpine** (no Vite/Node
+rebuild — the project ships prebuilt assets) reads the VAPID public key from `/push/public-key`, requests
+permission, subscribes via the service worker's `pushManager`, and POSTs the subscription to `/push/subscribe`
+(unsubscribe reverses it). It **degrades silently** where the browser lacks SW/PushManager support or the site
+has no VAPID keys ("not enabled on this site yet"). Two-layer model: the device card is the per-device opt-in;
+the matrix is the per-event delivery preference; the M3.2 Notifier requires BOTH (a subscription + the
+per-event push pref) before dispatching.
+
+**Tested.** 3 tests: the page renders the Push column + the device-enable control + all three channel headers;
+a per-event push opt-out persists (`enabled=false`); push stays on by default. Gate green: full suite
+full suite 1428 passed / 1 skipped / 0 failed, pint clean, phpstan (level 5) 0 errors. *(The browser subscribe round-trip is exercised
+server-side via the M3.2 endpoints; the client JS itself is browser-only and unvalidated against a real push
+service — ADR-0058.)*
