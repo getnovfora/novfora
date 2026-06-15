@@ -8,9 +8,12 @@ use App\Http\Controllers\Admin\TasksController;
 use App\Http\Controllers\AppearanceController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\BanController;
+use App\Http\Controllers\BookmarkController;
+use App\Http\Controllers\FeedController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\LegacyRedirectController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MailWebhookController;
 use App\Http\Controllers\MentionController;
 use App\Http\Controllers\ModerationController;
@@ -18,10 +21,12 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileFieldController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SavedSearchController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\TopicController;
+use App\Http\Controllers\TrendingController;
 use App\Http\Controllers\UnsubscribeController;
 use App\Http\Controllers\WarningController;
 use App\Http\Controllers\WhatsNewController;
@@ -53,6 +58,14 @@ Route::get('/health', HealthController::class)->name('health');
 // ── Forums (M2) — public read, per-node authorized; anonymous resolves as the Guests group ─────────────
 Route::get('/forums', [ForumController::class, 'index'])->name('forums.index');
 Route::get('/forums/{forum}', [ForumController::class, 'show'])->name('forums.show');
+
+// Trending / best-of (discovery 3.1) — public, permission-safe.
+Route::get('/trending', [TrendingController::class, 'index'])->name('trending.index');
+
+// RSS/Atom feeds (discovery 3.2) — public; each exposes only guest-visible content (private forums 404).
+Route::get('/forums/{forum}/feed', [FeedController::class, 'forum'])->name('feeds.forum');
+Route::get('/topics/{topic}/feed', [FeedController::class, 'topic'])->name('feeds.topic');
+Route::get('/users/{user}/feed', [FeedController::class, 'user'])->name('feeds.user');
 // withTrashed: a merged topic is soft-deleted but its URL must still resolve so show() can 301 it to the
 // merge target (P2-M4). An ordinary soft-deleted topic is re-checked and 404s inside the controller.
 Route::get('/topics/{topic}', [TopicController::class, 'show'])->name('topics.show')->withTrashed();
@@ -63,8 +76,17 @@ Route::get('/tags', [TagController::class, 'index'])->name('tags.index');
 Route::get('/tags/{tag:slug}', [TagController::class, 'show'])->name('tags.show');
 
 // Search (ADR-0010) — public; results filtered to forums the viewer can see.
-Route::get('/search', [SearchController::class, 'index'])->name('search.index');
-Route::get('/search/suggest', [SearchController::class, 'suggest'])->name('search.suggest');
+// Throttled (Wave 8.4 hardening): search is public and unauthenticated; the rate cap is defence-in-depth
+// against request-flood abuse on top of the operator parser's bounded resolution.
+Route::middleware('throttle:120,1')->group(function () {
+    Route::get('/search', [SearchController::class, 'index'])->name('search.index');
+    Route::get('/search/suggest', [SearchController::class, 'suggest'])->name('search.suggest');
+});
+
+// Language switcher (Wave 8.1) — open to guests and members; the controller validates the locale against
+// the allowlist before it touches the session/profile. Throttled as a cheap write endpoint.
+Route::post('/locale', [LocaleController::class, 'update'])
+    ->middleware('throttle:30,1')->name('locale.update');
 
 // SEO (system-architecture §6): XML sitemap + robots pointing at it.
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
@@ -160,11 +182,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // the staff-2FA gate, so staff can reach it to comply.
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('/home', 'home')->name('home');
+
+    // Saved topics + posts (member tool 2.1).
+    Route::get('/saved', [BookmarkController::class, 'index'])->name('saved.index');
+
+    // Scheduled replies (member tool 2.4).
+    Route::view('/scheduled', 'scheduled.index')->name('scheduled.index');
+
+    // Saved searches (search 6.1).
+    Route::get('/saved-searches', [SavedSearchController::class, 'index'])->name('saved-searches.index');
+    Route::post('/saved-searches', [SavedSearchController::class, 'store'])->name('saved-searches.store');
+    Route::delete('/saved-searches/{search}', [SavedSearchController::class, 'destroy'])->name('saved-searches.destroy');
+
     Route::view('/settings/two-factor', 'settings.two-factor')->name('settings.two-factor');
 
     // Consolidated display preferences (P2-M4): posts-per-page + thread sort order. The ⚡user-preferences SFC
     // reads/writes the authenticated user only.
     Route::view('/settings/preferences', 'settings.preferences')->name('settings.preferences');
+
+    // Ignored members (member tool 2.2).
+    Route::view('/settings/ignore-list', 'settings.ignore-list')->name('settings.ignore-list');
 
     // Appearance: colour mode (auto/light/dark) + density (comfortable/compact). The form POST works with
     // no JS; the header quick-toggle posts a single field via fetch (default-theme phase, PART 2).
@@ -266,6 +303,7 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/settings/antispam', 'admin.settings.antispam')->name('settings.antispam');
         Route::view('/settings/appearance', 'admin.settings.appearance')->name('settings.appearance');
         Route::view('/settings/themes', 'admin.settings.themes')->name('settings.themes'); // visual theme editor
+        Route::view('/settings/templates', 'admin.settings.templates')->name('settings.templates'); // sandboxed template editor (ADR-0038)
 
         // Members directory visibility (the public /members listing is gated on this setting).
         Route::view('/members/directory', 'admin.members.directory')->name('members.directory');

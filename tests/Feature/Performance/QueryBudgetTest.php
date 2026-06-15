@@ -40,7 +40,7 @@ function queriesFor(Closure $request): int
     return $count;
 }
 
-it('renders a busy thread within the query budget (≤30, no N+1)', function () {
+it('renders a busy thread within the query budget (≤33, no N+1)', function () {
     $this->seed();
     $forum = Forum::create(['slug' => 'general', 'title' => 'General', 'type' => 'forum']);
 
@@ -77,7 +77,11 @@ it('renders a busy thread within the query budget (≤30, no N+1)', function () 
     $this->actingAs($viewer)->get(route('topics.show', $topic))->assertOk();
     $queries = queriesFor(fn () => $this->actingAs($viewer)->get(route('topics.show', $topic))->assertOk());
 
-    expect($queries)->toBeLessThanOrEqual(30);
+    // ≤33 (was ≤30): the topic page gained three O(1) fixed-cost features — bookmarks (a batched
+    // viewer-saved-set query + the topic's own), the ignore set (one query), and related-topics
+    // recommendations (VisibleForumIds + tag-ids + one related query). All bounded, none per-post — an N+1
+    // would still blow past this. Documented bump (Wave 2 + Wave 3, ADR-0039/0040).
+    expect($queries)->toBeLessThanOrEqual(33);
 });
 
 it('renders the forum index (now hosting the activity feed) within the query budget (≤20, no N+1)', function () {

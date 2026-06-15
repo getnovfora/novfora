@@ -1,6 +1,11 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 @extends('layouts.app', ['title' => ($user->display_name ?? $user->username).' · '.config('app.name', 'NovFora')])
 
+@push('head')
+    {{-- RSS/Atom auto-discovery (discovery 3.2): this member's recent topics. --}}
+    <link rel="alternate" type="application/atom+xml" title="{{ $user->display_name ?? $user->username }} — topics" href="{{ route('feeds.user', $user) }}">
+@endpush
+
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[
         ['label' => 'Forums', 'url' => route('forums.index')],
@@ -10,6 +15,8 @@
 
 @section('content')
     <x-ui.container size="md" class="space-y-5">
+        {{-- Theme Studio 1.3: configurable region — admin-placed widgets at the top of a profile. --}}
+        <x-region name="profile_top" />
         <x-ui.card flush class="overflow-hidden">
             @if ($user->cover_path)
                 <img src="{{ Storage::disk('public')->url($user->cover_path) }}" alt=""
@@ -32,8 +39,10 @@
                     </div>
                 </div>
 
-                <div class="mt-4">
+                <div class="mt-4 flex flex-wrap items-center gap-2">
                     <livewire:community.follow-button :user-id="$user->id" />
+                    {{-- Member tool 2.2: ignore/block this member. --}}
+                    <livewire:community.ignore-button :user-id="$user->id" />
                 </div>
 
                 @php($earned = $user->badges()->orderBy('name')->get())

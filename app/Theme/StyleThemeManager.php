@@ -6,11 +6,14 @@ declare(strict_types=1);
 
 namespace App\Theme;
 
+use App\Content\ContentSanitizer;
 use App\Models\SiteTheme;
 use App\Support\AccentPalette;
 use App\Support\Audit;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -24,6 +27,13 @@ use Illuminate\Support\Str;
 final class StyleThemeManager
 {
     public const CACHE_KEY = 'novfora:style-theme:css';
+
+    public const CHROME_CACHE_KEY = 'novfora:style-theme:chrome';
+
+    public const ASSET_CACHE_KEY = 'novfora:style-theme:assets';
+
+    /** @var array<string,string> asset kind => the column it lives in */
+    private const ASSET_COLUMNS = ['logo' => 'logo_path', 'favicon' => 'favicon_path', 'background' => 'background_path'];
 
     /** The active style theme, or null when none is active / the table isn't ready (pre-install). */
     public function active(): ?SiteTheme
@@ -58,6 +68,97 @@ final class StyleThemeManager
         }
     }
 
+    /**
+     * The active theme's custom header / footer HTML (Theme Studio 1.2) — already sanitised at write time
+     * (ContentSanitizer allowlist), so the layout renders it raw. Cached forever, invalidated on every write;
+     * defensive against a missing table (pre-install) exactly like css().
+     *
+     * @return array{header:string,footer:string}
+     */
+    public function chrome(): array
+    {
+        try {
+            $cached = Cache::get(self::CHROME_CACHE_KEY);
+            if (is_array($cached) && isset($cached['header'], $cached['footer'])) {
+                return $cached;
+            }
+
+            $theme = $this->active();
+            $chrome = [
+                'header' => $theme instanceof SiteTheme ? (string) ($theme->header_html ?? '') : '',
+                'footer' => $theme instanceof SiteTheme ? (string) ($theme->footer_html ?? '') : '',
+            ];
+            Cache::forever(self::CHROME_CACHE_KEY, $chrome);
+
+            return $chrome;
+        } catch (\Throwable) {
+            return ['header' => '', 'footer' => ''];
+        }
+    }
+
+    /**
+     * The active theme's logo + favicon URLs (the background is emitted via CSS in buildCss). Cached forever,
+     * invalidated on every write; defensive against a missing table exactly like css()/chrome().
+     *
+     * @return array{logo:?string,favicon:?string}
+     */
+    public function assets(): array
+    {
+        try {
+            $cached = Cache::get(self::ASSET_CACHE_KEY);
+            if (is_array($cached) && array_key_exists('logo', $cached) && array_key_exists('favicon', $cached)) {
+                return $cached;
+            }
+
+            $theme = $this->active();
+            $url = static fn (?string $p): ?string => $p !== null && $p !== '' ? Storage::disk('public')->url($p) : null;
+            $assets = [
+                'logo' => $theme instanceof SiteTheme ? $url($theme->logo_path) : null,
+                'favicon' => $theme instanceof SiteTheme ? $url($theme->favicon_path) : null,
+            ];
+            Cache::forever(self::ASSET_CACHE_KEY, $assets);
+
+            return $assets;
+        } catch (\Throwable) {
+            return ['logo' => null, 'favicon' => null];
+        }
+    }
+
+    /** Store an uploaded asset on the public disk, replacing any previous file, and bind it to the theme. */
+    public function storeAsset(SiteTheme $theme, string $kind, UploadedFile $file): void
+    {
+        $column = self::ASSET_COLUMNS[$kind] ?? throw new \InvalidArgumentException("Unknown theme asset '{$kind}'.");
+
+        $old = (string) ($theme->{$column} ?? '');
+        $path = (string) $file->store('theme-assets', 'public');
+        if ($path === '') {
+            throw new \RuntimeException('Could not store the theme asset.');
+        }
+
+        $theme->update([$column => $path]);
+        if ($old !== '' && $old !== $path) {
+            Storage::disk('public')->delete($old);
+        }
+
+        $this->invalidate();
+        Audit::log('theme.asset.updated', $theme, ['kind' => $kind]);
+    }
+
+    /** Remove a bound asset (delete the file + clear the column). */
+    public function clearAsset(SiteTheme $theme, string $kind): void
+    {
+        $column = self::ASSET_COLUMNS[$kind] ?? throw new \InvalidArgumentException("Unknown theme asset '{$kind}'.");
+
+        $old = (string) ($theme->{$column} ?? '');
+        if ($old !== '') {
+            Storage::disk('public')->delete($old);
+        }
+
+        $theme->update([$column => null]);
+        $this->invalidate();
+        Audit::log('theme.asset.removed', $theme, ['kind' => $kind]);
+    }
+
     private function buildCss(?SiteTheme $theme): string
     {
         if (! $theme instanceof SiteTheme) {
@@ -76,9 +177,44 @@ final class StyleThemeManager
             $css .= ":root[data-theme='dark']{".$vars($accent['dark']).'}';
         }
 
+        // Core token overrides (Theme Studio 1.1). Emitted as a plain :root{} block AFTER app.css, so they win
+        // in light mode while the higher-specificity dark rules preserve the tuned dark palette. Values are
+        // already strict-validated (cleanTokens), so this can never inject beyond a declaration.
+        $css .= self::tokenCss(is_array($theme->tokens) ? $theme->tokens : null);
+
+        // Background image (Theme Studio 1.5) — a full-page background behind the board. The path is one we
+        // generated (hashed name on the public disk); addcslashes is belt-and-braces against the url() quote.
+        if (is_string($theme->background_path) && $theme->background_path !== '') {
+            $bg = Storage::disk('public')->url($theme->background_path);
+            $css .= "body{background-image:url('".addcslashes($bg, "'\\\n\r")."');background-size:cover;background-position:center;background-attachment:fixed;}";
+        }
+
         $css .= self::sanitizeCss((string) $theme->custom_css);
 
         return $css;
+    }
+
+    /**
+     * Compile the validated token map into a `:root{}` override block (or '' when empty). Only keys in the
+     * ThemeApi editable-token contract are emitted, each as its REAL core CSS variable.
+     *
+     * @param  array<string,string>|null  $tokens
+     */
+    public static function tokenCss(?array $tokens): string
+    {
+        if (empty($tokens)) {
+            return '';
+        }
+
+        $registry = ThemeApi::editableTokens();
+        $decls = '';
+        foreach ($tokens as $key => $value) {
+            if (isset($registry[$key]) && $value !== '') {
+                $decls .= $registry[$key]['var'].':'.$value.';';
+            }
+        }
+
+        return $decls === '' ? '' : ':root{'.$decls.'}';
     }
 
     /**
@@ -107,6 +243,9 @@ final class StyleThemeManager
             'slug' => $this->uniqueSlug($name),
             'accent_color' => $this->cleanAccent($data['accent_color'] ?? null),
             'custom_css' => self::sanitizeCss((string) ($data['custom_css'] ?? '')) ?: null,
+            'tokens' => $this->cleanTokens($data['tokens'] ?? null),
+            'header_html' => $this->cleanHtml($data['header_html'] ?? null),
+            'footer_html' => $this->cleanHtml($data['footer_html'] ?? null),
             'is_active' => false,
         ]);
 
@@ -132,6 +271,9 @@ final class StyleThemeManager
             'name' => $name,
             'accent_color' => $this->cleanAccent($data['accent_color'] ?? null),
             'custom_css' => self::sanitizeCss((string) ($data['custom_css'] ?? '')) ?: null,
+            'tokens' => $this->cleanTokens($data['tokens'] ?? null),
+            'header_html' => $this->cleanHtml($data['header_html'] ?? null),
+            'footer_html' => $this->cleanHtml($data['footer_html'] ?? null),
         ]);
 
         $this->invalidate();
@@ -163,15 +305,43 @@ final class StyleThemeManager
     public function delete(SiteTheme $theme): void
     {
         $name = (string) $theme->name;
+
+        // Clean up any bound asset files so a deleted theme leaves nothing orphaned on disk.
+        foreach (self::ASSET_COLUMNS as $column) {
+            $path = (string) ($theme->{$column} ?? '');
+            if ($path !== '') {
+                Storage::disk('public')->delete($path);
+            }
+        }
+
         $theme->delete();
         $this->invalidate();
         Audit::log('theme.deleted', null, ['name' => $name]);
     }
 
-    /** Drop the cached compiled CSS. Called on every write. */
+    /** Drop the cached compiled CSS + chrome HTML + asset URLs. Called on every write. */
     public function invalidate(): void
     {
         Cache::forget(self::CACHE_KEY);
+        Cache::forget(self::CHROME_CACHE_KEY);
+        Cache::forget(self::ASSET_CACHE_KEY);
+    }
+
+    /**
+     * Sanitise admin-authored header/footer HTML through the SAME user-content allowlist as posts
+     * (ContentSanitizer) BEFORE storage — <script>/<style> and any non-allowlisted element are dropped, so
+     * what is stored (and later rendered raw) is always safe. Returns null when nothing survives.
+     */
+    private function cleanHtml(mixed $value): ?string
+    {
+        $html = is_string($value) ? trim($value) : '';
+        if ($html === '') {
+            return null;
+        }
+
+        $clean = trim(app(ContentSanitizer::class)->sanitize($html));
+
+        return $clean === '' ? null : $clean;
     }
 
     /** Normalise an accent to a lowercase #rrggbb hex, or null when empty/invalid (→ inherit the built-in). */
@@ -186,6 +356,41 @@ final class StyleThemeManager
         }
 
         return preg_match('/^#[0-9a-fA-F]{6}$/', $hex) === 1 ? strtolower($hex) : null;
+    }
+
+    /**
+     * Validate the editor's token map down to a safe, storable form: only keys in the ThemeApi editable-token
+     * contract survive, and each value must be a strict #rrggbb hex (colour) or a `<number><px|rem|em>` length.
+     * Anything else is dropped — so a token value can NEVER carry a `;`/`}`/`:` that would break out of the
+     * emitted declaration (CSS-injection defence; admins are trusted but this is cheap defence-in-depth).
+     *
+     * @return array<string,string>|null null when nothing valid remains (so the column clears)
+     */
+    private function cleanTokens(mixed $value): ?array
+    {
+        if (! is_array($value)) {
+            return null;
+        }
+
+        $clean = [];
+        foreach (ThemeApi::editableTokens() as $key => $meta) {
+            $raw = $value[$key] ?? null;
+            if (! is_string($raw) || trim($raw) === '') {
+                continue;
+            }
+            $raw = trim($raw);
+
+            if ($meta['type'] === 'color') {
+                $hex = $this->cleanAccent($raw); // reuses the strict #rrggbb normaliser (null if invalid)
+                if ($hex !== null) {
+                    $clean[$key] = $hex;
+                }
+            } elseif (preg_match('/^\d{1,4}(\.\d{1,2})?(px|rem|em)$/', $raw) === 1) {
+                $clean[$key] = $raw;
+            }
+        }
+
+        return $clean === [] ? null : $clean;
     }
 
     private function uniqueSlug(string $name): string

@@ -1610,3 +1610,484 @@ A polished filesystem child theme built purely on the theme API (ThemeManager vi
 already sufficient for a polished child theme. `ThemeApi::VERSION` stays **1.0.0** (the new per-post slot is a
 SlotRegistry/Module-API addition, not a theme region). Tests: `NebulaThemeTest` (activation, token-contract
 override, branding, layout/slot coexistence, no-op when inactive). 32 Theme tests green.
+
+---
+
+## Phase 3 — ADR human review pass + beta release build (2026-06-13)
+
+### Human review pass (closes the "flagged for review" note on ADR-0031…0035)
+Before building the live-deploy bundle, ADR-0031…0035 were read against the locked decisions (CLAUDE.md) and
+the hard rules. **Outcome: consistent — no concern to flag, no decision relitigated.** Confirmed:
+- **No second permission system / no escalation.** Module permission keys only ADD to the catalog and resolve
+  through the existing `PermissionResolver`; a module can never redefine a core key or write `acl_entries`
+  (ADR-0031). The REST API authorizes every call through the same engine and `PostService` — it can't exceed the
+  token owner's web rights (ADR-0033, re-verified in the P1 bypass hunt).
+- **No unsanitised HTML.** Slot / `post.html` filter / widget output is re-sanitised through the same
+  `ContentSanitizer` allowlist as user content; a throwing full-trust callback is now isolated (P1 MEDIUM fix).
+- **Untrusted-input boundaries fail closed.** Manifest parsing, webhook egress (H1 DNS-rebinding guard), and
+  importer dump parsing are all validated/parameterised/fail-closed (P1 verified-safe; P2 fuzzed).
+- **Strict clean-room** holds for the importers, including SMF (data-only schema mapping, never the program).
+- **Honestly-documented residuals** (full-PHP-trust plugin model — no feasible PHP sandbox; deliberately small
+  REST surface) are accepted, not bugs. The full-trust model is now gated by H3's consent + integrity + kill
+  switch. The ADR `Status` lines are left as the historical record; this note is the recorded human pass.
+
+### Beta release build (`novfora-release.zip`)
+Built the portable, tier-adaptive in-place upgrade bundle from `main` HEAD (Phase 3 + hardening, gate green:
+**Pest 1116 passed / 1 skipped**, pint + phpstan-L5 clean). The bundle carries Phase 3 (`/api/v1`, module/theme
+registries, phpBB/MyBB/SMF importers, analytics rollup, the H1 webhook SSRF guard) and **60 migrations (10
+Phase-3/Stage-A)** — so `SchemaState::codeFingerprint()` advances and a live `v1.0.0-beta.1` host auto-detects
+`schema.pending = true` (RH-10). Verified by a truly-cold HTTP boot (no artisan first): `GET /` → **302 /install**,
+`/install` → **200**; `bootstrap/cache/packages.php` ships (RH-1) and no env-specific cache/secret/install marker
+does. Artifact is gitignored, not committed.
+
+**`scripts/build-release.sh` fixes (this commit set):** (1) a `SKIP_NPM=1` path so the bundle can build in the
+node-less `forum-app` container after assets are built on the host (Docker php:8.3 + host Node); (2) the
+invariant-#4 `php artisan optimize:clear` now runs **before** `package:discover`, because in Laravel 13
+`optimize:clear`'s `clear-compiled` step also deletes `bootstrap/cache/packages.php` — so discovery must be the
+LAST cache writer or the RH-1 manifest wouldn't ship.
+
+---
+
+## Mega-build — scoped, Phase-4-independent waves (2026-06-13, owner-authorized overnight build)
+
+> The owner authorized a long unattended build of the "mega-build" feature set, but **Option 2 only**: run
+> the waves that do **not** depend on Phase 4 (Clubs, PWA/push, SSO/OAuth2/SAML social login, paid-membership
+> scaffold), because Phase 4 was confirmed **never built** (not in `main`, not on any branch — see ROADMAP §4).
+> Branch `claude/mega-build` off `main` (Phase 3 + hardening). Each unit is its own gated, DCO-signed,
+> conventional commit. Gates: `php artisan migrate` · `pest` · `pint` · `phpstan` (PHP-8.3 baseline, run in the
+> `forum-dev` container). Every ADR here is **Accepted — owner-authorized overnight build; flagged for review**.
+>
+> **EXPLICITLY DEFERRED pending Phase 4 (NOT built, NOT stubbed under another name):** Theme-Studio 1.4
+> per-forum/club assignment hook · SAML (5.3) · Meilisearch (6.2) · Reverb (6.3) · monetization (Wave 7).
+> These stay out until Phase 4 lands so this work cannot collide with the real Phase-4 design.
+>
+> **⚠ CONCURRENT-SESSION ANOMALY (observed 2026-06-14, owner: please reconcile).** Partway through the run, ~49
+> files appeared MODIFIED in the working tree that this build never touched — `if (! Schema::hasTable())`
+> idempotency guards across ~48 migrations, an `UpgradeCommand` restore-path hint fix, and a new untracked
+> `docs/product/rh4-subdirectory-install-spike.md` (RH-4 subdirectory install — a design-first item). This is a
+> coherent OTHER workstream (a concurrent session on the same working tree, per the standing "watch for
+> concurrent sessions" caution). The mega-build commits on `claude/mega-build` are CLEAN — every commit staged
+> explicit paths, so none of these foreign changes are included — and the gate was green WITH them present. I
+> left them untouched (reverting could destroy that session's uncommitted work; committing would mix it in).
+> Owner: commit/stash that work from its own session; `git diff` shows exactly what it is.
+
+### ADR-0036 — `permissions:sync`: additive re-provisioning of role presets on upgrade (Wave 0.1) (2026-06-13)
+**Status: Accepted — owner-authorized overnight build; flagged for review.** (APEX — `acl_entries` / preset
+expansion / wired into the upgrade-concurrency path.)
+
+**Context — the live "Badges 403" class.** On the no-SSH baseline upgrade (RH-10), `UpgradeRunner` applies
+migrations but does **not** run seeders. So when a release ADDS a permission key to a preset (e.g.
+`badge.manage` joined the `administrator` preset), an already-installed site keeps its pre-release
+`role_permissions` + `acl_entries`, and the admin gets a 403 on the new screen (the Badges ACP checks
+`badge.manage`). Nothing re-derived presets at upgrade time.
+
+**Decision.** New `App\Permissions\PermissionSync` service + `novfora:permissions:sync` command (with
+`--dry-run`), wired into `UpgradeRunner::execute()` after a successful `migrate` and before the cache refresh.
+It re-derives the built-in presets (reusing `RoleSeeder::presets()`/`groupAssignments()` and
+`PermissionCatalogSeeder::catalog()` as the single source of truth) onto existing roles + system groups.
+
+**Semantics — ADDITIVE ONLY (the load-bearing call).** The service only ever INSERTS what is missing:
+- catalog → upsert the reference `permissions` table (code-owned docs; refreshing labels is safe);
+- preset → `role_permissions`: add a preset key only if ABSENT from the role; never modify/delete an existing key;
+- expansion → `acl_entries`: write a system group's GLOBAL-scope entry only when MISSING; never overwrite a value.
+
+**Why additive, not `RoleExpander::reexpand()` (deliberate deviation from the brief's "via RoleExpander").**
+`reexpand()` is a blunt `updateOrCreate` that would overwrite an admin-customised global value on a system
+group — **re-granting a permission an admin deliberately revoked is a security regression.** Additive
+provisioning fixes the 403, heals partial states (a `role_permission` present but its `acl_entry` lost), is a
+**true no-op** on a healthy install (no writes → no `AclVersion` bump → no cache churn), and preserves every
+admin customisation (a NEVER/NO on a system group, per-forum overrides, custom roles). **Known consequence:** a
+baseline entry an admin *deleted* is re-provisioned; the documented way to deny permanently is to set the
+entry's value to **NEVER** (which add-only preserves), not delete it. Flagged for review.
+
+**Idempotency / concurrency / safety.** A single code path serves both `sync()` and `preview()` (so `--dry-run`
+can never disagree with a real run). `sync()` is wrapped in a DB transaction. Cache invalidation rides the
+existing `AclEntry::saved → AclVersion::bump` event (a sync that writes N entries bumps the version; a no-op
+bumps nothing). In the upgrade pipeline the call holds the upgrade lock already, and is **best-effort**: a sync
+throw is caught, `report()`ed, audited as `upgrade.permissions_sync_failed`, and does **not** fail an
+otherwise-good schema upgrade (the migrations already applied) — the success audit records `permissions_synced`.
+
+**Tests (8 unit + 2 upgrade-wiring, apex-level).** Repro+fix of the Badges-403 propagation (incl. the resolver
+verdict flipping once the `AclVersion` bump invalidates the cached DENY); true-no-op-with-no-version-bump;
+**never-clobber a customised NEVER**; partial-state heal; catalog re-insert; `--dry-run` writes nothing yet
+reports the exact plan; the command + idempotent re-run; and in the real upgrade path — a preset key dropped
+since seed is restored during an upgrade, and an upgrade still SUCCEEDS when `permissions:sync` throws.
+
+**Operator command (clears a live 403 without a redeploy):** `php artisan novfora:permissions:sync`
+(preview with `--dry-run`).
+
+### ADR-0037 — Theme Studio (Wave 1) (2026-06-13)
+**Status: Accepted — owner-authorized overnight build; flagged for review.** Extends the DB style themes
+(ADR-0029) + the theme-API token contract (ADR-0032). Built unit-by-unit; this entry grows per sub-unit.
+**1.4 (per-forum/club assignment) is DEFERRED pending Phase 4** (Clubs) — site-wide assignment only.
+
+**1.1 — Visual token editor (full token set, AA-checked, draft + live preview).**
+- **Override the REAL core tokens, not the `--novfora-*` aliases.** Investigation showed `--novfora-bg`
+  etc. are *one-way* aliases (`--novfora-bg: var(--surface)`) — Tailwind utilities read `--surface` /
+  `--ink` / `--line` / `--radius-md` directly, so overriding the alias is cosmetically inert. The editor
+  therefore overrides the real tokens. `ThemeApi::editableTokens()` is the new versioned registry mapping
+  each editable token → its real CSS var + built-in default + type; `ThemeApi::VERSION` → **1.1.0** (a token
+  addition = MINOR, per the contract's own rule) and `tokens()` now also lists the real core vars.
+- **Light-palette override; dark stays tuned.** A theme supplies ONE value per token. Overrides are emitted
+  as a plain `:root{…}` block AFTER app.css — so they win in light mode, while the existing
+  higher-specificity dark rules (`@media (prefers-color-scheme: dark)`, `:root[data-theme='dark']`) keep the
+  hand-tuned dark palette. (Per-token dark customisation is a deferred enhancement.) This mirrors exactly how
+  the accent already behaves and needs **no asset rebuild** — everything is runtime-injected into `<head>`.
+- **Storage + injection-safe validation.** New nullable `tokens` JSON column on `site_themes`
+  (reversible migration). `StyleThemeManager::cleanTokens()` keeps only contract keys and accepts a value
+  only if it is a strict `#rrggbb` hex (colour) or `<number><px|rem|em>` length — so a token value can never
+  carry a `;`/`}`/`:` that would break out of the emitted declaration. (Admins are trusted — they can already
+  write custom CSS — this is cheap defence-in-depth.) `buildCss()` emits `tokenCss()` between the accent block
+  and the custom-CSS block.
+- **Live AA preview.** `AccentPalette` gains a public `contrastRatio()` (WCAG 2.1) + `passesAA()`; the editor
+  computes ink-on-surface / muted-on-surface / ink-on-card ratios server-side (via a component
+  `tokenPreview()` method — kept out of the Blade so the compiler doesn't choke on arrow-fn logic) and shows
+  a live ✓/✗ badge plus an inline-styled preview card that updates on every keystroke (`wire:model.live`).
+- **Tests (8):** the v1.1 contract; the contrast maths (black-on-white = 21, identical = 1) + `passesAA`;
+  valid tokens persist / invalid + blank + unknown keys drop; the column clears when nothing is valid; the
+  active-theme CSS carries the real-token overrides; `tokenCss` ignores non-contract keys; the editor saves
+  through Livewire dropping invalid values; non-admin → 403.
+
+**1.2 — Per-theme custom header / footer HTML (the "wrapper") + custom CSS.**
+- **Sanitised at WRITE time through the post allowlist.** New nullable `header_html` / `footer_html` TEXT
+  columns on `site_themes` (reversible). `StyleThemeManager::cleanHtml()` runs each through the SAME
+  `ContentSanitizer` allowlist as user posts — `<script>` / `<style>` and any non-allowlisted element/attribute
+  (e.g. `onclick`) are dropped — so what is stored is already safe and the layout renders it raw (`{!! !!}`).
+  Custom CSS already existed (1.0). The "wrapper" is the header band + footer block surrounding the page; a
+  true split open/close wrapper is intentionally NOT offered (it can't be sanitised as balanced fragments).
+- **Cached chrome, invalidated on write.** `StyleThemeManager::chrome()` returns the active theme's
+  `{header, footer}` HTML, cached forever under a second key and forgotten in `invalidate()` (so an edit shows
+  at once) — same discipline as the compiled-CSS cache. The layout fetches it once per request and renders a
+  header band below the site header and a footer block above the credit line.
+- **Tests (5):** script/style/`onclick` stripped at save; null when nothing survives; `chrome()` reflects the
+  active theme and clears when none is active / on edit; and a route-integration test that the active theme's
+  header & footer HTML render on the forum index (and vanish when deactivated).
+
+**1.3 — Layout configurator everywhere + a fuller widget set.**
+- **8 new regions** added to `LayoutManager::REGIONS` (a MINOR theme-API change → `ThemeApi::VERSION`
+  **1.2.0**): `board_top/bottom`, `topic_top/bottom`, `profile_top`, `forum_sidebar`, `site_header`,
+  `site_footer`. `<x-region>` outlets were added to the board, topic and profile views; site header/footer
+  regions render on every page from the layout; the forum-index sidebar uses a conditional 2-column grid that
+  **only** appears when filled (the single-column default is byte-identical when empty). Region keys are stored
+  in `layout_widgets.region`, so they are stable identifiers — never renamed.
+- **Four new first-party widgets** registered in `ThemeServiceProvider`: `recent_topics` (clamped 1–20, links
+  to topics), `online_users` (members with `last_active_at` inside a window — BASELINE-SAFE, no WebSocket
+  presence; cached a minute), `search` (a GET form to the existing search page), `featured` (admin
+  title + HTML body, sanitised through the post allowlist). All escape every dynamic value; the two
+  HTML-bearing widgets reuse `ContentSanitizer`.
+- **Tests (8):** the expanded region set + `isRegion`; all six widgets registered; each new widget's render
+  (escaped recent-topic titles + links; online-window inclusion/exclusion; search form → search route;
+  featured sanitisation + empty-hides); and a route-integration test placing a widget in `board_top` and
+  seeing it on the board page.
+
+**1.5 — Theme assets (logo / favicon / background bound to the active theme).**
+- New nullable `logo_path` / `favicon_path` / `background_path` columns on `site_themes` (reversible).
+  `StyleThemeManager::storeAsset()` stores an upload on the **public** disk (web-accessible, the same disk
+  avatars use) under `theme-assets/`, replacing + deleting any previous file; `clearAsset()` removes one;
+  `delete()` now cleans up all bound files so a deleted theme orphans nothing.
+- The active theme's logo + favicon URLs come from a cached `assets()` (same defensive/cached discipline as
+  `css()`/`chrome()`); the background is emitted as a `body{background-image:url(...)}` rule inside the
+  compiled CSS (the URL is `addcslashes`-escaped into the `url()`). The layout renders the favicon
+  `<link rel="icon">` in `<head>`, the logo in the header brand (alt = wordmark, falls back to the wordmark
+  text), and the background via the injected CSS.
+- The editor gains logo/favicon/background file inputs (Livewire `WithFileUploads`, `image` + size-validated)
+  with a current-image preview + Remove button per asset.
+- **Tests (8):** store/replace/clear on the public disk; `assets()` URLs + empty state; the background CSS
+  rule; asset cleanup on theme delete; a Livewire upload through the editor; and a route-integration test
+  that the active theme's favicon + logo render on the page. (Uploads are faked GD-free — `create()` not
+  `image()` — since the gate container has no GD.)
+
+### ADR-0038 — Sandboxed template editing (Theme Studio 1.6, APEX, ISOLATED) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; FLAGGED FOR DEDICATED HUMAN SECURITY REVIEW.** Its own
+ADR + threat model (`docs/architecture/sandbox-template-threat-model.md`) per the build fence. Committed on its
+own. **Truly-safe sandbox was FINISHED this run** (the fence's fallback — ship 1.2 + a PROPOSED ADR — was not
+needed); the adversarial battery is green.
+
+**Decision — Option A: a bespoke, restricted template language, NOT Blade/Twig/eval.** A lexer → parser →
+evaluator under `app/Theme/Sandbox/`: literal author HTML, `{{ expression }}` output, `{% if/elseif/else %}` /
+`{% for … in … %}`, dotted variable paths, the boolean/comparison operators, and a fixed set of **pure**
+helpers. A versioned contract (`TemplateContract::VERSION = 1.0.0`) lists the OVERRIDABLE templates (key,
+label, exposed variables, shipped default) — `home_welcome` (forum index) + `topic_footer` are wired via a
+`<x-sandbox-template name="…">` component; the registry holds many. Admin overrides live in `site_templates`
+(reversible); a template renders only once enabled. The in-admin editor (`admin.settings.templates`) has live
+validation, a default to **diff against**, and **revert**, gated `admin.access` + staff-2FA.
+
+**The safety model (the load-bearing call):**
+- **Data-only context** — `TemplateService` builds the render context from models into PLAIN scalars/arrays;
+  `SandboxRenderer::resolvePath()` does ARRAY-KEY access only. No object property/method is reachable even if
+  one leaks in. **This is what makes it safe** — there is no expressible path to PHP, a model, or the container.
+- **Whitelist-only calls** — `{{ name(args) }}` resolves `name` against `SandboxRenderer::helpers()`; unknown →
+  error. No `eval`, no `app()`, no closures.
+- **Allowlist tokenizer** — `SandboxExpression` accepts only a tiny char set; `$ ; :: -> [] {}` arithmetic,
+  backticks, etc. are hard parse errors.
+- **Auto-escaped output** — every `{{ }}` value is `e()`-escaped; no raw construct; data carrying `{{ }}` is
+  NOT re-parsed (no double-render).
+- **Bounded** — source/nodes/template-depth/expression-depth/iterations/output caps → no hang, OOM, or
+  parse-time stack overflow (the expression-depth cap was added during the build's own adversarial pass).
+- **Fail-safe** — errors throw `SandboxException`; `render()` catches → `''`; a broken template breaks nothing.
+- **Save-lint (defence-in-depth)** — rejects literal `<script>/<style>/<iframe>/handlers/javascript:` + requires
+  the source to parse, on top of the output escaping.
+
+**Documented residual (Blade parity):** `e()` is correct for text + QUOTED attributes; a dynamic value placed in
+an UNQUOTED attribute / CSS context with user-derived data could inject, exactly as Blade's `{{ }}`. The editor
+copy + threat model state "use quoted attributes/text"; a context-aware/structural sanitiser is a future
+hardening (needed before exposing the engine to non-admin authors).
+
+**Tests (51, apex adversarial):** the escape battery — PHP operators/sigils/`::`/`->`/`[]`/braces/backticks
+rejected; every non-whitelisted function (`system`/`eval`/`app`/…) refused; object property/method never
+reached; data-value template syntax not re-evaluated; `{{ }}` HTML-escaped (no stored XSS); iteration/output/
+source/expression-depth caps; malformed/unbalanced tags rejected; save-lint blocks scripts/handlers/js-urls; a
+broken stored template degrades to ''. Plus the functional language (paths, if/elseif/else, for+loop.index,
+helpers), service (save/revert/remove/render), the page integration, and the editor authz + customise/save/
+revert.
+
+**Adversarial review (verify-then-refute):** an independent sub-agent reviewed the engine and verified the
+core guarantees (no PHP exec, no model/method reach, no `e()` bypass, all DoS/parse limits) safe — and **found
+one HIGH**: the save-lint scanned the RAW source, so a forbidden token split across a tag
+(`<scr{{ x }}ipt>`) bypassed it and rendered live `<script>` (stored XSS under the default permissive CSP).
+**Fixed in this build** — the lint now scans the literal SKELETON (source with all tags stripped), and the 4
+PoCs are must-block cases in the battery (now 55 tests). Recommendation recorded: enable strict nonce CSP
+before delegating template authoring beyond full admins.
+
+### ADR-0039 — Member tools (Wave 2) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review.** Built unit-by-unit; this entry
+grows per sub-unit.
+
+**2.1 — Bookmarks / saved topics + posts.** A polymorphic `bookmarks` table (reversible) — a PRIVATE edge from
+a user to a Topic or Post, one row per target (unique). Saving is **ungated participation** (no ACL key, like a
+draft) — the only gate is "signed in". `BookmarkService` is the single writer: `toggle()` (returns the new
+state, race-safe via the unique index + catch), `isBookmarked()`, a BATCHED `bookmarkedIds()` for a whole post
+page (no per-post query — the same N+1 discipline as reactions), and `paginate()` for the "Saved" view. A
+generic `<livewire:forum.bookmark-button kind=… :target-id=…>` (the view never names a class — a short kind
+maps to a model server-side) renders on each post + the topic header; `TopicController::show` pre-computes the
+viewer's saved set for the page. The `/saved` view (`saved.index`, auth-only) lists newest-first and
+**re-checks current visibility** (`forum.view`) so a bookmark in a now-forbidden forum, or a deleted target,
+drops out. Nav links added (desktop dropdown + mobile). Tests (6): toggle on/off, unique-edge idempotency,
+batched lookup, the Livewire toggle, the `/saved` list + auth gate, and the deleted-target drop-out.
+
+**2.2 — Ignore / block users.** Built on the EXISTING `user_relationships` `TYPE_IGNORE` edge (the PM-block half
+was already wired into `ConversationService` in P2-M2b — reused, not rebuilt). New `App\Community\IgnoreService`
+mirrors `FollowService` (insertOrIgnore, self-ignore hard refuse, SILENT — no event) with `ignore`/`unignore`/
+`ignores`/`ignoredIds`/`ignoredUsers`. A `<livewire:community.ignore-button>` sits on the profile next to
+follow; a `/settings/ignore-list` (new settings tab) lists + unignores. **Posts:** `TopicController` passes the
+viewer's ignore set; the post loop COLLAPSES an ignored member's post behind a "you ignore this member — show"
+reveal — **but never a staff member's** (the guard is `$role === null`, i.e. not Admin/Moderator, so staff
+actions are never hidden). **PMs:** unchanged — `IgnoreService::ignore()` writes the same edge
+`ConversationService` already reads, proven end-to-end (an ignored sender's PM is refused). Tests (7):
+ignore/unignore, self-ignore refuse, the IgnoreService→PM-block integration, the profile button, post collapse
+for a member, **never** for staff, and the settings list + unignore.
+
+**2.3 — Content warnings / spoiler blocks (editor + renderer).** The server-side render path **already existed**
+(`CanonicalRenderer::spoiler` → `<details><summary>…</summary>…</details>`; `details`/`summary` on the
+`ContentSanitizer` allowlist) — added tests pinning it (summary escaped, body sanitised, text projection
+intact: no XSS through a content warning). The missing half was the WYSIWYG **editor**: a TipTap `SpoilerNode`
+(content-bearing block, `parseHTML` `details`, editor-display `renderHTML`) + a `/spoiler` slash command + a
+toolbar button (⚠), all emitting the canonical `{type:'spoiler', attrs:{summary}, content:[…]}` the renderer
+consumes. Assets rebuilt (`npm run build`, host node) so the bundle carries the node — a clean build confirms
+the JS compiles. **Caveat (flagged):** there is no browser/Dusk harness in the gate env, so the editor UI
+itself was NOT browser-tested — the owner should smoke-test inserting a spoiler after pulling. The renderer
+guarantee (the security-relevant part) IS tested.
+
+**2.4 — Post scheduling (publish-at, cron-tolerant).** A scheduled REPLY is HELD in a new `scheduled_posts`
+table (reversible) — NOT created in the topic — until its time; the publish cron then creates the REAL post
+through `PostService::reply()`, so every side-effect (counters, last-post pointers, notifications, search) is
+exactly a normal reply's (no duplicated pipeline). `PostScheduler` is the writer: `scheduleReply()`
+(future-only), `cancel()`, `pendingFor()`, and `publishDue()`. **Cron-tolerant idempotency:** `publishOne()`
+runs each item in a transaction that LOCKS the row and proceeds only if still unpublished — so an overlapping
+or coarse tick can never double-publish; a transient failure throws → the tx rolls back → the next tick
+retries; a permanent one (topic gone/locked, lost permission, content rejected) is marked done with a null
+`post_id` (skipped, never retried). `novfora:posts:publish-scheduled` runs every minute (`withoutOverlapping(5)`,
+restore-skipped). The reply composer gains a "schedule for" datetime that routes to `scheduleReply` + redirects
+to a `/scheduled` management view (list + cancel). Tests (10): schedule-without-post, future-only, due publish
+into the topic, **no double-publish**, not-yet-due untouched, **skip-not-retry on a locked topic**, cancel, the
+command, composer scheduling, and the management list+cancel.
+
+**Wave 2 — COMPLETE** (2.1 bookmarks, 2.2 ignore/block, 2.3 spoilers, 2.4 scheduling), all gated + committed.
+
+### ADR-0040 — Discovery (Wave 3) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review.** Built unit-by-unit; grows per
+sub-unit.
+
+**3.1 — Trending / best-of.** `App\Discovery\TrendingService` ranks topics by an engagement SCORE built from
+the EXISTING all-time aggregates (`reply_count*4 + view_count + summed reaction tally` via a correlated
+subquery) — no new denormalisation. `trending()` windows on `last_posted_at` (recently active); `bestOf()` is
+all-time. **Permission-safe**: every query is gated through `VisibleForumIds::for($viewer)` (null = sees all →
+no clause; [] = none → empty; else `whereIn('forum_id', …)`), querying the LIVE topics table so `forum_id` is
+always current (no stale-scope re-check needed). Public `/trending` page (`trending.index`) + nav link, with a
+reusable `discovery.partials.topic-line`. Tests (4): engagement ranking, trending-window-vs-all-time-best-of,
+**exclusion of a forum the viewer can't see** (a guest NEVER), and the page render.
+
+**3.2 — RSS/Atom feeds (per forum / topic / user).** `App\Discovery\FeedBuilder` assembles Atom 1.0 with strict
+`ENT_XML1` escaping (dependency-free, like the sitemap). `FeedController` serves `feeds.forum` / `feeds.topic`
+/ `feeds.user`, each **public but guest-visibility-gated** — a private forum's (or topic's) feed 404s for
+everyone (readers don't authenticate, so feeds expose only what a guest may see), and the user feed filters to
+guest-visible forums via `VisibleForumIds`. Cached 15 min per id (sitemap discipline). Auto-discovery
+`<link rel="alternate" type="application/atom+xml">` added to the forum, topic and profile heads. Tests (5):
+forum/topic/user feeds (content-type + content), the private-forum 404, and the auto-discovery links.
+
+**3.3 — Lightweight recommendations.** `App\Discovery\RecommendationService::related()` — baseline-safe, no ML:
+topics that SHARE A TAG with the source (newest-active first), topped up from the SAME FORUM when short.
+Permission-safe via `VisibleForumIds`. Rendered as a "Related topics" section on the topic page
+(`TopicController` passes `$related`). Tests (4): share-a-tag (excludes source), same-forum top-up,
+**never recommends an unseen forum's topic**, and the page section render.
+
+**3.4 — Sitemap depth + SEO polish.** The sitemap now also lists the `/trending` + `/tags` landing pages and
+every in-use tag page (usage_count > 0), alongside the existing forums + topics (all still guest-gated).
+SEO polish: canonical + Open Graph added to the board page (`forums.show`) and a canonical to the forum index
+(topic pages already had the full set). Tests (3): sitemap includes the landing + tag pages, excludes an
+unused tag, and the board page emits canonical + og:title.
+
+**Wave 3 — COMPLETE** (trending/best-of, RSS/Atom feeds, recommendations, sitemap/SEO), all gated + committed.
+
+### ADR-0041 — XenForo importer (Wave 4) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review.** Mirrors the phpBB driver's bar.
+
+**Decision.** `App\Import\Drivers\XenForoDriver implements SourceDriver, ProvidesAttachments` — a CLEAN-ROOM
+driver that encodes only XenForo's PUBLIC table schema (`xf_user`, `xf_node`, `xf_thread`, `xf_post`,
+`xf_attachment` + `xf_attachment_data`) to copy DATA, reading the legacy DB READ-ONLY; no XenForo code/templates
+are touched. The existing `ImportRunner` provides idempotency/resume (the `import_maps` keyset cursor + per-row
+guard), 301 redirects, and content/checksum verification unchanged — the driver only supplies normalised rows.
+Registered as `'xenforo'` in `ImportCommand` (which also gains an `--attachments=` option, additive, wired to
+all four drivers).
+
+**XenForo specifics handled:** the unified `xf_node` tree (`node_type_id` Category/Forum/LinkForum →
+category/forum/link; the runner's topological sort handles parent-before-child); filters to `user_state=valid`
+/ `discussion_state=visible` / `message_state=visible` (counts() applies the SAME filters so verify reconciles);
+XenForo password hashes aren't Laravel-verifiable → `password_hash=''` → runner assigns a random password +
+the user resets (like MyBB/SMF); BBCode bodies via the shared `BbcodeConverter`; attachments join
+`xf_attachment`→`xf_attachment_data`, mime derived from the filename, path = the XF2
+`internal_data/attachments/<data_id/1000>/<data_id>-<file_hash>.data` layout.
+
+**NOT validated against a live XenForo install** (flagged): the on-disk attachment path layout and the slugged
+legacy-URL shapes (`/threads/<slug>.<id>/`) vary by version/config — the DATA mapping is fixture-verified, but
+the operator must point `--attachments` at the real internal data dir, and only bare-id/index.php URL redirects
+are emitted (slugged-URL redirects need a per-topic slug lookup, a future enhancement).
+
+**Tests (3, mirroring PhpbbImportTest):** full fidelity from a fake in-memory XF schema (valid-users-only, node
+hierarchy category→forum, BBCode→md→html, 301 redirects served), idempotency + resume (re-run no-op, then new
+rows imported), and attachment import with sha-256 checksum + post-content reconciliation.
+
+**Wave 4 — COMPLETE.**
+
+### ADR-0042 — Saved searches + search operators (Wave 6.1) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review.** The fully-buildable Wave-6 slice
+(Meilisearch 6.2 + Reverb 6.3 are DEFERRED pending Phase 4 / enhanced-tier validation).
+
+**Search operators.** `App\Search\SearchQueryParser::parse()` pulls inline operators out of the raw `q` string
+— `author:<username>`, `in:<forum-slug>`, `tag:<tag-slug>` (repeatable), `after:`/`before:<date>`,
+`type:topic`, plus `"quoted phrases"` — and resolves them to the SAME facet fields the form already uses
+(authorId/forumId/tagIds/dateFrom/dateTo/type), leaving the residual keyword as the term. Wired into
+`SearchQuery::fromRequest()` where **operators take precedence** over the equivalent GET facets. A missing
+author/forum resolves to id 0 → empty result (consistent with the form's author facet), never silently
+dropped. Driver-neutral: `SearchService` already translates the facets to DB (and, on the enhanced tier,
+Meili) filters; visibility (`VisibleForumIds`) is unchanged.
+
+**Saved searches.** New `saved_searches` table (reversible) + `SavedSearch` model + `SavedSearchService`
+(own-only by construction: every read/write scoped to `user_id`; `MAX_PER_USER = 50`). A "Save this search"
+control on the results page (auth-only) captures the full GET query string (operators + facets) so the search
+**replays verbatim**; `/saved-searches` lists + re-runs + deletes; nav link added. `SavedSearchController` is
+auth-gated; delete is own-only (a member can't remove another's). Tests (7): operator parse + unknown→empty +
+end-to-end author filter; save/list, **own-only delete**, store-from-page, and the page control.
+
+### ADR-0043 — i18n framework + RTL scaffolding (Wave 8.1) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** Stand up Laravel's native localisation as the translation framework rather than a package:
+`lang/<code>/*.php` PHP arrays (`__('search.save_this')`, `trans_choice`), the `app.locale`/`fallback_locale`
+config already present, and a single allowlist in `config('novfora.locales')`. `en` is authoritative and
+fully authored for the surfaces externalised so far; six more locales (es/fr/de/pt_BR + RTL ar/he) are
+registered as **scaffolding** — the switcher, middleware and RTL path are exercised end-to-end, but their
+`lang/<code>/` files are unwritten, so every string falls back to `en` until a translator fills them.
+
+**Untrusted-input boundary.** The locale is reader-supplied (a `?locale` POST, a session value). All of it is
+funnelled through `App\Support\Locales` (the allowlist guard) — `SetLocale` middleware checks `isSupported()`
+before `App::setLocale()`, and `LocaleController` validates with `Rule::in(Locales::codes())` before touching
+the session/profile. There is **no path** that hands an unvalidated code to the framework. Resolution
+precedence: signed-in member's stored `users.locale` → session (switcher) → configured default.
+
+**RTL.** Direction is data, not a second translation: each allowlist entry carries `dir`, and `<html dir>`
+is rendered from `Locales::direction(app()->getLocale())`. That is the only RTL switch the layout needs;
+CSS is expected to use logical properties so the existing utilities mirror automatically.
+
+**Scope.** This wave ships the framework + the switcher + RTL plumbing and externalises the Wave-6.1 search /
+saved-search surface + shared chrome as the proven pattern. Externalising the remaining ~100 Blade views is
+**mechanical follow-up** (string-by-string `__()` extraction, no design left to make) and is tracked as such,
+not built here. Tests (9): allowlist guard + direction, resolution precedence (user/session/fallback),
+RTL `dir="rtl"` vs `dir="ltr"`, switcher persistence, out-of-list rejection, externalised-string lookup.
+
+### ADR-0044 — WCAG 2.1 AA automated audit + fixes (Wave 8.2) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** Enforce accessibility in two layers. (1) A **deterministic parser-level auditor**
+(`App\Accessibility\AccessibilityAuditor`, DOMDocument) that flags the machine-checkable WCAG 2.1 AA
+failures — missing `img` alt, unlabelled form controls, links/buttons with no accessible name, missing
+`html lang` / `title` / `h1` / `main` / skip link, positive `tabindex`, broken `for`/`aria-*` id references.
+It backs both a Pest **page gate** (`WcagAuditTest` renders the high-traffic surfaces and asserts zero
+findings — so an a11y regression fails CI) and an ad-hoc command `novfora:a11y:audit <url|file>`. (2) A
+**manual checklist** (`docs/architecture/accessibility.md`) for what static HTML cannot prove — contrast,
+keyboard operability, focus order/visibility, reduced-motion, live regions, screen-reader journeys, RTL
+visual mirroring.
+
+**Why a bespoke engine, not axe-core.** axe-core needs a real browser (headless Chrome) — unavailable on the
+cron-only baseline tier and absent from the default `pest` gate. A DOMDocument auditor runs in the standard
+PHP test process with no extra service, consistent with the progressive-enhancement rule. It is explicitly a
+**floor, not a conformance guarantee**: zero findings means no machine-detectable violation on the audited
+pages, not full AA — hence the mandatory manual pass.
+
+**Fixes shipped.** Three real bugs the gate surfaced: the header colour-mode toggle had only an Alpine
+`:aria-label` binding (no name in server HTML) → static `aria-label` added; the Wave-6.1 "Save this search"
+field had only a `placeholder` → `aria-label` added; the create-topic tag input's visible "Tags" label was
+unassociated → wired with `for`/`id`.
+
+**Tests.** Engine unit suite (14) proves it catches each violation class AND does not false-positive on
+conformant markup; page gate (14 surfaces) asserts zero findings end-to-end.
+
+### ADR-0045 — Load-test harness (Wave 8.3) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review. SCAFFOLDED — NOT VALIDATED.**
+
+**Decision.** Ship a load-test **harness**, not a benchmark: (1) a big-board fixture seeder
+(`php artisan novfora:loadtest:seed`, additive/resumable, writing through the real `PostService` so counters
+/ last-post pointers / search projection are correct → true query shapes under test); (2) two interchangeable
+read-path drivers — `load-tests/k6/browse.js` and `load-tests/artillery/browse.yml` — hitting the guest
+surfaces (board, forum, topic, search), parameterised by `BASE_URL`/scale; (3) a procedure with tier
+interpretation (`docs/architecture/load-testing.md`).
+
+**Explicitly NOT claimed.** No at-scale numbers were measured or are asserted. The thresholds in the scripts
+(`p95<800ms`, `err<1%`) are tunable placeholders, not validated SLOs. Producing real numbers requires running
+the harness on representative hardware — out of scope for an unattended build and meaningless as synthetic
+figures. Nothing in the harness runs automatically or in the default gate; the seeder carries the production
+confirmation guard and creates obvious `Load Test` content for a throwaway DB.
+
+**Why two drivers.** k6 and Artillery cover the two ecosystems teams already use; both are read-only +
+guest-only (safe against staging) and exit non-zero on a breached threshold, so either can gate CI once real
+targets are set.
+
+**Tested.** The seeder has a feature test at small scale (creates the requested counts via the real write
+path, maintains `reply_count`, additive/idempotent on re-run). The driver scripts are static assets — no
+k6/artillery binary exists in the gate, so they are not executed there (validating them is a manual run).
+
+### ADR-0046 — Security review sweep (Wave 8.4) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review.**
+
+**Decision.** Run an adversarial **verify-then-refute** sweep over the new attack surface of this build
+(untrusted-input parsing, permission/visibility, own-only authz, locale handling, HTML parsing, the new
+commands/routes/middleware). Two independent reviewers ran in parallel over non-overlapping surfaces plus a
+first-party apex pass on the permission core. Each candidate was chased to the failing line with a concrete
+exploit and refuted by default unless that exploit held. Record: `docs/architecture/security-review-wave8.md`.
+
+**One MEDIUM, fixed.** `SearchQueryParser` resolved each inline operator with its own DB lookup inside the
+token loop, uncapped, on the public unthrottled `/search` — a crafted multi-operator `?q` amplified into
+~1000+ synchronous lookups per request (unauthenticated resource exhaustion). Fixed by resolving operators
+**once after the loop** (≤1 author + ≤1 forum lookup, one batched tag `whereIn` capped at MAX_TAGS=16, ≤2 date
+parses), a 512-char `?q` length cap, and `throttle:120,1` on `/search`+`/suggest` (defence-in-depth). Bounded
+to a constant regardless of token count; missing→empty (id 0) semantics preserved. Regression tests added.
+
+**Everything else refuted (verified safe).** No SQL injection (term escaped, facets bound); **no forum-visibility
+bypass** — `SearchService::effectiveForumIds` intersects any forum facet with `VisibleForumIds`, so a forged
+`in:`/`?forum=` yields an empty result, not a leak/oracle; no IDOR (saved searches scoped to `user_id`); no
+mass assignment (`user_id` server-set, `locale` not fillable + `Rule::in` validated); no XSS (Blade `{{ }}`
+throughout; `icon.blade.php` emits only trusted map values); no open redirect; CSRF intact; **no XXE/XPath
+injection** in the a11y auditor (`loadHTML` HTML parser expands no custom/external entities; XPath values sit
+in a quoted literal with `"` stripped); SSRF surface is operator-CLI-only; load-test creds random + prod
+guard; `SetLocale` middleware order correct (lazy auth, gates run first). Also tidied a misleading field name
+(`Finding::criterion` → `level`; rendered label was already correct).

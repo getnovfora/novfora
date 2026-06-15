@@ -10,6 +10,8 @@
     <meta property="og:description" content="{{ $description }}">
     <meta property="og:url" content="{{ $canonical }}">
     <meta name="twitter:card" content="summary">
+    {{-- RSS/Atom auto-discovery (discovery 3.2). --}}
+    <link rel="alternate" type="application/atom+xml" title="{{ $topic->title }} — feed" href="{{ route('feeds.topic', $topic) }}">
     {{-- schema.org DiscussionForumPosting (JSON-LD); JSON_HEX_TAG keeps it safe inside <script>.
          nonce carries the strict-CSP token when enabled (phase-1.5 F-M3); empty/ignored under the baseline. --}}
     <script type="application/ld+json" nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
@@ -45,6 +47,8 @@
          which read the global $store.bulkSelect; nested Livewire components keep their own Alpine scopes. --}}
     <x-ui.container size="lg" class="space-y-5" x-data="{}"
         x-bind:style="$store.bulkSelect.active ? 'padding-bottom: 7rem' : ''">
+        {{-- Theme Studio 1.3: configurable region — admin-placed widgets at the top of a topic. --}}
+        <x-region name="topic_top" />
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 space-y-2">
                 @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix || $topic->tags->isNotEmpty())
@@ -63,6 +67,12 @@
                 @endif
                 <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ $topic->title }}</h1>
             </div>
+
+            @if ($canBookmark)
+                {{-- Member tool 2.1: save this topic. --}}
+                <livewire:forum.bookmark-button :key="'bm-topic-'.$topic->id" kind="topic" :target-id="$topic->id"
+                    :saved="$topicBookmarked" :can-save="$canBookmark" />
+            @endif
 
             @if ($canModerate)
                 <div class="flex flex-wrap items-center gap-2">
@@ -115,6 +125,8 @@
             @foreach ($posts as $post)
                 @php($author = $post->author)
                 @php($role = $author?->isAdmin() ? 'Admin' : ($author?->isStaff() ? 'Moderator' : null))
+                {{-- Member tool 2.2: collapse a post by an ignored member — but NEVER a staff member ($role set). --}}
+                @php($authorIgnored = $role === null && in_array((int) $post->user_id, $ignoredIds ?? [], true))
                 <x-ui.card id="post-{{ $post->id }}" :class="$post->approved_state === 'pending' ? 'ring-1 ring-warn-soft' : ''">
                     @if ($canModerate)
                         {{-- Bulk-select checkbox (P2-M4): shown only in select mode, bound to the Alpine store. --}}
@@ -155,7 +167,17 @@
                                 @endif
                             </div>
 
-                            <div class="novfora-prose pt-3 md:pt-4">{!! $post->body_html_cache !!}</div>
+                            @if ($authorIgnored)
+                                <div class="pt-3 md:pt-4" x-data="{ show: false }" dusk="ignored-post-{{ $post->id }}">
+                                    <button type="button" x-show="!show" @click="show = true"
+                                            class="w-full rounded-md border border-dashed border-line px-3 py-2 text-left text-xs text-ink-muted hover:border-accent">
+                                        {{ __('You ignore this member.') }} <span class="text-accent">{{ __('Show this post') }}</span>
+                                    </button>
+                                    <div x-show="show" x-cloak class="novfora-prose">{!! $post->body_html_cache !!}</div>
+                                </div>
+                            @else
+                                <div class="novfora-prose pt-3 md:pt-4">{!! $post->body_html_cache !!}</div>
+                            @endif
 
                             {{-- Per-post extension outlet (ADR-0031/0032, theme API 1.1): modules render a
                                  sanitised per-post aside here (e.g. an accepted-answer badge). The post + topic
@@ -170,6 +192,11 @@
                                 :can-react="$canReact" />
 
                             <footer class="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                                @if ($canBookmark)
+                                    {{-- Member tool 2.1: save this post. --}}
+                                    <livewire:forum.bookmark-button :key="'bm-post-'.$post->id" kind="post" :target-id="$post->id"
+                                        :saved="($viewerBookmarks[$post->id] ?? false)" :can-save="$canBookmark" />
+                                @endif
                                 @can('update', $post)
                                     <x-ui.button :href="route('posts.edit', $post)" variant="subtle" size="sm">Edit</x-ui.button>
                                 @endcan
@@ -223,5 +250,26 @@
                 <x-ui.button :href="route('login')" size="sm">Sign in to reply</x-ui.button>
             </x-ui.card>
         @endauth
+
+        {{-- Overridable sandbox template (ADR-0038): a topic-footer note, rendered only when enabled. --}}
+        <x-sandbox-template name="topic_footer"
+            :data="['topic' => ['title' => $topic->title, 'reply_count' => (int) $topic->reply_count]]" />
+
+        {{-- Discovery 3.3: related topics (share-a-tag, same-forum fallback; permission-safe). --}}
+        @if (($related ?? collect())->isNotEmpty())
+            <section class="mt-8 space-y-2" aria-label="Related topics">
+                <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle">Related topics</h2>
+                <x-ui.card flush>
+                    <ul class="divide-y divide-line">
+                        @foreach ($related as $rel)
+                            @include('discovery.partials.topic-line', ['topic' => $rel])
+                        @endforeach
+                    </ul>
+                </x-ui.card>
+            </section>
+        @endif
+
+        {{-- Theme Studio 1.3: configurable region — admin-placed widgets at the bottom of a topic. --}}
+        <x-region name="topic_bottom" />
     </x-ui.container>
 @endsection

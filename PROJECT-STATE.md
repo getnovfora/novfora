@@ -11,6 +11,108 @@
 
 ---
 
+## 🌙 Overnight mega-build on `claude/mega-build` — 2026-06-14 (LATEST · REVIEW + PUSH THIS)
+
+**Unattended, owner-authorized autonomous build (Option 2): only Phase-4-INDEPENDENT units, off `main`
+(Phase-3 base). 19 conventional, DCO-signed, `Tommy Huynh`-authored commits on branch `claude/mega-build`
+(HEAD `6856b33`). NOTHING IS PUSHED** — push is interactive-only in the sandbox; owner pushes + opens the PR.
+
+**Precondition note:** the original brief gated this on Phase 3 hardening **AND Phase 4** being merged. Phase 4
+was confirmed **never built** → owner chose **Option 2**: build only the units that do **not** depend on Phase 4,
+and record the Phase-4 deferrals (below). No Phase-4 feature was built or stubbed.
+
+**Final gate (branch HEAD, run in `forum-dev`):** `pest --parallel` **1302 passed / 1 skipped / 0 failed** ·
+`phpstan` (level 5) **0 errors** · `pint` clean · `php artisan migrate` clean. Every wave was committed only at a
+green boundary; each new unit added apex-level tests for its security/permission/concurrency/untrusted-input
+surface. Every ADR below is **"Accepted — owner-authorized overnight build; flagged for review"** — they want a
+human pass before/at merge.
+
+### What shipped, in build order (wave → commit → ADR)
+- **0.1 permissions:sync** — `b4f3d2a` (ADR-0036). `novfora:permissions:sync` additively re-provisions role
+  presets on upgrade (never `RoleExpander::reexpand`; additive-only). **Clears the Badges 403 on the live host.**
+- **1.x Theme Studio** — `650afdc` 1.1 visual token editor (AA-checked) · `4ad749e` 1.2 sanitised custom
+  header/footer · `b6f6856` 1.3 layout regions + widgets · `a1fdde3` 1.5 per-theme logo/favicon/bg ·
+  `f3abe10` **1.6 sandboxed template editor (APEX — bespoke lexer/parser/evaluator, data-only, no raw
+  Blade/PHP; independent adversarial review found+fixed a HIGH lint-bypass)** (ADR-0037, ADR-0038). **1.4
+  club hook SKIPPED (needs Phase 4).**
+- **2.x Member tools** — `4d548a2` 2.1 bookmarks · `590311f` 2.2 ignore/block · `190b4ba` 2.3 spoiler/CW
+  blocks · `14ae657` 2.4 post scheduling (cron-tolerant) (ADR-0039).
+- **3.x Discovery** — `56d0763` 3.1 trending/best-of · `90df8e2` 3.2 RSS/Atom feeds · `91f42e3` 3.3
+  related-topic recommendations + 3.4 sitemap/SEO (ADR-0040). All permission-safe.
+- **4 XenForo importer** — `1e0da04` (ADR-0041). Clean-room, behind `SourceDriver`/`ProvidesAttachments`,
+  idempotent/resumable with 301 redirect emission.
+- **6.1 Search** — `27026bb` (ADR-0042). Inline operators (`author:`/`in:`/`tag:`/`after:`/`before:`/`type:`)
+  on the existing facet layer + own-only saved searches.
+- **8.1 i18n + RTL** — `1722c4e` (ADR-0043). Laravel-native localisation framework, allowlist-guarded
+  language switcher, `<html dir>` RTL switch. **Framework + Wave-6.1 surface externalised; full ~100-view
+  string sweep is mechanical follow-up.**
+- **8.2 WCAG 2.1 AA** — `b01e2c4` (ADR-0044). Deterministic DOMDocument auditor + Pest page gate (14
+  surfaces, zero findings) + `novfora:a11y:audit` command + manual checklist. Fixed 3 real bugs
+  (colour-mode toggle name, save-search input label, tag-input label).
+- **8.3 load-test harness** — `ff75944` (ADR-0045). `novfora:loadtest:seed` (real write path) + k6 +
+  artillery drivers + procedure. **SCAFFOLDED — no at-scale numbers measured/claimed.**
+- **8.4 security sweep** — `6856b33` (ADR-0046). Verify-then-refute (2 independent reviewers + apex pass).
+  One MEDIUM fixed (unauthenticated search-operator DB query amplification → bounded to ≤3 queries +
+  `?q` length cap + `throttle:120,1`); rest of the new surface refuted.
+
+### ⛔ DEFERRED pending Phase 4 (NOT built, NOT stubbed — record only)
+**1.4 Theme-Studio club hook · 5.3 SAML · 6.2 Meilisearch execution path · 6.3 Reverb · Wave 7 monetization.**
+These require Phase 4 to exist first. Where a seam was needed it stays dormant/driver-gated; no half-built
+feature was shipped.
+
+### ⚠ SCAFFOLDED — NOT VALIDATED against a real service (validate before relying on)
+- **Load-test numbers (8.3):** the harness runs; **no at-scale run was performed**. Validate:
+  `php artisan novfora:loadtest:seed --forums=… --topics=… --posts=…` then
+  `k6 run -e BASE_URL=… load-tests/k6/browse.js` (or artillery) on representative hardware. See
+  `docs/architecture/load-testing.md`.
+- **Meilisearch / Reverb / SAML (6.2 / 6.3 / 5.3):** DEFERRED — not built this run (carried from prior
+  scaffolding; enhanced-tier, need a real service to validate).
+- **i18n non-`en` locales (8.1):** es/fr/de/pt_BR/ar/he are **registered scaffolding** — no `lang/<code>/`
+  files yet, so they fall back to `en`. RTL `dir` flip is automated; a visual RTL pass is manual.
+- **WCAG (8.2):** the automated auditor is a **floor, not conformance** — the manual checklist
+  (contrast/keyboard/focus/SR/RTL visual) in `docs/architecture/accessibility.md` is still owner/QA work.
+
+### ☀️ MORNING REPORT — what the owner does next
+1. **Review** the 19 commits on `claude/mega-build` (all flagged-for-review ADRs 0036–0046), then **push** and
+   open the PR from your terminal (push is interactive-only here; `gh` absent).
+2. **Clear the Badges 403 on the live host** — run permissions:sync on the deployed site:
+   ```
+   php artisan novfora:permissions:sync
+   ```
+   (additive-only; safe to re-run; re-provisions the role presets the 403 is missing.)
+3. New docs to skim: `docs/architecture/i18n-and-rtl.md`, `accessibility.md`, `load-testing.md`,
+   `security-review-wave8.md`, `sandbox-template-threat-model.md`, `permissions-sync.md`.
+4. New artisan commands available after merge: `novfora:permissions:sync`, `novfora:a11y:audit <url|file>`,
+   `novfora:loadtest:seed`.
+
+---
+
+## 📦 Beta release bundle BUILT + Phase 3 now on main — 2026-06-13
+
+**`main` is at `e5d724b` (= `origin/main`) and carries Phase 3 + the hardening pass** — merged via PR #24
+(`claude/phase-3-hardening`) + PR #25 (build-release rename) and **pushed**. (The "nothing is pushed" note in the
+hardening section below is from before that merge — superseded.) Re-confirmed gate on `main` HEAD: **Pest 1116
+passed / 1 skipped / 0 failed**, `pint` clean, `phpstan` L5 0 errors, migrations apply clean. *(A first parallel
+gate run showed 156 false failures from a stale compiled-view cache carrying WSL `/mnt/d` paths into the `/app`
+container; cleared with `view:clear` and the authoritative single-process run is green.)*
+
+**Deployable `novfora-release.zip` built from `main` HEAD** for the no-SSH in-place beta upgrade (per
+[`docs/product/live-deploy-kickoff.md`](docs/product/live-deploy-kickoff.md)):
+- **Artifact:** `D:\Forum\novfora-release.zip` · 12.66 MB (13,271,763 bytes) · sha256
+  `9ea9623d8e329011f2f741463372a7bd670819fb1c41021794f94b423df8a3e5` · **gitignored (not committed)**.
+- **Carries Phase 3:** `/api/v1`, module/theme registries, phpBB/MyBB/SMF importers, analytics rollup, H1 webhook
+  SSRF guard; **60 migrations (10 Phase-3/Stage-A)** → `SchemaState::codeFingerprint()` advances so a
+  `v1.0.0-beta.1` host sees `schema.pending = true` and auto-upgrades (RH-10).
+- **Verified:** truly-cold HTTP boot (NO artisan first) `GET /` → **302 /install**, `/install` → **200**;
+  `bootstrap/cache/packages.php` ships (RH-1) and no `.env` / install marker / env caches do.
+- **ADR-0031…0035** given the flagged human pass — consistent with the locked decisions (see `DECISIONS.md →
+  Phase 3 — ADR human review pass`).
+- **Committed (script/doc only):** `scripts/build-release.sh` portability fix (`SKIP_NPM` + `optimize:clear`
+  ordering), the `public/build` asset rebuild, and these notes. **Owner: push `main` + upload the zip per the
+  live-deploy Part B runbook.**
+
+---
+
 ## ⭐ Phase 3 — HARDENED · PROVEN · DOGFOODED — 2026-06-13 (REVIEW THIS FIRST)
 
 A focused run to **prove and harden Phase 3 before more is built on it** (NOT a new phase). Phase 3 was first

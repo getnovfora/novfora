@@ -3,9 +3,11 @@
 use App\AntiSpam\ContentRejectedException;
 use App\AntiSpam\PostRateLimiter;
 use App\Forum\Concerns\ManagesDrafts;
+use App\Forum\PostScheduler;
 use App\Forum\PostService;
 use App\Models\Topic;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 
@@ -21,6 +23,9 @@ new class extends Component
     public array $canonicalJson = ['type' => 'doc', 'content' => []];
 
     public string $markdownSource = '';
+
+    /** Optional "publish at" (datetime-local string) — when set + future, the reply is scheduled (2.4). */
+    public ?string $publishAt = null;
 
     public function mount(int $topicId): void
     {
@@ -40,7 +45,7 @@ new class extends Component
         $this->format = $this->format === 'markdown' ? 'tiptap_json' : 'markdown';
     }
 
-    public function save(PostService $service, PostRateLimiter $limiter)
+    public function save(PostService $service, PostRateLimiter $limiter, PostScheduler $scheduler)
     {
         $this->ensureCanReply();
 
@@ -59,6 +64,28 @@ new class extends Component
         [$format, $canonical] = $this->format === 'markdown'
             ? ['markdown', ['source' => $this->markdownSource]]
             : ['tiptap_json', $this->canonicalJson];
+
+        // Scheduled for later (member tool 2.4) → hold it; the publish cron creates the real reply at that time.
+        if ($this->publishAt !== null && trim($this->publishAt) !== '') {
+            try {
+                $when = Carbon::parse($this->publishAt);
+            } catch (\Throwable) {
+                $this->addError('publishAt', 'That date and time is invalid.');
+
+                return null;
+            }
+            if (! $when->isFuture()) {
+                $this->addError('publishAt', 'Choose a time in the future.');
+
+                return null;
+            }
+
+            $scheduler->scheduleReply(auth()->user(), $this->topic(), $format, $canonical, $when);
+            $this->discardDraft();
+            session()->flash('status', 'Your reply is scheduled.');
+
+            return $this->redirectRoute('scheduled.index', navigate: true);
+        }
 
         try {
             $service->reply(auth()->user(), $this->topic(), $format, $canonical);
@@ -117,8 +144,17 @@ new class extends Component
     @endif
     @error('body') <p class="text-xs text-danger">{{ $message }}</p> @enderror
 
-    <div class="flex items-center gap-3">
-        <x-ui.button type="submit">Post reply</x-ui.button>
+    <div class="flex flex-wrap items-center gap-3">
+        <x-ui.button type="submit">{{ ($publishAt ?? '') !== '' ? 'Schedule reply' : 'Post reply' }}</x-ui.button>
+        {{-- Member tool 2.4: schedule this reply for a future time. --}}
+        <label class="flex items-center gap-1.5 text-xs text-ink-muted">
+            <span class="hidden sm:inline">Schedule for</span>
+            <input type="datetime-local" wire:model.live="publishAt" dusk="reply-schedule-at"
+                   class="rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink" />
+        </label>
+        @if (($publishAt ?? '') !== '')
+            <button type="button" wire:click="$set('publishAt', null)" class="text-xs text-accent hover:underline">clear</button>
+        @endif
         @if ($draftRestored)
             <span class="text-xs text-ink-subtle" dusk="reply-draft-restored">
                 Draft restored ·
@@ -126,4 +162,5 @@ new class extends Component
             </span>
         @endif
     </div>
+    @error('publishAt') <p class="text-xs text-danger">{{ $message }}</p> @enderror
 </form>

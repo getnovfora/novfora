@@ -39,9 +39,16 @@
     // sanitised custom CSS), cached and read once per request. Emitted AFTER the appearance overrides below
     // so an active theme wins on equal specificity.
     $styleThemeCss = app(\App\Theme\StyleThemeManager::class)->css();
+
+    // Theme Studio 1.2: the active theme's custom header/footer HTML (sanitised at write time, cached).
+    $themeChrome = app(\App\Theme\StyleThemeManager::class)->chrome();
+
+    // Theme Studio 1.5: the active theme's logo + favicon URLs (the background rides $styleThemeCss).
+    $themeAssets = app(\App\Theme\StyleThemeManager::class)->assets();
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
+      dir="{{ \App\Support\Locales::direction(app()->getLocale()) }}"
       data-color-mode="{{ $colorMode }}" data-density="{{ $density }}"
       @if ($htmlTheme) data-theme="{{ $htmlTheme }}" @endif>
 <head>
@@ -50,6 +57,10 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @auth <meta name="novfora-auth" content="1"> @endauth
     <title>{{ $title ?? config('app.name', 'NovFora') }}</title>
+    @if (($themeAssets['favicon'] ?? null))
+        {{-- Theme Studio 1.5: the active theme's favicon. --}}
+        <link rel="icon" href="{{ $themeAssets['favicon'] }}">
+    @endif
 
     {{-- No-flash-of-wrong-theme: apply the stored colour-mode/density BEFORE first paint. nonce-aware for the
          strict CSP (phase-1.5 F-M3); harmless under the baseline policy. --}}
@@ -124,6 +135,7 @@
                             <a href="{{ route('whats-new') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">What's new</a>
                             <a href="{{ route('notifications.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Notifications</a>
                             <a href="{{ route('pm.inbox') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Messages</a>
+                            <a href="{{ route('saved.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Saved</a>
                             <a href="{{ route('settings.profile') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Profile &amp; settings</a>
                         @endauth
                     </nav>
@@ -131,11 +143,19 @@
             </div>
 
             {{-- Wordmark (text, per the brief; overridable via the Appearance setting). --}}
-            <a href="{{ route('forums.index') }}" class="font-bold text-base sm:text-lg tracking-tight text-ink hover:text-accent">{{ $wordmark }}</a>
+            <a href="{{ route('forums.index') }}" class="flex items-center font-bold text-base sm:text-lg tracking-tight text-ink hover:text-accent">
+                @if (($themeAssets['logo'] ?? null))
+                    {{-- Theme Studio 1.5: the active theme's logo (alt = the wordmark for a11y). --}}
+                    <img src="{{ $themeAssets['logo'] }}" alt="{{ $wordmark }}" class="h-7 w-auto sm:h-8">
+                @else
+                    {{ $wordmark }}
+                @endif
+            </a>
 
             {{-- Desktop primary nav --}}
             <nav class="hidden sm:flex items-center gap-0.5" aria-label="Primary">
                 <a href="{{ route('forums.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Forums</a>
+                <a href="{{ route('trending.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Trending</a>
                 @if (\App\Community\MembersDirectory::visibleTo(auth()->user()))
                     <a href="{{ route('members.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Members</a>
                 @endif
@@ -161,6 +181,9 @@
                         x-data="{ mode: document.documentElement.getAttribute('data-color-mode') || 'auto' }"
                         x-on:novfora:color-mode.window="mode = $event.detail"
                         @click="window.NovFora.cycleColorMode()"
+                        {{-- Static accessible name for the pre-hydration / no-JS state; Alpine enhances it
+                             with the live mode once mounted (a11y, Wave 8.2). --}}
+                        aria-label="Change colour theme"
                         :aria-label="'Theme: ' + mode + ' (click to change)'" :title="'Theme: ' + mode"
                         class="inline-flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink">
                     <span x-show="mode === 'auto'" @if ($colorMode !== 'auto') x-cloak @endif><x-ui.icon name="monitor" /></span>
@@ -186,6 +209,9 @@
                             <p class="text-xs text-ink-muted truncate">{{ '@'.auth()->user()->username }}</p>
                         </div>
                         <x-ui.dropdown-item :href="route('profiles.show', auth()->user())"><x-ui.icon name="user" class="h-4 w-4 text-ink-subtle" /> Profile</x-ui.dropdown-item>
+                        <x-ui.dropdown-item :href="route('saved.index')"><x-ui.icon name="pin" class="h-4 w-4 text-ink-subtle" /> Saved</x-ui.dropdown-item>
+                        <x-ui.dropdown-item :href="route('scheduled.index')"><x-ui.icon name="clock" class="h-4 w-4 text-ink-subtle" /> Scheduled</x-ui.dropdown-item>
+                        <x-ui.dropdown-item :href="route('saved-searches.index')"><x-ui.icon name="search" class="h-4 w-4 text-ink-subtle" /> Saved searches</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('settings.profile')"><x-ui.icon name="cog" class="h-4 w-4 text-ink-subtle" /> Edit profile</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('settings.appearance')"><x-ui.icon name="sun" class="h-4 w-4 text-ink-subtle" /> Appearance</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('settings.notifications')"><x-ui.icon name="bell" class="h-4 w-4 text-ink-subtle" /> Notifications</x-ui.dropdown-item>
@@ -215,6 +241,21 @@
             </div>
         </x-ui.container>
     </header>
+
+    {{-- Theme Studio 1.2: per-theme custom header HTML (sanitised at write time through the post allowlist). --}}
+    @if (($themeChrome['header'] ?? '') !== '')
+        <div class="novfora-theme-header border-b border-line">
+            <x-ui.container size="lg" class="py-3">{!! $themeChrome['header'] !!}</x-ui.container>
+        </div>
+    @endif
+
+    {{-- Theme Studio 1.3: configurable site-header region (all pages) — admin-placed widgets. --}}
+    @php($siteHeaderRegion = app(\App\Theme\LayoutManager::class)->render('site_header'))
+    @if ($siteHeaderRegion !== '')
+        <div class="border-b border-line bg-surface-raised">
+            <x-ui.container size="lg" class="py-3" data-region="site_header">{!! $siteHeaderRegion !!}</x-ui.container>
+        </div>
+    @endif
 
     {{-- Site-wide notice (ACP v1 General settings) — shown on every page when an admin sets one. --}}
     @if (($site['notice'] ?? '') !== '')
@@ -247,10 +288,26 @@
     <main id="main" class="flex-1 py-6 sm:py-8">@yield('content')</main>
 
     <footer class="border-t border-line bg-surface-raised">
+        {{-- Theme Studio 1.2: per-theme custom footer HTML (sanitised at write time through the post allowlist). --}}
+        @if (($themeChrome['footer'] ?? '') !== '')
+            <div class="novfora-theme-footer border-b border-line">
+                <x-ui.container size="xl" class="py-4 text-sm text-ink-muted">{!! $themeChrome['footer'] !!}</x-ui.container>
+            </div>
+        @endif
+
+        {{-- Theme Studio 1.3: configurable site-footer region (all pages) — admin-placed widgets. --}}
+        @php($siteFooterRegion = app(\App\Theme\LayoutManager::class)->render('site_footer'))
+        @if ($siteFooterRegion !== '')
+            <div class="border-b border-line">
+                <x-ui.container size="xl" class="py-4" data-region="site_footer">{!! $siteFooterRegion !!}</x-ui.container>
+            </div>
+        @endif
         <x-ui.container size="xl" class="flex flex-col sm:flex-row items-center justify-between gap-3 py-6 text-sm text-ink-muted">
             <p>@include('partials.footer-tagline')</p>
             {{-- Module UI-slot extension point (ADR-0031): modules may inject sanitised footer widgets here. --}}
             <x-slot-outlet name="footer.widgets" />
+            {{-- Language switcher (Wave 8.1) — available to everyone; persists server-side when signed in. --}}
+            @include('partials.language-switcher')
             {{-- Density quick-switch (available to everyone; persists server-side when signed in). --}}
             <div x-data="{ d: document.documentElement.getAttribute('data-density') || 'comfortable' }"
                  x-on:novfora:density.window="d = $event.detail"

@@ -93,6 +93,11 @@ Schedule::call(fn () => app(RestoreRunner::class)->runPending())
 // long run on a large board never doubles up on a coarse interval. Skipped during a restore (writes users).
 Schedule::command('novfora:trust:recompute')->hourly()->withoutOverlapping()->skip($duringRestore);
 
+// Post scheduling (member tool 2.4): publish replies whose time has passed. Every minute so a scheduled
+// time is honoured promptly; a SHORT overlap mutex + PostScheduler's per-row claim make a coarse/overlapping
+// run safe (never a double-publish). Skipped during a restore (it writes posts).
+Schedule::command('novfora:posts:publish-scheduled')->everyMinute()->withoutOverlapping(5)->skip($duringRestore);
+
 // Reputation denorm self-heal (P2-M5 ⚙): reconcile users.reputation_points to the reputation_events
 // ledger — belt-and-braces under any missed/reordered queue event. Idempotent + bounded, with a SHORT
 // overlap mutex (not Laravel's 24h default) so a hard-killed run can't strand the heal (RH-10 lesson).

@@ -52,6 +52,7 @@ final class AdminNavigation
                 ['Anti-spam', 'admin.settings.antispam', 'lock'],
                 ['Appearance', 'admin.settings.appearance', 'palette'],
                 ['Themes', 'admin.settings.themes', 'palette'],
+                ['Templates', 'admin.settings.templates', 'pencil'],
             ]],
             ['Members', 'users', [
                 ['Groups', 'admin.members.groups', 'users'],

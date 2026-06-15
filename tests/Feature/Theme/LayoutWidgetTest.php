@@ -87,6 +87,6 @@ it('exposes the configured region on the forum index page', function () {
 });
 
 it('publishes a versioned theme-API token contract', function () {
-    expect(ThemeApi::VERSION)->toBe('1.0.0')
+    expect(ThemeApi::VERSION)->toBe('1.2.0')
         ->and(ThemeApi::tokens())->toContain('--novfora-accent', '--accent', '--accent-ink');
 });

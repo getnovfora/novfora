@@ -5,6 +5,7 @@ use App\Models\User;
 use App\Permissions\Scope;
 use App\Theme\StyleThemeManager;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 /**
  * Admin → Settings → Themes (the visual theme editor). Create / edit / activate / delete DB-backed style
@@ -16,15 +17,34 @@ use Livewire\Component;
  */
 new class extends Component
 {
+    use WithFileUploads;
+
     public bool $showForm = false;
 
     public ?int $formId = null;
+
+    /** Temporary Livewire uploads (logo / favicon / background). */
+    public $logoUpload = null;
+
+    public $faviconUpload = null;
+
+    public $backgroundUpload = null;
+
+    /** Currently-stored asset URLs (shown while editing). @var array<string,?string> */
+    public array $assetUrls = ['logo' => null, 'favicon' => null, 'background' => null];
 
     public string $name = '';
 
     public string $accentColor = '';
 
+    /** @var array<string,string> token-key => value (see App\Theme\ThemeApi::editableTokens()) */
+    public array $tokens = [];
+
     public string $customCss = '';
+
+    public string $headerHtml = '';
+
+    public string $footerHtml = '';
 
     public ?int $deleteId = null;
 
@@ -51,7 +71,17 @@ new class extends Component
         $this->formId = $theme->id;
         $this->name = (string) $theme->name;
         $this->accentColor = (string) ($theme->accent_color ?? '');
+        $this->tokens = is_array($theme->tokens) ? $theme->tokens : [];
         $this->customCss = (string) ($theme->custom_css ?? '');
+        $this->headerHtml = (string) ($theme->header_html ?? '');
+        $this->footerHtml = (string) ($theme->footer_html ?? '');
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        $this->assetUrls = [
+            'logo' => $theme->logo_path ? $disk->url($theme->logo_path) : null,
+            'favicon' => $theme->favicon_path ? $disk->url($theme->favicon_path) : null,
+            'background' => $theme->background_path ? $disk->url($theme->background_path) : null,
+        ];
+        $this->reset(['logoUpload', 'faviconUpload', 'backgroundUpload']);
         $this->deleteId = null;
         $this->showForm = true;
     }
@@ -63,12 +93,20 @@ new class extends Component
             'name' => ['required', 'string', 'max:60'],
             'accentColor' => ['nullable', 'string', 'regex:/^#?[0-9a-fA-F]{6}$/'],
             'customCss' => ['nullable', 'string', 'max:20000'],
+            'headerHtml' => ['nullable', 'string', 'max:20000'],
+            'footerHtml' => ['nullable', 'string', 'max:20000'],
+            'logoUpload' => ['nullable', 'image', 'max:2048'],
+            'faviconUpload' => ['nullable', 'image', 'max:512'],
+            'backgroundUpload' => ['nullable', 'image', 'max:4096'],
         ]);
 
         $payload = [
             'name' => $data['name'],
             'accent_color' => $data['accentColor'] ?? null,
+            'tokens' => $this->tokens, // StyleThemeManager::cleanTokens() strict-validates each value
             'custom_css' => $data['customCss'] ?? null,
+            'header_html' => $this->headerHtml,  // sanitised through the post allowlist on save
+            'footer_html' => $this->footerHtml,
         ];
 
         if ($this->formId === null) {
@@ -78,6 +116,14 @@ new class extends Component
             $theme = $manager->update(SiteTheme::findOrFail($this->formId), $payload);
             $this->flash("Saved theme “{$theme->name}”.", 'success');
         }
+
+        // Bind any freshly-uploaded assets to the saved theme (validated 'image' above).
+        foreach (['logo' => $this->logoUpload, 'favicon' => $this->faviconUpload, 'background' => $this->backgroundUpload] as $kind => $upload) {
+            if ($upload !== null) {
+                $manager->storeAsset($theme, $kind, $upload);
+            }
+        }
+
         $this->cancelForm();
     }
 
@@ -120,6 +166,17 @@ new class extends Component
         $this->deleteId = null;
     }
 
+    public function removeAsset(string $kind, StyleThemeManager $manager): void
+    {
+        $this->ensureAdmin();
+        if ($this->formId === null || ! array_key_exists($kind, $this->assetUrls)) {
+            return;
+        }
+        $manager->clearAsset(SiteTheme::findOrFail($this->formId), $kind);
+        $this->assetUrls[$kind] = null;
+        $this->flash('Removed the '.$kind.'.', 'success');
+    }
+
     public function cancelForm(): void
     {
         $this->showForm = false;
@@ -134,9 +191,38 @@ new class extends Component
         return SiteTheme::query()->orderByDesc('is_active')->orderBy('name')->get()->all();
     }
 
+    /**
+     * The live token preview: each token's EFFECTIVE value (draft override or built-in default) plus the
+     * WCAG contrast ratios the editor badges. Recomputed on every wire:model.live edit — keeps the Blade
+     * dumb (no arrow functions / inline logic that the compiler trips over).
+     *
+     * @return array{eff: array<string,string>, badges: list<array{label:string,ratio:float,pass:bool}>}
+     */
+    public function tokenPreview(): array
+    {
+        $eff = [];
+        foreach (\App\Theme\ThemeApi::editableTokens() as $key => $meta) {
+            $v = isset($this->tokens[$key]) ? trim((string) $this->tokens[$key]) : '';
+            $eff[$key] = $v !== '' ? $v : $meta['default'];
+        }
+
+        $ratio = static fn (string $a, string $b): float => \App\Support\AccentPalette::contrastRatio($a, $b) ?? 0.0;
+        $badge = static fn (string $label, float $r): array => ['label' => $label, 'ratio' => $r, 'pass' => $r >= 4.5];
+
+        return [
+            'eff' => $eff,
+            'badges' => [
+                $badge('Text on bg', $ratio($eff['ink'], $eff['surface'])),
+                $badge('Muted on bg', $ratio($eff['ink_muted'], $eff['surface'])),
+                $badge('Text on card', $ratio($eff['ink'], $eff['surface_raised'])),
+            ],
+        ];
+    }
+
     private function resetForm(): void
     {
-        $this->reset(['formId', 'name', 'accentColor', 'customCss']);
+        $this->reset(['formId', 'name', 'accentColor', 'tokens', 'customCss', 'headerHtml', 'footerHtml',
+            'logoUpload', 'faviconUpload', 'backgroundUpload', 'assetUrls']);
         $this->resetErrorBag();
     }
 
@@ -192,9 +278,89 @@ new class extends Component
                     </p>
                 @endif
 
+                {{-- Colours & tokens (Theme Studio 1.1): override the core design tokens, AA-checked live. --}}
+                @php($preview = $this->tokenPreview())
+                <div class="rounded-md border border-line p-4 space-y-4" dusk="acp-theme-tokens">
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 class="text-sm font-semibold text-ink">Colours &amp; tokens</h3>
+                        <span class="text-xs text-ink-subtle">Light palette · dark stays tuned · blank = built-in</span>
+                    </div>
+                    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        @foreach (\App\Theme\ThemeApi::editableTokens() as $key => $meta)
+                            <div>
+                                <label for="token-{{ $key }}" class="block text-xs font-medium text-ink-muted">{{ $meta['label'] }}</label>
+                                <div class="mt-1 flex items-center gap-2">
+                                    @if ($meta['type'] === 'color')
+                                        <span class="inline-block h-6 w-6 shrink-0 rounded border border-line" style="background: {{ $preview['eff'][$key] }}" aria-hidden="true"></span>
+                                    @endif
+                                    <input id="token-{{ $key }}" type="text" wire:model.live="tokens.{{ $key }}"
+                                           placeholder="{{ $meta['default'] }}" autocomplete="off" spellcheck="false"
+                                           class="w-full rounded-md border border-line bg-surface px-2 py-1 font-mono text-xs text-ink" />
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    {{-- Live preview + WCAG AA badges (server-computed; updates as you type). --}}
+                    <div class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-stretch">
+                        <div class="rounded-md border p-4"
+                             style="background: {{ $preview['eff']['surface'] }}; border-color: {{ $preview['eff']['line'] }}; border-radius: {{ $preview['eff']['radius'] }}"
+                             dusk="acp-theme-preview">
+                            <p class="text-sm font-semibold" style="color: {{ $preview['eff']['ink'] }}">The quick brown fox</p>
+                            <p class="text-xs" style="color: {{ $preview['eff']['ink_muted'] }}">Muted secondary text jumps over the lazy dog.</p>
+                            <span class="mt-2 inline-block rounded px-2 py-1 text-xs font-medium"
+                                  style="background: {{ $preview['eff']['surface_raised'] }}; color: {{ $preview['eff']['ink'] }}; border-radius: {{ $preview['eff']['radius'] }}">Raised chip</span>
+                        </div>
+                        <div class="space-y-1 text-xs">
+                            @foreach ($preview['badges'] as $b)
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="text-ink-muted">{{ $b['label'] }}</span>
+                                    <span class="font-mono {{ $b['pass'] ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">{{ number_format($b['ratio'], 1) }}:1 {{ $b['pass'] ? '✓' : '✗' }}</span>
+                                </div>
+                            @endforeach
+                            <p class="pt-1 text-ink-subtle">AA needs 4.5:1 for text.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <x-ui.textarea label="Custom CSS" name="customCss" wire:model="customCss" rows="8"
                                hint="Optional. Plain CSS targeting the design tokens, e.g. :root{ --radius-md: 2px; }. Any style close-tag is stripped before saving."
                                class="font-mono text-xs" />
+
+                {{-- Custom header / footer HTML (Theme Studio 1.2) — sanitised through the post allowlist on save. --}}
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <x-ui.textarea label="Custom header HTML" name="headerHtml" wire:model="headerHtml" rows="5"
+                                   hint="Shown as a banner below the site header. Sanitised like a post — scripts & styles are stripped."
+                                   class="font-mono text-xs" />
+                    <x-ui.textarea label="Custom footer HTML" name="footerHtml" wire:model="footerHtml" rows="5"
+                                   hint="Shown in the footer above the credit line. Sanitised like a post — scripts & styles are stripped."
+                                   class="font-mono text-xs" />
+                </div>
+
+                {{-- Theme assets (Theme Studio 1.5): logo / favicon / background, stored on the public disk. --}}
+                <div class="rounded-md border border-line p-4 space-y-3" dusk="acp-theme-assets">
+                    <h3 class="text-sm font-semibold text-ink">Logo, favicon &amp; background</h3>
+                    @if ($formId === null)
+                        <p class="text-xs text-ink-subtle">Save the theme first, then re-open it to add images — or pick them now and they’ll be attached on save.</p>
+                    @endif
+                    <div class="grid gap-4 sm:grid-cols-3">
+                        @foreach (['logo' => ['label' => 'Logo', 'prop' => 'logoUpload', 'hint' => 'Shown in the header · ≤2 MB'], 'favicon' => ['label' => 'Favicon', 'prop' => 'faviconUpload', 'hint' => 'Browser tab icon · ≤512 KB'], 'background' => ['label' => 'Background', 'prop' => 'backgroundUpload', 'hint' => 'Full-page background · ≤4 MB']] as $kind => $meta)
+                            <div class="space-y-1">
+                                <label class="block text-xs font-medium text-ink-muted">{{ $meta['label'] }}</label>
+                                @if ($assetUrls[$kind] ?? null)
+                                    <div class="flex items-center gap-2">
+                                        <img src="{{ $assetUrls[$kind] }}" alt="" class="h-8 w-8 rounded border border-line object-contain bg-surface">
+                                        <button type="button" wire:click="removeAsset('{{ $kind }}')" class="text-xs text-red-600 hover:underline" dusk="acp-theme-remove-{{ $kind }}">Remove</button>
+                                    </div>
+                                @endif
+                                <input type="file" accept="image/*" wire:model="{{ $meta['prop'] }}"
+                                       class="block w-full text-xs text-ink-muted file:mr-2 file:rounded file:border-0 file:bg-surface-sunken file:px-2 file:py-1 file:text-xs file:text-ink" />
+                                @error($meta['prop']) <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                                <p class="text-xs text-ink-subtle">{{ $meta['hint'] }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
 
                 <div class="flex flex-wrap items-center gap-2">
                     <x-ui.button type="submit" wire:loading.attr="disabled" wire:target="save" dusk="acp-theme-save">

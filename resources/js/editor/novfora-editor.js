@@ -97,6 +97,38 @@ const EmbedNode = Node.create({
   },
 })
 
+// ── spoiler / content-warning node — a collapsible block (canonical: { type:'spoiler', attrs:{ summary },
+// content:[…] }). The server renders it to <details><summary>…</summary>…</details> (App\Content
+// \CanonicalRenderer::spoiler) and sanitises the inner content; details/summary are on the allowlist. This
+// renderHTML is editor-display only — never stored or trusted. ───────────────────────────────────────────
+const SpoilerNode = Node.create({
+  name: 'spoiler',
+  group: 'block',
+  content: 'block+',
+  defining: true,
+  addAttributes() {
+    return { summary: { default: 'Spoiler' } }
+  },
+  parseHTML() {
+    return [{ tag: 'details' }]
+  },
+  renderHTML({ node }) {
+    const summary = node?.attrs?.summary || 'Spoiler'
+    // open in the editor so its content is editable; `0` is the content hole.
+    return ['details', { class: 'novfora-spoiler-edit', open: 'open' },
+      ['summary', { contenteditable: 'false' }, summary],
+      ['div', { class: 'novfora-spoiler-body' }, 0]]
+  },
+})
+
+function insertSpoiler(editor) {
+  const label = window.prompt('Spoiler label (shown while collapsed)', 'Spoiler')
+  if (label === null) return
+  editor.chain().focus().insertContent({
+    type: 'spoiler', attrs: { summary: label.trim() || 'Spoiler' }, content: [{ type: 'paragraph' }],
+  }).run()
+}
+
 // ── @mentions — server-driven (mentionUrl?q=), graceful when absent ─────────────────────────────────────
 function mentionSuggestion(mentionUrl) {
   return {
@@ -133,6 +165,7 @@ const SLASH_ITEMS = [
       if (url && url.trim()) e.chain().focus().insertContent({ type: 'embed', attrs: { url: url.trim() } }).run()
     },
   },
+  { title: 'Spoiler / content warning', run: (e) => insertSpoiler(e) },
 ]
 
 const SlashCommand = Extension.create({
@@ -192,6 +225,7 @@ export function runCommand(editor, name) {
       if (url === null) return
       url === '' ? chain().unsetLink().run() : chain().setLink({ href: url }).run()
     },
+    spoiler: () => insertSpoiler(editor),
   }
   ;(commands[name] ?? (() => {}))()
 }
@@ -206,6 +240,7 @@ export function createNovForaEditor({ element, content, placeholder, uploadUrl, 
       Placeholder.configure({ placeholder: placeholder ?? 'Write something…' }),
       Mention.configure({ HTMLAttributes: { class: 'mention' }, suggestion: mentionSuggestion(mentionUrl) }),
       EmbedNode,
+      SpoilerNode,
       SlashCommand,
     ],
     content: content ?? { type: 'doc', content: [] },

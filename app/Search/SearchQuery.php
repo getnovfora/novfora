@@ -35,30 +35,40 @@ final class SearchQuery
         public readonly int $limit = 25,
     ) {}
 
-    /** Parse the search form's GET params into a query for $viewer. Unknown/blank facets are simply omitted. */
+    /**
+     * Parse the search form's GET params into a query for $viewer. Inline operators in the `q` string
+     * (`author:`, `in:`, `tag:`, `after:`, `before:`, `type:` — search 6.1) are parsed first and TAKE
+     * PRECEDENCE over the equivalent form facets; the residual keyword becomes the term. Unknown/blank facets
+     * are simply omitted.
+     */
     public static function fromRequest(Request $request, User $viewer, int $limit = 25): self
     {
+        $parsed = SearchQueryParser::parse((string) $request->query('q', ''));
+
         // author is entered as a username (bookmarkable, human-friendly); resolve to an id. A given-but-unknown
         // username forces an empty result (id 0 matches no user) rather than silently ignoring the facet.
-        $authorId = null;
-        $authorName = trim((string) $request->query('author', ''));
-        if ($authorName !== '') {
-            $authorId = (int) (User::where('username', $authorName)->value('id') ?? 0);
+        $authorId = $parsed['authorId'];
+        if ($authorId === null) {
+            $authorName = trim((string) $request->query('author', ''));
+            if ($authorName !== '') {
+                $authorId = (int) (User::where('username', $authorName)->value('id') ?? 0);
+            }
         }
 
-        $forumId = $request->filled('forum') ? (int) $request->query('forum') : null;
+        $forumId = $parsed['forumId'] ?? ($request->filled('forum') ? (int) $request->query('forum') : null);
 
-        $dateFrom = self::parseDate((string) $request->query('from', ''))?->startOfDay();
-        $dateTo = self::parseDate((string) $request->query('to', ''))?->endOfDay();
+        $dateFrom = $parsed['dateFrom'] ?? self::parseDate((string) $request->query('from', ''))?->startOfDay();
+        $dateTo = $parsed['dateTo'] ?? self::parseDate((string) $request->query('to', ''))?->endOfDay();
 
-        $tagIds = collect((array) $request->query('tags', []))
-            ->map(fn ($t) => (int) $t)->filter()->values()->all();
+        $tagIds = $parsed['tagIds'] !== []
+            ? $parsed['tagIds']
+            : collect((array) $request->query('tags', []))->map(fn ($t) => (int) $t)->filter()->values()->all();
 
-        $type = $request->query('type') === 'topic' ? 'topic' : 'post';
+        $type = $parsed['type'] ?? ($request->query('type') === 'topic' ? 'topic' : 'post');
 
         return new self(
             viewer: $viewer,
-            term: trim((string) $request->query('q', '')),
+            term: $parsed['term'],
             authorId: $authorId,
             forumId: $forumId,
             dateFrom: $dateFrom,

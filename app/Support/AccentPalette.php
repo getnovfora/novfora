@@ -49,6 +49,33 @@ final class AccentPalette
         return ['light' => $light, 'dark' => $dark];
     }
 
+    /**
+     * The WCAG 2.1 contrast ratio (1.0–21.0) between two #rgb / #rrggbb colours, or null if either is
+     * invalid. Public so Theme Studio can show a live AA badge while editing and tests can pin the maths.
+     */
+    public static function contrastRatio(string $a, string $b): ?float
+    {
+        $ra = self::parse($a);
+        $rb = self::parse($b);
+        if ($ra === null || $rb === null) {
+            return null;
+        }
+
+        $la = self::luminance($ra);
+        $lb = self::luminance($rb);
+        [$hi, $lo] = $la >= $lb ? [$la, $lb] : [$lb, $la];
+
+        return ($hi + 0.05) / ($lo + 0.05);
+    }
+
+    /** Does foreground-on-background meet WCAG AA? 4.5:1 for normal text, 3:1 for large/UI. */
+    public static function passesAA(string $foreground, string $background, bool $large = false): bool
+    {
+        $ratio = self::contrastRatio($foreground, $background);
+
+        return $ratio !== null && $ratio >= ($large ? 3.0 : 4.5);
+    }
+
     /** @return array{0:int,1:int,2:int}|null */
     private static function parse(?string $hex): ?array
     {

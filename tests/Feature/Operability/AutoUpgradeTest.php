@@ -4,7 +4,12 @@
 
 declare(strict_types=1);
 
+use App\Models\AclEntry;
 use App\Models\AuditLog;
+use App\Models\Group;
+use App\Models\Role;
+use App\Permissions\PermissionSync;
+use App\Permissions\PermissionSyncReport;
 use App\Upgrade\SchemaState;
 use App\Upgrade\UpgradeRunner;
 use Illuminate\Support\Facades\Artisan;
@@ -247,4 +252,47 @@ it('skips entirely when the site is not yet installed', function () {
     expect($result->isSkipped())->toBeTrue();
     expect($result->reason)->toBe('not-installed');
     expect(Schema::hasTable('rh10_probe'))->toBeFalse();
+});
+
+it('re-provisions role presets during an upgrade (a preset key dropped since seed is restored) — ADR-0036', function () {
+    upgradeSandbox('ok');
+    config(['novfora.upgrade.auto' => true]);
+
+    // Seed the install, then simulate a site seeded BEFORE badge.manage existed on the admin preset.
+    Artisan::call('db:seed', ['--force' => true]);
+    $adminsId = (int) Group::query()->where('slug', 'admins')->value('id');
+    $missing = fn () => AclEntry::query()->where('holder_type', 'group')->where('holder_id', $adminsId)
+        ->where('scope_type', 'global')->whereNull('scope_id')->where('permission_key', 'badge.manage')->exists();
+
+    AclEntry::query()->where('holder_type', 'group')->where('holder_id', $adminsId)
+        ->where('scope_type', 'global')->whereNull('scope_id')->where('permission_key', 'badge.manage')->delete();
+    Role::query()->where('slug', 'administrator')->first()
+        ->permissions()->where('permission_key', 'badge.manage')->delete();
+    expect($missing())->toBeFalse();
+
+    $result = app(UpgradeRunner::class)->runAutomatic();
+
+    expect($result->isSuccess())->toBeTrue();
+    expect(Schema::hasTable('rh10_probe'))->toBeTrue();          // schema upgrade ran…
+    expect($missing())->toBeTrue();                              // …and permissions:sync restored the grant
+});
+
+it('an upgrade still succeeds when permissions:sync throws (best-effort — the schema upgrade is authoritative)', function () {
+    upgradeSandbox('ok');
+    config(['novfora.upgrade.auto' => true]);
+
+    // Swap in a sync that explodes; the upgrade must not be derailed by it.
+    app()->instance(PermissionSync::class, new class extends PermissionSync
+    {
+        public function sync(): PermissionSyncReport
+        {
+            throw new RuntimeException('boom');
+        }
+    });
+
+    $result = app(UpgradeRunner::class)->runAutomatic();
+
+    expect($result->isSuccess())->toBeTrue();
+    expect(Schema::hasTable('rh10_probe'))->toBeTrue();
+    expect(AuditLog::where('action', 'upgrade.permissions_sync_failed')->exists())->toBeTrue();
 });
