@@ -17,21 +17,23 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('settings', function (Blueprint $table) {
-            $table->id();
-            $table->string('key')->unique();
-            // The stored value, always serialised to a string (scalars as-is, arrays as JSON, secrets as
-            // ciphertext). Decoding/decrypting happens AFTER the cache boundary in the Settings service so
-            // no object — and no plaintext secret — ever enters the cache store.
-            $table->longText('value')->nullable();
-            // The registry-declared data type for decoding: string | int | float | bool | array.
-            $table->string('type', 20)->default('string');
-            // Secret-at-rest marker: value is Crypt::encryptString(...) and is masked in audit logs and forms.
-            $table->boolean('is_encrypted')->default(false);
-            // Tenancy seam only (nullable), consistent with the rest of the schema (ADR-0004).
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('settings')) {
+            Schema::create('settings', function (Blueprint $table) {
+                $table->id();
+                $table->string('key')->unique();
+                // The stored value, always serialised to a string (scalars as-is, arrays as JSON, secrets as
+                // ciphertext). Decoding/decrypting happens AFTER the cache boundary in the Settings service so
+                // no object — and no plaintext secret — ever enters the cache store.
+                $table->longText('value')->nullable();
+                // The registry-declared data type for decoding: string | int | float | bool | array.
+                $table->string('type', 20)->default('string');
+                // Secret-at-rest marker: value is Crypt::encryptString(...) and is masked in audit logs and forms.
+                $table->boolean('is_encrypted')->default(false);
+                // Tenancy seam only (nullable), consistent with the rest of the schema (ADR-0004).
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
+            });
+        }
     }
 
     public function down(): void

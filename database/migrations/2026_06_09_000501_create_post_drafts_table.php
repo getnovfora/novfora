@@ -15,18 +15,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('post_drafts', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('context_type', 20);          // topic | reply (extensible)
-            $table->unsignedBigInteger('context_id');     // forum_id (topic) | topic_id (reply)
-            $table->string('body_format', 20)->default('tiptap_json');
-            $table->longText('body_canonical');           // the lossless TipTap doc (JSON)
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
+        if (! Schema::hasTable('post_drafts')) {
+            Schema::create('post_drafts', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->string('context_type', 20);          // topic | reply (extensible)
+                $table->unsignedBigInteger('context_id');     // forum_id (topic) | topic_id (reply)
+                $table->string('body_format', 20)->default('tiptap_json');
+                $table->longText('body_canonical');           // the lossless TipTap doc (JSON)
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
 
-            $table->unique(['user_id', 'context_type', 'context_id']);
-        });
+                $table->unique(['user_id', 'context_type', 'context_id']);
+            });
+        }
     }
 
     public function down(): void

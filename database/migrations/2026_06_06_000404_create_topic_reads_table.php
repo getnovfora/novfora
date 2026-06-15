@@ -13,15 +13,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('topic_reads', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('topic_id')->constrained()->cascadeOnDelete();
-            $table->timestamp('last_read_at')->nullable();
+        if (! Schema::hasTable('topic_reads')) {
+            Schema::create('topic_reads', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('topic_id')->constrained()->cascadeOnDelete();
+                $table->timestamp('last_read_at')->nullable();
 
-            $table->unique(['user_id', 'topic_id']);
-            $table->index(['user_id', 'last_read_at']);
-        });
+                $table->unique(['user_id', 'topic_id']);
+                $table->index(['user_id', 'last_read_at']);
+            });
+        }
     }
 
     public function down(): void

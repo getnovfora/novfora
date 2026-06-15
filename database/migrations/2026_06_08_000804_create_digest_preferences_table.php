@@ -16,12 +16,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('digest_preferences', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->unique()->constrained()->cascadeOnDelete();
-            $table->string('cadence', 10)->default('immediate'); // off | immediate | daily | weekly
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('digest_preferences')) {
+            Schema::create('digest_preferences', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->unique()->constrained()->cascadeOnDelete();
+                $table->string('cadence', 10)->default('immediate'); // off | immediate | daily | weekly
+                $table->timestamps();
+            });
+        }
     }
 
     public function down(): void

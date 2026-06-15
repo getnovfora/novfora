@@ -14,20 +14,22 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('bounce_reviews', function (Blueprint $table) {
-            $table->id();
-            $table->string('candidate_email');           // UNVERIFIED — taken from untrusted body headers
-            $table->string('event_type', 20);            // bounce | complaint
-            $table->boolean('permanent')->default(true); // only permanent bounces / complaints are queued
-            $table->text('excerpt');                     // bounded snippet for staff context
-            $table->string('dedupe_key', 64)->unique();  // hash(email|type|excerpt) — idempotent re-poll
-            $table->string('status', 20)->default('pending'); // pending | resolved | dismissed
-            $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('reviewed_at')->nullable();
-            $table->timestamp('created_at')->nullable();
+        if (! Schema::hasTable('bounce_reviews')) {
+            Schema::create('bounce_reviews', function (Blueprint $table) {
+                $table->id();
+                $table->string('candidate_email');           // UNVERIFIED — taken from untrusted body headers
+                $table->string('event_type', 20);            // bounce | complaint
+                $table->boolean('permanent')->default(true); // only permanent bounces / complaints are queued
+                $table->text('excerpt');                     // bounded snippet for staff context
+                $table->string('dedupe_key', 64)->unique();  // hash(email|type|excerpt) — idempotent re-poll
+                $table->string('status', 20)->default('pending'); // pending | resolved | dismissed
+                $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
+                $table->timestamp('reviewed_at')->nullable();
+                $table->timestamp('created_at')->nullable();
 
-            $table->index('status');
-        });
+                $table->index('status');
+            });
+        }
     }
 
     public function down(): void

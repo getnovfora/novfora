@@ -13,16 +13,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('oembed_cache', function (Blueprint $table) {
-            $table->id();
-            $table->string('url_hash', 64)->unique(); // sha256 hex of the source URL
-            $table->text('url');
-            $table->longText('html');                  // trusted server-rendered embed/facade HTML
-            $table->string('provider', 40)->nullable();
-            $table->timestamp('expires_at')->nullable()->index();
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('oembed_cache')) {
+            Schema::create('oembed_cache', function (Blueprint $table) {
+                $table->id();
+                $table->string('url_hash', 64)->unique(); // sha256 hex of the source URL
+                $table->text('url');
+                $table->longText('html');                  // trusted server-rendered embed/facade HTML
+                $table->string('provider', 40)->nullable();
+                $table->timestamp('expires_at')->nullable()->index();
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
+            });
+        }
     }
 
     public function down(): void

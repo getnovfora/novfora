@@ -13,23 +13,25 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('warnings', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('issued_by')->nullable();
-            $table->foreignId('warning_type_id')->nullable();
-            $table->unsignedInteger('points')->default(0);
-            $table->string('reason', 500)->nullable();
-            $table->string('content_type')->nullable();           // optional reference to the offending content
-            $table->unsignedBigInteger('content_id')->nullable();
-            $table->json('action_taken')->nullable();             // the consequence applied, if any
-            $table->timestamp('expires_at')->nullable()->index(); // time-decay; null = never expires
-            $table->timestamp('acknowledged_at')->nullable();
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
+        if (! Schema::hasTable('warnings')) {
+            Schema::create('warnings', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('issued_by')->nullable();
+                $table->foreignId('warning_type_id')->nullable();
+                $table->unsignedInteger('points')->default(0);
+                $table->string('reason', 500)->nullable();
+                $table->string('content_type')->nullable();           // optional reference to the offending content
+                $table->unsignedBigInteger('content_id')->nullable();
+                $table->json('action_taken')->nullable();             // the consequence applied, if any
+                $table->timestamp('expires_at')->nullable()->index(); // time-decay; null = never expires
+                $table->timestamp('acknowledged_at')->nullable();
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
 
-            $table->index(['user_id', 'expires_at']); // "live points for this user" query
-        });
+                $table->index(['user_id', 'expires_at']); // "live points for this user" query
+            });
+        }
     }
 
     public function down(): void

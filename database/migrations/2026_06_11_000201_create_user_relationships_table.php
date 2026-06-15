@@ -17,17 +17,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('user_relationships', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();                  // the actor
-            $table->foreignId('related_user_id')->constrained('users')->cascadeOnDelete();   // the target
-            $table->string('type', 20);                                                      // follow | ignore (UserRelationship::TYPE_*)
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
+        if (! Schema::hasTable('user_relationships')) {
+            Schema::create('user_relationships', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();                  // the actor
+                $table->foreignId('related_user_id')->constrained('users')->cascadeOnDelete();   // the target
+                $table->string('type', 20);                                                      // follow | ignore (UserRelationship::TYPE_*)
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
 
-            $table->unique(['user_id', 'related_user_id', 'type']);   // one edge per (actor,target,type)
-            $table->index(['related_user_id', 'type']);               // reverse lookup: "who ignores X"
-        });
+                $table->unique(['user_id', 'related_user_id', 'type']);   // one edge per (actor,target,type)
+                $table->index(['related_user_id', 'type']);               // reverse lookup: "who ignores X"
+            });
+        }
     }
 
     public function down(): void

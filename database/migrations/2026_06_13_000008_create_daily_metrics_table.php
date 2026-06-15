@@ -13,16 +13,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('daily_metrics', function (Blueprint $table) {
-            $table->id();
-            $table->date('metric_date');
-            $table->string('metric_key', 40);
-            $table->unsignedBigInteger('value')->default(0);
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
+        if (! Schema::hasTable('daily_metrics')) {
+            Schema::create('daily_metrics', function (Blueprint $table) {
+                $table->id();
+                $table->date('metric_date');
+                $table->string('metric_key', 40);
+                $table->unsignedBigInteger('value')->default(0);
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
 
-            $table->unique(['metric_date', 'metric_key']);
-        });
+                $table->unique(['metric_date', 'metric_key']);
+            });
+        }
     }
 
     public function down(): void

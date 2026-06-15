@@ -17,17 +17,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('site_themes', function (Blueprint $table): void {
-            $table->id();
-            $table->string('name');
-            $table->string('slug')->unique();
-            $table->string('accent_color')->nullable(); // validated hex (#rrggbb) or null = inherit built-in
-            $table->text('custom_css')->nullable();      // admin-authored CSS, sanitised before storage
-            $table->boolean('is_active')->default(false);
-            $table->timestamps();
+        if (! Schema::hasTable('site_themes')) {
+            Schema::create('site_themes', function (Blueprint $table): void {
+                $table->id();
+                $table->string('name');
+                $table->string('slug')->unique();
+                $table->string('accent_color')->nullable(); // validated hex (#rrggbb) or null = inherit built-in
+                $table->text('custom_css')->nullable();      // admin-authored CSS, sanitised before storage
+                $table->boolean('is_active')->default(false);
+                $table->timestamps();
 
-            $table->index('is_active');
-        });
+                $table->index('is_active');
+            });
+        }
     }
 
     public function down(): void

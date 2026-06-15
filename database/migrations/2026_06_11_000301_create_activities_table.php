@@ -20,21 +20,23 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('activities', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('actor_id')->nullable(); // NO FK — pseudonymisable per ADR-0025
-            $table->string('verb', 50);
-            $table->string('subject_type', 100);
-            $table->unsignedBigInteger('subject_id');
-            $table->string('object_type', 100)->nullable();
-            $table->unsignedBigInteger('object_id')->nullable();
-            $table->foreignId('scope_forum_id')->nullable()->constrained('forums')->nullOnDelete();
-            $table->timestamp('created_at')->nullable();
+        if (! Schema::hasTable('activities')) {
+            Schema::create('activities', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('actor_id')->nullable(); // NO FK — pseudonymisable per ADR-0025
+                $table->string('verb', 50);
+                $table->string('subject_type', 100);
+                $table->unsignedBigInteger('subject_id');
+                $table->string('object_type', 100)->nullable();
+                $table->unsignedBigInteger('object_id')->nullable();
+                $table->foreignId('scope_forum_id')->nullable()->constrained('forums')->nullOnDelete();
+                $table->timestamp('created_at')->nullable();
 
-            $table->index(['actor_id', 'created_at']);
-            $table->index(['scope_forum_id', 'created_at']);
-            $table->index(['subject_type', 'subject_id', 'created_at']);
-        });
+                $table->index(['actor_id', 'created_at']);
+                $table->index(['scope_forum_id', 'created_at']);
+                $table->index(['subject_type', 'subject_id', 'created_at']);
+            });
+        }
     }
 
     public function down(): void

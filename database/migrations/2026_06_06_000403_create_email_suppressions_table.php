@@ -13,12 +13,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('email_suppressions', function (Blueprint $table) {
-            $table->id();
-            $table->string('email')->unique();
-            $table->string('reason', 40)->default('bounce'); // bounce | complaint | manual
-            $table->timestamp('created_at')->nullable();
-        });
+        if (! Schema::hasTable('email_suppressions')) {
+            Schema::create('email_suppressions', function (Blueprint $table) {
+                $table->id();
+                $table->string('email')->unique();
+                $table->string('reason', 40)->default('bounce'); // bounce | complaint | manual
+                $table->timestamp('created_at')->nullable();
+            });
+        }
     }
 
     public function down(): void

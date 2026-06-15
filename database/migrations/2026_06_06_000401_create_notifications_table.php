@@ -13,16 +13,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('notifications', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->string('type');
-            $table->morphs('notifiable');
-            $table->text('data');
-            $table->timestamp('read_at')->nullable();
-            $table->timestamps();
+        if (! Schema::hasTable('notifications')) {
+            Schema::create('notifications', function (Blueprint $table) {
+                $table->uuid('id')->primary();
+                $table->string('type');
+                $table->morphs('notifiable');
+                $table->text('data');
+                $table->timestamp('read_at')->nullable();
+                $table->timestamps();
 
-            $table->index(['notifiable_type', 'notifiable_id', 'read_at']); // unread lookups (data-model §9)
-        });
+                $table->index(['notifiable_type', 'notifiable_id', 'read_at']); // unread lookups (data-model §9)
+            });
+        }
     }
 
     public function down(): void

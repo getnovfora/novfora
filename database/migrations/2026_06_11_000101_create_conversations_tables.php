@@ -18,52 +18,58 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('conversations', function (Blueprint $table) {
-            $table->id();
-            $table->string('subject')->nullable();                      // optional thread subject
-            $table->unsignedBigInteger('created_by')->nullable();       // starter; anonymisable (no FK, ADR-0025)
-            // Millisecond precision (the unread watermark): a strict last_read_at < last_message_at comparison
-            // on whole-second columns would treat a message arriving in the SAME second as a markRead as
-            // already-read. ms precision makes a read-vs-send tie effectively impossible.
-            $table->timestamp('last_message_at', 3)->nullable();        // inbox ordering + unread comparison
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
+        if (! Schema::hasTable('conversations')) {
+            Schema::create('conversations', function (Blueprint $table) {
+                $table->id();
+                $table->string('subject')->nullable();                      // optional thread subject
+                $table->unsignedBigInteger('created_by')->nullable();       // starter; anonymisable (no FK, ADR-0025)
+                // Millisecond precision (the unread watermark): a strict last_read_at < last_message_at comparison
+                // on whole-second columns would treat a message arriving in the SAME second as a markRead as
+                // already-read. ms precision makes a read-vs-send tie effectively impossible.
+                $table->timestamp('last_message_at', 3)->nullable();        // inbox ordering + unread comparison
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
 
-            $table->index(['last_message_at']);                         // inbox: order conversations by recency
-        });
+                $table->index(['last_message_at']);                         // inbox: order conversations by recency
+            });
+        }
 
-        Schema::create('conversation_user', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('conversation_id')->constrained()->cascadeOnDelete();
-            // A participant row is the actor's own membership record — HARD-deleted with the account (ADR-0025);
-            // a real cascade FK (belt-and-braces with the app-layer delete in AccountDeletionService).
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->timestamp('last_read_at', 3)->nullable();           // unread = last_read_at < conversations.last_message_at (ms precision — see conversations.last_message_at)
-            $table->timestamp('left_at')->nullable();                   // soft-leave; non-null = no longer an active participant
-            $table->boolean('can_invite')->default(false);              // may add further participants
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
+        if (! Schema::hasTable('conversation_user')) {
+            Schema::create('conversation_user', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('conversation_id')->constrained()->cascadeOnDelete();
+                // A participant row is the actor's own membership record — HARD-deleted with the account (ADR-0025);
+                // a real cascade FK (belt-and-braces with the app-layer delete in AccountDeletionService).
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->timestamp('last_read_at', 3)->nullable();           // unread = last_read_at < conversations.last_message_at (ms precision — see conversations.last_message_at)
+                $table->timestamp('left_at')->nullable();                   // soft-leave; non-null = no longer an active participant
+                $table->boolean('can_invite')->default(false);              // may add further participants
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
 
-            $table->unique(['conversation_id', 'user_id']);             // one participant row per (conversation,user)
-            $table->index(['user_id', 'left_at']);                      // a user's active inbox
-        });
+                $table->unique(['conversation_id', 'user_id']);             // one participant row per (conversation,user)
+                $table->index(['user_id', 'left_at']);                      // a user's active inbox
+            });
+        }
 
-        Schema::create('messages', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('conversation_id')->constrained()->cascadeOnDelete();
-            $table->unsignedBigInteger('user_id')->nullable();          // author; anonymisable (no FK, ADR-0025)
-            $table->string('body_format', 20)->default('tiptap_json');  // tiptap_json | markdown (post parity)
-            $table->longText('body_canonical');                         // lossless source (JSON); ContentRenderer reopens THIS
-            $table->longText('body_html_cache')->nullable();            // display HTML, regenerated + sanitized server-side
-            $table->longText('body_text')->nullable();                  // tags-stripped text projection
-            $table->string('approved_state', 20)->default('approved');  // approved | pending | rejected (M4 PM-queue seam)
-            $table->string('ip_address', 45)->nullable();
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
+        if (! Schema::hasTable('messages')) {
+            Schema::create('messages', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('conversation_id')->constrained()->cascadeOnDelete();
+                $table->unsignedBigInteger('user_id')->nullable();          // author; anonymisable (no FK, ADR-0025)
+                $table->string('body_format', 20)->default('tiptap_json');  // tiptap_json | markdown (post parity)
+                $table->longText('body_canonical');                         // lossless source (JSON); ContentRenderer reopens THIS
+                $table->longText('body_html_cache')->nullable();            // display HTML, regenerated + sanitized server-side
+                $table->longText('body_text')->nullable();                  // tags-stripped text projection
+                $table->string('approved_state', 20)->default('approved');  // approved | pending | rejected (M4 PM-queue seam)
+                $table->string('ip_address', 45)->nullable();
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
 
-            $table->index(['conversation_id', 'created_at']);           // thread order (conversation ≤30 budget)
-            $table->index(['user_id']);
-        });
+                $table->index(['conversation_id', 'created_at']);           // thread order (conversation ≤30 budget)
+                $table->index(['user_id']);
+            });
+        }
     }
 
     public function down(): void

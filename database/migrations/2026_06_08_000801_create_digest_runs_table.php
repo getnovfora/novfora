@@ -17,23 +17,25 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('digest_runs', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('cadence', 10);                 // daily | weekly
-            $table->string('period_key', 10);              // floored bucket: 2026-06-08 | 2026-W24
-            $table->string('status', 12)->default('claimed'); // claimed | built | sent
-            $table->unsignedInteger('item_count')->default(0);
-            $table->timestamp('claimed_at')->nullable();
-            $table->timestamp('built_at')->nullable();
-            $table->timestamp('mailed_at')->nullable();    // two-phase self-heal: built but not yet enqueued
-            $table->timestamp('sent_at')->nullable();
-            $table->timestamps();
+        if (! Schema::hasTable('digest_runs')) {
+            Schema::create('digest_runs', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->string('cadence', 10);                 // daily | weekly
+                $table->string('period_key', 10);              // floored bucket: 2026-06-08 | 2026-W24
+                $table->string('status', 12)->default('claimed'); // claimed | built | sent
+                $table->unsignedInteger('item_count')->default(0);
+                $table->timestamp('claimed_at')->nullable();
+                $table->timestamp('built_at')->nullable();
+                $table->timestamp('mailed_at')->nullable();    // two-phase self-heal: built but not yet enqueued
+                $table->timestamp('sent_at')->nullable();
+                $table->timestamps();
 
-            // The keystone: one digest per user per cadence-bucket. The DB enforces exactly-once assembly.
-            $table->unique(['user_id', 'cadence', 'period_key']);
-            $table->index(['status', 'cadence']); // self-heal / re-queue scan
-        });
+                // The keystone: one digest per user per cadence-bucket. The DB enforces exactly-once assembly.
+                $table->unique(['user_id', 'cadence', 'period_key']);
+                $table->index(['status', 'cadence']); // self-heal / re-queue scan
+            });
+        }
     }
 
     public function down(): void

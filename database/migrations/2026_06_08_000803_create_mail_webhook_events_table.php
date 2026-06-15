@@ -15,12 +15,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('mail_webhook_events', function (Blueprint $table) {
-            $table->id();
-            $table->string('provider', 40);
-            $table->string('event_key', 191)->unique(); // provider event id, or sha256 of the raw body
-            $table->timestamp('created_at')->nullable();
-        });
+        if (! Schema::hasTable('mail_webhook_events')) {
+            Schema::create('mail_webhook_events', function (Blueprint $table) {
+                $table->id();
+                $table->string('provider', 40);
+                $table->string('event_key', 191)->unique(); // provider event id, or sha256 of the raw body
+                $table->timestamp('created_at')->nullable();
+            });
+        }
     }
 
     public function down(): void

@@ -12,26 +12,30 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('custom_fields', function (Blueprint $table) {
-            $table->id();
-            $table->string('key')->unique();
-            $table->string('label');
-            $table->string('type', 20)->default('text'); // text | url | textarea
-            $table->json('options')->nullable();
-            $table->unsignedInteger('position')->default(0);
-            $table->boolean('is_active')->default(true);
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('custom_fields')) {
+            Schema::create('custom_fields', function (Blueprint $table) {
+                $table->id();
+                $table->string('key')->unique();
+                $table->string('label');
+                $table->string('type', 20)->default('text'); // text | url | textarea
+                $table->json('options')->nullable();
+                $table->unsignedInteger('position')->default(0);
+                $table->boolean('is_active')->default(true);
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
+            });
+        }
 
-        Schema::create('custom_field_values', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('custom_field_id')->constrained()->cascadeOnDelete();
-            $table->text('value')->nullable();
+        if (! Schema::hasTable('custom_field_values')) {
+            Schema::create('custom_field_values', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('custom_field_id')->constrained()->cascadeOnDelete();
+                $table->text('value')->nullable();
 
-            $table->unique(['user_id', 'custom_field_id']);
-        });
+                $table->unique(['user_id', 'custom_field_id']);
+            });
+        }
     }
 
     public function down(): void

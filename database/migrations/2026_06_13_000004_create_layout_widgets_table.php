@@ -13,18 +13,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('layout_widgets', function (Blueprint $table) {
-            $table->id();
-            $table->string('region', 60);
-            $table->string('widget_key', 60);
-            $table->unsignedInteger('position')->default(0);
-            $table->json('settings')->nullable();
-            $table->boolean('is_enabled')->default(true);
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
+        if (! Schema::hasTable('layout_widgets')) {
+            Schema::create('layout_widgets', function (Blueprint $table) {
+                $table->id();
+                $table->string('region', 60);
+                $table->string('widget_key', 60);
+                $table->unsignedInteger('position')->default(0);
+                $table->json('settings')->nullable();
+                $table->boolean('is_enabled')->default(true);
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
 
-            $table->index(['region', 'position']); // the per-region ordered read
-        });
+                $table->index(['region', 'position']); // the per-region ordered read
+            });
+        }
     }
 
     public function down(): void

@@ -13,17 +13,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('word_filters', function (Blueprint $table) {
-            $table->id();
-            $table->string('pattern');
-            $table->string('replacement')->nullable();
-            $table->string('action', 20)->default('replace'); // replace | flag | block
-            $table->boolean('is_regex')->default(false);
-            $table->boolean('whole_word')->default(true);
-            $table->boolean('is_active')->default(true);
-            $table->unsignedBigInteger('tenant_id')->nullable()->index();
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('word_filters')) {
+            Schema::create('word_filters', function (Blueprint $table) {
+                $table->id();
+                $table->string('pattern');
+                $table->string('replacement')->nullable();
+                $table->string('action', 20)->default('replace'); // replace | flag | block
+                $table->boolean('is_regex')->default(false);
+                $table->boolean('whole_word')->default(true);
+                $table->boolean('is_active')->default(true);
+                $table->unsignedBigInteger('tenant_id')->nullable()->index();
+                $table->timestamps();
+            });
+        }
     }
 
     public function down(): void

@@ -70,7 +70,7 @@ class UpgradeCommand extends Command
         $this->components->bulletList([
             'The site stays in maintenance (schema.stuck) until you recover — it will not retry automatically.',
             $result->backup !== null
-                ? 'Restore the pre-upgrade snapshot: php artisan novfora:restore '.$result->backup
+                ? 'Restore the pre-upgrade snapshot: php artisan novfora:restore '.'storage/backups/'.$result->backup
                 : 'No pre-upgrade backup was taken (backup step failed) — fix the backup target, then re-run.',
             'Or re-upload the previous release zip — the code then matches the schema and the gate self-clears within a cron tick.',
         ]);
