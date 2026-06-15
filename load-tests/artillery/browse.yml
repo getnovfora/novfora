@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Artillery read-path load test for NovFora (Wave 8.3 harness) — an alternative driver to the k6 script for
+# teams already on Artillery. Same intent: hammer the guest read surfaces of a board seeded by
+# `php artisan novfora:loadtest:seed`. Ships NO validated numbers — tune phases/SLOs to your target.
+#
+#   BASE_URL=https://your-host artillery run load-tests/artillery/browse.yml
+#
+# Read-only and guest-only — safe against a staging copy; it never logs in or writes.
+
+config:
+  target: "{{ $processEnvironment.BASE_URL }}"
+  http:
+    timeout: 15
+  phases:
+    # Conservative starting shape — OVERRIDE for a real run.
+    - duration: 30
+      arrivalRate: 2
+      rampTo: 20
+      name: ramp
+    - duration: 60
+      arrivalRate: 20
+      name: hold
+  ensure:
+    # Placeholder gates — tune to your target; a breach makes artillery exit non-zero (CI-gateable).
+    thresholds:
+      - http.response_time.p95: 800
+    conditions:
+      - expression: "http.codes.200 > 0"
+
+scenarios:
+  - name: guest-browse
+    flow:
+      - get:
+          url: "/forums"
+      - get:
+          url: "/forums/loadtest-forum-0"
+          capture:
+            - regexp: "/topics/(\\d+)"
+              group: 1
+              as: "topicId"
+      - get:
+          url: "/topics/{{ topicId }}"
+          ifTrue: "topicId"
+      - get:
+          url: "/search?q=throughput"
+      - think: 1

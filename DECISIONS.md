@@ -2041,3 +2041,27 @@ unassociated → wired with `for`/`id`.
 
 **Tests.** Engine unit suite (14) proves it catches each violation class AND does not false-positive on
 conformant markup; page gate (14 surfaces) asserts zero findings end-to-end.
+
+### ADR-0045 — Load-test harness (Wave 8.3) (2026-06-14)
+**Status: Accepted — owner-authorized overnight build; flagged for review. SCAFFOLDED — NOT VALIDATED.**
+
+**Decision.** Ship a load-test **harness**, not a benchmark: (1) a big-board fixture seeder
+(`php artisan novfora:loadtest:seed`, additive/resumable, writing through the real `PostService` so counters
+/ last-post pointers / search projection are correct → true query shapes under test); (2) two interchangeable
+read-path drivers — `load-tests/k6/browse.js` and `load-tests/artillery/browse.yml` — hitting the guest
+surfaces (board, forum, topic, search), parameterised by `BASE_URL`/scale; (3) a procedure with tier
+interpretation (`docs/architecture/load-testing.md`).
+
+**Explicitly NOT claimed.** No at-scale numbers were measured or are asserted. The thresholds in the scripts
+(`p95<800ms`, `err<1%`) are tunable placeholders, not validated SLOs. Producing real numbers requires running
+the harness on representative hardware — out of scope for an unattended build and meaningless as synthetic
+figures. Nothing in the harness runs automatically or in the default gate; the seeder carries the production
+confirmation guard and creates obvious `Load Test` content for a throwaway DB.
+
+**Why two drivers.** k6 and Artillery cover the two ecosystems teams already use; both are read-only +
+guest-only (safe against staging) and exit non-zero on a breached threshold, so either can gate CI once real
+targets are set.
+
+**Tested.** The seeder has a feature test at small scale (creates the requested counts via the real write
+path, maintains `reply_count`, additive/idempotent on re-run). The driver scripts are static assets — no
+k6/artillery binary exists in the gate, so they are not executed there (validating them is a manual run).
