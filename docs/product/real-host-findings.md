@@ -34,7 +34,7 @@ writable app files, and runbook §3a adds a "set 755/644 after extract" step.
 
 ### RH-3 — Subfolder install recipe — documented (runbook §3b), but insufficient on its own — see RH-4.
 
-### ⭐ RH-4 — Subdirectory install is broken — OPEN (owner-flagged priority)
+### ⭐ RH-4 — Subdirectory install — RESOLVED (ADR-0070 + ADR-0071, 2026-06-16)
 **Requirement:** an end user must be able to install NovFora into a **subdirectory of the web root**
 (e.g. `example.com/community`), not only at a domain/subdomain root. Common shared-host scenario.
 
@@ -62,9 +62,19 @@ the copy layout. A robust fix needs both:
   canonical `build/` and `storage/`, or the installer **detecting the subpath** and wiring `APP_URL`/
   `ASSET_URL` + publishing storage/assets into the web dir.
 
-**Proposed next step:** a short **design spike + ADR ("subdirectory install support")**, then implement and add
-a **subdirectory case to the install test matrix** (so it's covered, like the no-SSH cold-boot now is). Until
-then, the runbook steers users to a subdomain.
+**Resolution (2026-06-16, branch `claude/rh4-subdir-install`).** Design spike → **ADR-0070** (subdirectory
+install) + **ADR-0071** (canonical home at the mount root). Shipped: (1) the forum index IS the home at the
+mount root (`/` serves it; `/forums` 301s back) so a subpath install lands on `/community/`, not
+`/community/forums`; (2) a conservative request-time **base-path detector** (`App\Support\Http\BasePathDetector`)
+that forces the URL/asset root from the request only when `APP_URL` is unset/localhost — Laravel already carries
+the subpath via the request base path (SCRIPT_NAME/RewriteBase), and the detector confirms + pins it without
+ever overriding a real `APP_URL` or touching the root layout; (3) the installer auto-detects the subpath, pre-
+fills the Site URL, and writes `APP_URL` + `ASSET_URL`; (4) **Option A** (symlinked `public/`, default) /
+**Option B** (`novfora:subdir:scaffold` — generated stub + `.htaccess` + build/storage links) / **Option C**
+(copy, last resort) for a single canonical `build/` + `storage/` (no drift); (5) a subdirectory case + a root-
+layout regression guard + a rebuild-drift guard in the install test matrix. The runbook §3b is rewritten with
+Options A/B/C + a concrete Hostinger walkthrough. **The §3b copy layout is now the documented last resort, not
+the default.**
 
 ### RH-5 — Stale committed assets — FIXED
 The committed `public/build` CSS hash had drifted from source (a P1.5 template change was never rebuilt). The
