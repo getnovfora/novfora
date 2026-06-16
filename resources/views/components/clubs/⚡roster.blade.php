@@ -183,6 +183,7 @@ new class extends Component
                         <x-ui.badge>{{ __(ucfirst((string) $m->role)) }}</x-ui.badge>
                         @if ($this->canManage())
                             <select class="rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink"
+                                aria-label="{{ __('Change role for :name', ['name' => $m->user?->display_name ?? $m->user?->username ?? __('member')]) }}"
                                 wire:change="setRole({{ $m->id }}, $event.target.value)" dusk="role-{{ $m->id }}">
                                 <option value="member" @selected($m->role === 'member')>{{ __('Member') }}</option>
                                 <option value="moderator" @selected($m->role === 'moderator')>{{ __('Moderator') }}</option>
