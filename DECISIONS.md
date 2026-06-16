@@ -2928,3 +2928,31 @@ documented as a conditional, reversible enhanced-tier tuning step instead.
 + suggested SLOs (baseline reads p95 < 600ms / search < 1.5s; enhanced reads < 250ms / search < 300ms),
 capacity guidance, and the **validate-before-go-live** items (run k6/artillery at scale on the real
 MySQL/enhanced host; EXPLAIN the forum-listing sort). The enhanced tier was **NOT run against a real host.**
+
+### ADR-0073 — 1.0 release readiness: brand-rename completion, gate, version (P5.5) (2026-06-16)
+**Status: Accepted — owner-authorized GA-hardening run; flagged for review.**
+
+**Decision.** Complete the Phase-5 "rename surface #8" (ADR-0024/0026/0028) so the retired `nevo`/`NevoBB`
+codename survives **only** in historical ADR/doc references, and bump to **1.0.0**.
+1. **Command prefix** `nevo:` → `novfora:` (`RecomputeBadges`/`RecomputeReputation` commands + their
+   schedules in `routes/console.php` + `DemoSeeder` + the 4 tests that invoke/assert them).
+2. **Editor island** `nevoEditor` → `novforaEditor` (`resources/js/editor/island.js`, `app.js`,
+   `components/content-editor.blade.php`); **assets rebuilt** (`npm run build`) so the prebuilt `public/build`
+   carries the new name (old hashed asset removed — no `nevo` remains in the build).
+3. **Dev/CI infra** DB/user/volume/network names + script copyrights renamed (`nevo_test`→`novfora_test`,
+   `nevo`→`novfora`, `NevoBB`→`NovFora`) across `ci.yml`, `docker-compose.yml`, `docker/*`, `.env.example`,
+   `scripts/*`, `.gitignore`, `pint.json`, the pagination view comment.
+4. **CI brand gate:** a new `static`-job step fails the build if `git grep -i nevo` matches anything outside
+   the historical doc set — the ROADMAP 1.0 exit criterion, now enforced.
+5. **Version:** `config/app.php` gains `version => env('APP_VERSION', '1.0.0')` (surfaced by `/health`, the
+   backup/install manifests, the upgrade fingerprint; replaces the `'1.0.0-mvp'` call-site fallback).
+6. **Hygiene:** removed `.env.root-stale` — a stray committed duplicate of `.env.example` (blank `APP_KEY`,
+   no real secret) accidentally committed in `b3ed796`; a `.env`-named file does not belong in the repo.
+
+**Docs → 1.0.** New `CHANGELOG.md` (Keep-a-Changelog; the 1.0.0 entry summarises Phases 1–5 + the
+validate-before-go-live caveats) and `docs/product/release-checklist-1.0.md` (pre-flight gates → cut → go-live
+validation). `README`, `getting-started` (install+upgrade), `CONTRIBUTING`/`GOVERNANCE`/`CODE_OF_CONDUCT`,
+`LICENSE` already present + brand-clean.
+
+**Tested.** The renamed commands resolve + pass their cron tests; the full suite + PHPStan L5 + Pint stay green;
+`git grep -i nevo` is docs-only. No test asserted the old `1.0.0-mvp` literal, so the bump is non-breaking.
