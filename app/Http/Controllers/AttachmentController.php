@@ -55,11 +55,18 @@ class AttachmentController extends Controller
             $post = Post::withTrashed()->find($attachment->post_id);
             $topic = $post ? Topic::withTrashed()->find($post->topic_id) : null;
             $topicForum = $topic instanceof Topic ? $topic->forum : null;
+            // P5.1 — mirror TopicController's trashed gate: once a post/topic is soft-deleted (moderated to the
+            // recycle bin) its attachment must not stay readable to ordinary forum.view holders, only to the
+            // uploader and to a moderator who can review the recycled content.
+            $isTrashed = ($topic instanceof Topic && $topic->trashed()) || ($post instanceof Post && $post->trashed());
+            $canModerate = $request->user() instanceof User && $topic instanceof Topic
+                && $request->user()->canDo('topic.moderate', $topic->permissionScope());
             $canView = $topic instanceof Topic
                 && $viewer->canDo('forum.view', $topic->permissionScope())
                 // M1.5: an attachment in a club forum is gated by club content visibility.
-                && $topicForum instanceof Forum && $topicForum->clubContentVisibleTo($request->user());
-            // The uploader keeps access to their own file (covers their own still-pending post).
+                && $topicForum instanceof Forum && $topicForum->clubContentVisibleTo($request->user())
+                && (! $isTrashed || $canModerate);
+            // The uploader keeps access to their own file (covers their own still-pending/recycled post).
             abort_unless($canView || $request->user()?->getKey() === $attachment->user_id, 403);
         }
 
