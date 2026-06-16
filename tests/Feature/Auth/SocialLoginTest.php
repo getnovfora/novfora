@@ -4,6 +4,8 @@
 
 declare(strict_types=1);
 
+use App\Models\Ban;
+use App\Models\RegistrationCheck;
 use App\Models\SocialAccount;
 use App\Models\User;
 use App\Settings\Settings;
@@ -12,6 +14,7 @@ use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\AbstractProvider;
 use Laravel\Socialite\Two\InvalidStateException;
 use Laravel\Socialite\Two\User as SocialiteUser;
+use Tests\Support\Users;
 
 uses(RefreshDatabase::class);
 
@@ -147,4 +150,66 @@ it('handles a declined consent gracefully', function () {
         ->assertSessionHas('error');
 
     $this->assertGuest();
+});
+
+// ── P5.1: SSO must not bypass mandatory staff 2FA ─────────────────────────────────────────────────────────
+
+it('steps a staff member with 2FA up to the TOTP challenge after SSO instead of granting a session', function () {
+    enableProvider('google');
+    $staff = Users::inGroups(['members', 'admins'], ['email' => 'staff2fa@oauth.test']);
+    Users::withTwoFactor($staff);
+    SocialAccount::create(['user_id' => $staff->id, 'provider' => 'google', 'provider_user_id' => 'g-staff', 'linked_at' => now()]);
+    mockSocialiteReturning(fakeSocialUser('g-staff', 'staff2fa@oauth.test'));
+
+    $this->get(route('oauth.callback', 'google'))->assertRedirect(route('two-factor.login'));
+
+    $this->assertGuest();                          // NO privileged session until the second factor is verified
+    expect(session('login.id'))->toBe($staff->id); // handed off to Fortify's existing TOTP challenge
+});
+
+it('signs a staff member WITHOUT a confirmed authenticator in normally after SSO (RequireTwoFactorForStaff then forces setup)', function () {
+    enableProvider('google');
+    $staff = Users::inGroups(['members', 'moderators'], ['email' => 'staffno2fa@oauth.test']);
+    SocialAccount::create(['user_id' => $staff->id, 'provider' => 'google', 'provider_user_id' => 'g-staff2', 'linked_at' => now()]);
+    mockSocialiteReturning(fakeSocialUser('g-staff2', 'staffno2fa@oauth.test'));
+
+    $this->get(route('oauth.callback', 'google'))->assertRedirect(route('home'));
+    $this->assertAuthenticatedAs($staff->fresh());
+});
+
+// ── P5.1: OAuth just-in-time provisioning honours the registration gates ──────────────────────────────────
+
+it('refuses OAuth signup when registration is closed', function () {
+    enableProvider('google');
+    app(Settings::class)->set('registration.enabled', false);
+    mockSocialiteReturning(fakeSocialUser('g-closed', 'closed@oauth.test'));
+
+    $this->get(route('oauth.callback', 'google'))->assertRedirect(route('login'))->assertSessionHas('error');
+
+    $this->assertGuest();
+    expect(User::where('email', 'closed@oauth.test')->exists())->toBeFalse();
+});
+
+it('refuses OAuth signup for a banned email (an email ban cannot be evaded via SSO)', function () {
+    enableProvider('google');
+    Ban::create(['type' => 'email', 'value' => 'banned@oauth.test', 'scope_type' => 'global']);
+    mockSocialiteReturning(fakeSocialUser('g-banned', 'banned@oauth.test'));
+
+    $this->get(route('oauth.callback', 'google'))->assertRedirect(route('login'))->assertSessionHas('error');
+
+    $this->assertGuest();
+    expect(User::where('email', 'banned@oauth.test')->exists())->toBeFalse();
+});
+
+it('routes a flagged OAuth signup into the moderation queue as pending', function () {
+    enableProvider('google');
+    // Force a FLAG (not a block): exceed the per-IP velocity so the screener flags → status=pending.
+    config(['novfora.antispam.registration.velocity.per_ip_per_hour' => 1]);
+    RegistrationCheck::create(['ip_address' => '127.0.0.1', 'decision' => 'allow', 'created_at' => now()]);
+    mockSocialiteReturning(fakeSocialUser('g-flagged', 'flagged@oauth.test'));
+
+    $this->get(route('oauth.callback', 'google'))->assertRedirect(route('home'));
+
+    $user = User::where('email', 'flagged@oauth.test')->firstOrFail();
+    expect($user->status)->toBe('pending'); // created, but held for moderation — not silently active
 });

@@ -6,9 +6,11 @@ declare(strict_types=1);
 
 namespace App\Auth\Social;
 
+use App\AntiSpam\RegistrationGuard;
 use App\Models\Group;
 use App\Models\SocialAccount;
 use App\Models\User;
+use App\Settings\Settings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -60,7 +62,25 @@ class SocialLogin
             );
         }
 
-        return $this->createUser($provider, $providerUserId, $email, $socialUser);
+        // P5.1 — just-in-time provisioning must honour the SAME server-side controls as the password
+        // registration path (CreateNewUser); a provider identity is not a bypass. (1) the registration toggle;
+        // (2) the anti-spam screener — an email/IP ban or a high-confidence listing BLOCKS, a borderline
+        // signal FLAGS the account into the moderation queue (status='pending'). The provider-verified email
+        // still skips email verification; only the account's existence + state are gated.
+        if (! app(Settings::class)->bool('registration.enabled')) {
+            throw new SocialAuthException('New account registration is currently closed.');
+        }
+
+        $screening = app(RegistrationGuard::class)->screen([
+            'email' => $email,
+            'username' => $socialUser->getNickname() ?: ($socialUser->getName() ?: ''),
+            'ip' => (string) request()->ip(),
+        ]);
+        if ($screening->blocked()) {
+            throw new SocialAuthException('Sign-up is not available from your network right now.');
+        }
+
+        return $this->createUser($provider, $providerUserId, $email, $socialUser, $screening->flagged());
     }
 
     /**
@@ -89,7 +109,7 @@ class SocialLogin
             'user_id' => $user->getKey(),
             'provider' => $provider,
             'provider_user_id' => $providerUserId,
-            'nickname' => $socialUser->getNickname() ?: $socialUser->getName(),
+            'nickname' => $this->clampName($socialUser->getNickname() ?: $socialUser->getName()),
             'avatar' => $this->clampAvatar($socialUser->getAvatar()),
             'linked_at' => now(),
         ]);
@@ -108,21 +128,22 @@ class SocialLogin
     }
 
     /** Create a fresh local account from a provider profile and attach the identity. */
-    private function createUser(string $provider, string $providerUserId, string $email, SocialiteUser $socialUser): User
+    private function createUser(string $provider, string $providerUserId, string $email, SocialiteUser $socialUser, bool $flagged = false): User
     {
-        return DB::transaction(function () use ($provider, $providerUserId, $email, $socialUser): User {
+        return DB::transaction(function () use ($provider, $providerUserId, $email, $socialUser, $flagged): User {
             $user = new User;
             $username = $this->uniqueUsername($socialUser->getNickname() ?: $socialUser->getName() ?: explode('@', $email)[0]);
             $user->fill([
                 'username' => $username,
                 'name' => $username,
-                'display_name' => $socialUser->getName() ?: $username,
+                'display_name' => $this->clampName($socialUser->getName()) ?: $username,
                 'email' => $email,
                 // A random, unknown password: the account signs in via the provider, or sets one through
                 // password reset. It is never the empty string (the column is NOT NULL) and never guessable.
                 'password' => Hash::make(Str::random(48)),
             ]);
-            $user->status = 'active';
+            // A flagged screen routes the account into the moderation queue (pending) — matching CreateNewUser.
+            $user->status = $flagged ? 'pending' : 'active';
             // The provider verified this email and there was no local collision, so the account starts verified.
             $user->forceFill(['email_verified_at' => now()])->save();
 
@@ -137,7 +158,7 @@ class SocialLogin
                 'user_id' => $user->getKey(),
                 'provider' => $provider,
                 'provider_user_id' => $providerUserId,
-                'nickname' => $socialUser->getNickname() ?: $socialUser->getName(),
+                'nickname' => $this->clampName($socialUser->getNickname() ?: $socialUser->getName()),
                 'avatar' => $this->clampAvatar($socialUser->getAvatar()),
                 'linked_at' => now(),
             ]);
@@ -170,6 +191,19 @@ class SocialLogin
         }
 
         return $username;
+    }
+
+    /**
+     * Clamp + normalise a provider-supplied display name / nickname (P5.1). A provider profile is
+     * attacker-controlled, so strip control + bidi-override characters (display-spoofing) and bound the
+     * length, the same hardening uniqueUsername() applies to the username. Returns '' when nothing usable
+     * remains (the caller falls back to the username).
+     */
+    private function clampName(?string $name): string
+    {
+        $name = preg_replace('/[\x00-\x1F\x7F\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', (string) $name) ?? '';
+
+        return mb_substr(trim($name), 0, 255);
     }
 
     private function clampAvatar(?string $avatar): ?string
