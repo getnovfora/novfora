@@ -11,7 +11,115 @@
 
 ---
 
-## 🌙 Phase 4 ENHANCED build (M4 Search/Realtime · M5 Paid memberships · M6 Anti-spam) on `claude/phase-4-enhanced` — 2026-06-15 (LATEST · REVIEW + PUSH THIS)
+## 🚀 Phase 5 — HARDENING → GA on `claude/phase-5-ga` — 2026-06-16 (LATEST · REVIEW + PUSH THIS)
+
+**Unattended, owner-authorized GA-readiness run off `main` (Phase 4 fully merged: ADR-0060 + ADR-0069 present).
+17 conventional, DCO-signed, `Tommy Huynh`-authored commits on `claude/phase-5-ga`. NOTHING IS PUSHED** — push
+is interactive-only in the sandbox; the owner pushes + opens the PR. No new product features (hardening/polish/
+docs/tests only). Every ADR (0070–0074) is **"Accepted — owner-authorized GA run; flagged for review."**
+
+**Model-routing note (recorded, ADR-0070):** CLAUDE.md routes security work to **Fable @ max**, but
+`claude-fable-5` was **unavailable** in this build env, so the apex rung was taken at **Opus 4.8 (1M)** — a
+conservative, security-preserving fallback (a stronger model finds only more).
+
+**Final gate (branch HEAD, in `forum-dev`):** `php artisan test --parallel` **1560 passed / 1 skipped / 0
+failed** (12779 assertions; baseline 1525 → **+35** Phase-5 tests) · PHPStan (level 5) **0 errors** · Pint clean
+(813 files) · `migrate` clean. Every unit committed only at a green boundary.
+
+### Per-unit status (ADR)
+- **P5.1 security ✅ (ADR-0070)** — 2nd adversarial verify-then-refute over the whole Phase 3/4 surface (11
+  domain reviewers + per-finding refuter panels). **No HIGH.** 8 MEDIUM + 3 LOW + 2 INFO fixed (each + test); 6
+  refuted. Full writeup: `docs/architecture/security-review-phase5.md`.
+- **P5.2 WCAG 2.1 AA ✅ (ADR-0044)** — automated page gate grown **14 → 27 surfaces** (clubs/PMs/memberships/
+  notifications/preferences/trending/whats-new/saved/tags/home/leaderboard); 3 accessible-name failures fixed.
+  Manual residue recorded in `docs/architecture/accessibility.md`.
+- **P5.3 i18n ✅ (ADR-0071, extends ADR-0043)** — framework/RTL/switch/fallback (already shipped + tested)
+  completed with a complete **`es` proof locale**, the **auth + error** surfaces externalised
+  (`lang/en/{auth,errors}.php`), and a per-key `en`-fallback test. Coverage + residue below.
+- **P5.4 perf ✅ (ADR-0072, extends ADR-0045)** — `HotPathQueryTest` proves the hot paths are **N+1-free** in
+  steady state; baseline + enhanced-tier procedure/SLOs documented in `docs/architecture/load-testing.md`.
+- **P5.5 release ✅ (ADR-0073)** — the `nevo→novfora` rename **completed** (command prefix, editor JS island +
+  rebuilt assets, dev/CI infra names) + **enforced by a CI brand gate**; version → **1.0.0**; new `CHANGELOG.md`
+  + `docs/product/release-checklist-1.0.md`; removed a stray committed `.env.root-stale`.
+- **P5.6 fresh-install ✅ (ADR-0074)** — `FreshInstallSmokeTest` drives the redeploy path on an EMPTY DB green
+  (schema + seeded roles/permissions/system groups + a capable first admin + lock); `build-release.sh` produces
+  a clean `novfora-release.zip` and the cold artifact boots **`GET / → 302 /install`** (both verified directly).
+
+### 🔐 SECURITY findings (P5.1 — all HIGH/MEDIUM fixed; full table in `docs/architecture/security-review-phase5.md`)
+| Sev | Finding | Fix |
+|---|---|---|
+| Med | Search forum-facet leaked private-club names to logged-in non-members | facet now applies `clubContentVisibleTo` |
+| Med | SSO (OAuth/SAML) skipped mandatory **staff 2FA** | `ChallengesStaffTwoFactor` defers staff to Fortify's TOTP challenge |
+| Med | OAuth signup bypassed registration toggle + anti-spam + **email/IP bans** | `resolveForLogin` mirrors `CreateNewUser` (refuse / flag→pending) |
+| Med | REST `createPost` ignored the **locked-topic** gate | shared `Topic::isReplyable()` |
+| Med | Installer **DB-test SSRF** bypassed the setup token | re-assert the token at the sink |
+| Med | Stripe webhook granted without **`payment_status`** proof | require paid/no-payment-required |
+| Med | **Unbounded `@mention` fan-out** (mass-notify + DoS) | cap at `antispam.mention_fanout_cap` (10) |
+| Med | Importer **legacy-attachment path traversal** | reject `..`/scheme at the read site |
+| Low | Stripe webhook idempotency had no DB UNIQUE | `UNIQUE(provider, provider_ref)` + violation catch |
+| Low | `/api/v1` ran without install/upgrade maintenance gates | applied ahead of token auth |
+| Low | Attachment on a soft-deleted post still downloadable | mirror the trashed gate (uploader/moderator only) |
+| Info | manifest reserved-namespace case-sensitive; OAuth profile strings verbatim | case-insensitive guard; clamp + strip control/bidi |
+**Refuted (recorded):** sole-owner club orphan (data-integrity, an ADR-0047 fast-follow, not security) · API
+trust-rate-limiter (bounded by throttle:api + the pipeline) · `acl_entries` no-UNIQUE (resolver dup-tolerant) ·
+2FA-mutation password re-confirm (documented Phase-2 deferral) · OAuth IP-only throttle · sandbox quoted-URL
+scheme (admin-trust-gated).
+
+### ♿ Residual MANUAL a11y items (not machine-verifiable — owner/QA before go-live)
+Contrast (1.4.3, incl. admin-set custom theme tokens) · keyboard nav + no focus traps (2.1.1/2.1.2) · visible
+focus (2.4.7) · reduced-motion (2.3.1) · live-region status messages (4.1.3) · a screen-reader pass + the RTL
+visual pass on the newly-covered clubs/PMs/memberships flows. (`docs/architecture/accessibility.md`.)
+
+### 🌐 i18n coverage (P5.3)
+**Externalised + `en`-complete + `es`-translated:** the framework strings, `common`, `search`/saved-search,
+**all auth screens**, **all error pages**. Framework (allowlist, `SetLocale` precedence, validated switch, RTL
+`<html dir>`, per-key `en` fallback) is shipped + tested (LocalizationTest, 11). **Residual (documented,
+mechanical, community-contributable — NOT a 100% sweep):** the authenticated front-end (`forum/clubs/pm/
+profiles/settings/members/…`, the ~92 `components/`) + the staff `admin/` ACP stay on literal English; partial
+externalisation + partial locales are always correct (literal English shows; missing keys fall back to `en`).
+
+### ⚡ Baseline load results + enhanced procedure (P5.4)
+**Baseline query-shape (sqlite gate; engine-independent):** board index **13 warm**, forum listing/topic/
+search/clubs all **< 40–45** — **no steady-state N+1**; hot-path columns indexed. The board index's cold build
+(~69) is the 60s fragment-cache build, amortised. **Enhanced tier NOT run against a real host** — procedure +
+suggested SLOs (baseline reads p95 < 600ms / search < 1.5s; enhanced reads < 250ms / search < 300ms) + capacity
+guidance + the at-scale `EXPLAIN` step are in `docs/architecture/load-testing.md`.
+
+### ✅ VALIDATE-BEFORE-GO-LIVE (consolidated — carried from Phase 4 + new)
+Scaffolded/disabled-by-default; unit-tested against fakes only. Enable + validate per the named ADR /
+`docs/product/release-checklist-1.0.md`:
+1. **Meilisearch** (ADR-0060) — index + confirm no private-club leak.
+2. **Reverb realtime** (ADR-0061/0062) — websocket round-trip + the channel-authz no-leak.
+3. **Live Stripe** (ADR-0065 + P5.1) — real keys/webhook; grant only on `payment_status=paid`; add `invoice.*`/
+   cancellation before auto-renewal.
+4. **OAuth / SAML** (ADR-0053–0056) — real apps; the no-merge rule + the **staff-2FA step-up** (P5.1) end to end.
+5. **Web Push** (ADR-0058) — VAPID; live push-service round-trip.
+6. **StopForumSpam submission** (ADR-0069) — optional; key + the content-privacy opt-in.
+7. **Load test at scale** (ADR-0045/0072) — k6/artillery on the real baseline + enhanced host; capture p50/p95/
+   p99 vs the SLOs; `EXPLAIN` the forum-listing sort.
+8. **Manual a11y** (ADR-0044) — the residual checklist above.
+9. **`verify-release.sh`** — runs clean in a normal container/CI (its checks were verified directly here; the
+   script doesn't cleanly *return* under `docker exec` because the backgrounded `php -S` isn't reaped — env, not
+   a defect).
+
+### Is the build 1.0-tag-ready?
+**Yes — code-wise.** The 1.0 brand gate passes + is CI-enforced, version is 1.0.0, the gate is green
+(1560/0-fail · PHPStan 0 · Pint), the fresh-install + release-artifact paths are proven, and no HIGH/MEDIUM
+security finding is open. **The tag should be cut only AFTER** the owner (a) reviews + pushes this branch +
+merges, and (b) works the **VALIDATE-BEFORE-GO-LIVE** list for any integration they will actually rely on (a
+default baseline deploy uses none of them — they ship inert). Cut per `docs/product/release-checklist-1.0.md`.
+
+### ☀️ Morning report — what the owner does next
+1. **Review** the 17 commits on `claude/phase-5-ga` (ADRs 0070–0074, flagged-for-review), then **push** + open
+   the PR. A freshly-built `novfora-release.zip` (gitignored) sits in the repo root from the P5.6 proof.
+2. One harmless **zombie `php -S`** lingers in `forum-dev` from the P5.6 verify probes (unused port) — a
+   container restart clears it; it does not affect the gate.
+3. New docs: `docs/architecture/security-review-phase5.md`, `CHANGELOG.md`,
+   `docs/product/release-checklist-1.0.md`; updated `accessibility.md` / `i18n-and-rtl.md` / `load-testing.md`.
+
+---
+
+## 🌙 Phase 4 ENHANCED build (M4 Search/Realtime · M5 Paid memberships · M6 Anti-spam) on `claude/phase-4-enhanced` — 2026-06-15 (now merged to `main`)
 
 **Unattended, owner-authorized autonomous build off `main` (with M1–M3 already merged). 11 conventional,
 DCO-signed, `Tommy Huynh`-authored commits on branch `claude/phase-4-enhanced` (10 feature + 1 wrap-docs).
