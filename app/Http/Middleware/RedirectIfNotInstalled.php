@@ -34,6 +34,12 @@ final class RedirectIfNotInstalled
      * Path patterns reachable before install. `livewire/*` covers a custom un-hashed update route;
      * `livewire-*` (matched across the slash) covers Livewire 4's hashed endpoints — `livewire-<hash>/update`
      * and the `livewire.js` asset.
+     *
+     * RH-4 (ADR-0070) — these patterns are PREFIX-AGNOSTIC. `Request::is()` matches the path INFO (the path
+     * with the subdirectory mount / front-controller base path already stripped), so on a `/community` install
+     * the install, hashed-Livewire and build patterns match `/community/install`,
+     * `/community/livewire-<hash>/update` and `/community/build/<asset>` unchanged — no per-prefix entries are
+     * needed (spike open-question #3, confirmed by SubdirInstallTest).
      */
     private const ALLOW = ['install', 'install/*', 'livewire/*', 'livewire-*/*', 'build/*', 'vendor/*', 'up', 'health', 'favicon.ico'];
 
