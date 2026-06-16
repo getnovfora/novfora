@@ -2956,3 +2956,34 @@ validation). `README`, `getting-started` (install+upgrade), `CONTRIBUTING`/`GOVE
 
 **Tested.** The renamed commands resolve + pass their cron tests; the full suite + PHPStan L5 + Pint stay green;
 `git grep -i nevo` is docs-only. No test asserted the old `1.0.0-mvp` literal, so the bump is non-breaking.
+
+### ADR-0074 — Fresh-install readiness: the from-scratch redeploy path, proven (P5.6) (2026-06-16)
+**Status: Accepted — owner-authorized GA-hardening run; flagged for review.**
+
+**Context.** The owner will redeploy 1.0 on a new host via the no-SSH path; it "MUST be clean." This unit
+proves that path end to end.
+
+**Decision / evidence.**
+1. **Fresh-install smoke** (`tests/Feature/Install/FreshInstallSmokeTest.php`, in the normal gate): drives the
+   SAME `InstallRunner` the web wizard + `novfora:install` CLI use, against a truly EMPTY sqlite DB, and
+   asserts the outcome — schema created (users/groups/permissions/roles/acl_entries/forums/topics/posts), the
+   system posture seeded (`admins`/`members`/`guests` + `tl4` groups, the permission catalogue, roles), and a
+   first admin who is active + TL4 + email-verified + in `admins` AND **actually resolves
+   `admin.access` through the engine** (the real proof, not just rows) — and the install **lock written last**.
+   21 assertions, green.
+2. **Build artifact:** `scripts/build-release.sh` (SKIP_NPM, host-prebuilt assets) produced a clean
+   `novfora-release.zip` — `bootstrap/cache/packages.php` ships (the RH-1 cold-boot fix), `services.php`/
+   `config.php`/`.env`/`storage/installed`/`install-token.txt`/`tests`/`docs`/`node_modules` all absent
+   (asserted directly).
+3. **Cold HTTP boot:** the extracted artifact, booted with `php -S` and a minimal env (blank APP_KEY, no DB,
+   no `artisan` first), returns **`GET /` → 302 → /install** — the exact fresh-host first visit.
+4. **Tooling hardening:** `scripts/lib/cold-client.php` (the verify-release poller) gained a 30s overall
+   deadline — a server that accepts-but-stalls now fails the acceptance test in ~30s instead of the previous
+   60×5s = 5-minute hang.
+
+**Env note (not a defect).** `verify-release.sh`'s full run does not cleanly *return* under `docker exec` in
+this WSL/Docker setup because the backgrounded `php -S` is not reaped without a container init/PID-reaper; its
+two halves (the filesystem assertions and the cold-boot 302→/install) were each verified directly here and pass.
+Run the script as-is in a normal container/CI (it passed in a prior session — see PROJECT-STATE beta bundle).
+`.env.example` (APP_NAME=NovFora, DB=novfora) and `docs/getting-started.md` (wizard flow, prebuilt assets,
+no-SSH) are current.
