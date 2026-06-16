@@ -115,6 +115,18 @@ new class extends Component
 
     public function testDatabase(): void
     {
+        // SECURITY (P5.1): re-assert the setup token at the SSRF SINK, not only in toStep2(). A Livewire
+        // action is independently invokable over the hashed update endpoint, so without this gate an
+        // unauthenticated pre-install visitor could call testDatabase() directly and use DatabaseVerifier
+        // (a real PDO connect to an arbitrary host:port) as an internal port/reachability oracle — exactly
+        // the SSRF the setup token was added to fence off. verifyToken() returns true when tokens are not
+        // required (the test opt-out), so the wizard flow is unchanged.
+        if (! app(Installer::class)->verifyToken($this->setupToken)) {
+            $this->addError('setupToken', 'Enter the setup token from storage/install-token.txt before testing the database connection.');
+
+            return;
+        }
+
         $this->validate($this->dbRules());
 
         $result = app(DatabaseVerifier::class)->verify(

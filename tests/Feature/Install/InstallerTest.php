@@ -239,6 +239,28 @@ it('blocks the wizard at step 1 without the setup token (F-A)', function () {
         ->assertSet('step', 1);
 });
 
+it('refuses the DB-test SSRF sink (testDatabase) without the setup token — P5.1', function () {
+    [$dir] = installSandbox();
+    config(['novfora.install.require_token' => true, 'novfora.install.token_path' => $dir.DIRECTORY_SEPARATOR.'install-token.txt']);
+    $token = app(Installer::class)->ensureToken();
+
+    // testDatabase() is a directly-invokable Livewire action; without the token it must NOT reach the
+    // DatabaseVerifier SSRF sink — dbTested stays false (the verifier never ran against the attacker host).
+    Livewire::test('installer.wizard')
+        ->set('dbHost', '169.254.169.254')->set('dbPort', 3306)
+        ->call('testDatabase')
+        ->assertHasErrors('setupToken')
+        ->assertSet('dbTested', false);
+
+    // With the correct token the sink runs (dbTested flips true) — the gate blocks only the unauthenticated path.
+    Livewire::test('installer.wizard')
+        ->set('setupToken', $token)
+        ->set('dbDriver', 'sqlite')->set('dbDatabase', ':memory:')
+        ->call('testDatabase')
+        ->assertHasNoErrors('setupToken')
+        ->assertSet('dbTested', true);
+});
+
 it('seeds the demo community when asked', function () {
     [, , , $db] = installSandbox();
 
