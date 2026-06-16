@@ -331,6 +331,15 @@ final class ImportRunner
                 if ($postId === null) {
                     continue; // orphan: the owning post wasn't imported — skip
                 }
+                // SECURITY (P5.1): the legacy `path` is built from an UNTRUSTED legacy-DB filename column
+                // (phpBB physical_filename / MyBB attachname / SMF id_attach+file_hash). A `..` segment or a
+                // stream-wrapper scheme would turn this read into arbitrary local-file disclosure (e.g. the
+                // new host's .env). Legitimate legacy names are flat, so refuse anything else — skip the file
+                // exactly as the verify pass already tolerates a missing one. Covers every current + future
+                // ProvidesAttachments driver at the single read site.
+                if (! $this->safeLegacyPath((string) $row['path'])) {
+                    continue;
+                }
                 $bytes = @file_get_contents($row['path']);
                 if ($bytes === false) {
                     continue; // legacy file missing/unreadable — the verify pass reflects the shortfall
@@ -351,6 +360,31 @@ final class ImportRunner
                 $this->record($driver->key(), 'attachment', $row['source_id'], (int) $attachment->getKey());
             }
         }
+    }
+
+    /**
+     * Reject a legacy attachment path that could escape its configured base directory or reach a stream
+     * wrapper (P5.1 path-traversal fence). Returns false for any path containing a `..` segment (after
+     * back-slash normalisation) or a `scheme://` prefix; true for an ordinary on-disk path.
+     */
+    private function safeLegacyPath(string $path): bool
+    {
+        if ($path === '') {
+            return false;
+        }
+        $normalised = str_replace('\\', '/', $path);
+
+        // A stream wrapper (php://, phar://, http://, file:// …) is never a legitimate legacy file path.
+        if (preg_match('#^[a-zA-Z][a-zA-Z0-9+.\-]*://#', $normalised) === 1) {
+            return false;
+        }
+
+        // Any `..` path segment (leading, embedded, or trailing) can climb out of the base dir.
+        if (preg_match('#(^|/)\.\.(/|$)#', $normalised) === 1) {
+            return false;
+        }
+
+        return ! str_contains($path, "\0");
     }
 
     /** @return array<string,int> */
