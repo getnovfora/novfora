@@ -238,7 +238,12 @@ final class PostService
         }
 
         // @mentions in the canonical body (cast to array — tiptap docs are arrays; markdown yields none).
-        foreach (Mentions::idsIn((array) $post->body_canonical) as $id) {
+        // P5.1 — bound the fan-out: the canonical doc is client-controlled, so cap the distinct recipients a
+        // single post may notify (a notification + queued email each). Without this one crafted post could
+        // mass-notify the whole board and flood the request thread. The per-recipient privacy gate still runs.
+        $cap = max(0, (int) config('novfora.antispam.mention_fanout_cap', 10));
+        $mentionIds = $cap === 0 ? [] : array_slice(Mentions::idsIn((array) $post->body_canonical), 0, $cap);
+        foreach ($mentionIds as $id) {
             $mentioned = User::find($id);
             if ($mentioned instanceof User && $mayNotify($mentioned)) {
                 $this->notifier->send($mentioned, 'mention', $author, $payload);

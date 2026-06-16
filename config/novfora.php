@@ -153,6 +153,12 @@ return [
 
     'antispam' => [
 
+        // Max distinct @mention recipients a SINGLE post may notify (P5.1). The canonical doc is
+        // client-controlled, so without a cap one post could mention thousands of users and synchronously fan
+        // out a notification (+ email) to each — mass-notification spam + a request-thread flood. phpBB/Discourse
+        // use a similar small ceiling. 0 disables mention notifications entirely.
+        'mention_fanout_cap' => 10,
+
         // Seeded as acl_entries on the trust groups (TrustGateSeeder). never = absolute hard gate an admin
         // cannot lift (the spam-vector lockdown); no = soft, admin-liftable seam; allow = granted. These are
         // the DEFAULTS — admins tune them per-forum within the never/no rules via the ACL (the inspector
