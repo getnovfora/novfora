@@ -91,7 +91,7 @@ return [
     ],
 
     // Reputation (P2-M5, ADR-0028). The ledger is reputation_events (UNIQUE per source = idempotent);
-    // users.reputation_points is the denormalised sum, reconciled hourly by nevo:reputation:recompute.
+    // users.reputation_points is the denormalised sum, reconciled hourly by novfora:reputation:recompute.
     // Reaction weights live on novfora.reactions.types.*.score above. These are the OPTIONAL fixed awards
     // for creating content — owner-tunable, DEFAULT 0 = off (no ledger row, no queue job is even staged).
     'reputation' => [

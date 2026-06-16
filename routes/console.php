@@ -106,16 +106,16 @@ Schedule::command('novfora:tiers:expire')->hourly()->withoutOverlapping()->skip(
 // Reputation denorm self-heal (P2-M5 ⚙): reconcile users.reputation_points to the reputation_events
 // ledger — belt-and-braces under any missed/reordered queue event. Idempotent + bounded, with a SHORT
 // overlap mutex (not Laravel's 24h default) so a hard-killed run can't strand the heal (RH-10 lesson).
-// The `nevo:` name is deliberate — Phase-5 rename surface #8 (ADR-0028); do not pre-rename.
-Schedule::command('nevo:reputation:recompute')
+// `novfora:` command prefix — the 1.0 brand rename completed rename surface #8 (P5.5/ADR-0073).
+Schedule::command('novfora:reputation:recompute')
     ->hourly()
     ->withoutOverlapping(10)
     ->skip($duringRestore);
 
 // Badge catch-up sweep (P2-M5 ⚙): award anything a missed event dropped. Awards are permanent +
 // UNIQUE-keyed, so the sweep only ever adds — idempotent by construction. Daily is enough latency for a
-// missed badge; same short-mutex discipline. `nevo:` naming as above (rename surface #8, ADR-0028).
-Schedule::command('nevo:badges:recompute')
+// missed badge; same short-mutex discipline. `novfora:` naming as above (P5.5/ADR-0073 brand rename).
+Schedule::command('novfora:badges:recompute')
     ->daily()
     ->withoutOverlapping(10)
     ->skip($duringRestore);

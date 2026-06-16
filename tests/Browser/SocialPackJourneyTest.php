@@ -128,7 +128,7 @@ it('viewer reacts helpful to the author\'s post and the author gains reputation'
 it('author has the first-post badge on their profile after publishing their first topic', function () {
     // QUEUE_CONNECTION=sync → AwardPostCountBadges fired inline when createTopic() dispatched TopicCreated
     // in beforeEach. Run the deterministic sweep to guarantee no missed event can hide the badge.
-    Artisan::call('nevo:badges:recompute', ['--user' => $this->author->id]);
+    Artisan::call('novfora:badges:recompute', ['--user' => $this->author->id]);
 
     $this->browse(function (Browser $browser) {
         $browser->loginAs($this->viewer)
@@ -146,7 +146,7 @@ it('captures the member profile and following feed in light + dark at mobile + d
     app(FollowService::class)->follow($this->viewer, $this->author);
 
     // Drain badge sweep so the profile shows the first-post badge in screenshots.
-    Artisan::call('nevo:badges:recompute', ['--user' => $this->author->id]);
+    Artisan::call('novfora:badges:recompute', ['--user' => $this->author->id]);
 
     $viewports = [['mobile', 360, 1080], ['desktop', 1280, 1000]];
     $modes = ['light', 'dark'];

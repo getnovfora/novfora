@@ -23,13 +23,13 @@ it('schedules the queue drain, backups, and the trust/anti-spam jobs', function 
     expect($commands)->toContain('novfora:backup');
     expect($commands)->toContain('novfora:trust:recompute');
     expect($commands)->toContain('novfora:antispam:purge');
-    // P2-M5 social-pack self-heals (the `nevo:` names are the Phase-5 rename surface #8 — ADR-0028).
-    expect($commands)->toContain('nevo:reputation:recompute');
-    expect($commands)->toContain('nevo:badges:recompute');
+    // P2-M5 social-pack self-heals (the `novfora:` names are the Phase-5 rename surface #8 — ADR-0028).
+    expect($commands)->toContain('novfora:reputation:recompute');
+    expect($commands)->toContain('novfora:badges:recompute');
 });
 
 it('registers the reputation and badge self-heals, overlap-guarded with short bounded mutexes', function () {
-    foreach (['nevo:reputation:recompute', 'nevo:badges:recompute'] as $command) {
+    foreach (['novfora:reputation:recompute', 'novfora:badges:recompute'] as $command) {
         $event = collect(app(Schedule::class)->events())
             ->first(fn ($event) => str_contains((string) $event->command, $command));
 

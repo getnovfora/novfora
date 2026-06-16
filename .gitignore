@@ -10,17 +10,17 @@ Thumbs.db
 .vscode/
 
 # Spike 0 (throwaway scaffold) — keep the source files as a reference for M0; exclude heavy/generated artifacts.
-nevo-spike/vendor/
-nevo-spike/node_modules/
-nevo-spike/public/build/
-nevo-spike/public/spike-uploads/
-nevo-spike/public/hot
-nevo-spike/storage/framework/
-nevo-spike/bootstrap/cache/
-nevo-spike/database/*.sqlite
-nevo-spike/.env
-nevo-spike/test-results/
-nevo-spike/playwright-report/
+novfora-spike/vendor/
+novfora-spike/node_modules/
+novfora-spike/public/build/
+novfora-spike/public/spike-uploads/
+novfora-spike/public/hot
+novfora-spike/storage/framework/
+novfora-spike/bootstrap/cache/
+novfora-spike/database/*.sqlite
+novfora-spike/.env
+novfora-spike/test-results/
+novfora-spike/playwright-report/
 
 # Laravel / Node — repo-root app (M0). IMPORTANT: /public/build is intentionally NOT ignored;
 # prebuilt assets are committed so the baseline shared host needs no Node runtime.
@@ -52,7 +52,7 @@ yarn-error.log
 
 # Deployable release bundle — build artifact; never commit the binary (see docs/REAL-HOST-VALIDATION.md §2).
 /novfora-release.zip
-/nevo-release.zip
+/novfora-release.zip
 /hearth-release.zip
 
 # Owner's local visual-feedback drops (round screenshots) + the scratch PR-body draft — local-only.

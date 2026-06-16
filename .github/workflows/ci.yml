@@ -15,6 +15,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Brand gate — no retired "nevo" codename outside historical docs (1.0 exit criterion)
+        run: |
+          matches=$(git grep -il 'nevo' -- . \
+            ':(exclude)DECISIONS.md' ':(exclude)PROJECT-HISTORY.md' ':(exclude)PROJECT-STATE.md' \
+            ':(exclude)ROADMAP.md' ':(exclude)CLAUDE.md' ':(exclude)GEMINI.md' \
+            ':(exclude)gemini-gem/' ':(exclude)docs/' || true)
+          if [ -n "$matches" ]; then
+            echo "::error::Retired 'nevo' codename found outside historical ADR/doc references:"
+            echo "$matches"
+            exit 1
+          fi
+          echo "Brand gate OK — 'nevo' appears only in historical docs."
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
@@ -37,7 +49,7 @@ jobs:
       mysql:
         image: mysql:8
         env:
-          MYSQL_DATABASE: nevo_test
+          MYSQL_DATABASE: novfora_test
           MYSQL_ROOT_PASSWORD: secret
         ports: ['3306:3306']
         options: >-
@@ -62,7 +74,7 @@ jobs:
           DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
-          DB_DATABASE: nevo_test
+          DB_DATABASE: novfora_test
           DB_USERNAME: root
           DB_PASSWORD: secret
         run: php artisan migrate --force && php artisan migrate:rollback --force
@@ -72,23 +84,23 @@ jobs:
           DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
-          DB_DATABASE: nevo_test
+          DB_DATABASE: novfora_test
           DB_USERNAME: root
           DB_PASSWORD: secret
         run: |
           set -euo pipefail
           php artisan migrate --force
           php artisan db:seed --force
-          BEFORE=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' nevo_test)
+          BEFORE=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' novfora_test)
           test "$BEFORE" -gt 0
           php artisan novfora:backup --path=storage/citest
           ARCHIVE=$(ls -1t storage/citest/novfora-*.zip | head -1)
           echo "archive = $ARCHIVE"
           php artisan migrate:fresh --force          # simulate a wipe / bad upgrade
-          DURING=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' nevo_test)
+          DURING=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' novfora_test)
           test "$DURING" -eq 0
           php artisan novfora:restore "$ARCHIVE" --force
-          AFTER=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' nevo_test)
+          AFTER=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' novfora_test)
           echo "groups before=$BEFORE during=$DURING after=$AFTER"
           test "$BEFORE" = "$AFTER"
 
@@ -97,7 +109,7 @@ jobs:
           DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
-          DB_DATABASE: nevo_test
+          DB_DATABASE: novfora_test
           DB_USERNAME: root
           DB_PASSWORD: secret
           NOVFORA_BACKUP_DB_METHOD: php   # force the pure-PHP dumper + PDO restore (no mysqldump/proc_open)
@@ -105,13 +117,13 @@ jobs:
           set -euo pipefail
           php artisan migrate:fresh --force
           php artisan db:seed --force
-          BEFORE=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' nevo_test)
+          BEFORE=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' novfora_test)
           test "$BEFORE" -gt 0
           php artisan novfora:backup --path=storage/citest-php
           ARCHIVE=$(ls -1t storage/citest-php/novfora-*.zip | head -1)
           php artisan migrate:fresh --force                 # wipe
           php artisan novfora:restore "$ARCHIVE" --force      # restore via PDO (no mysql client)
-          AFTER=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' nevo_test)
+          AFTER=$(mysql -h127.0.0.1 -uroot -psecret -N -e 'SELECT COUNT(*) FROM `groups`' novfora_test)
           echo "pure-php groups before=$BEFORE after=$AFTER"
           test "$BEFORE" = "$AFTER"
 
@@ -180,7 +192,7 @@ jobs:
       mysql:
         image: mysql:8
         env:
-          MYSQL_DATABASE: nevo_install
+          MYSQL_DATABASE: novfora_install
           MYSQL_ROOT_PASSWORD: secret
         ports: ['3306:3306']
         options: >-
@@ -219,7 +231,7 @@ jobs:
 
           # ── PASS 1 — INSTALLER (enforcement ON; installs into the disposable MySQL) ──
           rm -rf "$SANDBOX"; mkdir -p "$SANDBOX/public-storage"
-          php -r '$p=new PDO("mysql:host=127.0.0.1;port=3306","root","secret",[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); $p->exec("DROP DATABASE IF EXISTS nevo_install"); $p->exec("CREATE DATABASE nevo_install CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");'
+          php -r '$p=new PDO("mysql:host=127.0.0.1;port=3306","root","secret",[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); $p->exec("DROP DATABASE IF EXISTS novfora_install"); $p->exec("CREATE DATABASE novfora_install CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");'
           {
             echo "APP_NAME=NovForaDusk"; echo "APP_ENV=local"; echo "APP_KEY=$APP_KEY"
             echo "APP_DEBUG=true"; echo "APP_URL=http://127.0.0.1:8000"
@@ -233,7 +245,7 @@ jobs:
             echo "NOVFORA_INSTALL_MARKER=$SANDBOX/installed"
             echo "NOVFORA_PUBLIC_LINK=$SANDBOX/public-storage"
             echo "NOVFORA_DUSK_INSTALL_DB_HOST=127.0.0.1"
-            echo "NOVFORA_DUSK_INSTALL_DB_NAME=nevo_install"
+            echo "NOVFORA_DUSK_INSTALL_DB_NAME=novfora_install"
             echo "NOVFORA_DUSK_INSTALL_DB_USER=root"; echo "NOVFORA_DUSK_INSTALL_DB_PASS=secret"
           } > .env
           : > "$WS/database/dusk.sqlite"
