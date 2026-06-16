@@ -45,11 +45,13 @@ use App\Models\Post;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Route;
 
-// The site root IS the community home. `/forums` is the single canonical forum URL — it is referenced
-// across views and the XML sitemap — so the root permanently (301) redirects there: one canonical URL,
-// no duplicate content (RH-8). Pre-install, RedirectIfNotInstalled (web group) still intercepts '/' and
-// sends it to the wizard; this redirect only applies once the site is installed (or enforcement is off).
-Route::get('/', fn () => redirect()->route('forums.index', [], 301));
+// RH-4.1b (ADR-0071) — the forum INDEX is the canonical community home AT the mount root: a root install
+// serves the board list at '/', a subdirectory install at '/community/'. The `forums.index` route NAME lives
+// HERE, so every route('forums.index') call (nav wordmark, breadcrumbs, canonical/OG, the XML sitemap)
+// generates the mount root automatically. '/forums' is kept as a permanent 301 → the root for back-compat
+// with the live beta's existing links + SEO (see below). Pre-install, RedirectIfNotInstalled (web group)
+// still intercepts '/' and sends it to the wizard; only the INSTALLED root changed (RH-8 → RH-4.1b).
+Route::get('/', [ForumController::class, 'index'])->name('forums.index');
 
 // ── No-SSH web installer (M5, phase-1-plan §5) ─────────────────────────────────────────────────────────
 // Unauthenticated pre-install surface. The `novfora.not-installed` lock 403s every installer route once
@@ -85,7 +87,9 @@ Route::middleware('throttle:30,1')->group(function () {
 });
 
 // ── Forums (M2) — public read, per-node authorized; anonymous resolves as the Guests group ─────────────
-Route::get('/forums', [ForumController::class, 'index'])->name('forums.index');
+// The forum index is served at the mount root '/' (RH-4.1b, above). '/forums' permanently 301s back to it
+// so the live beta's existing /forums links + already-indexed URLs keep working and fold into the root.
+Route::get('/forums', fn () => redirect()->route('forums.index', [], 301));
 Route::get('/forums/{forum}', [ForumController::class, 'show'])->name('forums.show');
 
 // Trending / best-of (discovery 3.1) — public, permission-safe.

@@ -41,18 +41,18 @@ it('renders the forum index on a cache hit through a serializing store (RH-9)', 
     Forum::create(['slug' => 'general', 'title' => 'General Chat', 'type' => 'forum', 'parent_id' => $category->id]);
 
     // First request: cache MISS — populates forum.index.tree in the database store.
-    $this->get('/forums')->assertOk()->assertSee('Main Category')->assertSee('General Chat');
+    $this->get('/')->assertOk()->assertSee('Main Category')->assertSee('General Chat');
 
     // Second request: cache HIT — deserializes from the store. On buggy main this 500s with
     // "isCategory() on string"; with the primitive-array fix it renders identically.
-    $this->get('/forums')->assertOk()->assertSee('Main Category')->assertSee('General Chat');
+    $this->get('/')->assertOk()->assertSee('Main Category')->assertSee('General Chat');
 });
 
 it('caches only a primitive array tree for the index — never a model or Collection (RH-9)', function () {
     $category = Forum::create(['slug' => 'main', 'title' => 'Main', 'type' => 'category']);
     Forum::create(['slug' => 'general', 'title' => 'General', 'type' => 'forum', 'parent_id' => $category->id]);
 
-    $this->get('/forums')->assertOk();
+    $this->get('/')->assertOk();
 
     // What sits in the serializing store must be plain scalars + nested arrays, so a future
     // unserialize(allowed_classes:false) leaves it intact (an object would become __PHP_Incomplete_Class).
@@ -83,6 +83,6 @@ it('still applies per-viewer forum.view filtering after the cache (cache is not 
     ]);
 
     // Warm the cache, then a second (hit) request — a guest must never see the NEVER'd forum either time.
-    $this->get('/forums')->assertOk()->assertDontSee('Secret Forum');
-    $this->get('/forums')->assertOk()->assertDontSee('Secret Forum');
+    $this->get('/')->assertOk()->assertDontSee('Secret Forum');
+    $this->get('/')->assertOk()->assertDontSee('Secret Forum');
 });

@@ -35,8 +35,8 @@ it('serves every public route with no 5xx, on first render and on the cache hit'
     $user = User::query()->firstOrFail();
 
     $routes = [
-        '/',                          // RH-8: 301 → /forums
-        '/forums',                    // RH-9: fragment-cached tree
+        '/',                          // RH-4.1b: the forum index IS the home (RH-9 fragment-cached tree)
+        '/forums',                    // RH-4.1b: legacy path → 301 → /
         '/forums/'.$forum->id,
         '/topics/'.$topic->id,
         '/search?q=community',
