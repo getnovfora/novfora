@@ -2831,3 +2831,77 @@ Gate green: **full suite 1525 passed / 1 skipped / 0 failed** (12652 assertions)
 **⚠ SCAFFOLDED — NOT VALIDATED against the live StopForumSpam submission API.** No submission key in this build;
 the gate logic + request shape are proven with a mocked HTTP client. The reporting feature stays inert until an
 operator sets a key and opts in.
+
+### ADR-0070 — First-class subdirectory install (RH-4) (2026-06-16)
+**Status: Accepted — owner-authorized build; flagged for review.** Implements the design spike
+`docs/product/rh4-subdirectory-install-spike.md`.
+
+> **ADR-number correction (do not skip).** The spike drafted this as "ADR-0038 (DRAFT)" on 2026-06-14, when 0037
+> was the highest entry. Since then the mega-build + Phase-4 builds consumed ADR-0036…0069, and **0038 is now
+> taken** (Sandboxed template editing). To honour the task's "confirm the next ADR number doesn't collide", this
+> decision is **renumbered ADR-0070** (next free after 0069). The spike file is annotated accordingly; the design
+> is unchanged.
+
+**Context.** NovFora installs cleanly at a domain/subdomain root (docroot → `public/`) but not into a
+**subdirectory** of a web root (`example.com/community`), a common shared-host need. The copy-`public/` workaround
+(runbook §3b) breaks three ways: dual `public/build` trees drift → asset 404s + dead Livewire; route/Livewire/
+`@vite` URLs don't carry the `/community` prefix **before any `.env`/`APP_URL` exists**; and storage publishes
+into the app's `public/`, not the served subdir. These are structural (per `real-host-findings.md` §RH-4), so a
+patch is insufficient.
+
+**Decision.**
+1. **Request-time base-path detector** (`App\Support\Http\BasePathDetector`, invoked from
+   `AppServiceProvider::boot()`). It derives the mount prefix from `SCRIPT_NAME` (the directory of the resolved
+   front controller — this is what `RewriteBase`/the web-server alias determines) and calls `URL::forceRootUrl()`
+   + `URL::useAssetUrl()` **only when** `APP_URL` is unset/`localhost` **and** the prefix is non-empty. It is
+   strictly **conservative**: a configured non-localhost `APP_URL` is **never** overridden, and a root/subdomain
+   layout (empty prefix) is a **no-op** — so the root layout is untouched (**G4**). This guarantees correct
+   `route()`, Livewire `getUpdateUri()`/`livewire.js`, and `@vite`/`asset()` URLs at `/community/install`
+   **before** any `.env` exists (**G1**). It survives cached config (the prefix comes from the request, not config).
+2. **Canonical home at the mount root** — see **ADR-0071**. So a subpath install serves the board list at
+   `/community/`, not `/community/forums`.
+3. **One canonical `build/` + `storage/`.** **Option A** (default): symlink `public_html/community` → `<app>/public`
+   — one Vite manifest, one storage tree, **no drift** (**G2**). **Option B** (no-symlink hosts, **G3**): a thin
+   generated `index.php` stub + `.htaccess` (`RewriteBase /community/`) in the web subdir, with `build/` + `storage/`
+   served via per-folder symlink/Alias or the existing cron copy-mirror (`PublicStorageLinker::refresh()` +
+   `NOVFORA_PUBLIC_LINK`). **Option C** (hardened copy) is the explicit last resort. The canonical `public/.htaccess`
+   and `vite.config.js` are **deliberately unchanged** — no global `RewriteBase`, no Vite `base` — so the root
+   layout and the single root-relative manifest stay intact (a baked Vite base would itself cause drift).
+4. **Installer subpath awareness.** The wizard pre-fills Site URL with the detected subpath
+   (`getSchemeAndHttpHost() . getBasePath()`); `InstallRunner` writes `APP_URL` and — when the URL carries a path —
+   `ASSET_URL`, so post-install `asset()`/`@vite` and `Storage::url()` (the `public` disk url = `APP_URL.'/storage'`)
+   resolve under `/community/…`. `config/app.php` gains `'asset_url' => env('ASSET_URL')` (null default → existing
+   installs unchanged). The `RedirectIfNotInstalled` allowlist is **confirmed prefix-agnostic** — `Request::is()`
+   matches path-info relative to the mount root, so `install`/`livewire-*`/`build/*` match under a prefix without
+   change (resolves spike open-question #3).
+5. **Install matrix** gains a subdirectory case, a **root-layout regression guard** (G4), and a **rebuild-drift
+   guard** (G2).
+
+**Consequences.** Subdirectory installs are first-class; the §3b copy recipe is demoted to last-resort and the
+runbook documents Options A/B/C + a concrete Hostinger walkthrough. New surface: a small conservative bootstrap
+detector and an A/B/C host matrix the install tests cover.
+**Known limitation (deferred follow-up, recorded not built):** the PWA manifest + service worker still emit
+root-relative paths (`start_url`/`scope`/`/icons/`/`/build/`/`/offline`). Under a subpath the SW simply fails to
+register (a caught no-op) → offline caching is off; **core forum browsing + the installer are unaffected**. Not in
+any RH-4 unit or acceptance test; tracked as a fast-follow. **Also recorded:** post-install HTTP URL correctness for
+the subpath relies on the web server reporting a correct `SCRIPT_NAME`/base path (Options A and B both do); the
+detector intentionally does not force from a configured `APP_URL`.
+
+### ADR-0071 — Canonical home = the forum index at the mount root (RH-4.1b) (2026-06-16)
+**Status: Accepted — owner-authorized build; flagged for review.** Supersedes the RH-8 redirect direction.
+
+**Context.** RH-8 made `/` a permanent 301 → `route('forums.index')` (= `/forums`) for one canonical forum URL.
+RH-4 requires the forum index to **be** the home **at the mount root**, so a subpath install serves the board list
+at `/community/` (and a root install at `/`) — not at `…/forums`. A `/` → `/forums` redirect would push every
+subpath user to `/community/forums`, defeating "the mount root IS the home".
+
+**Decision.** Move the **`forums.index` route NAME to `/`** (still `ForumController::index`), so every
+`route('forums.index')` call (nav wordmark, breadcrumbs, canonical/OG, sitemap, "Back to forum") generates the mount
+root automatically with **no per-view edits**. `/forums` (and therefore `/community/forums`) becomes a permanent
+**301 → the root** for back-compat with the live beta's existing links + SEO. The **uninstalled** root still 302s to
+`/install` (`RedirectIfNotInstalled` unchanged) — only the **installed** root changes from "301 → /forums" to
+"serves the forum index". `RootRouteTest`/`ExampleTest` are updated to the new contract.
+
+**Consequences.** One canonical home at the root (root or subpath); existing `/forums` links + already-indexed URLs
+301 to it (search engines fold them into the root over time). The forum-index fragment cache (RH-9) is unaffected —
+it keys on content, not the route URI.

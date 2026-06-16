@@ -2,11 +2,14 @@
 SPDX-License-Identifier: Apache-2.0
 Copyright 2026 The NovFora Authors
 -->
-# RH-4 — First-class subdirectory install: design spike + ADR-0038 (draft)
+# RH-4 — First-class subdirectory install: design spike + ADR-0070 (accepted)
 
-> **Status: DRAFT — queued for after the current code run / merge.** Do not implement from this yet; it
-> needs owner sign-off on the chosen option. Drafted 2026-06-14. Supersedes the "open by design" placeholder
-> for RH-4 in `real-host-findings.md` and `status-review-2026-06-06.md`.
+> **Status: ACCEPTED & IMPLEMENTED — see ADR-0070 + ADR-0071 in `DECISIONS.md` (2026-06-16).** Drafted
+> 2026-06-14; built on branch `claude/rh4-subdir-install`. This file is now the historical design reference.
+> **ADR-number correction:** drafted as "ADR-0038", but 0038 was consumed (Sandboxed template editing) before
+> this ran — the highest existing ADR is now 0069, so this decision was **renumbered ADR-0070** (and the
+> canonical-home sub-decision is **ADR-0071**). The design below is unchanged. Supersedes the "open by design"
+> placeholder for RH-4 in `real-host-findings.md` and `status-review-2026-06-06.md`.
 
 ## 1. Requirement
 
@@ -111,12 +114,13 @@ Add a **subdirectory case** to the install matrix alongside the existing no-SSH 
 
 ---
 
-## ADR-0038 (DRAFT) — Subdirectory install support (RH-4)
+## ADR-0070 (ACCEPTED 2026-06-16) — Subdirectory install support (RH-4)
 
-> Ready to paste into `DECISIONS.md` after the current code run. Next free number confirmed: ADR-0037 is the
-> highest existing entry. Date on merge.
+> Originally drafted here as "ADR-0038". 0038 was already taken by the time this ran; the highest existing ADR
+> is now 0069, so the accepted entry in `DECISIONS.md` is **ADR-0070** (with **ADR-0071** for the canonical-home
+> change, RH-4.1b). The text below is the design of record, unchanged.
 
-**Status:** Proposed (design-first; supersedes the "open by design" RH-4 placeholder).
+**Status:** Accepted — owner-authorized build (see `DECISIONS.md` → ADR-0070/0071).
 
 **Context.** NovFora installs cleanly at a domain/subdomain root (docroot → `public/`) but not into a
 **subdirectory** of a web root (`example.com/community`), a common shared-host need. The copy-`public/`
@@ -146,6 +150,7 @@ subdomain root.
 > Not added to the tracked lists yet, to avoid colliding with the in-flight merge. Drop this line into the
 > "Next" list once the current run is merged:
 
-- **RH-4 — first-class subdirectory install** (owner-flagged): design spike + **ADR-0038** drafted
-  (`docs/product/rh4-subdirectory-install-spike.md`). Next: owner picks Option A vs B default → implement
-  base-path detector + symlink/stub asset+storage strategy → add the subdirectory install-matrix case.
+- **RH-4 — first-class subdirectory install** (owner-flagged): **DONE 2026-06-16** — **ADR-0070 + ADR-0071**
+  accepted (`docs/product/rh4-subdirectory-install-spike.md`). Default = Option A (symlinked `public/`), Option B
+  thin-stub fallback, Option C copy last-resort; request-time base-path detector + installer subpath wiring +
+  the subdirectory install-matrix case all shipped on branch `claude/rh4-subdir-install`.
