@@ -11,6 +11,7 @@ use App\Membership\Payments\StripeWebhookVerifier;
 use App\Models\MembershipTier;
 use App\Models\MemberSubscription;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -57,6 +58,16 @@ final class StripeWebhookController extends Controller
             return response()->json(['status' => 'ignored'], 200);
         }
 
+        // P5.1 — require PROOF of settlement before granting. `checkout.session.completed` ALSO fires for
+        // delayed/async payment methods (ACH, SEPA, etc.) with payment_status='unpaid', and for a subscription
+        // whose first invoice is not yet paid. Per Stripe's fulfilment guidance, grant only when the session is
+        // actually paid (or no payment was required); anything else is acknowledged WITHOUT a grant, leaving the
+        // settled outcome to a future async_payment_succeeded handler (a documented follow-up, ADR-0065).
+        $paymentStatus = (string) ($object['payment_status'] ?? '');
+        if (! in_array($paymentStatus, ['paid', 'no_payment_required'], true)) {
+            return response()->json(['status' => 'unpaid'], 200);
+        }
+
         $sessionId = (string) ($object['id'] ?? '');
         $metadata = is_array($object['metadata'] ?? null) ? $object['metadata'] : [];
         $userId = (int) ($metadata['user_id'] ?? 0);
@@ -84,7 +95,15 @@ final class StripeWebhookController extends Controller
             'monthly' => now()->addMonth(),
             default => null,
         };
-        $memberships->activate($user, $tier, 'stripe', $sessionId, $expiresAt);
+
+        // The exists() check above is the fast path; the (provider, provider_ref) UNIQUE index is the
+        // authoritative at-most-once guard (P5.1). A concurrent re-delivery that races past exists() hits the
+        // constraint here and is acknowledged as a duplicate rather than double-granting.
+        try {
+            $memberships->activate($user, $tier, 'stripe', $sessionId, $expiresAt);
+        } catch (UniqueConstraintViolationException) {
+            return response()->json(['status' => 'duplicate'], 200);
+        }
 
         return response()->json(['status' => 'ok'], 200);
     }
