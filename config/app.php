@@ -56,6 +56,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Asset URL (RH-4.3 / ADR-0070 — subdirectory installs)
+    |--------------------------------------------------------------------------
+    |
+    | Roots @vite()/asset() URLs. The installer writes ASSET_URL (= the full Site URL) only for a
+    | SUBDIRECTORY install, e.g. https://example.com/community, so build assets resolve deterministically
+    | under the subpath regardless of request-root detection. NULL by default → asset() falls back to the
+    | request root, so the root/subdomain layout and existing installs are completely unchanged.
+    |
+    */
+
+    'asset_url' => env('ASSET_URL'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
