@@ -15,18 +15,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Brand gate — no retired "nevo" codename outside historical docs (1.0 exit criterion)
+      - name: Brand gate — retired codename only in historical docs (1.0 exit criterion)
         run: |
-          matches=$(git grep -il 'nevo' -- . \
+          # The retired codename must survive ONLY in historical ADR/doc references. Excludes the doc set,
+          # CHANGELOG (notes the retirement), and this workflow file (which names the codename to define the
+          # check). Build the needle at runtime so this step never matches itself.
+          needle="$(printf 'ne''vo')"
+          matches=$(git grep -il "$needle" -- . \
             ':(exclude)DECISIONS.md' ':(exclude)PROJECT-HISTORY.md' ':(exclude)PROJECT-STATE.md' \
-            ':(exclude)ROADMAP.md' ':(exclude)CLAUDE.md' ':(exclude)GEMINI.md' \
-            ':(exclude)gemini-gem/' ':(exclude)docs/' || true)
+            ':(exclude)ROADMAP.md' ':(exclude)CLAUDE.md' ':(exclude)GEMINI.md' ':(exclude)CHANGELOG.md' \
+            ':(exclude)gemini-gem/' ':(exclude)docs/' ':(exclude).github/workflows/ci.yml' || true)
           if [ -n "$matches" ]; then
-            echo "::error::Retired 'nevo' codename found outside historical ADR/doc references:"
+            echo "::error::Retired codename found outside historical ADR/doc references:"
             echo "$matches"
             exit 1
           fi
-          echo "Brand gate OK — 'nevo' appears only in historical docs."
+          echo "Brand gate OK — retired codename appears only in historical docs."
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
