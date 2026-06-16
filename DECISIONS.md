@@ -2902,3 +2902,29 @@ externalisation; it is a complete framework + proof + the visitor-facing surface
 **Tested.** `LocalizationTest` → 11 (was 9; + es-renders-Spanish, + fr-per-key-fallback). All `auth/*` +
 `errors/*` views recompile and render (a sub-agent's smart-quote slip in 6 views was caught by the gate —
 error-page renders 500'd — and fixed). Gate green (Pest + PHPStan L5 + Pint).
+
+### ADR-0072 — Performance: hot-path query profiling + the N+1 regression gate (P5.4) (2026-06-16)
+**Status: Accepted — owner-authorized GA-hardening run; flagged for review.**
+
+**Context.** ADR-0045 shipped the load harness (seeder + k6/artillery + procedure) but ran no numbers (a
+traffic test needs a server + binary + representative hardware, out of scope for an unattended build). P5.4 adds
+the deterministic half — profiling the query SHAPE of the hot paths, which is what actually catches the perf bug
+that hurts a forum (an N+1 turning one page into hundreds of queries).
+
+**Decision / finding.** New `tests/Feature/Performance/HotPathQueryTest.php` (run in the normal gate) seeds a
+page-full of items with distinct authors and asserts a BOUNDED query count per surface. Captured baseline:
+board index **13 (warm/steady-state)**, forum listing/topic/search/clubs all **< 40–45**. **No steady-state N+1
+was found.** The board index's cold build (~69 with 8 forums) populates the 60s `forum.index.tree` fragment
+cache + warms the resolver/ACL cache — amortised to once per TTL. Hot-path columns are already indexed (posts
+`(topic_id,position)`/`(topic_id,created_at)`/`user_id`/`approved_state`; topics `forum_id`; forums
+`parent_id`), so the bounded queries are seek-friendly.
+
+**No speculative index added.** A composite `(forum_id, is_pinned, last_posted_at)` for the forum-listing sort
+was considered but NOT added: the `last_posted_at IS NULL` ordering expression may defeat index-sort use, and it
+cannot be validated without an at-scale MySQL EXPLAIN — which would violate "tests with every change." It is
+documented as a conditional, reversible enhanced-tier tuning step instead.
+
+**Documented (load-testing.md):** the captured baseline table, the regression gate, the enhanced-tier procedure
++ suggested SLOs (baseline reads p95 < 600ms / search < 1.5s; enhanced reads < 250ms / search < 300ms),
+capacity guidance, and the **validate-before-go-live** items (run k6/artillery at scale on the real
+MySQL/enhanced host; EXPLAIN the forum-listing sort). The enhanced tier was **NOT run against a real host.**
