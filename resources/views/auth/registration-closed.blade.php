@@ -1,12 +1,12 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 {{-- Shown when an admin has turned off new registrations (ACP v1, Registration settings). --}}
-@extends('layouts.auth', ['authTitle' => 'Registration closed'])
+@extends('layouts.auth', ['authTitle' => __('auth.registration_closed.title')])
 
 @section('auth')
     <p class="text-sm text-ink-muted">
-        New account registration is currently closed. Please check back later.
+        {{ __('auth.registration_closed.message') }}
     </p>
     <div class="mt-5">
-        <x-ui.button :href="route('login')">Back to sign in</x-ui.button>
+        <x-ui.button :href="route('login')">{{ __('auth.registration_closed.back_button') }}</x-ui.button>
     </div>
 @endsection

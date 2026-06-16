@@ -2872,3 +2872,33 @@ as a routing violation.
 
 **Gate.** Every fix committed only at a green boundary (Pest + PHPStan L5 + Pint). The new regression tests are
 added across nine suites (clubs, import, modules, install, api, auth, membership, notifications, security).
+
+### ADR-0071 — i18n completeness wave: proof locale + auth/error externalisation (P5.3) (2026-06-16)
+**Status: Accepted — owner-authorized GA-hardening run; flagged for review.**
+
+**Context.** ADR-0043 shipped the i18n framework (allowlist `Locales`, `SetLocale` precedence, validated
+`POST /locale`, `<html lang/dir>` RTL, 7 registered locales) + the search surface, and explicitly deferred the
+~200-view string sweep as "mechanical follow-up." P5.3 completes the framework-level guarantees and proves the
+translation path, without attempting a full 201-view sweep (which is unverifiable without a browser in this
+unattended run and is, per the Phase-5 fence, community-contributable).
+
+**Decision.**
+1. **Proof locale `es`** — a curated HUMAN translation of `lang/en/{common,search,auth,errors}.php` under
+   `lang/es/`. Not a machine translation of the whole app (the fence forbids that); it proves switcher →
+   `SetLocale` → `__()` end-to-end with real non-English strings + localised pluralisation.
+2. **Externalisation wave** — every `auth/*` screen and every `errors/*` page (the highest-traffic
+   unauthenticated surfaces, the first thing every visitor sees) into new `lang/en/auth.php` + `lang/en/errors.php`.
+3. **Tests** (the fence's required three, now explicit): a missing key falls back to `en` per-key (an
+   untranslated registered locale `fr`); RTL renders (`dir="rtl"`, already in ADR-0043); the switch persists
+   (already in ADR-0043); plus the `es` proof locale renders Spanish.
+
+**Recorded scope assumption (residue).** The authenticated front-end (`forum/clubs/pm/profiles/settings/…`, the
+~92 `components/`) and the staff-facing `admin/` ACP (~33 views) remain on hardcoded English — DOCUMENTED as the
+mechanical, community-contributable residual (see docs/architecture/i18n-and-rtl.md). The framework makes this
+safe to land incrementally: an un-externalised string shows its literal English and any locale missing a key
+falls back to `en`, so partial externalisation + partial locales are always correct. This is **not** a 100%
+externalisation; it is a complete framework + proof + the visitor-facing surface, with the rest flagged.
+
+**Tested.** `LocalizationTest` → 11 (was 9; + es-renders-Spanish, + fr-per-key-fallback). All `auth/*` +
+`errors/*` views recompile and render (a sub-agent's smart-quote slip in 6 views was caught by the gate —
+error-page renders 500'd — and fixed). Gate green (Pest + PHPStan L5 + Pint).

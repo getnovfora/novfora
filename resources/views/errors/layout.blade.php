@@ -30,7 +30,7 @@
         <p class="code">@yield('code')</p>
         <h1>@yield('title')</h1>
         <p class="msg">@yield('message')</p>
-        <a class="btn" href="{{ url('/') }}">Back to {{ config('app.name', 'NovFora') }}</a>
+        <a class="btn" href="{{ url('/') }}">{{ __('errors.layout.back_home', ['app' => config('app.name', 'NovFora')]) }}</a>
     </main>
 </body>
 </html>
