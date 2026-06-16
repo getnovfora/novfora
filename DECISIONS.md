@@ -2831,3 +2831,44 @@ Gate green: **full suite 1525 passed / 1 skipped / 0 failed** (12652 assertions)
 **⚠ SCAFFOLDED — NOT VALIDATED against the live StopForumSpam submission API.** No submission key in this build;
 the gate logic + request shape are proven with a mocked HTTP client. The reporting feature stays inert until an
 operator sets a key and opts in.
+
+### ADR-0070 — Phase 5 adversarial security review (P5.1) (2026-06-16)
+**Status: Accepted — owner-authorized GA-hardening run; flagged for review.**
+
+**APEX (whole-app security).** A second full adversarial review — per-finding **verify-then-refute** over the
+entire surface, with emphasis on the Phase 3/4 additions the Phase-1.5 + Wave-8.4 passes never covered. 11
+domain reviewers fanned out; each HIGH/MEDIUM candidate faced an independent 3-lens refuter panel
+(reachability · existing-mitigation · severity); survivors were re-read and fixed with a regression test.
+Full writeup + findings table: [`docs/architecture/security-review-phase5.md`](docs/architecture/security-review-phase5.md).
+
+**Recorded assumption — model routing.** CLAUDE.md routes security/permission/untrusted-input work to **Fable @
+max**. `claude-fable-5` was **unavailable in this build environment** (every Fable sub-agent erred), so the apex
+rung was taken at the next-highest available tier, **Opus 4.8 (1M)**, for both reviewers and panels — a
+conservative, security-preserving fallback (a stronger model would only surface more). Flagged so it is not read
+as a routing violation.
+
+**Outcome.** **No HIGH confirmed.** 8 MEDIUM + 3 LOW + 2 INFO **fixed** (each with a test, no control weakened);
+6 candidates **refuted**.
+- **Fixed (Med):** (1) search forum-facet leaked private-club names to logged-in non-members → add
+  `clubContentVisibleTo` gate; (2) OAuth/SAML login skipped mandatory **staff 2FA** → `ChallengesStaffTwoFactor`
+  trait defers staff to Fortify's TOTP challenge on every SSO path; (3) OAuth JIT signup bypassed
+  `registration.enabled` + the anti-spam screener + **email/IP bans** → `resolveForLogin` mirrors
+  `CreateNewUser` (refuse / flag→pending); (4) REST `createPost` ignored the **locked-topic** gate → shared
+  `Topic::isReplyable()`; (5) installer **DB-test SSRF** reachable as a direct Livewire action, bypassing the
+  setup token → re-assert the token at the sink; (6) Stripe webhook granted without **`payment_status`** proof →
+  require paid/no-payment-required; (7) **unbounded `@mention` fan-out** (mass-notify + sync DoS) → cap at
+  `antispam.mention_fanout_cap` (10); (8) importer **legacy-attachment path traversal** → reject `..`/scheme at
+  the read site.
+- **Fixed (Low/Info):** (9) Stripe idempotency had no DB UNIQUE → reversible `UNIQUE(provider, provider_ref)`
+  migration + violation catch; (10) `/api/v1` ran without the install/upgrade maintenance gates → applied ahead
+  of token auth; (11) attachment on a soft-deleted post still downloadable → mirror the trashed gate;
+  (12) manifest reserved-namespace check case-insensitive; (13) clamp + strip control/bidi from OAuth
+  `display_name`/`nickname`.
+- **Refuted (recorded):** sole-owner club orphan (data-integrity, not security — already an ADR-0047
+  fast-follow); API skips the trust-tiered post rate limiter (bounded by `throttle:api` + the engine/anti-spam
+  pipeline); `acl_entries` no DB UNIQUE (resolver is duplicate-tolerant); 2FA mutations need no password
+  re-confirm (documented Phase-2 deferral, ADR-0019); OAuth callback IP-only throttle (protocol cap bounds it);
+  sandbox quoted-URL scheme escape (admin-trust-gated).
+
+**Gate.** Every fix committed only at a green boundary (Pest + PHPStan L5 + Pint). The new regression tests are
+added across nine suites (clubs, import, modules, install, api, auth, membership, notifications, security).
