@@ -31,7 +31,10 @@ You do **not** need Node.js on the host — NovFora ships prebuilt assets.
 ## 2. Install with the web installer (no SSH)
 
 1. Upload the NovFora files to your web root (or a subdirectory) via your host's file manager or FTP.
-2. Point your domain's document root at NovFora's **`public/`** directory.
+2. Point your domain's document root at NovFora's **`public/`** directory. *(Installing under a **subdirectory**
+   like `example.com/community/` instead of a domain/subdomain root? Follow the subdirectory recipe —
+   `docs/REAL-HOST-VALIDATION.md` §3b, Options A/B/C + the Hostinger walkthrough — then set the Site URL to the
+   full subpath URL; the installer auto-detects it.)*
 3. Create an empty database in your host's control panel and note its name, user, and password.
 4. Visit your site in a browser. NovFora detects it isn't installed yet and sends you to the **installer
    wizard** (`/install`), which walks you through:

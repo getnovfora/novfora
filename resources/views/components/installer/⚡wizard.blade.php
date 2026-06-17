@@ -53,7 +53,12 @@ new class extends Component
 
     public function mount(): void
     {
-        $this->appUrl = rtrim((string) request()->getSchemeAndHttpHost(), '/');
+        // RH-4.4 (ADR-0070) — pre-fill the FULL Site URL including any subdirectory mount the request arrived
+        // under (e.g. https://example.com/community), so a subdirectory install is auto-detected and the
+        // operator need not know to append the subpath. getBasePath() is the SCRIPT_NAME/RewriteBase-derived
+        // mount prefix and is '' at a domain/subdomain root, so this is unchanged for the common case.
+        $this->appUrl = rtrim((string) request()->getSchemeAndHttpHost(), '/')
+            .rtrim((string) request()->getBasePath(), '/');
     }
 
     public function requirements(): array

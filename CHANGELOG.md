@@ -47,12 +47,12 @@ brand gate).
 - **Security:** two full adversarial reviews (verify-then-refute). The Phase-5 pass fixed the search-facet
   club-name leak, SSO staff-2FA step-up, OAuth registration-gate bypass, the API locked-topic + maintenance
   gates, the installer DB-test SSRF token gate, Stripe payment-proof + DB-unique idempotency, the @mention
-  fan-out cap, and the importer path-traversal fence (ADR-0046, ADR-0070).
+  fan-out cap, and the importer path-traversal fence (ADR-0046, ADR-0072).
 - **Accessibility:** automated WCAG 2.1 AA page gate across 27 surfaces + a manual checklist (ADR-0044).
 - **i18n:** native-Laravel localisation framework + RTL, a complete `en` base for the visitor-facing surface,
-  and a Spanish (`es`) proof locale; partial locales fall back to `en` (ADR-0043, ADR-0071).
+  and a Spanish (`es`) proof locale; partial locales fall back to `en` (ADR-0043, ADR-0073).
 - **Performance:** a hot-path query-count regression gate (no steady-state N+1s) + a documented load-test
-  procedure and capacity guidance (ADR-0045, ADR-0072).
+  procedure and capacity guidance (ADR-0045, ADR-0074).
 
 ### ⚠ Validate before relying on (no real service/credentials in the build env)
 Meilisearch, Reverb realtime, **live Stripe payments**, OAuth/SAML providers, Web Push delivery, and the

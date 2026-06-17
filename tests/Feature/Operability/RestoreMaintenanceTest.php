@@ -33,7 +33,7 @@ afterEach(fn () => app(RestoreState::class)->forget());
 it('serves a branded 503 restore page (not a SQL error) while a restore is running', function () {
     app(RestoreState::class)->beginRun();
 
-    $res = $this->get('/forums');
+    $res = $this->get('/');
 
     $res->assertStatus(503);
     $res->assertHeader('Retry-After');
@@ -44,7 +44,7 @@ it('serves a branded 503 restore page (not a SQL error) while a restore is runni
 it('gates the queued window too: a requested-but-not-yet-running restore returns 503', function () {
     app(RestoreState::class)->request('novfora-20260607-101500.zip', null, 'Admin');
 
-    $this->get('/forums')->assertStatus(503);
+    $this->get('/')->assertStatus(503);
 });
 
 it('keeps /health reachable during the window and reports the restore block', function () {
@@ -58,7 +58,7 @@ it('keeps /health reachable during the window and reports the restore block', fu
 it('returns a 503 JSON body for AJAX/JSON requests during the window', function () {
     app(RestoreState::class)->beginRun();
 
-    $res = $this->getJson('/forums');
+    $res = $this->getJson('/');
 
     $res->assertStatus(503)->assertJsonPath('status', 'maintenance');
     $res->assertHeader('Retry-After');
@@ -70,7 +70,7 @@ it('shows the recovery hint (pre-restore safety snapshot) when a restore is stuc
         'last' => ['result' => 'failed', 'archive' => 'novfora-20260607-090000.zip', 'safety_backup' => 'novfora-20260607-101500.zip'],
     ]);
 
-    $res = $this->get('/forums');
+    $res = $this->get('/');
     $res->assertStatus(503);
     expect($res->getContent())->toContain('Restore paused');
     expect($res->getContent())->toContain('novfora-20260607-101500.zip'); // the safety-snapshot recovery hint
@@ -83,6 +83,6 @@ it('shows the recovery hint (pre-restore safety snapshot) when a restore is stuc
 
 it('does not gate a normal site with no restore in flight', function () {
     // No restore state at all.
-    $this->get('/forums')->assertOk();
+    $this->get('/')->assertOk();
     $this->getJson('/health')->assertOk()->assertJsonPath('restore.running', false);
 });

@@ -9,7 +9,7 @@ Copyright 2026 The NovFora Authors
 > module trust boundary + template sandbox, the REST API + tokens, webhooks HMAC + SSRF, broadcast/channel
 > authz, uploads/installer/upgrade, the Stripe money path, CSP, and the untrusted-input parsers).
 > **Supersedes nothing** — it extends [`../SECURITY-REVIEW.md`](../SECURITY-REVIEW.md) (Phase 1.5) and
-> [`security-review-wave8.md`](security-review-wave8.md) (mega-build Wave 8.4). ADR-0070.
+> [`security-review-wave8.md`](security-review-wave8.md) (mega-build Wave 8.4). ADR-0072.
 >
 > **Method:** adversarial, **per-finding verify-then-refute**. 11 domain reviewers fanned out over the surface;
 > every HIGH/MEDIUM candidate was then put to an independent 3-lens refuter panel (reachability · existing

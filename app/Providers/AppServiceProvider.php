@@ -15,6 +15,7 @@ use App\Services\Tier\Probes\RedisProbe;
 use App\Services\Tier\Probes\ReverbProbe;
 use App\Services\Tier\Probes\S3Probe;
 use App\Services\Tier\ServiceTier;
+use App\Support\Http\BasePathDetector;
 use App\Webhooks\WebhookEventSubscriber;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -54,6 +55,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // RH-4.2 (ADR-0070, APEX): make the app base-path aware for subdirectory installs BEFORE any URL is
+        // generated, so the pre-`.env` installer wizard at /community/install renders styled with a working
+        // Livewire endpoint. Conservative — a strict no-op at the root layout and whenever APP_URL is a real
+        // (non-localhost) value, so it never touches the root/subdomain layout. Skipped on the console (CLI /
+        // queue / scheduler use APP_URL, and there is no HTTP request to derive a prefix from).
+        if (! $this->app->runningInConsole()) {
+            app(BasePathDetector::class)->apply($this->app->make('request'), (string) config('app.url'));
+        }
+
         $this->prepareForInstaller();
 
         //  (resources/views/vendor/pagination). Owning these

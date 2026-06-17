@@ -146,35 +146,95 @@ all NovFora needs. With SSH, `php artisan novfora:doctor` flags any remaining gr
 
 ---
 
-## 3b. Install into a `public_html` subfolder (e.g. `https://example.com/forum/`)
+## 3b. Install into a `public_html` subfolder (e.g. `https://example.com/community/`)
 
-Prefer pointing a subdomain/addon-domain document root at `~/novfora/public` (§3.2 — cleanest). If you must serve
-NovFora from a **subfolder** of an existing `public_html`, keep the app **outside** the web root and copy only
-`public/`:
+Subdirectory install is **first-class** as of RH-4 (ADR-0070/0071). The forum index is served **at the mount
+root** — `https://example.com/community/` is the board list (it does *not* redirect to `…/community/forums`;
+`…/community/forums` permanently 301s back to the root). The app is **subpath-aware from the request**, so the
+wizard at `/community/install` renders styled with working Livewire **before** any `.env` exists. The old
+copy-`public/` recipe is now the **last resort** (Option C), not the default.
+
+**Common to every option:** keep the app **outside** the web root (e.g. `~/novfora`); the only thing in
+`public_html/community/` is what serves `public/`. Set the **Site URL to the full subpath**
+(`https://example.com/community`) — the installer **auto-detects and pre-fills** it from the request, and writes
+both `APP_URL` and `ASSET_URL` so routes, assets and `Storage::url()` all resolve under `/community/…`.
+
+### Option A — symlink `public/` (preferred, where symlinks are allowed)
+
+One canonical `public/`, so the Vite manifest and the served assets can never drift, and `storage/` is already
+inside the served tree:
 
 ```bash
-# app stays at ~/novfora (outside the web root); SUBDIR is the URL path segment, e.g. "forum"
-mkdir -p ~/public_html/forum
-cp -a ~/novfora/public/. ~/public_html/forum/      # copy the CONTENTS of public/ (incl. .htaccess)
+# app at ~/novfora (outside the web root); the URL path segment is "community"
+ln -s ~/novfora/public ~/public_html/community
 ```
 
-Then:
+That's it — visit `https://example.com/community/` and follow the wizard. (Confirm symlinks are allowed first —
+see the Hostinger note below.)
 
-1. **Edit `~/public_html/forum/index.php`** — repoint its two `require` paths up out of the web root to the app
-   (paths are **case-sensitive**):
-   ```php
-   require __DIR__.'/../../novfora/vendor/autoload.php';
-   $app = require_once __DIR__.'/../../novfora/bootstrap/app.php';
+### Option B — generated thin stub (no-symlink hosts)
+
+When a host forbids a full directory symlink in `public_html`, generate a thin front-controller stub that boots
+the app from outside the web root, plus an `.htaccess` with the right `RewriteBase` and `build/` + `storage/`
+links back to the app's **single** canonical trees (symlink each, with a copy fallback):
+
+```bash
+cd ~/novfora
+php artisan novfora:subdir:scaffold ~/public_html/community --base=/community
+```
+
+This writes `~/public_html/community/{index.php,.htaccess,build,storage}`. It is **idempotent** — re-run it after
+every deploy (it re-points the links + RewriteBase). Because `build/` points at the one `public/build`, a rebuild
+can never desync the served assets from the manifest. If even per-folder symlinks are disabled, the command falls
+back to a copy mirror; the bundled cron line (`novfora:storage:publish`, every minute) keeps `storage/` fresh, and
+re-running the scaffold after a deploy refreshes `build/`.
+
+### Option C — copy `public/` (last resort only)
+
+Only if neither A nor B is possible. Copy `public/` into the web dir and repoint `index.php`; this is the fragile
+layout RH-4 replaced (two `public/build` trees that drift on every update), so prefer A/B:
+
+```bash
+mkdir -p ~/public_html/community
+cp -a ~/novfora/public/. ~/public_html/community/
+# edit ~/public_html/community/index.php require paths up to ~/novfora, add RewriteBase /community/ to .htaccess,
+# and re-copy public/build on EVERY deploy (or you get asset 404s). Publish storage: novfora:storage:publish.
+```
+
+Re-apply the **§3a** permissions to anything you create under `public_html/community/`, and **never** copy
+`docs/` or any `*.md` into the web folder.
+
+### 3b-Hostinger — concrete walkthrough for `novfora.com/community/`
+
+Goal: the **marketing site at the apex** (`novfora.com` → `public_html/`) and the **forum under `/community/`**,
+app kept above the web root.
+
+1. **Upload the app above the web root.** In hPanel **File Manager**, go to your home dir (the parent of
+   `public_html`) and create `novfora/`. Upload + **Extract** `novfora-release.zip` into `~/novfora` (so
+   `~/novfora/public`, `~/novfora/artisan`, etc. exist). Leave your marketing site's files in `public_html/`.
+2. **Fix permissions** (hPanel Extract can leave files world-writable) — apply the **§3a** `chmod` block to
+   `~/novfora`.
+3. **Find out whether symlinks are allowed.** In **hPanel → Advanced → SSH Access** (enable it), then:
+   ```bash
+   ln -s ~/novfora/public ~/public_html/community && ls -ld ~/public_html/community
    ```
-2. **Set the Site URL to include the subpath:** in the installer's **Site & administrator** step use
-   `https://example.com/forum`, or set `APP_URL=https://example.com/forum` in `.env`.
-3. **If routes 404,** add `RewriteBase /forum/` to `~/public_html/forum/.htaccess` (just under `RewriteEngine On`).
-4. **Publish storage into the web dir** so avatars/images load:
-   - symlink host: `ln -s ~/novfora/storage/app/public ~/public_html/forum/storage`
-   - no-symlink host: `php artisan novfora:storage:publish` (writes a copy; the cron line refreshes it).
-
-Re-apply the **§3a** permissions to the copied `~/public_html/forum/` as well, and (again) **do not** copy `docs/`
-or any `*.md` into `public_html`.
+   If `ls -ld` shows an `l` (symlink) pointing at `~/novfora/public`, you're on **Option A** — done. On Hostinger
+   **Business/Cloud** symlinks generally work; on **Premium/Starter** they are often blocked (or you have no SSH)
+   → remove the link if it didn't take and use **Option B**:
+   ```bash
+   cd ~/novfora && php artisan novfora:subdir:scaffold ~/public_html/community --base=/community
+   ```
+   No SSH at all? Use File Manager to create `public_html/community/`, upload a one-line `index.php`
+   (`<?php require '/home/UXXXX/novfora/public/index.php';` — get the absolute home path from File Manager's
+   address bar), copy `public/.htaccess` in and add `RewriteBase /community/` under `RewriteEngine On`, and copy
+   `public/build` into `public_html/community/build` (Option C).
+4. **Create the database** in hPanel → **Databases → MySQL**; note the name/user/password.
+5. **Run the wizard.** Visit `https://novfora.com/community/` → the installer. The **Site URL** is pre-filled as
+   `https://novfora.com/community` — leave it. Finish the wizard (it writes `APP_URL` + `ASSET_URL` =
+   `https://novfora.com/community`, runs migrations, creates the admin, links storage, then self-locks).
+6. **Verify:** `https://novfora.com/community/` shows the board list **styled**; `…/community/forums` 301s back to
+   it; an uploaded avatar loads from `https://novfora.com/community/storage/…`. If CSS 404s, you are on the copy
+   layout (Option C) and `public_html/community/build` is stale — re-copy it, or switch to A/B.
 
 ---
 

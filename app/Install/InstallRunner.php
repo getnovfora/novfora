@@ -128,6 +128,14 @@ final class InstallRunner
             'MAIL_FROM_NAME' => $in->siteName,
         ];
 
+        // RH-4.4 (ADR-0070) — a SUBDIRECTORY install (the Site URL carries a path, e.g. .../community) also
+        // gets ASSET_URL = the same URL, so @vite()/asset() resolve under the subpath deterministically and
+        // the public disk URL (APP_URL + /storage) puts uploads under /community/storage/... At a domain or
+        // subdomain root the path is empty/'/', so ASSET_URL is left unset and the root layout is unchanged.
+        if (trim((string) parse_url($in->appUrl, PHP_URL_PATH), '/') !== '') {
+            $values['ASSET_URL'] = rtrim($in->appUrl, '/');
+        }
+
         // HTTPS-only session cookie when the site is served over TLS (security §4 "HTTPS-only cookies").
         // Left unset for an http:// URL so a non-TLS baseline host isn't locked out of its own session.
         if (str_starts_with(strtolower($in->appUrl), 'https://')) {
