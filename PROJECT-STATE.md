@@ -11,7 +11,87 @@
 
 ---
 
-## 🌙 Phase 4 ENHANCED build (M4 Search/Realtime · M5 Paid memberships · M6 Anti-spam) on `claude/phase-4-enhanced` — 2026-06-15 (LATEST · REVIEW + PUSH THIS)
+## 🛠 RH-4 — First-class subdirectory install on `claude/rh4-subdir-install` — 2026-06-16 (LATEST · REVIEW + PUSH THIS)
+
+**Unattended, owner-authorized build off `main`. 9 conventional, DCO-signed, `Tommy Huynh`-authored commits on
+branch `claude/rh4-subdir-install`. NOTHING IS PUSHED** — push is interactive-only in the sandbox; the owner
+pushes + opens the PR. **ADR-0070** (subdirectory install) + **ADR-0071** (canonical home at the mount root) are
+"Accepted — owner-authorized build; flagged for review."
+
+**Final gate (branch HEAD, `forum-dev` container, PHP 8.3.6):** `php artisan test --parallel` **1550 passed /
+1 skipped / 0 failed** (12723 assertions; baseline 1525 → **+25** RH-4 tests) · `pint` clean (812 files) ·
+`phpstan` (level 5) **0 errors** · `php artisan migrate` clean. Each unit committed only at a green boundary.
+(Run via `docker.exe exec forum-dev` from WSL — the WSL distro's own PHP lacks mbstring/xml + composer, so
+`forum-dev` is the canonical gate; Docker isn't reachable from inside WSL but `docker.exe` is via interop.)
+
+### What shipped (commit · unit)
+- `941485f` **RH4.1** docs — ADR-0070/0071 accepted; the spike's stale **"ADR-0038" renumbered → 0070/0071**
+  (0038 was consumed by the mega-build; highest existing was 0069 — resolves the brief's "confirm the next ADR
+  number doesn't collide").
+- `126b020` **RH4.1b** (ADR-0071) — the forum **index IS the home AT the mount root**: the `forums.index` route
+  NAME moved to `/` (so every `route('forums.index')` link generates the mount root), `/forums` is a permanent
+  **301 → the root**. Uninstalled `/` still 302s to `/install`. RootRouteTest/ExampleTest + the cache/maintenance/
+  smoke suites updated.
+- `f3ad4c6` **RH4.2 (APEX)** — `App\Support\Http\BasePathDetector` (in `AppServiceProvider::boot`): forces the
+  URL/asset root from the request **only when APP_URL is unset/localhost**, derived from Symfony `getBasePath()`
+  (SCRIPT_NAME/RewriteBase). Strict no-op at the root layout (G4) + never overrides a real APP_URL; the forced
+  root == the request root, so Livewire's update URI keeps a **single** prefix (no `/community/community/`). 7 tests.
+- `6b8c84b` **RH4.3** — `config/app.php` `asset_url`; `App\Install\SubdirectoryScaffold` +
+  `php artisan novfora:subdir:scaffold` (Option B: generated stub `index.php` + `.htaccess` + single-canonical
+  build/storage links); `.env.example` ASSET_URL + NOVFORA_PUBLIC_LINK notes. 8 tests.
+- `b0a587e` **RH4.4 (APEX)** — installer subpath awareness: the wizard pre-fills the Site URL with the detected
+  subpath; InstallRunner writes APP_URL + ASSET_URL; RedirectIfNotInstalled allowlist confirmed prefix-agnostic
+  (`Request::is()` matches base-stripped path-info — spike open-question #3).
+- `5165955` **RH4.5** — `SubdirInstallTest` (8): subdir wizard 200 + `/community`-prefixed Livewire endpoint;
+  allowlist prefix-agnostic; post-install `/community/` serves the index; `/community/forums` 301; avatar under
+  `/community/storage`; **G4 root-layout regression guard**; **G2 rebuild-drift guard**.
+- `b634409` **RH4.6** — `docs/REAL-HOST-VALIDATION.md` §3b rewritten (Option A symlink default / B scaffold /
+  C copy last-resort) + a concrete **Hostinger `novfora.com/community/` walkthrough**; getting-started forward
+  ref; real-host-findings §RH-4 → RESOLVED.
+- `612368f` **fix (apex review)** — `EnvWriter` now escapes `$` for ANY written value (see review below).
+
+### APEX adversarial review (verify-then-refute, 17 agents)
+A 4-lens security review of the detector + installer surface: **13 candidates → 12 refuted, 1 MEDIUM confirmed +
+FIXED**. `EnvWriter::format()` wrote a bare value containing `${VAR}` unquoted, so dotenv would **interpolate it
+on load** — an operator-supplied Site Name like `${APP_KEY}` / `X${DB_PASSWORD}` (wizard rule `string|max:60`)
+could leak a secret via MAIL_FROM_NAME / APP_NAME on the unauthenticated pre-install surface. Pre-existing root
+cause; RH-4.4 extended `writeEnv` through the same path and the mandated review caught it. Fixed in `612368f`
+(+ 3 tests with a real phpdotenv-parse proof). The 12 refuted candidates (Host-header trust, allowlist bypass,
+redirect loops, scaffold path-traversal, …) were verified non-exploitable.
+
+### Recorded assumptions / honest notes (also in ADR-0070 + the spike)
+- **The detector is a conservative confirmation/pin, not the load-bearing mechanism.** Empirically (a bootstrap
+  probe), Laravel ALREADY carries the subpath on every URL surface (route / @vite / Livewire) via the **request
+  base path** when SCRIPT_NAME is correct — which Options A/B/C all ensure (symlink / stub+RewriteBase /
+  copy+RewriteBase). The detector forces the same root only when APP_URL is unset/localhost and is otherwise a
+  no-op; it never forces a root inconsistent with the request base (which would double-prefix Livewire). The real
+  levers are: canonical home at root + a correct SCRIPT_NAME (RewriteBase) + the installer writing APP_URL/
+  ASSET_URL with the subpath.
+- **PWA under a subpath is DEFERRED (documented limitation, recorded not built).** PwaController + the service
+  worker still emit root-relative paths (`start_url`/`scope`/`/icons/`/`/build/`/`/offline`). Under a subpath the
+  SW simply fails to register (a caught no-op) → offline caching off; core forum + install are unaffected. Not in
+  any RH-4 unit/acceptance test; tracked as a fast-follow (noted in ADR-0070).
+
+### ⚠ NOT MINE — concurrent foreign WIP left in the working tree (owner: review/remove before merge)
+During this session the tree gained **uncommitted/untracked** changes that are **not part of RH-4** and were left
+untouched: `routes/web.php` (+`/forums/import-seed` GET/POST routes + a `use ImportForumSeedController`), and new
+untracked `app/Http/Controllers/ImportForumSeedController.php` + `app/Console/Commands/ImportForumSeedCommand.php`
+(a separate import/seed experiment, likely from another session). **⚠ Those `/forums/import-seed` routes carry NO
+auth middleware — review as a possible unauthenticated upload endpoint and remove or gate before merging from this
+tree.** None of it is in my commits.
+
+### ☀️ Morning report — what the owner does next
+1. **Review** the 9 commits on `claude/rh4-subdir-install` (ADR-0070/0071, flagged-for-review), then **push** +
+   open the PR.
+2. **Deploy a subdirectory install** per `docs/REAL-HOST-VALIDATION.md` §3b — for Hostinger
+   `novfora.com/community/`, prefer **Option A** (`ln -s ~/novfora/public ~/public_html/community`); on a
+   no-symlink plan use **Option B** (`php artisan novfora:subdir:scaffold ~/public_html/community --base=/community`).
+   Set the Site URL to the full subpath (the wizard pre-fills it); the index serves at `/community/`.
+3. **Triage the foreign import-seed WIP** above (not mine).
+
+---
+
+## 🌙 Phase 4 ENHANCED build (M4 Search/Realtime · M5 Paid memberships · M6 Anti-spam) on `claude/phase-4-enhanced` — 2026-06-15 (merged to `main` via PR #28)
 
 **Unattended, owner-authorized autonomous build off `main` (with M1–M3 already merged). 11 conventional,
 DCO-signed, `Tommy Huynh`-authored commits on branch `claude/phase-4-enhanced` (10 feature + 1 wrap-docs).

@@ -19,6 +19,15 @@ Phases are scoped by deliverable and dependency, not calendar.
 | **4** | **Advanced / competitive** *(M1–M6 built — owner-authorized overnight builds; M1–M3 on `claude/phase-4-features`, M4–M6 on `claude/phase-4-enhanced`)* | **XenForo importer ✅ (ADR-0041)**. **M1 Clubs ✅** (ADR-0047–0052). **M2 SSO ✅** (ADR-0053–0056; **SAML scaffold-only**). **M3 PWA + Web Push ✅** (ADR-0057–0059). **M4 Enhanced tier ✅** (ADR-0060 Meilisearch via Scout + DB fallback; ADR-0061 **Reverb realtime + apex channel-authz no-leak fence** + polling fallback; ADR-0062 opt-in presence). **M5 Paid memberships ✅** (ADR-0063 tiers + perk gating through the engine; ADR-0064 offline/**manual provider — the live-granting path**; ADR-0065 **Stripe hosted checkout, charging DISABLED** + hardened webhook; ADR-0066 money-fenced paid-clubs hook). **M6 Advanced anti-spam ✅** (ADR-0067 **HOLD-only spam intelligence** + FP guards; ADR-0068 review surface; ADR-0069 external-signal tuning + **content-privacy fence**). See `docs/architecture/phase-4/`. ⚠ **Scaffolded, NOT validated against live services:** OAuth/SAML/Web-Push, **Meilisearch, Reverb, live Stripe payments, SFS submission** (no real credentials/services in the build env — enable steps in PROJECT-STATE + each ADR). |
 | **5** | **Hardening** *(partial — owner-authorized overnight build on `claude/mega-build`)* | **Security-review sweep ✅ (ADR-0046, verify-then-refute)**; **WCAG 2.1 AA automated audit + fixes ✅ (ADR-0044 — automated floor + manual checklist)**; **i18n framework + RTL scaffolding ✅ (ADR-0043 — framework shipped, full string sweep is mechanical follow-up)**; **load-test harness ✅ (ADR-0045 — SCAFFOLDED, not run at scale)**. Remaining: full i18n string externalisation, captured load-test numbers on both tiers, docs → **1.0**. Rename (ADR-0026) already complete. |
 
+**Real-host fixes (RH-series, post-beta hardening):** **RH-4 — first-class subdirectory install ✅
+(ADR-0070 + ADR-0071, 2026-06-16, branch `claude/rh4-subdir-install`)** — the forum index is the canonical home
+**at the mount root** (`/community/` serves the board list; `/forums` 301s to it); a conservative request-time
+base-path detector + installer subpath wiring (auto-fills the Site URL, writes `APP_URL`/`ASSET_URL`); one
+canonical `build/` + `storage/` via **Option A** (symlinked `public/`, default) / **Option B**
+(`novfora:subdir:scaffold` stub) / **Option C** (copy, last resort); a subdirectory case + root-layout (G4) +
+rebuild-drift (G2) guards in the install matrix. Recipe + Hostinger walkthrough in
+`docs/REAL-HOST-VALIDATION.md` §3b.
+
 **Carried-in refinements:** Laravel 13 + Livewire 4; **PHP 8.3 floor** *(revises brief's 11/3 and the 8.2
 floor — flagged at the Phase 0 gate)*; no-SSH installer; coarse-cron-tolerant queue; WYSIWYG↔Livewire spike as
 the #1 risk; anti-spam first-class from Phase 1; a11y/i18n baked in throughout.
