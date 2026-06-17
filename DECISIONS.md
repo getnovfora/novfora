@@ -3061,3 +3061,38 @@ root automatically with **no per-view edits**. `/forums` (and therefore `/commun
 **Consequences.** One canonical home at the root (root or subpath); existing `/forums` links + already-indexed URLs
 301 to it (search engines fold them into the root over time). The forum-index fragment cache (RH-9) is unaffected —
 it keys on content, not the route URI.
+
+### ADR-0077 — Classic board-index "Info Center" (statistics + who's online) (2026-06-17)
+**Status: Accepted — owner-authorized UI/UX build; flagged for review.**
+
+**Context.** The board index ended with a bare recent-activity feed and no at-a-glance "state of the community"
+panel — the phpBB/XenForo/SMF **Info Center** long-time forum users expect. The pieces already existed
+(`ForumStatsWidget`'s cached counts; the opt-in `OnlineMembers` presence service) but were never assembled into a
+default board-index surface.
+
+**Decision.** Add an **Info Center** as a **default** board-index surface, rendered just above the activity feed: a
+**Statistics** panel (total posts / topics / members, posts today, newest member) + an opt-in **Who's Online** panel.
+Backed by `App\Forum\InfoCenter`, a read-model that follows RH-9 cache discipline exactly like
+`App\Community\ActivityFeed`: it caches **primitives only** (the aggregate counts + the newest member's id) under
+`novfora:infocenter:stats` for 60s, and rehydrates the newest member with `User::find()` strictly **after** the cache
+boundary — never an Eloquent model in the store (which would 500 on a serialising host's cache hit). Counts reuse
+`ForumStatsWidget`'s shape; who's-online delegates to `OnlineMembers`, the single source of truth for the
+`show_online_status` opt-in + recent window. "Posts today" counts from local midnight in the **app timezone**
+(`Carbon::today()`), matching how `created_at` is stamped.
+
+**Privacy.** Every figure is an **aggregate count** (no post content, no titles) — exposure is identical to the
+existing `ForumStatsWidget`, so there is **no new privacy boundary and no hidden-forum leak**. Who's-Online stays
+opt-in (default invisible); newest member is already public via the members directory. Baseline-safe: plain Eloquent +
+the file/DB cache, no Redis/daemon and **no migration** (progressive-enhancement rule).
+
+**Scope fences (deferred — recorded, not built).** The persisted "record online" high-water mark, guest counting, and
+birthdays each need new tracking/schema and concurrency care; they are **out of scope** here and left as clean seams.
+
+**Consequences.** A new default surface on the board index; one read-model service + one Blade partial, **no schema
+change** (a trivial, reversible deploy). Two live presence queries per index render (count + recent), matching the
+existing live widget's read path.
+
+**Tested.** `tests/Feature/Forum/InfoCenterTest.php` (6 cases): the block renders on the index; counts match the
+canonical model queries; newest member = the most-recently-registered ACTIVE user (banned excluded); posts-today
+honours the app-tz day boundary; who's-online respects opt-in + window; and the cache holds primitives only with the
+newest member correctly rehydrated. Pint + PHPStan L5 green.
