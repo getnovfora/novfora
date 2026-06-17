@@ -112,9 +112,13 @@ final class EnvWriter
             return '';
         }
 
-        // Quote when the value contains whitespace, a '#' (comment char), or quotes. A bare '=' needs no
-        // quoting — dotenv splits on the FIRST '=' — so e.g. a base64 APP_KEY stays unquoted like key:generate.
-        if (preg_match('/\s|#|"|\'/', $value)) {
+        // Quote when the value contains whitespace, a '#' (comment char), quotes, or a '$'. The '$' is
+        // load-bearing for SECURITY: dotenv interpolates `${VAR}`/`$VAR` in UNQUOTED (and double-quoted)
+        // values, so an installer-supplied value like `X${DB_PASSWORD}` (no whitespace) would otherwise be
+        // written bare and resolve to a secret on the next load. Forcing it through the double-quoted branch
+        // (which escapes `$`->`\$`) neutralises interpolation. A bare '=' still needs no quoting — dotenv
+        // splits on the FIRST '=' — so a base64 APP_KEY stays unquoted like key:generate.
+        if (preg_match('/[\s#"\'$]/', $value)) {
             return '"'.str_replace(['\\', '"', '$'], ['\\\\', '\\"', '\\$'], $value).'"';
         }
 
