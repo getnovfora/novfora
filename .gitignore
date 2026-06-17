@@ -65,3 +65,9 @@ yarn-error.log
 /.claude/*
 !/.claude/settings.json
 /troubleshoot/
+
+# Local-only forum-seed import experiment — NOT shipped. The HTTP controller is an unauthenticated
+# mass-write endpoint (no auth/admin guard, raw password hashes from input) and must never reach the
+# repo; the Artisan command is a local dev seeder. Kept untracked + ignored on purpose.
+/app/Http/Controllers/ImportForumSeedController.php
+/app/Console/Commands/ImportForumSeedCommand.php
