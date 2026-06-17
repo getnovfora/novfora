@@ -156,17 +156,20 @@
             </div>
 
             {{-- Wordmark (text, per the brief; overridable via the Appearance setting). --}}
-            <a href="{{ route('forums.index') }}" class="flex items-center font-bold text-base sm:text-lg tracking-tight text-ink hover:text-accent">
+            <a href="{{ route('forums.index') }}" class="flex items-center font-bold text-base sm:text-lg tracking-tight text-ink hover:text-accent shrink-0 whitespace-nowrap">
                 @if (($themeAssets['logo'] ?? null))
-                    {{-- Theme Studio 1.5: the active theme's logo (alt = the wordmark for a11y). --}}
-                    <img src="{{ $themeAssets['logo'] }}" alt="{{ $wordmark }}" class="h-7 w-auto sm:h-8">
+                    {{-- Theme Studio 1.5: the active theme's logo (alt = the wordmark for a11y). The small-screen
+                         width cap scales the logo (object-contain) rather than clipping it via an overflow cap. --}}
+                    <img src="{{ $themeAssets['logo'] }}" alt="{{ $wordmark }}" class="h-7 w-auto sm:h-8 max-w-[55vw] object-contain sm:max-w-none">
                 @else
-                    {{ $wordmark }}
+                    {{-- Cap + truncate only the TEXT wordmark so it never wraps/overflows at small widths (the
+                         guard belongs on the text, not the whole link, so the logo branch above isn't clipped). --}}
+                    <span class="block max-w-[55vw] truncate sm:max-w-none">{{ $wordmark }}</span>
                 @endif
             </a>
 
             {{-- Desktop primary nav --}}
-            <nav class="hidden sm:flex items-center gap-0.5" aria-label="Primary">
+            <nav class="hidden sm:flex items-center gap-0.5 md:gap-1" aria-label="Primary">
                 <a href="{{ route('forums.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Forums</a>
                 <a href="{{ route('clubs.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Clubs</a>
                 <a href="{{ route('trending.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Trending</a>
@@ -179,7 +182,7 @@
             </nav>
 
             {{-- Desktop search --}}
-            <form method="GET" action="{{ route('search.index') }}" role="search" class="hidden sm:flex ml-auto w-full max-w-xs">
+            <form method="GET" action="{{ route('search.index') }}" role="search" class="hidden md:flex ml-auto w-full min-w-0 max-w-[11rem] lg:max-w-xs">
                 <label for="nav-q" class="sr-only">Search</label>
                 <div class="relative w-full">
                     <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-ink-subtle"><x-ui.icon name="search" class="h-4 w-4" /></span>
@@ -189,7 +192,7 @@
             </form>
 
             {{-- Right cluster. (Mobile search lives in the hamburger panel, so the bar stays uncrowded at 360px.) --}}
-            <div class="flex items-center gap-1 ml-auto sm:ml-1">
+            <div class="flex items-center gap-1 ml-auto md:ml-1 shrink-0">
                 {{-- Colour-mode toggle (auto → light → dark). Works for everyone; persists server-side when signed in. --}}
                 <button type="button"
                         x-data="{ mode: document.documentElement.getAttribute('data-color-mode') || 'auto' }"
