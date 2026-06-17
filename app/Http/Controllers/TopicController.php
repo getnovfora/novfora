@@ -82,7 +82,7 @@ class TopicController extends Controller
             );
         }
         $scope = $topic->permissionScope();
-        $canReply = $topic->status !== 'locked' && ($user?->canDo('post.create', $scope) ?? false);
+        $canReply = $topic->isReplyable() && ($user?->canDo('post.create', $scope) ?? false);
         $canModerate = $user?->canDo('topic.moderate', $scope) ?? false;
 
         // Moderation-queue visibility (ADR-0007 §2.4): pending posts are hidden from everyone except their

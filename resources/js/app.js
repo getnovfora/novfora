@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import './editor/island'; // registers the Alpine `nevoEditor` island (it dynamic-imports TipTap)
+import './editor/island'; // registers the Alpine `novforaEditor` island (it dynamic-imports TipTap)
 
 // ── Appearance helpers (default-theme PART 2) ─────────────────────────────────────────────────────────
 // The inline boot snippet in <head> applies the stored preference BEFORE paint (no flash). These helpers

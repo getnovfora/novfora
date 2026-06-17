@@ -100,3 +100,24 @@ it('serves externalised UI strings and pluralises the result word', function () 
         ->and(trans_choice('search.result_word', 1))->toBe('result')
         ->and(trans_choice('search.result_word', 5))->toBe('results');
 });
+
+// ── P5.3: the proof locale (es) + per-key fallback to en ──────────────────────────────────────────────────
+
+it('renders the Spanish proof locale for the externalised catalogues', function () {
+    app()->setLocale('es');
+
+    expect(__('auth.login.title'))->toBe('Iniciar sesión')
+        ->and(__('common.save'))->toBe('Guardar')
+        ->and(__('errors.404.title'))->toBe('Página no encontrada')
+        ->and(__('search.placeholder'))->toBe('Buscar publicaciones…')
+        ->and(trans_choice('search.result_word', 5))->toBe('resultados'); // pluralisation localised too
+});
+
+it('falls back to en for a registered-but-untranslated locale (per-key)', function () {
+    // fr is in the allowlist but ships no lang/fr/ catalogue → every key resolves to its en value.
+    app()->setLocale('fr');
+
+    expect(__('auth.login.title'))->toBe('Sign in')
+        ->and(__('errors.404.title'))->toBe('Page not found')
+        ->and(__('common.save'))->toBe('Save');
+});

@@ -7,7 +7,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 // The reputation LEDGER (P2-M5, ADR-0028). Append-only: one row per (source) award; users.reputation_points
-// is the denormalised SUM(points) per recipient, reconciled by nevo:reputation:recompute. The
+// is the denormalised SUM(points) per recipient, reconciled by novfora:reputation:recompute. The
 // UNIQUE(source_type, source_id) is the idempotency key — a source (e.g. a reaction) awards AT MOST ONCE,
 // so a double-fired event's insertOrIgnore is a provable no-op. `points` is SIGNED (reaction weights may be
 // negative, e.g. 'disagree'). user_id (the RECIPIENT) is a real cascade FK like reactions/poll_votes —

@@ -137,7 +137,7 @@ class DemoSeeder extends Seeder
             // ── Badges ──────────────────────────────────────────────────────────────────────────────
             // Run the full badge sweep so starter badges (welcome, first-post, well-regarded) are visibly
             // awarded in the demo rather than waiting for the next cron tick.
-            Artisan::call('nevo:badges:recompute');
+            Artisan::call('novfora:badges:recompute');
         } finally {
             config(['mail.default' => $mailWas]);
             config(['queue.default' => $queueWas]);

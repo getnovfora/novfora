@@ -19,7 +19,7 @@
 
 <div
     wire:ignore
-    x-data="nevoEditor({
+    x-data="novforaEditor({
         model: @js($model),
         content: @js($initial),
         uploadUrl: @js($uploadUrl),

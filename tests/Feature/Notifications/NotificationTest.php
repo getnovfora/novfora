@@ -74,6 +74,23 @@ it('notifies a mentioned user', function () {
     expect($bob->notifications()->where('type', 'mention')->count())->toBe(1);
 });
 
+it('caps the @mention notification fan-out to the configured limit (P5.1)', function () {
+    config(['novfora.antispam.mention_fanout_cap' => 3]);
+    $author = Users::inGroups(['members', 'tl1']);
+    $topic = notifTopic($author);
+
+    // A single post mentioning far more distinct users than the cap (the mention-bomb shape).
+    $targets = collect(range(1, 8))->map(fn ($i) => Users::inGroups(['members'], ['username' => "m{$i}"]));
+    $nodes = $targets->map(fn ($u) => ['type' => 'mention', 'attrs' => ['id' => $u->id, 'label' => $u->username]])->all();
+    $doc = ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => $nodes]]];
+
+    app(PostService::class)->reply(Users::inGroups(['members', 'tl1']), $topic, 'tiptap_json', $doc);
+
+    // Only the first `cap` (3) distinct mentioned users were notified — not all 8.
+    $notified = $targets->filter(fn ($u) => $u->notifications()->where('type', 'mention')->exists())->count();
+    expect($notified)->toBe(3);
+});
+
 it('does not notify a user replying to their own topic', function () {
     $author = Users::inGroups(['members', 'tl1']);
     $topic = notifTopic($author);

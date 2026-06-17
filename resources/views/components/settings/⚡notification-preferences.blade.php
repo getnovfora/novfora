@@ -181,9 +181,13 @@ new class extends Component
                 <div class="space-y-2">
                     <p class="text-sm text-ink-muted" x-show="subscribed">{{ __('Push is on for this device. You can turn it off below.') }}</p>
                     <p class="text-sm text-ink-muted" x-show="!subscribed">{{ __('Get notified on this device even when NovFora isn’t open. Per-event push delivery is controlled in the table below.') }}</p>
+                    {{-- Static aria-label gives the button an accessible name pre-hydration / no-JS; Alpine's
+                         x-text still drives the visible label (mirrors the Wave-8.2 colour-toggle fix). --}}
                     <x-ui.button type="button" x-show="!subscribed" @click="enable()" x-bind:disabled="busy" dusk="push-enable"
+                                 aria-label="{{ __('Enable on this device') }}"
                                  x-text="busy ? '{{ __('Enabling…') }}' : '{{ __('Enable on this device') }}'"></x-ui.button>
                     <x-ui.button type="button" variant="ghost" x-show="subscribed" @click="disable()" x-bind:disabled="busy" dusk="push-disable"
+                                 aria-label="{{ __('Disable on this device') }}"
                                  x-text="busy ? '{{ __('Disabling…') }}' : '{{ __('Disable on this device') }}'"></x-ui.button>
                     <p class="text-sm text-danger" x-show="error" x-text="error"></p>
                 </div>

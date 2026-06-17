@@ -16,12 +16,12 @@ use Illuminate\Console\Command;
  * board changes nothing — and bounded (chunked iteration; each chunk is one batched SUM + per-user writes),
  * so it is safe under withoutOverlapping on a coarse/overlapping cron tick (ADR-0011).
  *
- * NAMING (deliberate, ADR-0028): the `nevo:` prefix joins the Phase-5 rename surface (#8) — do NOT
- * pre-rename; the sweep renames it with the rest of that surface.
+ * NAMING (ADR-0028 → P5.5/ADR-0073): the `novfora:` command prefix — the 1.0 brand rename completed the
+ * Phase-5 rename surface #8.
  */
 class RecomputeReputationCommand extends Command
 {
-    protected $signature = 'nevo:reputation:recompute {--user= : Recompute only this user id} {--chunk=500 : Users per batch}';
+    protected $signature = 'novfora:reputation:recompute {--user= : Recompute only this user id} {--chunk=500 : Users per batch}';
 
     protected $description = 'Recompute users.reputation_points from the reputation_events ledger (idempotent self-heal).';
 

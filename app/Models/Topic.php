@@ -95,6 +95,16 @@ class Topic extends Model
         return Scope::thread((int) $this->id);
     }
 
+    /**
+     * Whether new replies may be posted (the status gate only — the caller still enforces post.create and
+     * club participation). Single source of truth shared by the web reply composer, TopicController, and the
+     * REST API so the locked-topic moderation gate cannot drift between surfaces (P5.1).
+     */
+    public function isReplyable(): bool
+    {
+        return $this->status !== 'locked';
+    }
+
     public function adjustForumTopicCount(int $delta): void
     {
         $forum = Forum::withTrashed()->find($this->forum_id);

@@ -60,6 +60,32 @@ Static HTML cannot prove these; verify them by hand (keyboard + a screen reader 
 - **RTL visual pass.** With an RTL locale (Wave 8.1), confirm layouts mirror correctly — the `dir` switch is
   automated, the visual result is not.
 
+## Phase 5 (P5.2) — coverage expansion + fixes
+
+The automated gate was extended from the original 14 high-traffic surfaces to **27**, now covering the Phase
+3/4 + remaining user-facing flows: the clubs directory / create form / club page / roster, the membership
+(tiers) page, notifications, the PM inbox + compose, the notification + general preferences forms, the
+top-members leaderboard, the activity home feed, trending, what's-new, saved/bookmarks, and a tag page. The
+sweep found and fixed **three** WCAG 4.1.2 (accessible-name) failures the overnight Phase-4 builds introduced:
+
+- The **PM compose** "To" recipient `<input>` had a visible label that was not associated with the field —
+  wired with `for`/`id`.
+- The **club roster** role `<select>` (per member) had no accessible name — added an `aria-label` naming the
+  member (`Change role for :name`).
+- The **push enable/disable** buttons on the notification-settings page set their label via Alpine `x-text`, so
+  the pre-hydration / no-JS HTML had an empty button — added a static `aria-label` (mirrors the Wave-8.2
+  colour-toggle fix); Alpine still drives the visible label.
+
+After the fixes the full 27-surface gate is green (zero machine-detectable violations).
+
+### Residual MANUAL-only items (owner/QA each release — static HTML cannot prove these)
+
+The automated auditor is a **floor, not conformance**. The manual checklist above (contrast 1.4.3, keyboard
+2.1.1/2.1.2, visible focus 2.4.7, hover/focus content 1.4.13, reduced-motion 2.3.1, status-message live
+regions 4.1.3, the screen-reader journey pass, and the RTL visual pass) remains owner/QA responsibility and is
+**not** covered by CI. Re-check any **admin-set custom theme tokens** against the contrast floor, and re-run the
+screen-reader + keyboard passes on the newly-covered Phase 3/4 flows (clubs, PMs, memberships) before 1.0.
+
 ## Scope
 
 The automated gate covers the surfaces listed above. Extending it to every view is mechanical (add a case to

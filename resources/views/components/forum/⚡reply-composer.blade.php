@@ -105,7 +105,7 @@ new class extends Component
         $topic = $this->topic();
         $user = auth()->user();
         abort_unless(
-            $topic->status !== 'locked'
+            $topic->isReplyable()
             && $user instanceof User
             && $user->canDo('post.create', $topic->forum->permissionScope())
             // Club forums (M1.4): replying also requires active club membership (or staff).

@@ -89,6 +89,9 @@ final class V1Controller extends Controller
         // post.create (which the board grants everyone). 404 = no disclosure of the club's existence.
         $topicForum = $topic->forum;
         abort_unless($topicForum instanceof Forum && $topicForum->clubParticipationAllowed($user), 404);
+        // Honor the locked-topic moderation gate the web reply path enforces (P5.1): a moderator's lock must
+        // hold over the API too. Same Topic::isReplyable() predicate, so the surfaces cannot drift.
+        abort_unless($topic->isReplyable(), 403);
 
         $data = $request->validate(['body' => ['required', 'string', 'max:50000']]);
         $post = $posts->reply($user, $topic, 'markdown', ['source' => $data['body']]);

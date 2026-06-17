@@ -14,8 +14,8 @@ use Illuminate\Support\Str;
 use Tests\Support\Users;
 
 /*
-| nevo:reputation:recompute (P2-M5): the denorm self-heal cron. Idempotent under repeated runs (the M5
-| queue-drain discipline), heals deliberate drift, and supports the single-user escape hatch. The `nevo:`
+| novfora:reputation:recompute (P2-M5): the denorm self-heal cron. Idempotent under repeated runs (the M5
+| queue-drain discipline), heals deliberate drift, and supports the single-user escape hatch. The `novfora:`
 | name is the Phase-5 rename surface #8 (ADR-0028) — scheduler registration is pinned in SchedulerTest.
 */
 
@@ -51,12 +51,12 @@ it('heals drifted denorms across the board and is idempotent under repeated runs
     User::whereKey($a->id)->update(['reputation_points' => 0]);
     User::whereKey($b->id)->update(['reputation_points' => -5]);
 
-    $this->artisan('nevo:reputation:recompute', ['--chunk' => 2])->assertSuccessful();
+    $this->artisan('novfora:reputation:recompute', ['--chunk' => 2])->assertSuccessful();
 
     expect($a->fresh()->reputation_points)->toBe(3)
         ->and($b->fresh()->reputation_points)->toBe(1);
 
-    $this->artisan('nevo:reputation:recompute')->assertSuccessful(); // run again: nothing to change
+    $this->artisan('novfora:reputation:recompute')->assertSuccessful(); // run again: nothing to change
 
     expect($a->fresh()->reputation_points)->toBe(3)
         ->and($b->fresh()->reputation_points)->toBe(1);
@@ -70,7 +70,7 @@ it('recomputes a single user via --user', function () {
     User::whereKey($a->id)->update(['reputation_points' => 99]);
     User::whereKey($b->id)->update(['reputation_points' => 99]); // NOT recomputed — stays drifted
 
-    $this->artisan('nevo:reputation:recompute', ['--user' => $a->id])->assertSuccessful();
+    $this->artisan('novfora:reputation:recompute', ['--user' => $a->id])->assertSuccessful();
 
     expect($a->fresh()->reputation_points)->toBe(2)
         ->and($b->fresh()->reputation_points)->toBe(99);

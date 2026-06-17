@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Auth;
 
+use App\Auth\ChallengesStaffTwoFactor;
 use App\Auth\Social\SocialAuthException;
 use App\Auth\Social\SocialLogin;
 use App\Auth\Social\SocialProviders;
@@ -29,6 +30,8 @@ use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirect;
  */
 class SocialAuthController extends Controller
 {
+    use ChallengesStaffTwoFactor;
+
     public function __construct(private readonly SocialProviders $providers) {}
 
     /** Kick off a LOGIN: redirect the visitor to the provider's consent screen. */
@@ -82,11 +85,9 @@ class SocialAuthController extends Controller
             return redirect()->route('login')->with('error', $e->getMessage());
         }
 
-        Auth::login($user, remember: true);
-        $request->session()->regenerate(); // fresh session id post-auth (fixation defence)
-
-        // SSO does not bypass the staff-2FA gate (RequireTwoFactorForStaff). A member lands on the home feed.
-        return redirect()->intended(route('home'));
+        // Grant the session — but staff with a confirmed authenticator are stepped up to the TOTP challenge
+        // (P5.1): SSO must not mint a privileged session without a verified second factor. A member lands home.
+        return $this->grantSsoSession($request, $user);
     }
 
     /** Settings → Linked accounts: the user's linked identities + the providers they can still link. */

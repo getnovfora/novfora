@@ -12,6 +12,7 @@ use App\Models\Forum;
 use App\Models\Post;
 use App\Models\User;
 use App\Permissions\PermissionResolver;
+use App\Upgrade\SchemaState;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\Users;
 
@@ -123,4 +124,30 @@ it('forbids a write the permission engine denies (no post.create)', function () 
     $this->withToken(issueToken($author))
         ->postJson("/api/v1/topics/{$topic->id}/posts", ['body' => 'should be blocked'])
         ->assertStatus(403);
+});
+
+it('refuses a reply to a locked topic — the moderator lock holds over the API too (P5.1)', function () {
+    $author = Users::inGroups(['members', 'tl1']);
+    $forum = Forum::create(['slug' => 'general', 'title' => 'General', 'type' => 'forum']);
+    $topic = app(PostService::class)->createTopic($author, $forum, 'Hello', 'markdown', ['source' => 'opening']);
+    $topic->forceFill(['status' => 'locked'])->save();
+
+    $this->withToken(issueToken($author))
+        ->postJson("/api/v1/topics/{$topic->id}/posts", ['body' => 'sneaking past the lock'])
+        ->assertStatus(403);
+
+    expect(Post::where('topic_id', $topic->id)->where('body_text', 'like', '%sneaking past%')->exists())->toBeFalse();
+});
+
+it('serves a 503 maintenance response on the API during an upgrade window, before token auth (P5.1)', function () {
+    app(SchemaState::class)->forget();
+    app(SchemaState::class)->beginRun();
+
+    // No token needed: PreventRequestsDuringUpgrade runs AHEAD of the token lookup, so the API never touches
+    // a half-migrated schema during an RH-10 upgrade (or RH-11 restore) window.
+    $this->getJson('/api/v1/me')
+        ->assertStatus(503)
+        ->assertJsonPath('status', 'maintenance');
+
+    app(SchemaState::class)->forget();
 });

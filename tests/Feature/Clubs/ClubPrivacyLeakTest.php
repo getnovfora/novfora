@@ -116,6 +116,19 @@ it('hides private club content from search for a non-member but shows it to a me
         ->assertOk()->assertSee('ZZSECRET');
 });
 
+it('keeps a private club name out of the search forum-facet dropdown for a non-member (P5.1)', function () {
+    $f = leakFixture('private');
+    $name = $f['club']->name; // the club's discussion forum title == the club name
+
+    // The facet dropdown (no query needed — it renders on the bare /search page) must not disclose the name.
+    $this->actingAs($f['outsider']->fresh())->get(route('search.index'))
+        ->assertOk()->assertDontSee($name);
+
+    // A member sees their club's forum in the facet, confirming the gate is name-aware, not blanket-hiding.
+    $this->actingAs($f['member']->fresh())->get(route('search.index'))
+        ->assertOk()->assertSee($name);
+});
+
 // ── Surface: what's-new ──────────────────────────────────────────────────────────────────────────────────
 
 it('hides private club topics from what is-new for a non-member', function () {

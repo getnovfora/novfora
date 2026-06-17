@@ -165,7 +165,7 @@ new class extends Component
 <form wire:submit="save" dusk="pm-new" class="space-y-4">
     {{-- Recipient chips --}}
     <div class="space-y-1.5">
-        <label class="block text-sm font-medium text-ink">To</label>
+        <label for="pm-recipient" class="block text-sm font-medium text-ink">To</label>
         @error('recipients') <p class="text-xs text-danger">{{ $message }}</p> @enderror
 
         @if (! empty($recipients))
@@ -183,6 +183,7 @@ new class extends Component
 
         <div class="relative" x-data="{ open: false }">
             <input type="text"
+                   id="pm-recipient"
                    wire:model.live.debounce.200ms="recipientInput"
                    wire:keydown.enter.prevent="addRecipient"
                    wire:keydown.comma.prevent="addRecipient"

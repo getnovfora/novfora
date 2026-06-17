@@ -51,12 +51,12 @@ function postStripeWebhook($test, string $raw, string $sig)
     ], $raw);
 }
 
-function completedEvent(int $userId, int $tierId, string $sessionId = 'cs_test_1'): array
+function completedEvent(int $userId, int $tierId, string $sessionId = 'cs_test_1', string $paymentStatus = 'paid'): array
 {
     return [
         'id' => 'evt_'.$sessionId,
         'type' => 'checkout.session.completed',
-        'data' => ['object' => ['id' => $sessionId, 'metadata' => ['user_id' => $userId, 'tier_id' => $tierId]]],
+        'data' => ['object' => ['id' => $sessionId, 'payment_status' => $paymentStatus, 'metadata' => ['user_id' => $userId, 'tier_id' => $tierId]]],
     ];
 }
 
@@ -137,6 +137,21 @@ it('is idempotent on a replayed session id', function () {
     expect(MemberSubscription::where('provider', 'stripe')->where('provider_ref', 'cs_dup')->count())->toBe(1);
 });
 
+it('does NOT grant on a completed checkout whose payment_status is unpaid (P5.1 payment proof)', function () {
+    enableStripeWebhook();
+    $user = Users::inGroups(['members', 'tl1'], ['email' => 'unpaid@pay.test']);
+    $tier = stripeTier();
+    // An async/delayed-method checkout completes but is not yet paid — must NOT grant the tier.
+    [$raw, $sig] = stripeSigned(completedEvent((int) $user->id, (int) $tier->id, 'cs_unpaid', 'unpaid'));
+
+    postStripeWebhook($this, $raw, $sig)->assertOk()->assertJson(['status' => 'unpaid']);
+
+    expect(MemberSubscription::count())->toBe(0);
+    app(PermissionResolver::class)->flushMemo();
+    Cache::flush();
+    expect($user->fresh()->canDo('tier.ad_free', Scope::global()))->toBeFalse();
+});
+
 // ── Shape-only: ignore unrelated events; 422 incomplete; ack-but-no-grant on unknown mapping ────────────
 
 it('acknowledges an unrelated event type without action', function () {
@@ -149,7 +164,8 @@ it('acknowledges an unrelated event type without action', function () {
 
 it('422s a completed checkout missing its metadata', function () {
     enableStripeWebhook();
-    [$raw, $sig] = stripeSigned(['id' => 'evt_y', 'type' => 'checkout.session.completed', 'data' => ['object' => ['id' => 'cs_nometa']]]);
+    // A PAID checkout (so it passes the payment-proof gate) but missing the user_id/tier_id metadata → 422.
+    [$raw, $sig] = stripeSigned(['id' => 'evt_y', 'type' => 'checkout.session.completed', 'data' => ['object' => ['id' => 'cs_nometa', 'payment_status' => 'paid']]]);
 
     postStripeWebhook($this, $raw, $sig)->assertStatus(422);
 });

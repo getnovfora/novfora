@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\DB;
 use Tests\Support\Users;
 
 /*
-| nevo:badges:recompute (P2-M5): the catch-up sweep — awards anything a missed event dropped, idempotent
-| under repeated runs (awards are UNIQUE-keyed and permanent, so the sweep only ever adds). The `nevo:`
+| novfora:badges:recompute (P2-M5): the catch-up sweep — awards anything a missed event dropped, idempotent
+| under repeated runs (awards are UNIQUE-keyed and permanent, so the sweep only ever adds). The `novfora:`
 | name is the Phase-5 rename surface #8 (ADR-0028); scheduler registration is pinned in SchedulerTest.
 */
 
@@ -29,11 +29,11 @@ it('awards a badge a missed event dropped, and repeated sweeps add nothing new',
 
     expect(DB::table('user_badges')->count())->toBe(0);
 
-    $this->artisan('nevo:badges:recompute', ['--chunk' => 2])->assertSuccessful();
+    $this->artisan('novfora:badges:recompute', ['--chunk' => 2])->assertSuccessful();
     expect(DB::table('user_badges')->where('user_id', $user->id)->count())->toBe(1);
 
-    $this->artisan('nevo:badges:recompute')->assertSuccessful(); // idempotent
-    $this->artisan('nevo:badges:recompute')->assertSuccessful();
+    $this->artisan('novfora:badges:recompute')->assertSuccessful(); // idempotent
+    $this->artisan('novfora:badges:recompute')->assertSuccessful();
     expect(DB::table('user_badges')->count())->toBe(1);
 });
 
@@ -42,7 +42,7 @@ it('re-evaluates a single user via --user', function () {
     $a = Users::inGroups(['members', 'tl1'], ['reputation_points' => 25]);
     $b = Users::inGroups(['members', 'tl1'], ['reputation_points' => 25]);
 
-    $this->artisan('nevo:badges:recompute', ['--user' => $a->id])->assertSuccessful();
+    $this->artisan('novfora:badges:recompute', ['--user' => $a->id])->assertSuccessful();
 
     expect(DB::table('user_badges')->where('user_id', $a->id)->count())->toBe(1)
         ->and(DB::table('user_badges')->where('user_id', $b->id)->count())->toBe(0); // untouched

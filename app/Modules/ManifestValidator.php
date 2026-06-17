@@ -135,8 +135,11 @@ final class ManifestValidator
         if (! preg_match('/^[A-Za-z_][A-Za-z0-9_]*(\\\\[A-Za-z_][A-Za-z0-9_]*)*\\\\$/', $ns)) {
             throw new ModuleException("Manifest 'namespace' is not a valid PSR-4 namespace: '{$namespace}'.");
         }
+        // PHP namespace resolution is case-INSENSITIVE, so `app\Foo` denotes the same class as `App\Foo`.
+        // Compare case-insensitively (P5.1) so a lowercase variant can't slip past the reserved-root guard.
         $root = explode('\\', $ns)[0];
-        if (in_array($root, self::RESERVED_NAMESPACES, true)) {
+        $reserved = array_map('strtolower', self::RESERVED_NAMESPACES);
+        if (in_array(strtolower($root), $reserved, true)) {
             throw new ModuleException("Manifest 'namespace' may not start with the reserved root '{$root}\\'.");
         }
 

@@ -33,8 +33,12 @@ class SearchController extends Controller
         $results = ($query->term === '' && ! $query->hasFacets()) ? collect() : $search->search($query);
 
         // Forums the viewer can see, for the forum-facet dropdown (categories excluded — only postable nodes).
+        // The club gate is the AUTHORITATIVE content-hiding enforcement (M1.5): the global `members
+        // forum.view = ALLOW` means a bare canDo() still resolves ALLOW on a private club forum for a
+        // logged-in non-member, so the facet must ALSO apply clubContentVisibleTo() — otherwise a private
+        // club's name/id leaks through the dropdown even though its content + directory listing do not.
         $forums = Forum::query()->where('type', 'forum')->orderBy('title')->get()
-            ->filter(fn (Forum $f) => $viewer->canDo('forum.view', $f->permissionScope()))
+            ->filter(fn (Forum $f) => $viewer->canDo('forum.view', $f->permissionScope()) && $f->clubContentVisibleTo($viewer))
             ->values();
 
         return view('search.index', [

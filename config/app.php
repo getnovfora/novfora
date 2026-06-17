@@ -17,6 +17,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Application Version
+    |--------------------------------------------------------------------------
+    |
+    | The NovFora release version (semver). Surfaced by /health, the backup/install
+    | manifests, and the upgrade fingerprint. Overridable via APP_VERSION for a
+    | packaged build; the default is the current release.
+    |
+    */
+
+    'version' => env('APP_VERSION', '1.0.0'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

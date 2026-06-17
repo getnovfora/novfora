@@ -1,22 +1,22 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.auth', ['authTitle' => 'Create your account'])
+@extends('layouts.auth', ['authTitle' => __('auth.register.title')])
 
 @section('auth')
     <form method="POST" action="{{ route('register') }}" class="space-y-4">
         @csrf
 
-        <x-ui.input label="Username" name="username" type="text" :value="old('username')" required autofocus autocomplete="username" />
+        <x-ui.input :label="__('auth.register.username_label')" name="username" type="text" :value="old('username')" required autofocus autocomplete="username" />
 
-        <x-ui.input label="Email" name="email" type="email" :value="old('email')" required autocomplete="email" />
+        <x-ui.input :label="__('auth.register.email_label')" name="email" type="email" :value="old('email')" required autocomplete="email" />
 
-        <x-ui.input label="Password" name="password" type="password" required autocomplete="new-password" />
+        <x-ui.input :label="__('auth.register.password_label')" name="password" type="password" required autocomplete="new-password" />
 
-        <x-ui.input label="Confirm password" name="password_confirmation" type="password" required autocomplete="new-password" />
+        <x-ui.input :label="__('auth.register.password_confirm_label')" name="password_confirmation" type="password" required autocomplete="new-password" />
 
         {{-- Anti-spam (ADR-0007 §2.2). Honeypot: hidden from humans, bots fill it. Timing: encrypted
              render-time, rejected if the form is submitted implausibly fast. --}}
         <div class="absolute -left-[9999px]" aria-hidden="true">
-            <label>Leave this field empty
+            <label>{{ __('auth.register.honeypot_label') }}
                 <input type="text" name="{{ config('novfora.antispam.registration.honeypot.field', 'hp_url') }}"
                        tabindex="-1" autocomplete="off" value="">
             </label>
@@ -35,10 +35,10 @@
             <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}"></script>
         @endif
 
-        <x-ui.button type="submit" size="lg" class="w-full">Create account</x-ui.button>
+        <x-ui.button type="submit" size="lg" class="w-full">{{ __('auth.register.submit') }}</x-ui.button>
     </form>
 
     <p class="mt-5 text-sm text-ink-muted">
-        Already have an account? <a href="{{ route('login') }}" class="text-accent hover:underline">Sign in</a>
+        {{ __('auth.register.already_have_account') }} <a href="{{ route('login') }}" class="text-accent hover:underline">{{ __('auth.register.sign_in_link') }}</a>
     </p>
 @endsection

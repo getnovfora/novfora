@@ -12,16 +12,23 @@ $status = null;
 $location = null;
 $body = false;
 
+// Bounded wait: a healthy server answers on the first attempt; a refused connection retries cheaply; a
+// server that ACCEPTS but never responds is capped so the acceptance test fails in ~30s rather than hanging
+// for minutes (60 × a 5s read timeout was a 5-minute worst case that stalled CI).
+$deadline = microtime(true) + 30.0;
 for ($i = 0; $i < 60; $i++) {
     $ctx = stream_context_create(['http' => [
         'method' => 'GET',
         'follow_location' => 0,
         'ignore_errors' => true, // capture 4xx/5xx bodies instead of throwing
-        'timeout' => 5,
+        'timeout' => 3,
     ]]);
     $body = @file_get_contents($url, false, $ctx);
     if (! empty($http_response_header)) {
         break; // got an HTTP response (any status)
+    }
+    if (microtime(true) >= $deadline) {
+        break; // give up — the server never came up / never responded
     }
     usleep(200000); // 0.2s — wait for php -S to come up, then retry
 }

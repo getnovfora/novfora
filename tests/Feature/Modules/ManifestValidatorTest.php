@@ -92,6 +92,14 @@ it('refuses a namespace that targets a core or framework root', function () {
     }
 });
 
+it('refuses a reserved root regardless of case (PHP class resolution is case-insensitive) — P5.1', function () {
+    // `app\Foo` resolves to the same class as `App\Foo`, so the guard must be case-insensitive.
+    foreach (['app\\Evil\\', 'illuminate\\Foo\\', 'LARAVEL\\Bar\\', 'liVeWire\\X\\'] as $ns) {
+        expect(fn () => (new ManifestValidator)->fromArray(validManifest(['namespace' => $ns])))
+            ->toThrow(ModuleException::class, 'reserved');
+    }
+});
+
 it('refuses a provider outside the module namespace, or with no namespace', function () {
     expect(fn () => (new ManifestValidator)->fromArray(validManifest([
         'namespace' => 'Modules\\Novfora\\Hello\\',

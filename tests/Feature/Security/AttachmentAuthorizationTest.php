@@ -10,6 +10,8 @@ use App\Models\AclEntry;
 use App\Models\Attachment;
 use App\Models\Forum;
 use App\Models\Group;
+use App\Models\Post;
+use App\Models\Topic;
 use App\Models\User;
 use App\Permissions\PermissionValue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -77,6 +79,23 @@ it('blocks an attached file in a forum the requester cannot view (the IDOR fix)'
     $this->actingAs(Users::inGroups(['members']))->get(route('attachments.show', $attachment))->assertForbidden();
     // …but the uploader keeps access to their own file.
     $this->actingAs($author)->get(route('attachments.show', $attachment))->assertOk();
+});
+
+it('denies an attachment on a soft-deleted (recycled) post to ordinary viewers, keeping uploader + moderator access (P5.1)', function () {
+    Storage::fake('local');
+    $forum = Forum::create(['slug' => 'general', 'title' => 'General', 'type' => 'forum']);
+    $author = Users::inGroups(['members', 'tl4']);
+    $attachment = attachInForum($forum, $author);
+
+    // A moderator recycles the topic (soft-delete) — its body disappears for ordinary viewers; so must its file.
+    $topic = Topic::findOrFail(Post::findOrFail($attachment->post_id)->topic_id);
+    $topic->delete();
+
+    $this->get(route('attachments.show', $attachment))->assertForbidden();                                  // guest
+    $this->actingAs(Users::inGroups(['members']))->get(route('attachments.show', $attachment))->assertForbidden();
+    // The uploader keeps their own file, and a moderator can still review the recycled content.
+    $this->actingAs($author)->get(route('attachments.show', $attachment))->assertOk();
+    $this->actingAs(Users::inGroups(['members', 'moderators']))->get(route('attachments.show', $attachment))->assertOk();
 });
 
 it('still serves an orphan attachment only to its uploader (unchanged)', function () {

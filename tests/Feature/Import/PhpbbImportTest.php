@@ -163,6 +163,40 @@ it('is idempotent on re-run and resumes newly-added rows', function () {
         ->and(Post::count())->toBe(3);
 });
 
+it('refuses a path-traversal physical_filename and never reads outside the attachments dir (P5.1)', function () {
+    Storage::fake('local');
+    $conn = legacyPhpbb();
+
+    $base = sys_get_temp_dir().'/novfora-phpbb-att-'.bin2hex(random_bytes(4));
+    @mkdir($base, 0777, true);
+    // A SECRET file ONE LEVEL ABOVE the configured attachments base (simulates the host's .env etc.).
+    $secretName = 'novfora-secret-'.bin2hex(random_bytes(4)).'.txt';
+    $secret = $base.'/../'.$secretName;
+    $secretBytes = 'TOP-SECRET-'.bin2hex(random_bytes(8));
+    file_put_contents($secret, $secretBytes);
+
+    // An attacker-controlled legacy row whose physical_filename climbs out of the base dir.
+    $conn->table('phpbb_attachments')->insert([
+        'attach_id' => 1, 'post_msg_id' => 1, 'poster_id' => 1,
+        'real_filename' => 'evil.txt', 'physical_filename' => '../'.$secretName, 'mimetype' => 'text/plain',
+    ]);
+
+    try {
+        $driver = new PhpbbDriver($conn, 'phpbb_', $base);
+        $report = app(ImportRunner::class)->import($driver);
+
+        // The traversal attachment is skipped: no Attachment row, and the secret bytes never reach the disk.
+        expect(Attachment::count())->toBe(0)
+            ->and($report['attachments']['imported'])->toBe(0);
+        foreach (Storage::disk('local')->allFiles() as $stored) {
+            expect(Storage::disk('local')->get($stored))->not->toContain($secretBytes);
+        }
+    } finally {
+        @unlink($secret);
+        @rmdir($base);
+    }
+});
+
 it('imports phpBB attachments and verifies their checksums + post content', function () {
     Storage::fake('local');
     $conn = legacyPhpbb();

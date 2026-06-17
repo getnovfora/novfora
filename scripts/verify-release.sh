@@ -3,7 +3,7 @@
 #
 # Acceptance test for a release bundle. Run in a PHP 8.3 env:
 #
-#   docker run --rm -v "$PWD:/src" -w /src forum-app:latest sh scripts/verify-release.sh /src/nevo-release.zip
+#   docker run --rm -v "$PWD:/src" -w /src forum-app:latest sh scripts/verify-release.sh /src/novfora-release.zip
 #
 # Two parts:
 #   1. Filesystem assertions on the extracted tree — including bootstrap/cache/packages.php PRESENT (the RH-1
@@ -56,7 +56,7 @@ ab node_modules
 echo "ASSERT_FAIL=$fail"
 
 echo ">> COLD HTTP boot (php -S, NO artisan first; minimal env: APP_KEY empty, no DB)"
-printf 'APP_NAME=NevoBB\nAPP_ENV=production\nAPP_KEY=\nAPP_DEBUG=false\nAPP_URL=http://localhost\nLOG_CHANNEL=stderr\n' > "$APP/.env"
+printf 'APP_NAME=NovFora\nAPP_ENV=production\nAPP_KEY=\nAPP_DEBUG=false\nAPP_URL=http://localhost\nLOG_CHANNEL=stderr\n' > "$APP/.env"
 php -S 127.0.0.1:"$PORT" -t "$APP/public" >"$WORK/serve.log" 2>&1 &
 SV=$!
 php "$SELF/lib/cold-client.php" "http://127.0.0.1:$PORT/"

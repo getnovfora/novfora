@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\DB;
  *     award time, immune to later config changes) only when this caller's delete actually removed the row,
  *     so two concurrent revokes can never double-decrement.
  *   • recomputeFor() — the authoritative self-heal: overwrite the denorm with the ledger SUM. Used by the
- *     nevo:reputation:recompute cron and by the account-deletion cascade AFTER it prunes ledger rows
+ *     novfora:reputation:recompute cron and by the account-deletion cascade AFTER it prunes ledger rows
  *     (never run ±deltas through a half-deleted graph — ADR-0025 extension).
  *
  * Out-of-order delivery on a multi-worker (enhanced) tier can transiently misorder a revoke/award pair for

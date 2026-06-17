@@ -5,8 +5,10 @@
 declare(strict_types=1);
 
 use App\Accessibility\AccessibilityAuditor;
+use App\Clubs\ClubService;
 use App\Forum\PostService;
 use App\Models\Forum;
+use App\Models\Tag;
 use App\Search\SavedSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
@@ -110,4 +112,78 @@ it('a member profile page is accessible', function () {
 it('the members index is accessible', function () {
     $member = Users::inGroups(['members']);
     auditResponse($this->actingAs($member)->get(route('members.index')));
+});
+
+// ── Phase 5 (P5.2): the Phase 3/4 + remaining user-facing surfaces the original gate did not cover ────────
+
+it('the top-members leaderboard is accessible', function () {
+    $member = Users::inGroups(['members']);
+    auditResponse($this->actingAs($member)->get(route('members.top')));
+});
+
+it('the activity home feed is accessible', function () {
+    $member = Users::inGroups(['members']);
+    auditResponse($this->actingAs($member)->get(route('home')));
+});
+
+it('the trending page is accessible', function () {
+    $member = Users::inGroups(['members']);
+    auditResponse($this->actingAs($member)->get(route('trending.index')));
+});
+
+it('the what-is-new page is accessible', function () {
+    $member = Users::inGroups(['members']);
+    auditResponse($this->actingAs($member)->get(route('whats-new')));
+});
+
+it('the saved/bookmarks page is accessible', function () {
+    $member = Users::inGroups(['members']);
+    auditResponse($this->actingAs($member)->get(route('saved.index')));
+});
+
+it('the notifications page is accessible', function () {
+    $member = Users::inGroups(['members']);
+    auditResponse($this->actingAs($member)->get(route('notifications.index')));
+});
+
+it('the notification settings page is accessible', function () {
+    $member = Users::inGroups(['members']);
+    auditResponse($this->actingAs($member)->get(route('settings.notifications')));
+});
+
+it('the preferences settings page is accessible', function () {
+    $member = Users::inGroups(['members']);
+    auditResponse($this->actingAs($member)->get(route('settings.preferences')));
+});
+
+it('the PM inbox + compose pages are accessible', function () {
+    $member = Users::inGroups(['members', 'tl1']);
+    auditResponse($this->actingAs($member)->get(route('pm.inbox')));
+    auditResponse($this->actingAs($member)->get(route('pm.create')));
+});
+
+it('a tag page is accessible', function () {
+    $tag = Tag::create(['name' => 'announcements', 'slug' => 'announcements', 'usage_count' => 0]);
+    auditResponse($this->get(route('tags.show', $tag)));
+});
+
+// ── Clubs (Phase 4 · M1) ──────────────────────────────────────────────────────────────────────────────────
+
+it('the clubs directory + create form are accessible', function () {
+    $member = Users::inGroups(['members', 'tl2']);
+    auditResponse($this->actingAs($member)->get(route('clubs.index')));
+    auditResponse($this->actingAs($member)->get(route('clubs.create')));
+});
+
+it('a club page + its roster are accessible', function () {
+    $owner = Users::inGroups(['members', 'tl2']);
+    $club = app(ClubService::class)->create($owner, ['name' => 'Accessible Club', 'privacy' => 'public']);
+
+    auditResponse($this->actingAs($owner)->get(route('clubs.show', $club)));
+    auditResponse($this->actingAs($owner)->get(route('clubs.members', $club)));
+});
+
+it('the membership/tiers page is accessible', function () {
+    $member = Users::inGroups(['members']);
+    auditResponse($this->actingAs($member)->get(route('membership.index')));
 });

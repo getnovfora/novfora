@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Auth;
 
+use App\Auth\ChallengesStaffTwoFactor;
 use App\Auth\Saml\Contracts\SamlProvider;
 use App\Auth\Saml\SamlException;
 use App\Auth\Saml\SamlManager;
@@ -15,7 +16,6 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirect;
 
 /**
@@ -28,6 +28,8 @@ use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirect;
  */
 class SamlController extends Controller
 {
+    use ChallengesStaffTwoFactor;
+
     public function __construct(private readonly SamlManager $saml) {}
 
     /** Begin SAML login: redirect to the IdP's SSO URL. */
@@ -59,10 +61,8 @@ class SamlController extends Controller
             return redirect()->route('login')->with('error', __('No NovFora account is linked to this SAML identity.'));
         }
 
-        Auth::login($link->user, remember: true);
-        $request->session()->regenerate();
-
-        return redirect()->intended(route('home'));
+        // Grant the session — staff with a confirmed authenticator step up to the TOTP challenge (P5.1).
+        return $this->grantSsoSession($request, $link->user);
     }
 
     /** SP metadata XML for the operator to register at the IdP. */

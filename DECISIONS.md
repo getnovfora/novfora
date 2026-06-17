@@ -2832,6 +2832,162 @@ Gate green: **full suite 1525 passed / 1 skipped / 0 failed** (12652 assertions)
 the gate logic + request shape are proven with a mocked HTTP client. The reporting feature stays inert until an
 operator sets a key and opts in.
 
+### ADR-0072 — Phase 5 adversarial security review (P5.1) (2026-06-16)
+**Status: Accepted — owner-authorized GA-hardening run; flagged for review.**
+
+**APEX (whole-app security).** A second full adversarial review — per-finding **verify-then-refute** over the
+entire surface, with emphasis on the Phase 3/4 additions the Phase-1.5 + Wave-8.4 passes never covered. 11
+domain reviewers fanned out; each HIGH/MEDIUM candidate faced an independent 3-lens refuter panel
+(reachability · existing-mitigation · severity); survivors were re-read and fixed with a regression test.
+Full writeup + findings table: [`docs/architecture/security-review-phase5.md`](docs/architecture/security-review-phase5.md).
+
+**Recorded assumption — model routing.** CLAUDE.md routes security/permission/untrusted-input work to **Fable @
+max**. `claude-fable-5` was **unavailable in this build environment** (every Fable sub-agent erred), so the apex
+rung was taken at the next-highest available tier, **Opus 4.8 (1M)**, for both reviewers and panels — a
+conservative, security-preserving fallback (a stronger model would only surface more). Flagged so it is not read
+as a routing violation.
+
+**Outcome.** **No HIGH confirmed.** 8 MEDIUM + 3 LOW + 2 INFO **fixed** (each with a test, no control weakened);
+6 candidates **refuted**.
+- **Fixed (Med):** (1) search forum-facet leaked private-club names to logged-in non-members → add
+  `clubContentVisibleTo` gate; (2) OAuth/SAML login skipped mandatory **staff 2FA** → `ChallengesStaffTwoFactor`
+  trait defers staff to Fortify's TOTP challenge on every SSO path; (3) OAuth JIT signup bypassed
+  `registration.enabled` + the anti-spam screener + **email/IP bans** → `resolveForLogin` mirrors
+  `CreateNewUser` (refuse / flag→pending); (4) REST `createPost` ignored the **locked-topic** gate → shared
+  `Topic::isReplyable()`; (5) installer **DB-test SSRF** reachable as a direct Livewire action, bypassing the
+  setup token → re-assert the token at the sink; (6) Stripe webhook granted without **`payment_status`** proof →
+  require paid/no-payment-required; (7) **unbounded `@mention` fan-out** (mass-notify + sync DoS) → cap at
+  `antispam.mention_fanout_cap` (10); (8) importer **legacy-attachment path traversal** → reject `..`/scheme at
+  the read site.
+- **Fixed (Low/Info):** (9) Stripe idempotency had no DB UNIQUE → reversible `UNIQUE(provider, provider_ref)`
+  migration + violation catch; (10) `/api/v1` ran without the install/upgrade maintenance gates → applied ahead
+  of token auth; (11) attachment on a soft-deleted post still downloadable → mirror the trashed gate;
+  (12) manifest reserved-namespace check case-insensitive; (13) clamp + strip control/bidi from OAuth
+  `display_name`/`nickname`.
+- **Refuted (recorded):** sole-owner club orphan (data-integrity, not security — already an ADR-0047
+  fast-follow); API skips the trust-tiered post rate limiter (bounded by `throttle:api` + the engine/anti-spam
+  pipeline); `acl_entries` no DB UNIQUE (resolver is duplicate-tolerant); 2FA mutations need no password
+  re-confirm (documented Phase-2 deferral, ADR-0019); OAuth callback IP-only throttle (protocol cap bounds it);
+  sandbox quoted-URL scheme escape (admin-trust-gated).
+
+**Gate.** Every fix committed only at a green boundary (Pest + PHPStan L5 + Pint). The new regression tests are
+added across nine suites (clubs, import, modules, install, api, auth, membership, notifications, security).
+
+### ADR-0073 — i18n completeness wave: proof locale + auth/error externalisation (P5.3) (2026-06-16)
+**Status: Accepted — owner-authorized GA-hardening run; flagged for review.**
+
+**Context.** ADR-0043 shipped the i18n framework (allowlist `Locales`, `SetLocale` precedence, validated
+`POST /locale`, `<html lang/dir>` RTL, 7 registered locales) + the search surface, and explicitly deferred the
+~200-view string sweep as "mechanical follow-up." P5.3 completes the framework-level guarantees and proves the
+translation path, without attempting a full 201-view sweep (which is unverifiable without a browser in this
+unattended run and is, per the Phase-5 fence, community-contributable).
+
+**Decision.**
+1. **Proof locale `es`** — a curated HUMAN translation of `lang/en/{common,search,auth,errors}.php` under
+   `lang/es/`. Not a machine translation of the whole app (the fence forbids that); it proves switcher →
+   `SetLocale` → `__()` end-to-end with real non-English strings + localised pluralisation.
+2. **Externalisation wave** — every `auth/*` screen and every `errors/*` page (the highest-traffic
+   unauthenticated surfaces, the first thing every visitor sees) into new `lang/en/auth.php` + `lang/en/errors.php`.
+3. **Tests** (the fence's required three, now explicit): a missing key falls back to `en` per-key (an
+   untranslated registered locale `fr`); RTL renders (`dir="rtl"`, already in ADR-0043); the switch persists
+   (already in ADR-0043); plus the `es` proof locale renders Spanish.
+
+**Recorded scope assumption (residue).** The authenticated front-end (`forum/clubs/pm/profiles/settings/…`, the
+~92 `components/`) and the staff-facing `admin/` ACP (~33 views) remain on hardcoded English — DOCUMENTED as the
+mechanical, community-contributable residual (see docs/architecture/i18n-and-rtl.md). The framework makes this
+safe to land incrementally: an un-externalised string shows its literal English and any locale missing a key
+falls back to `en`, so partial externalisation + partial locales are always correct. This is **not** a 100%
+externalisation; it is a complete framework + proof + the visitor-facing surface, with the rest flagged.
+
+**Tested.** `LocalizationTest` → 11 (was 9; + es-renders-Spanish, + fr-per-key-fallback). All `auth/*` +
+`errors/*` views recompile and render (a sub-agent's smart-quote slip in 6 views was caught by the gate —
+error-page renders 500'd — and fixed). Gate green (Pest + PHPStan L5 + Pint).
+
+### ADR-0074 — Performance: hot-path query profiling + the N+1 regression gate (P5.4) (2026-06-16)
+**Status: Accepted — owner-authorized GA-hardening run; flagged for review.**
+
+**Context.** ADR-0045 shipped the load harness (seeder + k6/artillery + procedure) but ran no numbers (a
+traffic test needs a server + binary + representative hardware, out of scope for an unattended build). P5.4 adds
+the deterministic half — profiling the query SHAPE of the hot paths, which is what actually catches the perf bug
+that hurts a forum (an N+1 turning one page into hundreds of queries).
+
+**Decision / finding.** New `tests/Feature/Performance/HotPathQueryTest.php` (run in the normal gate) seeds a
+page-full of items with distinct authors and asserts a BOUNDED query count per surface. Captured baseline:
+board index **13 (warm/steady-state)**, forum listing/topic/search/clubs all **< 40–45**. **No steady-state N+1
+was found.** The board index's cold build (~69 with 8 forums) populates the 60s `forum.index.tree` fragment
+cache + warms the resolver/ACL cache — amortised to once per TTL. Hot-path columns are already indexed (posts
+`(topic_id,position)`/`(topic_id,created_at)`/`user_id`/`approved_state`; topics `forum_id`; forums
+`parent_id`), so the bounded queries are seek-friendly.
+
+**No speculative index added.** A composite `(forum_id, is_pinned, last_posted_at)` for the forum-listing sort
+was considered but NOT added: the `last_posted_at IS NULL` ordering expression may defeat index-sort use, and it
+cannot be validated without an at-scale MySQL EXPLAIN — which would violate "tests with every change." It is
+documented as a conditional, reversible enhanced-tier tuning step instead.
+
+**Documented (load-testing.md):** the captured baseline table, the regression gate, the enhanced-tier procedure
++ suggested SLOs (baseline reads p95 < 600ms / search < 1.5s; enhanced reads < 250ms / search < 300ms),
+capacity guidance, and the **validate-before-go-live** items (run k6/artillery at scale on the real
+MySQL/enhanced host; EXPLAIN the forum-listing sort). The enhanced tier was **NOT run against a real host.**
+
+### ADR-0075 — 1.0 release readiness: brand-rename completion, gate, version (P5.5) (2026-06-16)
+**Status: Accepted — owner-authorized GA-hardening run; flagged for review.**
+
+**Decision.** Complete the Phase-5 "rename surface #8" (ADR-0024/0026/0028) so the retired `nevo`/`NevoBB`
+codename survives **only** in historical ADR/doc references, and bump to **1.0.0**.
+1. **Command prefix** `nevo:` → `novfora:` (`RecomputeBadges`/`RecomputeReputation` commands + their
+   schedules in `routes/console.php` + `DemoSeeder` + the 4 tests that invoke/assert them).
+2. **Editor island** `nevoEditor` → `novforaEditor` (`resources/js/editor/island.js`, `app.js`,
+   `components/content-editor.blade.php`); **assets rebuilt** (`npm run build`) so the prebuilt `public/build`
+   carries the new name (old hashed asset removed — no `nevo` remains in the build).
+3. **Dev/CI infra** DB/user/volume/network names + script copyrights renamed (`nevo_test`→`novfora_test`,
+   `nevo`→`novfora`, `NevoBB`→`NovFora`) across `ci.yml`, `docker-compose.yml`, `docker/*`, `.env.example`,
+   `scripts/*`, `.gitignore`, `pint.json`, the pagination view comment.
+4. **CI brand gate:** a new `static`-job step fails the build if `git grep -i nevo` matches anything outside
+   the historical doc set — the ROADMAP 1.0 exit criterion, now enforced.
+5. **Version:** `config/app.php` gains `version => env('APP_VERSION', '1.0.0')` (surfaced by `/health`, the
+   backup/install manifests, the upgrade fingerprint; replaces the `'1.0.0-mvp'` call-site fallback).
+6. **Hygiene:** removed `.env.root-stale` — a stray committed duplicate of `.env.example` (blank `APP_KEY`,
+   no real secret) accidentally committed in `b3ed796`; a `.env`-named file does not belong in the repo.
+
+**Docs → 1.0.** New `CHANGELOG.md` (Keep-a-Changelog; the 1.0.0 entry summarises Phases 1–5 + the
+validate-before-go-live caveats) and `docs/product/release-checklist-1.0.md` (pre-flight gates → cut → go-live
+validation). `README`, `getting-started` (install+upgrade), `CONTRIBUTING`/`GOVERNANCE`/`CODE_OF_CONDUCT`,
+`LICENSE` already present + brand-clean.
+
+**Tested.** The renamed commands resolve + pass their cron tests; the full suite + PHPStan L5 + Pint stay green;
+`git grep -i nevo` is docs-only. No test asserted the old `1.0.0-mvp` literal, so the bump is non-breaking.
+
+### ADR-0076 — Fresh-install readiness: the from-scratch redeploy path, proven (P5.6) (2026-06-16)
+**Status: Accepted — owner-authorized GA-hardening run; flagged for review.**
+
+**Context.** The owner will redeploy 1.0 on a new host via the no-SSH path; it "MUST be clean." This unit
+proves that path end to end.
+
+**Decision / evidence.**
+1. **Fresh-install smoke** (`tests/Feature/Install/FreshInstallSmokeTest.php`, in the normal gate): drives the
+   SAME `InstallRunner` the web wizard + `novfora:install` CLI use, against a truly EMPTY sqlite DB, and
+   asserts the outcome — schema created (users/groups/permissions/roles/acl_entries/forums/topics/posts), the
+   system posture seeded (`admins`/`members`/`guests` + `tl4` groups, the permission catalogue, roles), and a
+   first admin who is active + TL4 + email-verified + in `admins` AND **actually resolves
+   `admin.access` through the engine** (the real proof, not just rows) — and the install **lock written last**.
+   21 assertions, green.
+2. **Build artifact:** `scripts/build-release.sh` (SKIP_NPM, host-prebuilt assets) produced a clean
+   `novfora-release.zip` — `bootstrap/cache/packages.php` ships (the RH-1 cold-boot fix), `services.php`/
+   `config.php`/`.env`/`storage/installed`/`install-token.txt`/`tests`/`docs`/`node_modules` all absent
+   (asserted directly).
+3. **Cold HTTP boot:** the extracted artifact, booted with `php -S` and a minimal env (blank APP_KEY, no DB,
+   no `artisan` first), returns **`GET /` → 302 → /install** — the exact fresh-host first visit.
+4. **Tooling hardening:** `scripts/lib/cold-client.php` (the verify-release poller) gained a 30s overall
+   deadline — a server that accepts-but-stalls now fails the acceptance test in ~30s instead of the previous
+   60×5s = 5-minute hang.
+
+**Env note (not a defect).** `verify-release.sh`'s full run does not cleanly *return* under `docker exec` in
+this WSL/Docker setup because the backgrounded `php -S` is not reaped without a container init/PID-reaper; its
+two halves (the filesystem assertions and the cold-boot 302→/install) were each verified directly here and pass.
+Run the script as-is in a normal container/CI (it passed in a prior session — see PROJECT-STATE beta bundle).
+`.env.example` (APP_NAME=NovFora, DB=novfora) and `docs/getting-started.md` (wizard flow, prebuilt assets,
+no-SSH) are current.
+
 ### ADR-0070 — First-class subdirectory install (RH-4) (2026-06-16)
 **Status: Accepted — owner-authorized build; flagged for review.** Implements the design spike
 `docs/product/rh4-subdirectory-install-spike.md`.
