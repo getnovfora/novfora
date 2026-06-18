@@ -28,6 +28,12 @@ canonical `build/` + `storage/` via **Option A** (symlinked `public/`, default) 
 rebuild-drift (G2) guards in the install matrix. Recipe + Hostinger walkthrough in
 `docs/REAL-HOST-VALIDATION.md` §3b.
 
+**UI/UX polish (post-GA, branch `claude/ui-ux-nav-login-infocenter`, 2026-06-17):** three independent fixes off
+`main` — a **responsive header** (CSS-only; the wordmark no longer wraps at mid widths), a **login i18n** code fix
+(framework `auth.failed`/`throttle` defaults restored in `lang/en/auth.php`; the live raw-token render is a host
+**deploy gap** — redeploy with `lang/` + `optimize:clear`), and a **classic Info Center** on the board index
+(statistics + opt-in who's-online, aggregate-only, **no migration** — **ADR-0077**).
+
 **Carried-in refinements:** Laravel 13 + Livewire 4; **PHP 8.3 floor** *(revises brief's 11/3 and the 8.2
 floor — flagged at the Phase 0 gate)*; no-SSH installer; coarse-cron-tolerant queue; WYSIWYG↔Livewire spike as
 the #1 risk; anti-spam first-class from Phase 1; a11y/i18n baked in throughout.

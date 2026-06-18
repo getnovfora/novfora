@@ -56,3 +56,12 @@ it('serves every public route with no 5xx, on first render and on the cache hit'
         }
     }
 });
+
+it('renders the brand wordmark as a non-wrapping, shrink-proof link (responsive-header guard)', function () {
+    // Fix 1 (responsive header): the brand <a> must keep `whitespace-nowrap` + `shrink-0` so the wordmark
+    // never wraps to two lines when the header row gets tight at mid widths (640–1024px). A regression here
+    // is purely visual, so this cheap markup assertion is the right guard.
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('shrink-0 whitespace-nowrap', false);
+});

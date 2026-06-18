@@ -59,6 +59,9 @@
         {{-- Configurable layout region (ADR-0032) — admin-placed widgets below the forum list. --}}
         <x-region name="forum_bottom" />
 
+        {{-- Classic Info Center (ADR-0077): board statistics + opt-in who's-online, above the activity feed. --}}
+        @include('forum.partials.info-center')
+
         {{-- Community activity feed (P2-M3): global, per-viewer permission-filtered, cached primitives. --}}
         <livewire:community.activity-feed />
         @if ($sidebarHtml !== '')

@@ -8,6 +8,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Framework auth scaffolding (failed / throttle)
+    |--------------------------------------------------------------------------
+    |
+    | Laravel ships no lang/en/auth.php by default; the moment this file exists it
+    | OVERRIDES the whole auth.* namespace, so without these strings __('auth.failed')
+    | and __('auth.throttle') render the raw token on a failed / throttled login.
+    |
+    | The framework's third default — the `password` string — is deliberately omitted:
+    | `auth.password` is already the forgot-password UI group below, and the only
+    | current_password check (App\Actions\Fortify\UpdateUserPassword) supplies its own
+    | message, so nothing reads the framework string. Adding it here would just be a
+    | duplicate array key shadowed by that group.
+    |
+    */
+    'failed' => 'These credentials do not match our records.',
+    'throttle' => 'Too many login attempts. Please try again in :seconds seconds.',
+
+    /*
+    |--------------------------------------------------------------------------
     | login screen
     |--------------------------------------------------------------------------
     */

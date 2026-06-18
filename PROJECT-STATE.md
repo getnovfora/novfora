@@ -11,7 +11,35 @@
 
 ---
 
-## 🚀 Phase 5 — HARDENING → GA on `claude/phase-5-ga` — 2026-06-16 (LATEST · in PR #30 → `main`)
+## 🎨 UI/UX polish on `claude/ui-ux-nav-login-infocenter` — 2026-06-17 (LATEST · off `main`; phase-5-ga + RH-4 merged)
+
+Three independent, conventional, DCO-signed, `Tommy Huynh`-authored commits, cut off `main` after `claude/phase-5-ga`
+(PR #30) and RH-4 landed. **NOTHING IS PUSHED** — push is interactive-only in the sandbox; the owner pushes + opens
+the PR. Sonnet-class per CLAUDE.md routing (view boilerplate / tiny CRUD — none hit the apex). Each gated in
+`forum-dev` at a green boundary (`test --parallel` · PHPStan L5 · Pint · `migrate`).
+
+- **Fix 2 — login i18n (`fix(i18n)`):** `lang/en/auth.php` (shipped on phase-5-ga) overrides Laravel's `auth.*`
+  namespace but omitted the framework scaffolding strings, so a failed/throttled login rendered the raw `auth.failed`
+  token. Added `failed` + `throttle`. The third default — the `password` string — is **intentionally NOT added**:
+  `auth.password` is already the forgot-password UI group, and the only `current_password` check
+  (`App\Actions\Fortify\UpdateUserPassword`) supplies its own message, so nothing reads the framework string (a
+  duplicate key would just be shadowed). Guard: `tests/Feature/Auth/AuthLangKeysTest.php`.
+  ⚠ **DEPLOY GAP — owner action (no repo fix possible):** the live `dev.novfora.com/login` raw `auth.login.*` render
+  is a host build that shipped the keyed Blade views **without** the `lang/` directory. Redeploy **including `lang/`**
+  then run `php artisan optimize:clear` on the host (verify `ls -l lang/en/auth.php` there first).
+- **Fix 1 — responsive header (`fix(ui)`, CSS-only):** the single-breakpoint header wrapped the wordmark at mid
+  widths. Brand link `shrink-0 whitespace-nowrap` (+ small-screen truncate guard); search is the one flexible child
+  (`min-w-0`, deferred to `md`); nav `md:gap-1`; auth cluster `shrink-0` + `ml-auto md:ml-1`. Deliberate trade-off:
+  search leaves the bar in the 640–767px band (the hamburger owns it there). Brand-markup guard added to the
+  public-routes smoke test.
+- **Fix 3 — classic Info Center (`feat(forum)`, ADR-0077):** Statistics + opt-in Who's-Online panels above the
+  activity feed. `App\Forum\InfoCenter` read-model caches primitives only (RH-9) under `novfora:infocenter:stats`,
+  rehydrates the newest member after the boundary; aggregate-only (no hidden-forum leak); **no migration**.
+  `tests/Feature/Forum/InfoCenterTest.php` (6 cases).
+
+---
+
+## 🚀 Phase 5 — HARDENING → GA on `claude/phase-5-ga` — 2026-06-16 (MERGED → `main`, PR #30)
 
 **Unattended, owner-authorized GA-readiness run off `main` (Phase 4 fully merged: ADR-0060 + ADR-0069 present).
 17 conventional, DCO-signed, `Tommy Huynh`-authored commits on `claude/phase-5-ga`. NOTHING IS PUSHED** — push
