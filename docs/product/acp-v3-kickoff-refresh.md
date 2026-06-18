@@ -73,6 +73,11 @@ new surface is the **management UX** + **admin hierarchy** + **delegation** + **
   `members.php` collided with `__('Members')` and was folded into `common.*`). For ACP v3: keep everything under a
   single **`admin.*`** namespace (+ shared `common.*`), and **never** add a group file whose name matches a bare
   string-key in use. Verify collision-safety before adding any new group.
+- **G9 — query-builder writes to `acl_entries` must bump `AclVersion` by hand (HARD constraint, learned v3-0/v3-c).**
+  A query-builder `delete()` / `update()` (and any raw/bulk write) **skips Eloquent model events**, so the
+  cache-invalidation hook never fires and the resolver serves **stale** grants. Every non-Eloquent write or delete
+  on `acl_entries` — the prune cron, the editor's "No" (delete) path, and the upcoming delegation prune /
+  moderator + co-owner removals (v3-f / v3-b / v3-a) — must call the `AclVersion` bump **explicitly**.
 
 ---
 

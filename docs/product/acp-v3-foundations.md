@@ -23,7 +23,9 @@ parallel evaluation. · G2 **global / forum / club** scope everywhere. · G3 add
 G4 `PermissionInspector` is the **test oracle** for every write path. · G5 apex security fences (delegation
 ceiling, last-owner guard, inspector co-owner-gated, ACP sections gated by real keys). · G6 **Fable @ max** for any
 `acl_entries`/resolver/delegation slice. · G7 i18n `admin.*` from day one. · G8 **never** name a `lang/en/<group>.php`
-that case-collides with a bare `__('Word')` string-key (learned ADR-0079 — it 500s on the case-insensitive mount).
+that case-collides with a bare `__('Word')` string-key (learned ADR-0079 — it 500s on the case-insensitive mount). ·
+G9 a query-builder `delete()`/`update()` on `acl_entries` skips model events — **bump `AclVersion` by hand** or the
+resolver serves stale grants (learned v3-0/v3-c; applies to v3-f prune + v3-b/v3-a removals).
 
 ---
 
