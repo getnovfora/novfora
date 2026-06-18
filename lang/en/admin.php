@@ -48,6 +48,7 @@ return [
         'prefixes' => 'Prefixes',
         'groups' => 'Groups',
         'group_permissions' => 'Group permissions',
+        'roles' => 'Roles',
         'join_requests' => 'Join requests',
         'directory' => 'Directory',
         'profile_fields' => 'Profile fields',
@@ -96,6 +97,11 @@ return [
     ],
     'landing_jump' => 'Open a page in this section:',
     'landing_empty' => 'No pages are available in this section yet.',
+
+    // The custom role builder (v3-d).
+    'roles' => [
+        'title' => 'Roles',
+    ],
 
     // The card-per-group permission editor (v3-c).
     'perms' => [

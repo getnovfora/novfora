@@ -382,6 +382,7 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         // the v3-e join-request approval queue.
         Route::view('/groups/manage', 'admin.groups')->name('members.groups');       // <livewire:admin.groups />
         Route::view('/groups/permissions', 'admin.group-permissions')->name('groups.permissions'); // <livewire:permissions.group-editor>
+        Route::view('/groups/roles', 'admin.roles')->name('groups.roles');           // <livewire:admin.roles /> (v3-d)
         Route::view('/groups/requests', 'admin.group-requests')->name('groups.requests'); // <livewire:admin.group-requests /> (v3-e)
 
         // Members section — directory visibility, badges, and membership tiers/grants.
