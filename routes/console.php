@@ -103,6 +103,16 @@ Schedule::command('novfora:posts:publish-scheduled')->everyMinute()->withoutOver
 // users' acl_entries). Baseline-safe — no worker required.
 Schedule::command('novfora:tiers:expire')->hourly()->withoutOverlapping()->skip($duringRestore);
 
+// Expired-grant prune (ACP v3 · v3-0 / ADR-0080 §5): hard-delete lapsed TTL acl_entries rows (temporary-access
+// delegation, v3-f) and bump AclVersion so caches refresh. The resolver's expiry filter is already
+// authoritative, so this is hygiene only — a lagging run never honours an expired grant. Every few minutes so a
+// lapsed delegation is cleared promptly; a SHORT overlap mutex (not Laravel's 24h default — RH-10 lesson) so a
+// hard-killed tick can't strand it, and skipped during a restore (it writes acl_entries).
+Schedule::command('novfora:acl:prune-expired')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(5)
+    ->skip($duringRestore);
+
 // Reputation denorm self-heal (P2-M5 ⚙): reconcile users.reputation_points to the reputation_events
 // ledger — belt-and-braces under any missed/reordered queue event. Idempotent + bounded, with a SHORT
 // overlap mutex (not Laravel's 24h default) so a hard-killed run can't strand the heal (RH-10 lesson).

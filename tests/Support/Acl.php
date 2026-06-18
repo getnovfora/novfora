@@ -102,8 +102,11 @@ final class Acl
         return $user->fresh();
     }
 
-    /** Write a single three-state ACL entry for a holder (User, Group, or group-slug string). */
-    public function grant(User|Group|string $holder, string $permission, Scope $scope, PermissionValue $value): AclEntry
+    /**
+     * Write a single three-state ACL entry for a holder (User, Group, or group-slug string). Pass $expiresAt to
+     * write a TTL grant (ACP v3 · v3-0) — a past value models a lapsed delegation, a future value a live one.
+     */
+    public function grant(User|Group|string $holder, string $permission, Scope $scope, PermissionValue $value, mixed $expiresAt = null): AclEntry
     {
         [$type, $id] = $this->holderRef($holder);
 
@@ -114,6 +117,7 @@ final class Acl
             'scope_type' => $scope->type,
             'scope_id' => $scope->id,
             'value' => $value->value,
+            'expires_at' => $expiresAt,
         ]);
     }
 

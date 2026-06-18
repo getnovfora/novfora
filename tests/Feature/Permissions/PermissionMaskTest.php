@@ -368,3 +368,69 @@ describe('permission isolation', function () {
         $acl->assertDecision($u, 'forum.post', $acl->forumScope, false, 'default');
     });
 });
+
+// ── 11. TTL grants — acl_entries.expires_at (ACP v3 · v3-0, ADR-0080 §5) ─────────────────────────
+// The resolver's expiry filter is AUTHORITATIVE: a lapsed row never loads, so it can never sway a verdict —
+// independent of the prune cron. NULL expiry = never-expire = byte-identical to every pre-v3 row (the rest of
+// this file, which sets no expiry, is itself that regression guard). The inspector trace (the oracle) is asserted.
+describe('TTL / expires_at', function () {
+    it('honours a not-yet-expired TTL grant and surfaces the expiry in the trace', function () {
+        $acl = Acl::make();
+        $u = $acl->user(['members']);
+        $acl->grant('members', P, $acl->forumScope, V::Allow, now()->addHour());
+        $d = $acl->assertDecision($u, P, $acl->forumScope, true, 'group_allow');
+        expect($d->trace)->toHaveCount(1);
+        expect($d->trace[0])->toHaveKey('expires_at'); // the trace shows the expiry rule for a live TTL grant
+    });
+
+    it('a never-expiring (NULL) grant carries NO expiry annotation (byte-identical to pre-v3)', function () {
+        $acl = Acl::make();
+        $u = $acl->user(['members']);
+        $acl->grant('members', P, $acl->forumScope, V::Allow); // expires_at NULL
+        $d = $acl->assertDecision($u, P, $acl->forumScope, true, 'group_allow');
+        expect($d->trace[0])->not->toHaveKey('expires_at');
+    });
+
+    it('flips the verdict the instant the grant passes its expiry (the row drops out of the read)', function () {
+        $acl = Acl::make();
+        $u = $acl->user(['members']);
+        $entry = $acl->grant('members', P, $acl->forumScope, V::Allow, now()->addHour());
+        $acl->assertDecision($u, P, $acl->forumScope, true, 'group_allow'); // live → allowed
+        $entry->update(['expires_at' => now()->subHour()]);                 // now lapsed (bumps AclVersion)
+        $d = $acl->assertDecision($u, P, $acl->forumScope, false, 'default'); // verdict flipped
+        expect($d->trace)->toBe([]); // the expired row was filtered before the trace was built
+    });
+
+    // Adversarial (ADR-0080 §5): an expired NEVER must not resurrect an ALLOW.
+    it('an expired NEVER alone leaves default-deny — it never resurrects into an ALLOW', function () {
+        $acl = Acl::make();
+        $u = $acl->user(['members']);
+        $acl->grant('members', P, $acl->forumScope, V::Never, now()->subHour()); // lapsed hard-deny, nothing else
+        $acl->assertDecision($u, P, $acl->forumScope, false, 'default'); // NOT 'never', and emphatically NOT allowed
+    });
+
+    it('a lapsed NEVER no longer blocks a standing ALLOW (the deny was time-bound)', function () {
+        $acl = Acl::make();
+        $u = $acl->user(['members']);
+        $acl->grant('members', P, $acl->forumScope, V::Allow);                   // standing allow
+        $acl->grant('members', P, $acl->forumScope, V::Never, now()->subHour()); // lapsed hard-deny
+        $acl->assertDecision($u, P, $acl->forumScope, true, 'group_allow');
+    });
+
+    // Adversarial (ADR-0080 §5): a live (not-yet-expired) delegated ALLOW must still respect a standing NEVER.
+    it('a live TTL ALLOW still loses to a standing (never-expiring) NEVER', function () {
+        $acl = Acl::make();
+        $u = $acl->user(['members']);
+        $acl->grant('members', P, $acl->forumScope, V::Allow, now()->addHour()); // live delegated allow
+        $acl->grant('members', P, $acl->forumScope, V::Never);                   // standing absolute deny
+        $acl->assertDecision($u, P, $acl->forumScope, false, 'never');
+    });
+
+    it('a user TTL ALLOW expiring lets a standing group ALLOW keep the grant (no false deny)', function () {
+        $acl = Acl::make();
+        $u = $acl->user(['members']);
+        $acl->grant('members', P, $acl->forumScope, V::Allow);                 // standing group allow
+        $acl->grant($u, P, $acl->forumScope, V::Allow, now()->subHour());       // lapsed user allow (irrelevant)
+        $acl->assertDecision($u, P, $acl->forumScope, true, 'group_allow');     // still allowed via the group
+    });
+});

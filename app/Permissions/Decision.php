@@ -14,7 +14,11 @@ final class Decision
 {
     /**
      * @param  string  $reason  banned | never | user_allow | group_allow | default
-     * @param  list<array{holder:string,scope:string,value:string,note?:string}>  $trace
+     * @param  list<array{holder:string,scope:string,value:string,note?:string,expires_at?:string}>  $trace
+     * @param  ?\DateTimeInterface  $cacheUntil  the earliest TTL among the rows that fed this verdict (ACP v3 ·
+     *                                           v3-0): the cached can() must not outlive it, so the expiry
+     *                                           filter stays authoritative on the cached path even if the prune
+     *                                           cron lags. null = no TTL row contributed → cache the normal span.
      */
     public function __construct(
         public bool $granted,
@@ -22,6 +26,7 @@ final class Decision
         public ?Scope $decidedAtScope = null,
         public ?string $decidedByHolder = null,
         public array $trace = [],
+        public ?\DateTimeInterface $cacheUntil = null,
     ) {}
 
     public function summary(): string
