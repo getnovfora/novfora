@@ -11,7 +11,49 @@
 
 ---
 
-## 🛡️ ACP v3 · v3-e — group system on `claude/acp-v3-e-groups` — 2026-06-18 (LATEST · stacked on `claude/acp-v3-foundations`, which carries v3-0/v3-h/v3-c)
+## 🛡️ ACP v3 · v3-d — custom role builder on `claude/acp-v3-d-roles` — 2026-06-18 (LATEST · stacked on `claude/acp-v3-e-groups`, which stacks on `claude/acp-v3-foundations`)
+
+**Unattended, owner-authorized session.** Built ACP v3 slice **v3-d** (custom role builder) on the existing engine,
+per ADR-0080 slice order. **Base note (STACKING):** branched off `claude/acp-v3-e-groups` HEAD (NOT `main`) — v3-e
+is not yet merged; the whole stack is the owner's to merge, **foundations → v3-e → v3-d**. Conventional, DCO-signed,
+`Tommy Huynh`-authored commits, gated green in `forum-dev`. **NOTHING IS PUSHED** — branch is **local-only**.
+
+**The builder (Groups → Roles, `/admin/groups/roles`, `<livewire:admin.roles>`).** CRUD `is_preset=false` roles as
+a name + a **Yes / No / Never** grid over the permission catalog, grouped into clusters by the catalog `group`
+field. The four seeded system presets (administrator / moderator / member / guest, `is_preset=true`) are READ-ONLY.
+A built role applies as a **custom group's baseline** via `RoleManager::assignToGroup` → `RoleExpander::assignToGroup`
+(expands at global scope; system groups refused). **No migration** — `is_preset` already distinguishes custom from
+preset; permission keys carry dots so the grid uses `setValue(key,state)` actions, not a dotted `wire:model`.
+
+**Apex fence — convergent re-expansion (the v3-d correctness seam).** `RoleExpander::reexpand()` previously only
+UPSERTED, so a key DROPPED from a role lingered on every holder as a stale grant. It now also DELETES a
+caller-supplied `droppedKeys` set at each assignment's scope (and `retract()` removes a role's whole footprint on
+delete). `RoleManager::save` captures the pre-edit keys, computes `dropped = old − new`, and converges every
+assigned holder in one transaction; `delete` retracts everywhere. Deletion is KEY-SCOPED (only named keys), so a
+co-grant on a different key survives. Query-builder deletes skip the `AclEntry` event (G9) → the policy layer bumps
+`AclVersion` once per op. **Provenance caveat (review MEDIUM, scoped):** `acl_entries` has no `role_id`, so a key
+that is BOTH in a role AND set by the card editor on the same (group,scope) is one row — removing the role removes
+it (last-writer-wins; a group is managed by a role baseline OR the card editor on a given key, not both — ADR-0084).
+
+**Escalation + self-lockout fences (mirror v3-c; service backstop + SFC 403 pre-check).** Only a FULL admin
+(`isAdmin()`) may put / assign / tear-down an **Administration-cluster** key (catalog `group=='Administration'`);
+no ALLOW may exceed the actor's own ceiling (`canDo(key,global)`); NEVER is ceiling-exempt but still admin-fenced.
+The admins group can never be stripped of its recovery keys (`admin.access` + `permissions.manage`). **The apex
+review found 1 HIGH** — the self-lockout + admin-tier guard were missing on the destructive `delete`/`unassign`
+paths — **fixed and pinned by tests before commit** (the dangerous precondition is UI-unreachable, but the guards
+are now actor-independent backstops). It also surfaced the MEDIUM provenance note above (scoped, not a regression).
+
+**Gate at HEAD (all green):** `php artisan test --parallel` · Pint · PHPStan L5 · migrate **apply + rollback +
+re-apply** (no new migration — the existing reversible chain). Inspector-oracle tests (G4) are the correctness
+proof: a DROPPED key disappears from holders AND its row is gone (+ version bumped); ADD appears; co-grant survives;
+swap converges; the fences hold on every create/assign/unassign/delete path. ADR **0084** lifted into `DECISIONS.md`.
+
+**Next: v3-b** (per-forum moderator assignment + custom mod capabilities — a CONSUMER of the role model), then
+v3-a / v3-f / v3-g per ADR-0080.
+
+---
+
+## 🛡️ ACP v3 · v3-e — group system on `claude/acp-v3-e-groups` — 2026-06-18 (stacked on `claude/acp-v3-foundations`, which carries v3-0/v3-h/v3-c)
 
 **Unattended, owner-authorized session.** Built ACP v3 slice **v3-e** (group system) on the existing engine, per
 ADR-0080 slice order. **Base note:** branched off the tip that carries the merged v3 cycle — `main` does NOT yet

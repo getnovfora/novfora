@@ -62,9 +62,19 @@ idempotent, legacy-flat back-compat; hourly cron + queued criterion events) + a 
 it). Its apex fence is the **membership-cache seam** (`MembershipCache`, G9's sibling): a pivot join/leave/promote
 changes effective permissions WITHOUT an `acl_entries` write and fires no model events, so it explicitly refreshes
 the user's group signature (re-keying the per-user cache) + flushes the resolver memo + `VisibleForumIds`; routed
-`TrustLevelManager` + `GroupManager` through the same helper. Each apex slice (v3-0, v3-c) + the v3-e seam had an
-adversarial verify-then-refute review before commit. **Next: v3-d** (custom role builder), then v3-b / v3-a / v3-f /
-v3-g per ADR-0080. Branches are **local-only** (owner pushes).
+`TrustLevelManager` + `GroupManager` through the same helper. **v3-d ✅ the custom role builder (ADR-0084, branch
+`claude/acp-v3-d-roles`)** — a Groups → **Roles** surface to build `is_preset=false` roles as a Yes / No / Never
+grid over the catalog (clustered by the `group` field); system presets stay read-only; a built role applies as a
+custom group's baseline (`RoleExpander::assignToGroup`). Its apex fence is **convergent re-expansion**:
+`reexpand()` now DELETES keys dropped from a role off every assigned holder (the blunt upsert only ever added), so
+editing a role converges everywhere (added appear, removed disappear) and deleting it retracts its whole footprint
+— with the query-builder deletes bumping `AclVersion` (G9). The same escalation fence + ceiling + self-lockout
+guard as v3-c gate it: only a full admin may mint/assign/tear-down an Administration-tier key, no ALLOW may exceed
+the actor's own ceiling, and the admins group can never be stripped of its recovery keys (the apex review hardened
+the self-lockout onto the destructive delete/unassign paths). No migration — `is_preset` already distinguishes
+custom from preset. Each apex slice (v3-0, v3-c, v3-d) + the v3-e seam had an adversarial verify-then-refute review
+before commit. **Next: v3-b** (per-forum moderator assignment), then v3-a / v3-f / v3-g per ADR-0080. Branches are
+**local-only** (owner pushes); v3-d stacks on v3-e stacks on foundations — merge order **foundations → v3-e → v3-d**.
 
 **Carried-in refinements:** Laravel 13 + Livewire 4; **PHP 8.3 floor** *(revises brief's 11/3 and the 8.2
 floor — flagged at the Phase 0 gate)*; no-SSH installer; coarse-cron-tolerant queue; WYSIWYG↔Livewire spike as

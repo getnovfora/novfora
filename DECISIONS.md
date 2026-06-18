@@ -3397,3 +3397,78 @@ that custom groups don't; shared the cache seam instead, not the evaluator). (c)
 including `auto` — rejected (auto-promotion is orthogonal to how humans join; modelling it as a join model would
 forbid an open group from also auto-promoting). (d) A global "enable public directory" setting — deferred (the
 per-group `is_public` flag, default off, already makes the page empty/hidden until opted in).
+
+### ADR-0084 — ACP v3 · v3-d: custom role builder — convergent re-expansion + the escalation/self-lockout fences (2026-06-18)
+**Status: Accepted — child of ADR-0080; owner-authorized unattended build, gated, APEX-reviewed (convergence +
+escalation seam), flagged for review.**
+
+**Context.** Roles are reusable bundles of three-state values that EXPAND into `acl_entries` on assignment
+(ADR-0006 / `RoleExpander`) — they are not a second evaluation layer. The v2 codebase seeded four read-only system
+presets (administrator / moderator / member / guest) but had **no admin surface to build custom roles**, and
+`RoleExpander::reexpand()` only ever UPSERTED: a key DROPPED from a role lingered on every assigned holder as a
+stale grant (no convergence). Two apex hazards sit here: (1) the **escalation** vector — a non-admin
+`permissions.manage` holder minting/assigning an Administration-cluster key is the v3-c-class HIGH; (2)
+**self-lockout** — stripping the admins group's own `admin.access`.
+
+**Decision.** Add a Groups → **Roles** builder (`/admin/groups/roles`, `<livewire:admin.roles>`) on the existing
+schema — NO migration. A "custom role" is simply `roles.is_preset = false`; presets (`is_preset = true`) are
+READ-ONLY (their permission set seeds the engine and defines the staff groups). The builder is a name + a
+Yes/No/Never grid over the permission catalog, grouped into clusters by the catalog `group` field. All domain
+logic lives in `App\Permissions\RoleManager` (the SFC is UI + self-guard); permission keys carry dots, so the grid
+uses `setValue(key, state)` actions, not a dotted `wire:model` path.
+- **Assignment** — a built role applies as a CUSTOM group's baseline via `RoleManager::assignToGroup` →
+  `RoleExpander::assignToGroup` (expands at global scope). System groups are refused (their permissions are their
+  identity). Per-forum mod-capability sets (v3-b) and admin bundles (v3-a) are future CONSUMERS of the same role
+  model — kept general here, not built.
+- **Re-expansion convergence (the correctness core).** `reexpand(Role, array $droppedKeys)` now upserts the
+  current keys onto every assignment AND deletes the caller-supplied dropped keys at each assignment's scope;
+  `retract(Role)` removes a role's whole footprint on delete. `RoleManager::save` captures the pre-edit key set,
+  computes `dropped = old − new`, and converges every holder; `delete` retracts everywhere, drops the assignments,
+  and removes the role. Query-builder deletes skip the `AclEntry` model event (G9), so the policy layer bumps
+  `AclVersion` once per operation.
+
+**Apex fences (enforced in the service as the actor-independent backstop; the SFC pre-checks for a clean 403 —
+mirrors the v3-c `GroupPermissionEditor` pattern).**
+- **Escalation.** The Administration cluster (catalog `group == 'Administration'`: `admin.access`,
+  `admin.settings`, `users.manage`, `groups.manage`, `prefix.manage`, `badge.manage`, `permissions.manage`) may
+  only be put in / assigned with a role by a FULL admin (`User::isAdmin()`). Independently, the **ceiling**: an
+  ALLOW may only name a key the actor themselves hold at global (`canDo(key, global)`); NEVER is a restriction, not
+  an escalation, so it is ceiling-exempt (but still admin-tier-fenced). The fence re-runs on assignment (against
+  the role's CURRENT keys) and — after the adversarial review — on the destructive SFC actions (unassign / delete),
+  so a non-admin can neither mint nor tear down an admin-tier role.
+- **Self-lockout.** `save` keeps the admins group's recovery keys (`admin.access` + `permissions.manage`) ALLOW
+  whenever the edited role is the admins baseline; `delete` / `unassignFromGroup` refuse to strip those keys from
+  the admins group at global (actor-independent backstop, matching `protectsAdminRecovery`). In practice the
+  dangerous precondition (a custom role on the admins SYSTEM group) is unreachable through the UI — assignment
+  refuses system groups — so these guards are defence-in-depth for a hand-built / future-consumer state.
+
+**Provenance caveat (the MEDIUM the review surfaced, scoped not fixed).** `acl_entries` has no `role_id`. Deletion
+is KEY-SCOPED — only the named dropped/role keys are removed, so a grant on a DIFFERENT key at the same
+(holder, scope) is never collaterally touched. But a key that is BOTH in a role AND independently set by the
+**card editor** (v3-c) on the same (group, scope) is ONE physical row: removing the role removes it (last-writer
+wins). **Operational rule:** a group is managed by a role baseline OR the card editor on a given key, not both. A
+`role_id`/refcount provenance mechanism would also have to refactor v3-c — deliberately out of v3-d scope.
+
+**Consequences.** No schema change; the gate's migrate apply+rollback exercises the existing reversible chain.
+Custom roles expand at GLOBAL scope (a group baseline); scoped role assignment is a later-slice concern. The
+builder edits a flat key→state map; the engine stores ALLOW/NEVER rows and omits NO (inherit). Editing a role
+converges on EVERY assigned holder in one transaction; cache correctness rests on the single `AclVersion` bump.
+
+**Verification.** Inspector-oracle tests (G4): a built role's verdict appears at the assigned scope; an ADDED key
+appears on holders; a DROPPED key DISAPPEARS and its `acl_entries` row is gone (not merely shadowed) with the
+version bumped; a co-grant on a different key SURVIVES the drop (surgical); a baseline SWAP converges; the
+escalation fence blocks a non-admin minting an admin-tier key; the ceiling refuses an over-grant but admits a held
+key and exempts NEVER; system presets can't be edited or deleted; deleting an assigned role retracts everywhere +
+bumps `AclVersion`; the self-lockout guard holds on edit AND on delete/unassign; a non-admin is 403'd from
+setting / assigning / unassigning / deleting an admin-tier role. Gate: `php artisan test --parallel` · `pint` ·
+`phpstan` L5 · `migrate` apply **and** rollback. An apex adversarial verify-then-refute review ran on the
+convergence + escalation seam (found 1 HIGH — self-lockout missing on the destructive paths — and 1 MEDIUM — the
+provenance caveat; the HIGH was fixed + pinned by tests before commit, the MEDIUM scoped above).
+
+**Alternatives considered.** (a) Add a `roles.type` enum to distinguish custom from preset — rejected (`is_preset`
+already does, and consumers v3-b/v3-a will add their own discriminator if needed; no migration is cleaner).
+(b) Reuse `GroupManager::setRole` for assignment — rejected (it deletes a group's `acl_entries` across ALL scopes,
+clobbering card-editor forum overrides; v3-d's swap is surgical at global). (c) Full-replace convergence (delete
+every key at the holder/scope, then re-expand) — rejected (clobbers card-editor co-grants on other keys; the
+`old − new` diff is surgical). (d) Block role deletion while assigned — rejected in favour of delete-with-cleanup
+(better UX; exercises the convergence machinery; no orphaned grants either way).
