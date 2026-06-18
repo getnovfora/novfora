@@ -78,6 +78,12 @@ new surface is the **management UX** + **admin hierarchy** + **delegation** + **
   cache-invalidation hook never fires and the resolver serves **stale** grants. Every non-Eloquent write or delete
   on `acl_entries` — the prune cron, the editor's "No" (delete) path, and the upcoming delegation prune /
   moderator + co-owner removals (v3-f / v3-b / v3-a) — must call the `AclVersion` bump **explicitly**.
+- **G10 — `acl_entries` has NO provenance column (no `role_id`); a `(holder, key, scope)` cell is ONE shared row
+  (HARD constraint, learned v3-d/ADR-0084).** Whatever sets a cell — a role baseline, the v3-c card editor, or a
+  future moderator/bundle projector — writes the **same physical row**. So a given cell must be managed by **one**
+  mechanism, not two: removing a role removes the shared row even if the card editor also "set" it. v3-b (mod
+  capabilities) and v3-a (bundles) must design around this — use distinct holders/keys/scopes, or treat the row
+  as deliberately shared; never assume a mechanism privately "owns" a cell.
 
 ---
 
