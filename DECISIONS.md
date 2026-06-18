@@ -3321,3 +3321,79 @@ verify-then-refute review ran before commit; its two HIGH findings are fixed and
 group's own entries; would split the write path). (b) A true category permission scope — deferred (engine /
 `ScopeChain` change; the bulk-apply covers the ergonomic). (c) Leave the escalation/lockout fences to v3-a —
 rejected (the editor ships a write path now, so it must be safe now).
+
+### ADR-0083 — ACP v3 · v3-e: group system — membership models + AND/OR auto-promotion + the membership-cache seam (2026-06-18)
+**Status: Accepted — child of ADR-0080; owner-authorized unattended build, gated, APEX-reviewed (the cache seam),
+flagged for review.**
+
+**Context.** The v2 groups manager had custom groups + a flat (all-AND) trust-level auto-promotion floor (Stage-A
+A3, `TrustLevelManager`) but no per-group **membership model** (how humans join), no general **AND/OR**
+auto-promotion, no public Groups page, and no primary-group chooser. The headline gap: a group is a permission
+HOLDER, so adding/removing a user from a group changes their effective permissions WITHOUT touching `acl_entries`
+— and pivot writes (`attach`/`detach`/`syncWithoutDetaching`/`updateExistingPivot`) fire no Eloquent model events,
+so nothing invalidates the resolver caches automatically. This is the sibling of guardrail G9.
+
+**Decision.** Build v3-e on the existing engine, additive + reversible:
+- **Membership models** — `groups.membership_model` ∈ {`admin` (unchanged default), `request` (a moderated
+  `group_join_requests` approval queue), `open` (a public Join button)}. Auto-promotion is ORTHOGONAL (the system
+  can add a user to any model's group), driven by a non-empty `auto_promotion` rule tree. `GroupMembershipService`
+  mirrors `ClubMembershipService` (request → approve/deny, open join, leave); every self-service join passes
+  `GroupJoinGate` (verified + active + not-banned) so a banned/restricted/unverified account can't bypass new-user
+  restrictions. System + trust groups are never self-joinable.
+- **AND/OR auto-promotion** — `GroupAutoPromoter` generalises A3's flat floor to an arbitrary `{op:AND|OR, rules:[
+  {criterion:posts|tenure_days|trust|reputation, gte:N} | <nested node>]}` tree. **Promotion-only** (never
+  detaches/demotes), **idempotent** (`syncWithoutDetaching` + the already-member skip), **custom groups only**
+  (trust groups stay owned by `TrustLevelManager`). **Back-compat:** the legacy flat `{min_*}` shape still
+  evaluates (normalised as one AND node). Evaluated by a new hourly cron `novfora:groups:auto-promote` (the
+  authoritative catch-up + the only path that crosses the time-based `tenure_days` bar) and eagerly by queued
+  listeners on the criterion-moving events (`PostCreated`/`TopicCreated` → post count, `ReputationAwarded` → rep),
+  mirroring the badge-award wiring. Malformed/unknown nodes fail-closed (never spuriously promote).
+- **Public Groups page** — a public `GET /groups` directory listing ONLY `is_public` groups (per-group flag, OFF
+  by default → the page and nav link are empty/hidden until an admin opts a group in). It exposes name,
+  description, and member COUNT only — never a roster, never a hidden/non-public group.
+- **Primary-group chooser** — a user picks their primary from groups they belong to; an admin override sets +
+  LOCKS it (`group_user.is_primary_locked`), and the member's self-service change is refused while locked; an
+  admin can unlock. Primary is COSMETIC (resolution reads ALL group memberships, never just the primary), so it
+  needs no cache invalidation.
+
+**Apex fence — the membership-cache seam (`MembershipCache`, G9's sibling).** Every join / leave / promote /
+auto-promote / approval / admin-assign calls `MembershipCache::flushFor($user)`, which (1) reloads the user's
+`groups` relation so the next `groupSignature()` reflects the new set — re-keying the cross-request resolved-verdict
+cache for exactly that user; (2) flushes the per-request `PermissionResolver` memo (keyed user|perm|scope WITHOUT
+the signature); (3) flushes the `VisibleForumIds` memo. The cross-request cache key embeds BOTH `AclVersion` AND the
+signature, so the two ways a verdict changes are both covered: an `acl_entries` write bumps the version; a membership
+change moves the signature. **Version-bump policy (refined after the adversarial review):** the ADDITIVE hot paths
+(join / approve / auto-promote) do NOT bump — the per-user signature scopes the invalidation, and a global bump on
+every auto-promotion during the hourly cron sweep would cold-start every other viewer's cache (the herd the signature
+design exists to avoid). But `groupSignature()` is a pure, non-monotonic function of the id-set, so a REDUCTION/SWAP
+(leave / remove / delete-reassign / trust demotion) can land a user back on a previously-cached signature; those rare
+paths pass `bumpVersion: true` as defence-in-depth — harmless on the membership+ACL axes (the version prefix already
+re-keyed on any ACL change) but it also dominates a recurring signature on orthogonal axes (e.g. a cached ban/status
+verdict) and is robust to any future non-bumping write. `TrustLevelManager` and `GroupManager`'s membership paths
+were routed through the same helper (consolidation — `TrustLevelManager` had only the inline memo flush, never the
+relation refresh or `VisibleForumIds`); trust bumps only on an actual level change (an unchanged recompute stays on
+the cheap signature path). The bulk reassign-and-delete path uses `flushRequestScopedMemos(bumpVersion: true)`.
+
+**Consequences.** Auto-promotion reads the denormalised `users.post_count`/`reputation_points`/`trust_level`/
+`created_at` (the criteria-source the kickoff names); event-driven promotion fires only on APPROVED content. The
+builder UI edits a single-level AND/OR tree (the engine also evaluates nested trees — reachable via import/future
+advanced UX). Demotion is intentionally out of scope (promotion-only, like A3). The full board-wide co-owner guard
+remains v3-a. No new permission scope; no engine read-path change (the resolver is untouched).
+
+**Verification.** Inspector-oracle tests (G4): a raw pivot attach WITHOUT the seam leaves the memo stale (the
+hazard), and each real path (open-join, auto-promote, approve, admin-assign, leave) makes the inspector verdict
+flip on the SAME instance immediately, plus the cross-request cached `can()` path. AND/OR semantics (AND/OR
+branches, legacy-flat still promotes, promotion-only keeps a now-unqualified member, idempotent re-run = 0,
+never touches a trust group). Membership models (open seats; non-open refused; banned/suspended/unverified can't
+join; request→pending→approve adds, deny doesn't; re-request reuses one row; non-manager can't approve; leave
+only on self-service). Public page (lists public only, hides a hidden group, never leaks a roster, gated join).
+Gate: `php artisan test --parallel` · `pint` · `phpstan` L5 · `migrate` apply **and** rollback (down() drops the
+columns/table; re-applies clean). A targeted adversarial verify-then-refute review ran on the cache seam.
+
+**Alternatives considered.** (a) Bump `AclVersion` globally on every membership change — rejected (cache-thrash on
+the auto-promote cron sweep; the per-user signature already invalidates precisely). (b) Fold custom-group
+auto-promotion into `TrustLevelManager` — rejected (trust has single-membership + demotion + TL4-manual semantics
+that custom groups don't; shared the cache seam instead, not the evaluator). (c) `membership_model` as a 4th value
+including `auto` — rejected (auto-promotion is orthogonal to how humans join; modelling it as a join model would
+forbid an open group from also auto-promoting). (d) A global "enable public directory" setting — deferred (the
+per-group `is_public` flag, default off, already makes the page empty/hidden until opted in).

@@ -11,7 +11,55 @@
 
 ---
 
-## 🛡️ ACP v3 — admin & permission management on `claude/acp-v3-foundations` — 2026-06-18 (LATEST · off `main` carrying the PWA + i18n merge)
+## 🛡️ ACP v3 · v3-e — group system on `claude/acp-v3-e-groups` — 2026-06-18 (LATEST · stacked on `claude/acp-v3-foundations`, which carries v3-0/v3-h/v3-c)
+
+**Unattended, owner-authorized session.** Built ACP v3 slice **v3-e** (group system) on the existing engine, per
+ADR-0080 slice order. **Base note:** branched off the tip that carries the merged v3 cycle — `main` does NOT yet
+carry it (v3-0/v3-h/v3-c are still on `claude/acp-v3-foundations`, pending the owner's push/PR), so the faithful
+base for v3-e was that branch's HEAD, not `main`. Conventional, DCO-signed, `Tommy Huynh`-authored commits, gated
+green in `forum-dev`. **NOTHING IS PUSHED** — the branch is **local-only**; the owner pushes + opens the PR.
+
+**Membership models (`groups.membership_model`).** admin (unchanged default) / request (a moderated
+`group_join_requests` approval queue, ACP Groups → Join requests) / open (a public Join button). `GroupMembershipService`
+mirrors `ClubMembershipService` (request → approve/deny, open join, leave). Every self-service join passes
+`GroupJoinGate` (verified + active + not-banned) so a banned/suspended/unverified/restricted account can't bypass
+new-user limits to join; system + trust groups are never self-joinable.
+
+**AND/OR auto-promotion (`GroupAutoPromoter`).** Generalises Stage-A A3's flat trust floor to an arbitrary
+`{op:AND|OR, rules:[{criterion:posts|tenure_days|trust|reputation, gte:N} | nested]}` tree. **Promotion-only**,
+**idempotent**, **custom groups only** (trust stays with `TrustLevelManager`). Legacy flat `{min_*}` still
+evaluates (normalised as one AND node). Evaluated by the new hourly `novfora:groups:auto-promote` cron (authoritative
+catch-up + the only path crossing the time-based `tenure_days` bar) + queued listeners on `PostCreated`/`TopicCreated`
+(post count) and `ReputationAwarded` (rep), mirroring the badge-award wiring. Fail-closed on malformed nodes. A
+single-level AND/OR builder lives in the group editor (`⚡groups`); the engine also evaluates nested trees.
+
+**Public Groups directory + primary chooser.** `GET /groups` lists ONLY `is_public` groups (per-group flag, OFF by
+default → page + nav link empty/hidden until opted in); exposes name/description/member-count only — never a roster
+or a hidden group. The primary-group chooser lets a user pick their primary; an admin override sets + LOCKS it
+(`group_user.is_primary_locked`); primary is cosmetic (resolution reads all memberships) so it needs no invalidation.
+
+**Apex fence — the membership-cache seam (`MembershipCache`, G9's sibling).** A group is a permission HOLDER, so a
+pivot join/leave/promote/approve/admin-assign changes effective permissions WITHOUT an `acl_entries` write — and
+pivot writes fire no model events. `MembershipCache::flushFor($user)` (1) reloads the user's `groups` relation so
+the next `groupSignature()` re-keys that user's cross-request verdict cache, (2) flushes the per-request
+`PermissionResolver` memo, (3) flushes `VisibleForumIds`. The additive hot paths (join/approve/auto-promote) do NOT
+bump `AclVersion` (the per-user signature scopes it; a global bump on every auto-promotion sweep would cold-start
+every viewer's cache). The rare REDUCTION/SWAP paths (leave/remove/delete-reassign/trust-demote) pass
+`bumpVersion: true` — defence-in-depth from the adversarial review: a signature is a pure function of the id-set, so
+a reduction can round-trip to a previously-cached signature, and the bump dominates it (harmless on the
+membership+ACL axes, but robust on orthogonal axes like a cached ban verdict). Routed `TrustLevelManager` (had only
+the inline memo flush) + `GroupManager` through the same helper.
+
+**Gate at HEAD (all green):** `php artisan test --parallel` · Pint · PHPStan L5 · migrate **apply + rollback +
+re-apply** (down() drops the columns/table cleanly). Inspector-oracle tests are the correctness proof for the
+seam (a raw attach WITHOUT the seam is shown stale; every real path flips the inspector verdict immediately + the
+cached `can()` path). ADR **0083** lifted into `DECISIONS.md`.
+
+**Next: v3-d** (custom role builder), then v3-b / v3-a / v3-f / v3-g per ADR-0080.
+
+---
+
+## 🛡️ ACP v3 — admin & permission management on `claude/acp-v3-foundations` — 2026-06-18 (off `main` carrying the PWA + i18n merge)
 
 **Unattended, owner-authorized session.** Built the first three ACP v3 slices on the existing permission engine,
 per the owner-approved program (foundations §3/§5 + kickoff refresh; **ADR-0080** parent, **0081**/**0082**

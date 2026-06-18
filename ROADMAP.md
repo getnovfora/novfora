@@ -54,9 +54,17 @@ stable; the Permission Inspector moved System → Security); one `admin.*` i18n 
 **v3-c ✅ the headline card-per-group permission editor (ADR-0082)** — plain-language **Yes / No / Never** over
 `acl_entries` at global / forum / club scope, with a category bulk-apply; gated by the manage-permissions capability
 + a rank guard, an admin-only fence on Administration-tier keys, and a self-lockout guard on the admins group's
-recovery keys (the last two caught by the apex review). Each apex slice (v3-0, v3-c) had a 4-lens verify-then-refute
-adversarial review before commit. **Next: v3-e** (group system — membership models + AND/OR auto-promotion), then
-v3-d / v3-b / v3-a / v3-f / v3-g per ADR-0080. Branch is **local-only** (owner pushes).
+recovery keys (the last two caught by the apex review). **v3-e ✅ the group system (ADR-0083, branch
+`claude/acp-v3-e-groups`)** — per-group **membership models** (admin / request-with-approval-queue / open-join,
+each self-service join anti-spam/trust-gated) + a general **AND/OR auto-promotion** engine (promotion-only,
+idempotent, legacy-flat back-compat; hourly cron + queued criterion events) + a public Groups directory (per-group
+`is_public`, off by default, never leaks a hidden group or roster) + a primary-group chooser (admin override locks
+it). Its apex fence is the **membership-cache seam** (`MembershipCache`, G9's sibling): a pivot join/leave/promote
+changes effective permissions WITHOUT an `acl_entries` write and fires no model events, so it explicitly refreshes
+the user's group signature (re-keying the per-user cache) + flushes the resolver memo + `VisibleForumIds`; routed
+`TrustLevelManager` + `GroupManager` through the same helper. Each apex slice (v3-0, v3-c) + the v3-e seam had an
+adversarial verify-then-refute review before commit. **Next: v3-d** (custom role builder), then v3-b / v3-a / v3-f /
+v3-g per ADR-0080. Branches are **local-only** (owner pushes).
 
 **Carried-in refinements:** Laravel 13 + Livewire 4; **PHP 8.3 floor** *(revises brief's 11/3 and the 8.2
 floor — flagged at the Phase 0 gate)*; no-SSH installer; coarse-cron-tolerant queue; WYSIWYG↔Livewire spike as
