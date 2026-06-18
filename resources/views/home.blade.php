@@ -40,7 +40,7 @@
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('admin.system.permissions') }}"
+                        <a href="{{ route('admin.security.permissions') }}"
                            class="flex items-center gap-3 min-h-11 -mx-2 px-2 rounded-md text-sm text-ink hover:bg-surface-sunken">
                             <x-ui.icon name="shield" class="h-5 w-5 text-ink-subtle" />
                             <span>Admin · Permission inspector</span>

@@ -211,7 +211,7 @@ new class extends Component
 
     public function inspectorUrl(Forum $node): string
     {
-        return route('admin.system.permissions', ['scope' => $node->permissionScope()->key()]);
+        return route('admin.security.permissions', ['scope' => $node->permissionScope()->key()]);
     }
 
     private function resetForm(): void

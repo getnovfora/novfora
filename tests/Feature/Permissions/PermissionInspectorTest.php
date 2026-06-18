@@ -80,7 +80,7 @@ it('renders the ACP inspector page for an authenticated admin', function () {
     $this->seed(DatabaseSeeder::class);
     $admin = Users::withTwoFactor(Users::inGroups(['admins']));
 
-    $this->actingAs($admin)->get(route('admin.system.permissions'))
+    $this->actingAs($admin)->get(route('admin.security.permissions'))
         ->assertOk()
         ->assertSee('Permission Inspector');
 });

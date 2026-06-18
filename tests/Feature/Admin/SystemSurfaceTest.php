@@ -44,5 +44,7 @@ it('renders the migrated system pages inside the admin shell nav', function () {
         ->get(route('admin.system.backups'))
         ->assertOk()
         ->assertSee('Backups')
-        ->assertSee('Forums & structure'); // a nav item only the shell renders
+        // ACP v3 (v3-h): the section sidebar shows the ACTIVE (System) section's siblings — a nav item only the
+        // shell renders, proving the page is wrapped in <x-admin.shell>.
+        ->assertSee('Service tier');
 });

@@ -3236,3 +3236,41 @@ The nav restructure (v3-h) **is** in scope (owner decision).
 
 **References.** `docs/product/acp-v3-foundations.md`, `docs/product/acp-v3-kickoff-refresh.md`,
 `docs/product/acp-v3-spec.md`.
+
+### ADR-0081 — ACP v3 · v3-h: Invision-style icon-rail IA + per-section dashboards + 301 route moves (2026-06-18)
+**Status: Accepted — child of ADR-0080; owner-authorized unattended build, gated, flagged for review.**
+
+**Context.** The ACP was a flat route-per-page list inside one grouped left sidebar (`AdminNavigation::groups()`).
+The foundations §3 taxonomy locks an Invision-style information architecture (icon rail → section sidebar →
+per-section dashboard) shared with the v3-a `admin.<section>.access` bundles. v3-h delivers that chrome and
+re-homes the existing pages into their sections, decoupled so it never blocks the permission slices.
+
+**Decision.** Rebuild the ACP shell clean-room (no copied markup) as three panes: an **icon rail** of the eleven
+sections (Overview · Forums · Members · Groups · Moderation · Appearance · Plugins · Analytics · Settings ·
+System · Security) → the active section's **sidebar** of sub-page clusters → the page content. Each section gets a
+**dashboard landing** (`admin.<section>`, one invokable `SectionController` + a shared `admin.section` view) that
+starts with the section summary and grows widgets as features land. A global **ACP search** (`admin.search`)
+spans pages + settings + members (the sidebar keeps the instant client-side page/settings filter; Enter runs the
+server search that adds member lookup). `AdminNavigation` is the single source for the rail, the per-section
+sidebars, active-section detection, and the search index, so the nav can never drift from the routes.
+
+**Page re-homing.** Every moved page keeps its **route NAME stable** (so every `route()` call-site and most tests
+are untouched) and only its URL changes to sit under its section; the OLD URL **301s** to the new home via a bare
+`Route::redirect` (a `RedirectController` route, excluded from the authz-walk and covered by a dedicated 301
+test). The single exception is the Permission Inspector, which moved System → **Security** and was therefore
+renamed `admin.system.permissions` → `admin.security.permissions` (its five call-sites updated); it stays under
+its **existing** gate (co-owner gating arrives in v3-a).
+
+**Guardrails.** PURE UI — **no new permission keys** this slice (the rail is visible to any admin via the existing
+`admin.access` gate); feature pages stay shell-agnostic. i18n from the first commit under a single **`admin.*`**
+group (+ shared `common.*`); the G8 collision check confirmed no bare `__('Admin')` string-key exists, and the
+section labels live as `admin.sections.*` keys (never standalone `forums.php`/`members.php` group files). The icon
+rail is a keyboard-operable `nav` landmark with `aria-current` + visible focus rings.
+
+**Consequences.** Old admin bookmarks 301 to the new section homes; internal links are unaffected (names stable).
+The authz-walk render-mirror visits every admin page through the new shell (all 200). Member search links to the
+member's profile until the dedicated member-management surface lands in a later slice.
+
+**Alternatives considered.** (a) Restructure only the nav, leave URLs — rejected (the spec requires the pages to
+move + 301). (b) Move URLs *and* rename every route to its section — rejected (needless call-site/test churn;
+"keep names stable where you can"). (c) Per-section `lang` group files — rejected (G8 case-collision risk).

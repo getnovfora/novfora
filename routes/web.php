@@ -4,6 +4,8 @@
 
 use App\Community\MembersDirectory;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\SearchController as AdminSearchController;
+use App\Http\Controllers\Admin\SectionController;
 use App\Http\Controllers\Admin\TasksController;
 use App\Http\Controllers\AppearanceController;
 use App\Http\Controllers\AttachmentController;
@@ -316,7 +318,6 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
     ->name('admin.system.')
     ->group(function () {
         Route::view('/service-tier', 'admin.system')->name('tier');
-        Route::view('/permissions', 'admin.permissions')->name('permissions');
         Route::view('/backups', 'admin.backups')->name('backups');
         Route::view('/upgrade', 'admin.upgrade')->name('upgrade'); // no-SSH auto-upgrade status + manual apply (RH-10)
 
@@ -345,56 +346,90 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
     ->group(function () {
         Route::get('/', DashboardController::class)->name('dashboard');
 
-        // Forum structure manager (PART 2) — the <livewire:admin.structure /> tree.
-        Route::view('/structure', 'admin.structure')->name('structure');
+        // ACP v3 (v3-h): the global ACP search — pages + settings + members (foundations §3 / spec §1).
+        Route::get('/search', AdminSearchController::class)->name('search');
 
-        // Member-group manager (ACP v2) — the <livewire:admin.groups /> manager (Admin → Members → Groups).
-        Route::view('/members/groups', 'admin.groups')->name('members.groups');
+        // ACP v3 (v3-h): per-section dashboard landings — the icon rail's targets (foundations §3). Overview =
+        // the dashboard above; Analytics = its own page below. One invokable SectionController serves the rest.
+        Route::get('/forums', SectionController::class)->name('forums');
+        Route::get('/members', SectionController::class)->name('members');
+        Route::get('/groups', SectionController::class)->name('groups');
+        Route::get('/moderation', SectionController::class)->name('moderation');
+        Route::get('/appearance', SectionController::class)->name('appearance');
+        Route::get('/plugins', SectionController::class)->name('plugins');
+        Route::get('/settings', SectionController::class)->name('settings');
+        Route::get('/system', SectionController::class)->name('system');
+        Route::get('/security', SectionController::class)->name('security');
 
-        // Topic-prefix manager (P2-M1) — the <livewire:admin.prefixes /> manager.
-        Route::view('/prefixes', 'admin.prefixes')->name('prefixes');
+        // Forums section — the structure tree + topic prefixes.
+        Route::view('/forums/structure', 'admin.structure')->name('structure');      // <livewire:admin.structure />
+        Route::view('/forums/prefixes', 'admin.prefixes')->name('prefixes');         // <livewire:admin.prefixes />
 
-        // Badge manager (P2-M5 Slice 3) — the <livewire:admin.badges /> manager.
-        Route::view('/badges', 'admin.badges')->name('badges');
+        // Groups section — the member-group manager (custom roles / card editor land in later slices).
+        Route::view('/groups/manage', 'admin.groups')->name('members.groups');       // <livewire:admin.groups />
 
-        // Membership tiers (Phase 4 · M5.1) — the <livewire:admin.tiers /> manager. No money is charged here.
-        Route::view('/tiers', 'admin.tiers')->name('tiers');
+        // Members section — directory visibility, badges, and membership tiers/grants.
+        Route::view('/members/directory', 'admin.members.directory')->name('members.directory');
+        Route::view('/members/badges', 'admin.badges')->name('badges');              // <livewire:admin.badges />
+        Route::view('/members/tiers', 'admin.tiers')->name('tiers');                 // <livewire:admin.tiers /> (no charge here)
+        Route::view('/members/memberships', 'admin.memberships')->name('memberships'); // <livewire:admin.member-grants />
 
-        // Spam intelligence review (Phase 4 · M6.2) — the <livewire:admin.spam-intelligence /> queue of held posts.
-        Route::view('/spam-intelligence', 'admin.spam-intelligence')->name('spam-intelligence');
+        // Moderation section — spam intelligence + moderation policy (queues/reports are the MCP, linked out).
+        Route::view('/moderation/spam-intelligence', 'admin.spam-intelligence')->name('spam-intelligence');
+        Route::view('/moderation/settings', 'admin.settings.moderation')->name('settings.moderation');
 
-        // Memberships (Phase 4 · M5.2) — the <livewire:admin.member-grants /> manual grant/revoke surface.
-        Route::view('/memberships', 'admin.memberships')->name('memberships');
+        // Appearance section — appearance, themes, the sandboxed template editor, and the layout/widget regions.
+        // The bare /appearance URL is the section dashboard landing (admin.appearance); the settings page sits
+        // one level down so the two never share a URI.
+        Route::view('/appearance/settings', 'admin.settings.appearance')->name('settings.appearance');
+        Route::view('/appearance/themes', 'admin.settings.themes')->name('settings.themes');
+        Route::view('/appearance/templates', 'admin.settings.templates')->name('settings.templates'); // ADR-0038
+        Route::view('/appearance/layout', 'admin.layout')->name('layout');           // <livewire:admin.layout />
 
-        // Module / plugin manager (ADR-0031, B1) — the <livewire:admin.modules /> lifecycle surface.
-        Route::view('/modules', 'admin.modules')->name('modules');
+        // Plugins section — the module/plugin lifecycle + outbound webhooks.
+        Route::view('/plugins/modules', 'admin.modules')->name('modules');           // ADR-0031
+        Route::view('/plugins/webhooks', 'admin.webhooks')->name('webhooks');        // ADR-0033
 
-        // Layout / widget configurator (ADR-0032, B2) — the <livewire:admin.layout /> region editor.
-        Route::view('/layout', 'admin.layout')->name('layout');
+        // Analytics section — the aggregate dashboard is both the section landing and its only page.
+        Route::view('/analytics', 'admin.analytics')->name('analytics');             // ADR-0035
 
-        // Outbound webhooks (ADR-0033, B3) — the <livewire:admin.webhooks /> endpoint manager.
-        Route::view('/webhooks', 'admin.webhooks')->name('webhooks');
-
-        // Admin analytics (ADR-0035, B5) — the <livewire:admin.analytics /> aggregate dashboard.
-        Route::view('/analytics', 'admin.analytics')->name('analytics');
-
-        // Settings pages (PART 3) — each a focused Livewire SFC on the Settings store.
+        // Settings section — each a focused Livewire SFC on the Settings store.
         Route::view('/settings/general', 'admin.settings.general')->name('settings.general');
         Route::view('/settings/registration', 'admin.settings.registration')->name('settings.registration');
         Route::view('/settings/email', 'admin.settings.email')->name('settings.email');
-        Route::view('/settings/moderation', 'admin.settings.moderation')->name('settings.moderation');
         Route::view('/settings/antispam', 'admin.settings.antispam')->name('settings.antispam');
-        Route::view('/settings/appearance', 'admin.settings.appearance')->name('settings.appearance');
-        Route::view('/settings/themes', 'admin.settings.themes')->name('settings.themes'); // visual theme editor
-        Route::view('/settings/templates', 'admin.settings.templates')->name('settings.templates'); // sandboxed template editor (ADR-0038)
-        Route::view('/settings/clubs', 'admin.settings.clubs')->name('settings.clubs'); // who may create clubs (Phase 4 · M1.6)
-        Route::view('/settings/sso', 'admin.settings.sso')->name('settings.sso'); // OAuth social login (Phase 4 · M2.1)
-        Route::view('/settings/search', 'admin.settings.search')->name('settings.search'); // Scout driver + Meilisearch (Phase 4 · M4.1)
-        Route::view('/settings/payments', 'admin.settings.payments')->name('settings.payments'); // Stripe keys, charging disabled (Phase 4 · M5.3)
+        Route::view('/settings/clubs', 'admin.settings.clubs')->name('settings.clubs'); // Phase 4 · M1.6
+        Route::view('/settings/sso', 'admin.settings.sso')->name('settings.sso'); // Phase 4 · M2.1
+        Route::view('/settings/search', 'admin.settings.search')->name('settings.search'); // Phase 4 · M4.1
+        Route::view('/settings/payments', 'admin.settings.payments')->name('settings.payments'); // Phase 4 · M5.3
 
-        // Members directory visibility (the public /members listing is gated on this setting).
-        Route::view('/members/directory', 'admin.members.directory')->name('members.directory');
+        // Security section — houses the EXISTING Permission Inspector under its current gate (co-owner gating
+        // arrives in v3-a). Renamed admin.system.permissions → admin.security.permissions (foundations §3).
+        Route::view('/security/permissions', 'admin.permissions')->name('security.permissions');
     });
+
+// ACP v3 (v3-h): 301 the OLD admin URLs to their new section homes (foundations §3). Bare redirects (no gate):
+// a guest/non-admin is bounced to the new URL, where the admin gate applies — so nothing leaks. Route NAMES
+// stayed stable, so every route() call-site already points at the new URL; these only catch bookmarks/links.
+foreach ([
+    '/admin/structure' => '/admin/forums/structure',
+    '/admin/prefixes' => '/admin/forums/prefixes',
+    '/admin/members/groups' => '/admin/groups/manage',
+    '/admin/badges' => '/admin/members/badges',
+    '/admin/tiers' => '/admin/members/tiers',
+    '/admin/memberships' => '/admin/members/memberships',
+    '/admin/spam-intelligence' => '/admin/moderation/spam-intelligence',
+    '/admin/settings/moderation' => '/admin/moderation/settings',
+    '/admin/settings/appearance' => '/admin/appearance/settings',
+    '/admin/settings/themes' => '/admin/appearance/themes',
+    '/admin/settings/templates' => '/admin/appearance/templates',
+    '/admin/layout' => '/admin/appearance/layout',
+    '/admin/modules' => '/admin/plugins/modules',
+    '/admin/webhooks' => '/admin/plugins/webhooks',
+    '/admin/system/permissions' => '/admin/security/permissions',
+] as $from => $to) {
+    Route::redirect($from, $to, 301);
+}
 
 // Importer 301 redirect maps (ADR-0034) — the LAST route: only consulted for an otherwise-unmatched URL (a
 // legacy link), so the redirects table is never touched on the hot path.

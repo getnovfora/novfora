@@ -46,6 +46,10 @@
         'check-circle' => '<circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/>',
         // i18n (Wave 8.1) — language switcher.
         'globe' => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/>',
+        // ACP v3 (v3-h) icon-rail sections — same hand-authored, currentColor stroke style.
+        'grid' => '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+        'plug' => '<path d="M9 2v5M15 2v5"/><path d="M7 7h10v3a5 5 0 0 1-10 0z"/><path d="M12 15v5"/>',
+        'chart' => '<path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/>',
     ];
 @endphp
 <svg {{ $attributes->class($class) }} viewBox="0 0 24 24" fill="none" stroke="currentColor"

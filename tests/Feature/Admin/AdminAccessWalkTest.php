@@ -25,6 +25,9 @@ function acpGetPages(): array
         ->filter(fn (RoutingRoute $r): bool => str_starts_with($r->uri(), 'admin'))
         ->filter(fn (RoutingRoute $r): bool => in_array('GET', $r->methods(), true))
         ->filter(fn (RoutingRoute $r): bool => ! str_contains($r->uri(), '{'))
+        // ACP v3 (v3-h): the OLD admin URLs are now bare 301 redirects to their new section homes — not pages,
+        // so they're excluded from the gate/render walks below and covered by the dedicated 301 test instead.
+        ->filter(fn (RoutingRoute $r): bool => ! str_contains((string) $r->getActionName(), 'RedirectController'))
         ->map(fn (RoutingRoute $r): string => '/'.ltrim($r->uri(), '/'))
         ->unique()->values()->all();
 }
