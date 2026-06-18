@@ -11,7 +11,53 @@
 
 ---
 
-## 🧩 PWA + i18n polish on `claude/pwa-i18n-polish` — 2026-06-17 (LATEST · off a freshly-integrated `main`)
+## 🛡️ ACP v3 — admin & permission management on `claude/acp-v3-foundations` — 2026-06-18 (LATEST · off `main` carrying the PWA + i18n merge)
+
+**Unattended, owner-authorized session.** Built the first three ACP v3 slices on the existing permission engine,
+per the owner-approved program (foundations §3/§5 + kickoff refresh; **ADR-0080** parent, **0081**/**0082**
+children). Conventional, DCO-signed, `Tommy Huynh`-authored commits, each gated green in `forum-dev`.
+**NOTHING IS PUSHED** — the branch is **local-only**; the owner pushes + opens the PR.
+
+**v3-0 — the engine seam (apex · ADR-0080) — `feat(perms)` commit.** Additive, reversible nullable+indexed
+`acl_entries.expires_at`; a single **authoritative** resolver filter (`expires_at IS NULL OR > now`) on the
+acl_entries read; the cached `can()` horizon capped to the earliest contributing TTL so the Gate path stays
+authoritative even if the prune cron lags (an apex-review **MEDIUM**, fixed + pinned); the
+`novfora:acl:prune-expired` cron (every 5 min, short overlap mutex, restore-skipped, one AclVersion bump on the
+builder-delete). NULL rows resolve **byte-identically** — the whole pre-v3 suite is the regression guard.
+Truth-table / inspector + prune + cache-boundary tests. 4-lens adversarial review before commit.
+
+**v3-h — the Invision-style IA (UI · ADR-0081) — `feat(acp)` commit.** Icon rail of 11 sections → per-section
+sidebar → per-section dashboard landing (one `SectionController` + a shared `admin.section` view) + a global ACP
+search (`admin.search`: pages / settings / members). `AdminNavigation` is the single source (rail + sidebars +
+active-section + search index). Old admin URLs **301** to their new section homes via bare `Route::redirect`
+(excluded from the authz-walk; a dedicated 301 test); route **NAMES kept stable** so call-sites are unaffected;
+the Permission Inspector moved System → **Security** and was renamed
+`admin.system.permissions` → `admin.security.permissions` (5 call-sites). One `admin.*` i18n group (G8-checked).
+Keyboard-navigable rail. **No new permission keys** (per-section gating arrives in v3-a; the rail is
+`admin.access`-gated for now).
+
+**v3-c — the headline card-per-group editor (apex · ADR-0082) — `feat(acp)` commit.** `GroupPermissionEditor`
+writes a group's OWN entries directly (Yes = ALLOW · No = delete-the-row → inherit · Never = NEVER), **not** via
+RoleExpander. One Livewire SFC (`permissions.group-editor`, `#[Locked]` scope) at all three homes: GLOBAL
+(Groups → Group permissions), FORUM (Forums → forum → Permissions, linked from the structure tree), CLUB (the club
+manage screen). Category bulk-apply copies a forum's overrides onto every **non-club** forum under its category in
+one transaction, audited. Fences (**two HIGH** from the apex review, fixed + pinned): the manage-permissions
+capability gate + a rank guard; an **admin-only fence on Administration-tier keys** (else a non-admin permission
+manager could escalate); a **self-lockout guard** on the admins group's `admin.access` / `permissions.manage` at
+global (service throws + SFC 403s — the interim last-owner guard until v3-a's co-owners). Inspector-oracle tests
+across all three scopes + the bulk + every fence.
+
+**Gate at HEAD (all green):** `php artisan test --parallel` → **1650 pass / 1 skip (13267 assertions)** · Pint
+(840 files) · PHPStan L5 · migrate **apply + rollback + re-apply**. ADRs **0080 / 0081 / 0082** are lifted into
+`DECISIONS.md`; the planning set is `docs/product/acp-v3-{foundations,kickoff-refresh,adr-0080}.md`.
+
+**Next: v3-e** (group system — membership models + AND/OR auto-promotion), then **v3-d / v3-b / v3-a / v3-f / v3-g**
+per ADR-0080. Their homes (Custom Role Builder, Group priority, Co-owners/Active Delegations under Security) slot
+into the v3-h sections already in place; v3-f's TTL delegation rides the v3-0 `expires_at` seam.
+
+---
+
+## 🧩 PWA + i18n polish on `claude/pwa-i18n-polish` — 2026-06-17 (off a freshly-integrated `main`)
 
 **Unattended, owner-authorized session.** **Step 0** first integrated the outstanding UI/UX branch into `main`
 (`git merge --no-ff claude/ui-ux-nav-login-infocenter` → `da4c460`, gated green: 1596 pass / PHPStan L5 / Pint /
@@ -751,8 +797,9 @@ clean). Design notes in `DECISIONS.md → Fast-follow backlog notes`.
    `claude/stage-a-fast-follows` (owner push → PR → merge).
 
 4. **Design-first items still queued (do not build without a plan):**
-   - RH-4: subdirectory install (ADR needed)
-   - Layman "simple-mode" permissions UX (ACP v3, separate cycle)
+   - RH-4: subdirectory install — **DONE** (ADR-0070/0071).
+   - Layman "simple-mode" permissions UX — **DELIVERED as ACP v3 · v3-c** (ADR-0082; see the ACP v3 block at the
+     top). The ACP v3 program continues with v3-e next (ADR-0080 slice order).
 
 ## Working rules
 
