@@ -11,98 +11,177 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 
 /**
- * The single definition of the ACP's grouped left navigation (ACP v1, PART 1). Both the admin shell and
- * the client-side quick-search build from this, so the nav and the search index can never drift.
+ * The single definition of the ACP's Invision-style information architecture (ACP v3 · v3-h, foundations §3):
+ * an icon RAIL of top-level sections → a per-section SIDEBAR of sub-page clusters → a per-section dashboard.
+ * The rail, the section sidebar, the section landings, and the client-side quick-search all build from this, so
+ * the navigation can never drift from the routes.
  *
- * Every item is guarded by Route::has(): an item only appears once its route is registered, which lets
- * the ACP be assembled part-by-part without the nav ever referencing a route that doesn't exist yet, and
- * lets the authz-walk test iterate exactly the routes that are live. Counts/badges deliberately live on
- * the dashboard, not here — the nav stays O(1) so it's free to render on every admin page.
+ * Every sub-page is guarded by Route::has(): an item only appears once its route is registered, which lets the
+ * panel be assembled slice-by-slice without the nav ever referencing a route that doesn't exist yet, and lets
+ * the authz-walk test iterate exactly the routes that are live. Labels are i18n keys under the single `admin.*`
+ * group (G7/G8). Counts/badges live on the dashboards, not here, so the chrome stays O(1) on every admin page.
  */
 final class AdminNavigation
 {
-    /** Map a settings registry `group` to its page route + human group label (for the search index). */
+    /**
+     * The ordered rail. Each section: [icon, landing-route, clusters]. A cluster is [heading|null, items];
+     * an item is [labelKey, route, icon, external?]. `external` items link out of the ACP (e.g. the MCP).
+     *
+     * @var array<string, array{0:string,1:string,2:list<array{0:?string,1:list<array{0:string,1:string,2:string,3?:bool}>}>}>
+     */
+    private const SECTIONS = [
+        'overview' => ['gauge', 'admin.dashboard', [
+            [null, [
+                ['dashboard', 'admin.dashboard', 'gauge'],
+                ['analytics', 'admin.analytics', 'chart'],
+            ]],
+        ]],
+        'forums' => ['folder', 'admin.forums', [
+            [null, [
+                ['structure', 'admin.structure', 'folder'],
+                ['prefixes', 'admin.prefixes', 'pin'],
+            ]],
+        ]],
+        'members' => ['users', 'admin.members', [
+            [null, [
+                ['directory', 'admin.members.directory', 'users'],
+                ['profile_fields', 'admin.members.profile-fields', 'list'],
+                ['badges', 'admin.badges', 'check-circle'],
+                ['tiers', 'admin.tiers', 'check-circle'],
+                ['memberships', 'admin.memberships', 'check-circle'],
+            ]],
+        ]],
+        'groups' => ['grid', 'admin.groups', [
+            [null, [
+                ['groups', 'admin.members.groups', 'grid'],
+                ['group_permissions', 'admin.groups.permissions', 'shield'],
+            ]],
+        ]],
+        'moderation' => ['flag', 'admin.moderation', [
+            [null, [
+                ['approval_queue', 'moderation.queue', 'check-circle', true],
+                ['reports', 'moderation.reports', 'flag', true],
+                ['mod_panel', 'moderation.dashboard', 'shield', true],
+                ['spam_intelligence', 'admin.spam-intelligence', 'shield'],
+                ['moderation_settings', 'admin.settings.moderation', 'cog'],
+            ]],
+        ]],
+        'appearance' => ['palette', 'admin.appearance', [
+            [null, [
+                ['appearance', 'admin.settings.appearance', 'palette'],
+                ['themes', 'admin.settings.themes', 'palette'],
+                ['templates', 'admin.settings.templates', 'pencil'],
+                ['layout', 'admin.layout', 'sliders'],
+            ]],
+        ]],
+        'plugins' => ['plug', 'admin.plugins', [
+            [null, [
+                ['modules', 'admin.modules', 'plug'],
+                ['webhooks', 'admin.webhooks', 'mail'],
+            ]],
+        ]],
+        'analytics' => ['chart', 'admin.analytics', [
+            [null, [
+                ['analytics', 'admin.analytics', 'chart'],
+            ]],
+        ]],
+        'settings' => ['sliders', 'admin.settings', [
+            [null, [
+                ['general', 'admin.settings.general', 'cog'],
+                ['registration', 'admin.settings.registration', 'user'],
+                ['email', 'admin.settings.email', 'mail'],
+                ['antispam', 'admin.settings.antispam', 'lock'],
+                ['clubs', 'admin.settings.clubs', 'users'],
+                ['sso', 'admin.settings.sso', 'lock'],
+                ['search', 'admin.settings.search', 'database'],
+                ['payments', 'admin.settings.payments', 'check-circle'],
+            ]],
+        ]],
+        'system' => ['database', 'admin.system', [
+            [null, [
+                ['service_tier', 'admin.system.tier', 'database'],
+                ['backups', 'admin.system.backups', 'inbox'],
+                ['upgrade', 'admin.system.upgrade', 'arrow-up'],
+                ['suppressions', 'admin.system.suppressions', 'mail'],
+                ['audit', 'admin.system.audit', 'list'],
+                ['tasks', 'admin.system.tasks', 'clock'],
+            ]],
+        ]],
+        'security' => ['shield', 'admin.security', [
+            [null, [
+                ['permissions', 'admin.security.permissions', 'shield'],
+            ]],
+        ]],
+    ];
+
+    /** Map a settings-registry `group` to its page route + section (for the search index grouping). */
     private const SETTINGS_GROUPS = [
-        'general' => ['admin.settings.general', 'General'],
-        'registration' => ['admin.settings.registration', 'Registration'],
-        'email' => ['admin.settings.email', 'Email'],
-        'moderation' => ['admin.settings.moderation', 'Moderation'],
-        'antispam' => ['admin.settings.antispam', 'Anti-spam'],
-        'appearance' => ['admin.settings.appearance', 'Appearance'],
-        'members' => ['admin.members.directory', 'Members'],
-        'search' => ['admin.settings.search', 'Search'],
-        'payments' => ['admin.settings.payments', 'Payments'],
+        'general' => ['admin.settings.general', 'general'],
+        'registration' => ['admin.settings.registration', 'registration'],
+        'email' => ['admin.settings.email', 'email'],
+        'moderation' => ['admin.settings.moderation', 'moderation_settings'],
+        'antispam' => ['admin.settings.antispam', 'antispam'],
+        'appearance' => ['admin.settings.appearance', 'appearance'],
+        'members' => ['admin.members.directory', 'directory'],
+        'search' => ['admin.settings.search', 'search'],
+        'payments' => ['admin.settings.payments', 'payments'],
     ];
 
     /**
-     * The grouped nav. Each group: ['label','icon','items'=>[['label','route','icon','external'?]]].
+     * The icon rail: every section whose landing route is registered, in order, with its resolved URL and an
+     * `active` flag for the section the current request lives in.
      *
-     * @return list<array{label:string,icon:string,items:list<array{label:string,route:string,url:string,icon:string,active:bool,external:bool}>}>
+     * @return list<array{key:string,label:string,icon:string,route:string,url:string,active:bool}>
      */
-    public static function groups(): array
+    public static function rail(): array
     {
-        $definition = [
-            ['Overview', 'gauge', [
-                ['Dashboard', 'admin.dashboard', 'gauge'],
-                ['Analytics', 'admin.analytics', 'gauge'],
-            ]],
-            ['Settings', 'sliders', [
-                ['General', 'admin.settings.general', 'cog'],
-                ['Registration', 'admin.settings.registration', 'user'],
-                ['Email', 'admin.settings.email', 'mail'],
-                ['Moderation', 'admin.settings.moderation', 'shield'],
-                ['Anti-spam', 'admin.settings.antispam', 'lock'],
-                ['Appearance', 'admin.settings.appearance', 'palette'],
-                ['Themes', 'admin.settings.themes', 'palette'],
-                ['Templates', 'admin.settings.templates', 'pencil'],
-                ['Clubs', 'admin.settings.clubs', 'users'],
-                ['Social login', 'admin.settings.sso', 'lock'],
-                ['Search', 'admin.settings.search', 'database'],
-                ['Payments', 'admin.settings.payments', 'check-circle'],
-            ]],
-            ['Members', 'users', [
-                ['Groups', 'admin.members.groups', 'users'],
-                ['Permissions', 'admin.system.permissions', 'shield'],
-                ['Custom fields', 'admin.system.profile-fields', 'list'],
-                ['Directory', 'admin.members.directory', 'users'],
-                ['Membership tiers', 'admin.tiers', 'check-circle'],
-                ['Memberships', 'admin.memberships', 'check-circle'],
-            ]],
-            ['Content', 'folder', [
-                ['Forums & structure', 'admin.structure', 'folder'],
-                ['Badges', 'admin.badges', 'check-circle'],
-            ]],
-            ['Extend', 'folder', [
-                ['Modules & plugins', 'admin.modules', 'cog'],
-                ['Layout & widgets', 'admin.layout', 'sliders'],
-                ['Webhooks', 'admin.webhooks', 'mail'],
-            ]],
-            ['Moderation', 'flag', [
-                ['Approval queue', 'moderation.queue', 'check-circle', true],
-                ['Reports', 'moderation.reports', 'flag', true],
-                ['Mod control panel', 'moderation.dashboard', 'shield', true],
-                ['Spam intelligence', 'admin.spam-intelligence', 'shield'],
-            ]],
-            ['System', 'database', [
-                ['Service tier', 'admin.system.tier', 'database'],
-                ['Backups & restore', 'admin.system.backups', 'inbox'],
-                ['Upgrade', 'admin.system.upgrade', 'arrow-up'],
-                ['Email suppressions', 'admin.system.suppressions', 'mail'],
-                ['Audit log', 'admin.system.audit', 'list'],
-                ['Tasks', 'admin.system.tasks', 'clock'],
-            ]],
-        ];
+        $active = self::activeSectionKey();
+        $rail = [];
 
-        $groups = [];
-        foreach ($definition as [$label, $icon, $items]) {
+        foreach (self::SECTIONS as $key => [$icon, $landing]) {
+            if (! Route::has($landing)) {
+                continue;
+            }
+            $rail[] = [
+                'key' => $key,
+                'label' => (string) __("admin.sections.$key"),
+                'icon' => $icon,
+                'route' => $landing,
+                'url' => route($landing),
+                'active' => $key === $active,
+            ];
+        }
+
+        return $rail;
+    }
+
+    /**
+     * The sub-page clusters for one section (the section sidebar). Each item is resolved + Route::has()-gated.
+     *
+     * @return list<array{heading:?string,items:list<array{label:string,route:string,url:string,icon:string,active:bool,external:bool}>}>
+     */
+    public static function sidebar(?string $sectionKey = null): array
+    {
+        $sectionKey ??= self::activeSectionKey();
+        $def = self::SECTIONS[$sectionKey] ?? null;
+        if ($def === null) {
+            return [];
+        }
+
+        $clusters = [];
+        foreach ($def[2] as $cluster) {
+            // Forward-looking: a cluster may carry a translation-key heading once a section has several labelled
+            // clusters; today every section is a single unnamed cluster (the @var keeps that an open shape).
+            /** @var ?string $heading */
+            $heading = $cluster[0];
             $live = [];
-            foreach ($items as $item) {
+            foreach ($cluster[1] as $item) {
                 $route = $item[1];
                 if (! Route::has($route)) {
                     continue;
                 }
                 $live[] = [
-                    'label' => $item[0],
+                    'label' => (string) __('admin.nav.'.$item[0]),
                     'route' => $route,
                     'url' => route($route),
                     'icon' => $item[2],
@@ -111,27 +190,84 @@ final class AdminNavigation
                 ];
             }
             if ($live !== []) {
-                $groups[] = ['label' => $label, 'icon' => $icon, 'items' => $live];
+                $clusters[] = ['heading' => $heading !== null ? (string) __($heading) : null, 'items' => $live];
             }
         }
 
-        return $groups;
+        return $clusters;
+    }
+
+    /** The label of a section (for breadcrumbs / the section dashboard heading). */
+    public static function sectionLabel(string $key): string
+    {
+        return (string) __("admin.sections.$key");
     }
 
     /**
-     * The flat client-side search index: every admin page plus every settings field LABEL, each pointing
-     * at a page URL (settings fields jump to their anchor). Pure data → JSON for the Alpine filter.
+     * Which rail section the current request belongs to — the section that owns the active route name. Defaults
+     * to 'overview' (the implicit any-admin home). Drives the rail highlight + which sidebar the shell renders.
+     */
+    public static function activeSectionKey(): string
+    {
+        foreach (self::routeToSection() as $routeName => $sectionKey) {
+            if (request()->routeIs($routeName)) {
+                return $sectionKey;
+            }
+        }
+
+        return 'overview';
+    }
+
+    /**
+     * Flat route-name → section-key map, derived from the section definitions (landing routes + every sub-page).
+     * A route appearing in more than one section (e.g. analytics under Overview and Analytics) binds to the
+     * LAST section that lists it, so its own section wins the highlight.
      *
-     * @return list<array{label:string,group:string,url:string}>
+     * @return array<string,string>
+     */
+    private static function routeToSection(): array
+    {
+        $map = [];
+        foreach (self::SECTIONS as $key => [, $landing, $clusters]) {
+            $map[$landing] = $key;
+            foreach ($clusters as [, $items]) {
+                foreach ($items as $item) {
+                    if (empty($item[3] ?? false)) { // external links don't claim the section highlight
+                        $map[$item[1]] = $key;
+                    }
+                }
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * The flat search index: every reachable admin page plus every settings field LABEL, each pointing at a page
+     * URL (settings fields jump to their anchor). Each entry is tagged `type` (page|setting) so the server-side
+     * ACP search can split them into result groups; the Alpine quick-filter ignores `type` and matches on
+     * label+group. Members are searched server-side (SearchController) since they aren't a fixed set.
+     *
+     * @return list<array{label:string,group:string,url:string,type:string}>
      */
     public static function searchIndex(): array
     {
         $index = [];
 
-        // Every reachable nav page.
-        foreach (self::groups() as $group) {
-            foreach ($group['items'] as $item) {
-                $index[] = ['label' => $item['label'], 'group' => $group['label'], 'url' => $item['url']];
+        // Every reachable nav page (skip external links — they leave the ACP).
+        foreach (self::SECTIONS as $sectionKey => [, , $clusters]) {
+            foreach ($clusters as [, $items]) {
+                foreach ($items as $item) {
+                    if (! empty($item[3] ?? false) || ! Route::has($item[1])) {
+                        continue;
+                    }
+                    $index[] = [
+                        'label' => (string) __('admin.nav.'.$item[0]),
+                        'group' => (string) __("admin.sections.$sectionKey"),
+                        'url' => route($item[1]),
+                        'type' => 'page',
+                    ];
+                }
             }
         }
 
@@ -143,8 +279,9 @@ final class AdminNavigation
             }
             $index[] = [
                 'label' => $def->label,
-                'group' => $target[1].' settings',
+                'group' => (string) __('admin.nav.'.$target[1]),
                 'url' => route($target[0]).'#setting-'.Str::slug($key, '-'),
+                'type' => 'setting',
             ];
         }
 

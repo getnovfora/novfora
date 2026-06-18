@@ -15,10 +15,13 @@ class AclEntry extends Model
     // future `AclEntry::create($request->...)` mint a privilege (e.g. value=ALLOW on admin.access for your
     // own holder_id). Only the resolver's columns are mass-assignable; everything is written by trusted
     // server code (RoleExpander, seeders, the Acl test helper).
-    protected $fillable = ['permission_key', 'holder_type', 'holder_id', 'scope_type', 'scope_id', 'value'];
+    // `expires_at` (ACP v3 v3-0) is safe to mass-assign: a TTL can only NARROW a grant (it lapses), never mint
+    // or widen one — so it carries none of the escalation risk the allowlist above guards against.
+    protected $fillable = ['permission_key', 'holder_type', 'holder_id', 'scope_type', 'scope_id', 'value', 'expires_at'];
 
     protected $casts = [
         'value' => 'integer',
+        'expires_at' => 'datetime',
     ];
 
     protected static function booted(): void

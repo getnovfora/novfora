@@ -43,6 +43,21 @@ The **i18n view-string sweep — wave 1 (ADR-0079)** externalizes the **forum / 
 English unchanged. Residue (clubs / settings / notifications / tags / pm / ACP admin / Livewire components) is recorded
 as community-contributable, same pattern (extends ADR-0043 + ADR-0073).
 
+**ACP v3 — admin & permission management (branch `claude/acp-v3-foundations`, 2026-06-18, owner-approved program
+ADR-0080):** a multi-slice program built on the existing permission engine. **v3-0 ✅ the one additive engine seam
+(ADR-0080)** — nullable, indexed `acl_entries.expires_at` + a single **authoritative** resolver expiry filter (the
+cached `can()` is capped to the earliest contributing TTL, so a lapsed grant is never honoured even if the cron
+lags) + the `novfora:acl:prune-expired` cron, so temporary-access delegation (v3-f) rides the one engine. **v3-h ✅
+the Invision-style IA (ADR-0081)** — an icon rail of 11 sections → per-section sidebars → per-section dashboards + a
+global ACP search (pages / settings / members); old admin URLs **301** to their new section homes (route names kept
+stable; the Permission Inspector moved System → Security); one `admin.*` i18n group; a keyboard-navigable rail.
+**v3-c ✅ the headline card-per-group permission editor (ADR-0082)** — plain-language **Yes / No / Never** over
+`acl_entries` at global / forum / club scope, with a category bulk-apply; gated by the manage-permissions capability
++ a rank guard, an admin-only fence on Administration-tier keys, and a self-lockout guard on the admins group's
+recovery keys (the last two caught by the apex review). Each apex slice (v3-0, v3-c) had a 4-lens verify-then-refute
+adversarial review before commit. **Next: v3-e** (group system — membership models + AND/OR auto-promotion), then
+v3-d / v3-b / v3-a / v3-f / v3-g per ADR-0080. Branch is **local-only** (owner pushes).
+
 **Carried-in refinements:** Laravel 13 + Livewire 4; **PHP 8.3 floor** *(revises brief's 11/3 and the 8.2
 floor — flagged at the Phase 0 gate)*; no-SSH installer; coarse-cron-tolerant queue; WYSIWYG↔Livewire spike as
 the #1 risk; anti-spam first-class from Phase 1; a11y/i18n baked in throughout.

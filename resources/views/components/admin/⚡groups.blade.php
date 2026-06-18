@@ -292,7 +292,7 @@ new class extends Component
 
     public function inspectorUrl(): string
     {
-        return route('admin.system.permissions');
+        return route('admin.security.permissions');
     }
 
     private function resetForm(): void

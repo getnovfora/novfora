@@ -211,7 +211,13 @@ new class extends Component
 
     public function inspectorUrl(Forum $node): string
     {
-        return route('admin.system.permissions', ['scope' => $node->permissionScope()->key()]);
+        return route('admin.security.permissions', ['scope' => $node->permissionScope()->key()]);
+    }
+
+    /** ACP v3 · v3-c: the per-forum card-per-group permission editor (Forums → forum → Permissions). */
+    public function permissionsEditorUrl(Forum $node): string
+    {
+        return route('admin.forums.permissions', $node);
     }
 
     private function resetForm(): void
@@ -328,6 +334,9 @@ new class extends Component
                                 @unless ($node->isCategory())
                                     <x-ui.button variant="ghost" size="sm" icon :href="$this->inspectorUrl($node)" title="Permissions">
                                         <x-ui.icon name="shield" class="h-4 w-4" />
+                                    </x-ui.button>
+                                    <x-ui.button variant="ghost" size="sm" icon :href="$this->permissionsEditorUrl($node)" title="Edit permissions">
+                                        <x-ui.icon name="sliders" class="h-4 w-4" />
                                     </x-ui.button>
                                 @endunless
                                 <x-ui.button type="button" variant="ghost" size="sm" icon wire:click="edit({{ $node->id }})" title="Edit">

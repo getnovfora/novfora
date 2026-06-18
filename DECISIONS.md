@@ -3175,3 +3175,149 @@ largest pool). Highest-value next: `components/`, then `admin/`, then clubs + se
 
 **Consequences.** Three more localizable domains; **no behaviour change** (English output identical); no migration.
 The per-domain guard-test pattern is established for the remaining domains.
+
+### ADR-0080 — ACP v3: admin & permission management architecture (parent) (2026-06-18)
+**Status: Accepted — owner-approved program (2026-06-18). Implementation lands per slice with child ADRs
+(0081…), each gated + flagged for review.**
+
+**Context.** NovFora has a phpBB-grade permission **engine** (ADR-0006: ALLOW / NO (neutral) / NEVER,
+`RoleExpander`, `PermissionResolver`, `PermissionSync`, scopes global/forum/club) and a read-only
+`PermissionInspector`, but the admin-facing **management UX** is minimal — permissions are shaped through seeded
+presets and the v2 groups manager. The ACP v3 spec (`docs/product/acp-v3-spec.md`, 2026-06-10) designs the full
+management layer but predates Clubs, the inspector, and ADR-0025, and proposes parallel tables that would risk a
+second evaluation path. The reconciliation + slice plan is `docs/product/acp-v3-kickoff-refresh.md`; the locked
+foundations (section taxonomy + the engine seam) are `docs/product/acp-v3-foundations.md`.
+
+**Decision.** Build ACP v3 as a multi-slice program **on top of the existing engine**, under binding guardrails:
+(G1) every new construct is stored as / expands into `acl_entries` and resolves through the one resolver — **no
+parallel evaluation**; (G2) global / forum / **club** scope throughout; (G3) additive, reversible migrations;
+(G4) `PermissionInspector` is the **correctness oracle** for every write-path test; (G5) apex security fences;
+(G6) **Fable @ max** for any `acl_entries` / resolver / delegation slice; (G7) i18n `admin.*` from day one;
+(G8) never name a `lang` group that case-collides with a bare `__('Word')` string-key (ADR-0079).
+
+Settled product/architecture choices: **top-level = multiple co-owners** (no single Root, no transfer protocol)
+protected by a **last-owner guard** (the `isSoleAdmin` locked-re-check pattern, ADR-0025); **inheritance = Global
+→ Forum (+ Club)** with a bulk "apply to every forum in this category" action (**no category scope**);
+**temporary-access delegation = a TTL on `acl_entries`** (additive nullable `expires_at` the resolver honours,
+auto-expiring, ceiling-bounded, 30-day cap shown, cron-pruned); **group auto-promotion = a full AND/OR builder**
+(promotion-only); **per-forum moderator capabilities = preset bundles + a custom path** (custom reuses the role
+builder); the **ACP nav restructure** (Invision-style icon rail + per-section dashboards) is **in this cycle**,
+sequenced as an independent track. A single **ACP section taxonomy** (foundations §3) is the shared contract for
+the nav and the `admin.<section>.access` bundles.
+
+The only change reaching the locked engine is additive: a nullable, indexed `acl_entries.expires_at` with a
+single resolver filter (`expires_at IS NULL OR > now`), a cron prune that bumps `AclVersion`, and extended
+truth-table / inspector coverage. **The filter is authoritative** — a lagging sweep never honours an expired
+grant. Because a grant lapses by wall-clock (which is no write, so it bumps no `AclVersion`), the cached `can()`
+Gate path is held to the same guarantee by capping its cache horizon to the earliest contributing TTL — so a
+resolved verdict self-expires exactly when its grant does, with no dependence on the prune cron (apex-review
+finding, v3-0). The delegation **ceiling invariant** (recipient never exceeds the delegator's current mask;
+co-owner never delegable) is the apex test of the delegation slice.
+
+**Slice program (child ADRs, validated against migration dependencies before each locks):** v3-0 foundations +
+the `expires_at` seam (this ADR) → **v3-h** nav shell + IA (ADR-0081) → **v3-c** card-per-group editor
+(ADR-0082) → **v3-e** group system (AND/OR) → **v3-d** custom roles → **v3-b** moderator assignment → **v3-a**
+co-owners + Admin Manager + bundles → **v3-f** delegation → **v3-g** staff flair / roster.
+
+**Consequences.** The engine and inspector remain the single source of truth, changed only by the additive
+`expires_at` seam; everything else is additive surface + projections. Old ACP routes 301 to their new section
+homes. The nav restructure ships in-cycle but decoupled, so a slip never blocks the permission features.
+Per-section access keys arrive with the bundles slice (v3-a); until then the new rail is visible to any admin and
+the Security section houses the existing inspector under its current gate.
+
+**Alternatives considered.** (a) Implement the spec verbatim with parallel `admin_permissions` / moderator
+evaluation — rejected (violates G1, splits the security-critical path). (b) Single founder Root + 4-rail transfer
+protocol — rejected by owner for multiple co-owners. (c) A true category permission scope — deferred
+(engine / `ScopeChain` change; bulk apply-to-category covers the ergonomics). (d) Resolver-overlay delegation —
+rejected for TTL-on-`acl_entries` (one eval path). (e) Ship as one monolith — rejected (unreviewable).
+
+**Scope fences.** No multi-tenant admin model; no marketplace/payments admin; a true category scope is deferred.
+The nav restructure (v3-h) **is** in scope (owner decision).
+
+**References.** `docs/product/acp-v3-foundations.md`, `docs/product/acp-v3-kickoff-refresh.md`,
+`docs/product/acp-v3-spec.md`.
+
+### ADR-0081 — ACP v3 · v3-h: Invision-style icon-rail IA + per-section dashboards + 301 route moves (2026-06-18)
+**Status: Accepted — child of ADR-0080; owner-authorized unattended build, gated, flagged for review.**
+
+**Context.** The ACP was a flat route-per-page list inside one grouped left sidebar (`AdminNavigation::groups()`).
+The foundations §3 taxonomy locks an Invision-style information architecture (icon rail → section sidebar →
+per-section dashboard) shared with the v3-a `admin.<section>.access` bundles. v3-h delivers that chrome and
+re-homes the existing pages into their sections, decoupled so it never blocks the permission slices.
+
+**Decision.** Rebuild the ACP shell clean-room (no copied markup) as three panes: an **icon rail** of the eleven
+sections (Overview · Forums · Members · Groups · Moderation · Appearance · Plugins · Analytics · Settings ·
+System · Security) → the active section's **sidebar** of sub-page clusters → the page content. Each section gets a
+**dashboard landing** (`admin.<section>`, one invokable `SectionController` + a shared `admin.section` view) that
+starts with the section summary and grows widgets as features land. A global **ACP search** (`admin.search`)
+spans pages + settings + members (the sidebar keeps the instant client-side page/settings filter; Enter runs the
+server search that adds member lookup). `AdminNavigation` is the single source for the rail, the per-section
+sidebars, active-section detection, and the search index, so the nav can never drift from the routes.
+
+**Page re-homing.** Every moved page keeps its **route NAME stable** (so every `route()` call-site and most tests
+are untouched) and only its URL changes to sit under its section; the OLD URL **301s** to the new home via a bare
+`Route::redirect` (a `RedirectController` route, excluded from the authz-walk and covered by a dedicated 301
+test). The single exception is the Permission Inspector, which moved System → **Security** and was therefore
+renamed `admin.system.permissions` → `admin.security.permissions` (its five call-sites updated); it stays under
+its **existing** gate (co-owner gating arrives in v3-a).
+
+**Guardrails.** PURE UI — **no new permission keys** this slice (the rail is visible to any admin via the existing
+`admin.access` gate); feature pages stay shell-agnostic. i18n from the first commit under a single **`admin.*`**
+group (+ shared `common.*`); the G8 collision check confirmed no bare `__('Admin')` string-key exists, and the
+section labels live as `admin.sections.*` keys (never standalone `forums.php`/`members.php` group files). The icon
+rail is a keyboard-operable `nav` landmark with `aria-current` + visible focus rings.
+
+**Consequences.** Old admin bookmarks 301 to the new section homes; internal links are unaffected (names stable).
+The authz-walk render-mirror visits every admin page through the new shell (all 200). Member search links to the
+member's profile until the dedicated member-management surface lands in a later slice.
+
+**Alternatives considered.** (a) Restructure only the nav, leave URLs — rejected (the spec requires the pages to
+move + 301). (b) Move URLs *and* rename every route to its section — rejected (needless call-site/test churn;
+"keep names stable where you can"). (c) Per-section `lang` group files — rejected (G8 case-collision risk).
+
+### ADR-0082 — ACP v3 · v3-c: card-per-group permission editor (global / forum / club) + category bulk-apply (2026-06-18)
+**Status: Accepted — child of ADR-0080; owner-authorized unattended build, gated, APEX-reviewed, flagged for
+review.**
+
+**Context.** The headline "simple mode": the engine has fully supported group ACL since ADR-0006, but admins
+could only shape permissions through seeded role presets and the v2 groups manager — there was no plain-language
+editor. v3-c adds a card-per-group editor with **three homes on the SAME `acl_entries` data**: GLOBAL defaults
+(Groups → Group permissions), per-FORUM overrides (Forums → forum → Permissions), and per-CLUB (the club manage
+screen).
+
+**Decision.** A `GroupPermissionEditor` service writes a group's OWN entries DIRECTLY (holder_type='group') at the
+chosen scope — **not** via `RoleExpander` (which expands ROLE presets; this edits the group's standing entries).
+Three UI states: **Yes = ALLOW (+1)** · **No = delete the row** (→ inherit; never a value=0 row) · **Never =
+NEVER (−1)**. One Livewire SFC (`permissions.group-editor`, `#[Locked]` scope) serves all three homes; the
+PermissionInspector is the test oracle. The **category bulk-apply** (foundations §4, option A) copies a source
+forum's group overrides onto every forum under its parent category in ONE transaction, audited — the phpBB
+"copy permissions" ergonomic without a category scope. `acl_entries` model events bump `AclVersion`
+automatically; the 'no' branch uses a query-builder delete (which skips the event) so it bumps by hand.
+
+**Apex security fences (the adversarial review found and these close two HIGH issues).** (1) **Gate:** global /
+forum require `admin.access` + staff-2FA + the **manage-permissions capability** (`permissions.manage`); club
+requires `club.manage` on that club — re-asserted on every action (Livewire actions skip route middleware).
+(2) **Rank guard:** you cannot edit a group ranked at/above you (admins bypass; `rankPriority()` vs the target
+group's `priority`). (3) **Per-key escalation fence (review HIGH #1):** only a full admin may grant/deny an
+**Administration-tier** key (`admin.*`, `permissions.manage`, `users.manage`, `groups.manage`) — without it a
+non-admin `permissions.manage` holder could hand admin access to a group it merely outranks. (4) **Self-lockout
+guard (review HIGH #2):** the service refuses (throws; the SFC 403s) to strip the system **admins** group's own
+`admin.access` / `permissions.manage` at global scope — that would brick all ACP access with no in-app recovery
+(the last-owner-guard pattern; the full board-wide co-owner guard is v3-a). (5) `#[Locked]` scope +
+key-visibility check (a forum/club editor exposes only forum-scoped keys); the bulk write is admin-only and
+excludes club forums.
+
+**Consequences.** The editor edits a group's standing entries — including the rows the seeded role presets wrote
+(editing the members group's `forum.view` modifies that preset row). The full board-wide "≥ 1 admin path" guard
+belongs to v3-a (co-owners); v3-c guards the system admins group's recovery keys as the interim fence. Inheritance
+is shown per row (a forum/club "No" surfaces its global default). NEVER stays absolute and priority-independent.
+
+**Verification.** Inspector-oracle tests across global / forum / club; No-removes-the-row + inheritance; NEVER
+beats a higher-priority Yes; category bulk-apply writes every child forum; 403 for a non-permission-admin; the
+rank guard; the escalation fence; the self-lockout guard (SFC + service backstop). A 4-lens APEX adversarial
+verify-then-refute review ran before commit; its two HIGH findings are fixed and pinned by tests.
+
+**Alternatives considered.** (a) Route writes through `RoleExpander` — rejected (it expands role presets, not a
+group's own entries; would split the write path). (b) A true category permission scope — deferred (engine /
+`ScopeChain` change; the bulk-apply covers the ergonomic). (c) Leave the escalation/lockout fences to v3-a —
+rejected (the editor ships a write path now, so it must be safe now).
