@@ -1,17 +1,17 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => 'New topic · '.config('app.name', 'NovFora')])
+@extends('layouts.app', ['title' => __('forum.new_topic').' · '.config('app.name', 'NovFora')])
 
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[
-        ['label' => 'Forums', 'url' => route('forums.index')],
+        ['label' => __('common.forums'), 'url' => route('forums.index')],
         ['label' => $forum->title, 'url' => route('forums.show', $forum)],
-        ['label' => 'New topic'],
+        ['label' => __('forum.new_topic')],
     ]" />
 @endsection
 
 @section('content')
     <x-ui.container size="md" class="space-y-5">
-        <h1 class="text-2xl font-semibold tracking-tight text-ink">New topic in {{ $forum->title }}</h1>
+        <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ __('forum.new_topic_in', ['forum' => $forum->title]) }}</h1>
         <x-ui.card>
             <livewire:forum.create-topic :forum-id="$forum->id" />
         </x-ui.card>

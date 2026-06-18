@@ -34,7 +34,7 @@
 
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[
-        ['label' => 'Forums', 'url' => route('forums.index')],
+        ['label' => __('common.forums'), 'url' => route('forums.index')],
         ['label' => $topic->forum->title, 'url' => route('forums.show', $topic->forum)],
         ['label' => $topic->title],
     ]" />
@@ -58,10 +58,10 @@
                             <x-forum.tag-chip :tag="$tag" />
                         @endforeach
                         @if ($topic->is_pinned)
-                            <x-ui.badge variant="accent"><x-ui.icon name="pin" class="h-3.5 w-3.5" /> Pinned</x-ui.badge>
+                            <x-ui.badge variant="accent"><x-ui.icon name="pin" class="h-3.5 w-3.5" /> {{ __('forum.pinned') }}</x-ui.badge>
                         @endif
                         @if ($topic->status === 'locked')
-                            <x-ui.badge variant="warn"><x-ui.icon name="lock" class="h-3.5 w-3.5" /> Locked</x-ui.badge>
+                            <x-ui.badge variant="warn"><x-ui.icon name="lock" class="h-3.5 w-3.5" /> {{ __('forum.locked') }}</x-ui.badge>
                         @endif
                     </div>
                 @endif
@@ -78,12 +78,12 @@
                 <div class="flex flex-wrap items-center gap-2">
                     <form method="POST" action="{{ route('topics.pin', $topic) }}">@csrf
                         <x-ui.button type="submit" variant="ghost" size="sm">
-                            <x-ui.icon name="pin" class="h-4 w-4" /> {{ $topic->is_pinned ? 'Unpin' : 'Pin' }}
+                            <x-ui.icon name="pin" class="h-4 w-4" /> {{ $topic->is_pinned ? __('forum.unpin') : __('forum.pin') }}
                         </x-ui.button>
                     </form>
                     <form method="POST" action="{{ route('topics.lock', $topic) }}">@csrf
                         <x-ui.button type="submit" variant="ghost" size="sm">
-                            <x-ui.icon name="lock" class="h-4 w-4" /> {{ $topic->status === 'locked' ? 'Unlock' : 'Lock' }}
+                            <x-ui.icon name="lock" class="h-4 w-4" /> {{ $topic->status === 'locked' ? __('forum.unlock') : __('forum.lock') }}
                         </x-ui.button>
                     </form>
                     {{-- Merge this topic into another (P2-M4): trigger + modal SFC. --}}
@@ -92,10 +92,10 @@
                     <x-ui.button type="button" variant="ghost" size="sm" dusk="bulk-select-toggle"
                                  x-on:click="$store.bulkSelect.toggleMode()"
                                  x-bind:class="$store.bulkSelect.active ? 'border-accent text-accent' : ''">
-                        <span x-text="$store.bulkSelect.active ? 'Done selecting' : 'Select posts'"></span>
+                        <span x-text="$store.bulkSelect.active ? @js(__('forum.done_selecting')) : @js(__('forum.select_posts'))"></span>
                     </x-ui.button>
-                    <form method="POST" action="{{ route('topics.destroy', $topic) }}" onsubmit="return confirm('Move this topic to the recycle bin?')">@csrf @method('DELETE')
-                        <x-ui.button type="submit" variant="danger-ghost" size="sm">Delete</x-ui.button>
+                    <form method="POST" action="{{ route('topics.destroy', $topic) }}" onsubmit="return confirm('{{ __('forum.confirm_trash_topic') }}')">@csrf @method('DELETE')
+                        <x-ui.button type="submit" variant="danger-ghost" size="sm">{{ __('common.delete') }}</x-ui.button>
                     </form>
                 </div>
             @endif
@@ -124,7 +124,7 @@
         <div class="space-y-4">
             @foreach ($posts as $post)
                 @php($author = $post->author)
-                @php($role = $author?->isAdmin() ? 'Admin' : ($author?->isStaff() ? 'Moderator' : null))
+                @php($role = $author?->isAdmin() ? __('forum.role_admin') : ($author?->isStaff() ? __('forum.role_moderator') : null))
                 {{-- Member tool 2.2: collapse a post by an ignored member — but NEVER a staff member ($role set). --}}
                 @php($authorIgnored = $role === null && in_array((int) $post->user_id, $ignoredIds ?? [], true))
                 <x-ui.card id="post-{{ $post->id }}" :class="$post->approved_state === 'pending' ? 'ring-1 ring-warn-soft' : ''">
@@ -135,7 +135,7 @@
                                    x-on:change="$store.bulkSelect.toggle({{ $post->id }})"
                                    dusk="bulk-post-{{ $post->id }}"
                                    class="h-4 w-4 rounded-sm border-line-strong text-accent focus-visible:ring-accent">
-                            Select this post
+                            {{ __('forum.select_this_post') }}
                         </label>
                     @endif
                     <div class="{{ $postWrap }}">
@@ -151,9 +151,9 @@
                                 {{-- Poster stats from already-loaded columns (desktop sidebar only). --}}
                                 <dl class="mt-2 hidden space-y-0.5 text-xs text-ink-subtle md:block">
                                     @if ($author?->created_at)
-                                        <div><dt class="sr-only">Joined</dt><dd>Joined {{ $author->created_at->isoFormat('MMM YYYY') }}</dd></div>
+                                        <div><dt class="sr-only">{{ __('forum.joined_label') }}</dt><dd>{{ __('forum.joined_on', ['date' => $author->created_at->isoFormat('MMM YYYY')]) }}</dd></div>
                                     @endif
-                                    <div><dt class="sr-only">Posts</dt><dd class="nums">{{ number_format((int) ($author?->post_count ?? 0)) }} posts</dd></div>
+                                    <div><dt class="sr-only">{{ __('forum.posts_label') }}</dt><dd class="nums">{{ __('forum.post_count', ['count' => number_format((int) ($author?->post_count ?? 0))]) }}</dd></div>
                                 </dl>
                             </div>
                         </div>
@@ -161,9 +161,9 @@
                         {{-- Body --}}
                         <div class="min-w-0 flex-1 pt-3 md:pt-0">
                             <div class="flex flex-wrap items-center gap-2 text-xs text-ink-subtle nums md:border-b md:border-line md:pb-2">
-                                <span>{{ $post->created_at?->diffForHumans() }}@if ($post->edited_at) · edited @endif</span>
+                                <span>{{ $post->created_at?->diffForHumans() }}@if ($post->edited_at) · {{ __('forum.edited') }} @endif</span>
                                 @if ($post->approved_state === 'pending')
-                                    <x-ui.badge variant="warn" class="ml-auto">awaiting approval</x-ui.badge>
+                                    <x-ui.badge variant="warn" class="ml-auto">{{ __('forum.awaiting_approval') }}</x-ui.badge>
                                 @endif
                             </div>
 
@@ -198,11 +198,11 @@
                                         :saved="($viewerBookmarks[$post->id] ?? false)" :can-save="$canBookmark" />
                                 @endif
                                 @can('update', $post)
-                                    <x-ui.button :href="route('posts.edit', $post)" variant="subtle" size="sm">Edit</x-ui.button>
+                                    <x-ui.button :href="route('posts.edit', $post)" variant="subtle" size="sm">{{ __('common.edit') }}</x-ui.button>
                                 @endcan
                                 @can('delete', $post)
-                                    <form method="POST" action="{{ route('posts.destroy', $post) }}" onsubmit="return confirm('Delete this post?')">@csrf @method('DELETE')
-                                        <x-ui.button type="submit" variant="danger-ghost" size="sm">Delete</x-ui.button>
+                                    <form method="POST" action="{{ route('posts.destroy', $post) }}" onsubmit="return confirm('{{ __('forum.confirm_delete_post') }}')">@csrf @method('DELETE')
+                                        <x-ui.button type="submit" variant="danger-ghost" size="sm">{{ __('common.delete') }}</x-ui.button>
                                     </form>
                                 @endcan
                                 {{-- Edit-history diff: only for EDITED posts the viewer can see (author of the post,
@@ -216,7 +216,7 @@
                                     <form method="POST" action="{{ route('reports.store') }}" class="ml-auto">@csrf
                                         <input type="hidden" name="post_id" value="{{ $post->id }}">
                                         <x-ui.button type="submit" variant="ghost" size="sm">
-                                            <x-ui.icon name="flag" class="h-4 w-4" /> Report
+                                            <x-ui.icon name="flag" class="h-4 w-4" /> {{ __('forum.report') }}
                                         </x-ui.button>
                                     </form>
                                 @endauth
@@ -241,13 +241,13 @@
             @elseif ($topic->status === 'locked')
                 <x-ui.card class="flex items-center gap-3 text-ink-muted">
                     <x-ui.icon name="lock" class="h-5 w-5 shrink-0 text-ink-subtle" />
-                    <p class="text-sm">This topic is locked — no new replies can be posted.</p>
+                    <p class="text-sm">{{ __('forum.locked_no_replies') }}</p>
                 </x-ui.card>
             @endif
         @else
             <x-ui.card class="flex flex-wrap items-center justify-between gap-3">
-                <p class="text-sm text-ink-muted">Join the conversation to leave a reply.</p>
-                <x-ui.button :href="route('login')" size="sm">Sign in to reply</x-ui.button>
+                <p class="text-sm text-ink-muted">{{ __('forum.join_to_reply') }}</p>
+                <x-ui.button :href="route('login')" size="sm">{{ __('forum.sign_in_to_reply') }}</x-ui.button>
             </x-ui.card>
         @endauth
 
@@ -257,8 +257,8 @@
 
         {{-- Discovery 3.3: related topics (share-a-tag, same-forum fallback; permission-safe). --}}
         @if (($related ?? collect())->isNotEmpty())
-            <section class="mt-8 space-y-2" aria-label="Related topics">
-                <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle">Related topics</h2>
+            <section class="mt-8 space-y-2" aria-label="{{ __('forum.related_topics') }}">
+                <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ __('forum.related_topics') }}</h2>
                 <x-ui.card flush>
                     <ul class="divide-y divide-line">
                         @foreach ($related as $rel)

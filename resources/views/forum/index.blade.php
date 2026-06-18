@@ -1,5 +1,5 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => 'Forums · '.config('app.name', 'NovFora')])
+@extends('layouts.app', ['title' => __('common.forums').' · '.config('app.name', 'NovFora')])
 
 @push('head')
     <link rel="canonical" href="{{ route('forums.index') }}">
@@ -13,7 +13,7 @@
             <div class="space-y-6 min-w-0">
         @endif
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <h1 class="text-2xl font-semibold tracking-tight text-ink">Forums</h1>
+            <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ __('common.forums') }}</h1>
         </div>
 
         {{-- Overridable sandbox template (ADR-0038): a welcome panel, rendered only when an admin enables it. --}}
@@ -49,9 +49,9 @@
             @endif
         @empty
             <x-ui.card flush>
-                <x-ui.empty title="No forums yet">
+                <x-ui.empty title="{{ __('forum.no_forums_title') }}">
                     <x-slot:icon><x-ui.icon name="message" class="h-6 w-6" /></x-slot:icon>
-                    Once forums are created, they’ll show up here for everyone to browse.
+                    {{ __('forum.no_forums_body') }}
                 </x-ui.empty>
             </x-ui.card>
         @endforelse

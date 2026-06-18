@@ -16,17 +16,17 @@
         {{-- Mobile: counts + last activity stacked under the title. --}}
         <dl class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-subtle sm:hidden">
             <div class="flex items-center gap-1">
-                <dt class="sr-only">Topics</dt>
-                <dd class="nums font-medium text-ink-muted">{{ number_format($forum->topic_count) }}</dd><span>topics</span>
+                <dt class="sr-only">{{ __('forum.topics_label') }}</dt>
+                <dd class="nums font-medium text-ink-muted">{{ number_format($forum->topic_count) }}</dd><span>{{ __('forum.topics') }}</span>
             </div>
             <div class="flex items-center gap-1">
-                <dt class="sr-only">Posts</dt>
-                <dd class="nums font-medium text-ink-muted">{{ number_format($forum->post_count) }}</dd><span>posts</span>
+                <dt class="sr-only">{{ __('forum.posts_label') }}</dt>
+                <dd class="nums font-medium text-ink-muted">{{ number_format($forum->post_count) }}</dd><span>{{ __('forum.posts') }}</span>
             </div>
             @if ($forum->last_posted_at)
                 <div class="flex items-center gap-1">
-                    <dt class="sr-only">Latest activity</dt>
-                    <dd class="nums">updated {{ $forum->last_posted_at->diffForHumans() }}</dd>
+                    <dt class="sr-only">{{ __('forum.latest_activity') }}</dt>
+                    <dd class="nums">{{ __('forum.updated_ago', ['ago' => $forum->last_posted_at->diffForHumans()]) }}</dd>
                 </div>
             @endif
         </dl>
@@ -35,12 +35,12 @@
     {{-- Desktop: counts + a right-aligned "latest activity" column (links to the forum's most recent topic). --}}
     <div class="hidden shrink-0 items-start gap-6 sm:flex">
         <div class="text-right text-xs text-ink-subtle">
-            <div><span class="nums font-semibold text-ink-muted">{{ number_format($forum->topic_count) }}</span> topics</div>
-            <div class="mt-0.5"><span class="nums font-semibold text-ink-muted">{{ number_format($forum->post_count) }}</span> posts</div>
+            <div><span class="nums font-semibold text-ink-muted">{{ number_format($forum->topic_count) }}</span> {{ __('forum.topics') }}</div>
+            <div class="mt-0.5"><span class="nums font-semibold text-ink-muted">{{ number_format($forum->post_count) }}</span> {{ __('forum.posts') }}</div>
         </div>
         <div class="w-40 text-right text-xs">
             @if ($forum->last_posted_at)
-                <span class="block text-ink-subtle">Latest activity</span>
+                <span class="block text-ink-subtle">{{ __('forum.latest_activity') }}</span>
                 @if ($forum->last_topic_id)
                     {{-- Accent + hover underline so the clickable timestamp is always distinct from the static
                          variant below (WCAG 1.4.1). --}}
@@ -49,7 +49,7 @@
                     <span class="block nums text-ink-muted">{{ $forum->last_posted_at->diffForHumans() }}</span>
                 @endif
             @else
-                <span class="block text-ink-subtle">No posts yet</span>
+                <span class="block text-ink-subtle">{{ __('forum.no_posts_yet') }}</span>
             @endif
         </div>
     </div>

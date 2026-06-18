@@ -13,6 +13,7 @@ return [
     'delete' => 'Delete',
     'save' => 'Save',
     'cancel' => 'Cancel',
+    'edit' => 'Edit',
     'forums' => 'Forums',
     'language' => 'Language',
     'choose_language' => 'Choose language',
