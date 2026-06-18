@@ -11,7 +11,49 @@
 
 ---
 
-## 🎨 UI/UX polish on `claude/ui-ux-nav-login-infocenter` — 2026-06-17 (LATEST · off `main`; phase-5-ga + RH-4 merged)
+## 🧩 PWA + i18n polish on `claude/pwa-i18n-polish` — 2026-06-17 (LATEST · off a freshly-integrated `main`)
+
+**Unattended, owner-authorized session.** **Step 0** first integrated the outstanding UI/UX branch into `main`
+(`git merge --no-ff claude/ui-ux-nav-login-infocenter` → `da4c460`, gated green: 1596 pass / PHPStan L5 / Pint /
+migrate) and cut this branch off it. **NOTHING IS PUSHED** — pushing `main` + reconciling origin is interactive-only;
+the owner does it. Conventional, DCO-signed, `Tommy Huynh`-authored commits, gated in `forum-dev` at each green
+boundary. ADRs: **0078** (PWA), **0079** (i18n).
+
+**Unit A — PWA subpath-aware + raster icons (ADR-0078):** the manifest `start_url`/`scope` + icon srcs, the SW
+registration scope, `Service-Worker-Allowed`, and the SW's own `SCOPE` (read from `registration.scope`) all derive
+from the mount base, so the PWA installs + the service worker registers/caches under a `/community/` subdirectory
+mount as well as a domain root (a byte-identical no-op at a root). Added 192/512 `any` + a full-bleed `maskable-512`
+PNG (rasterized from `novfora.svg`). **Resolves the ADR-0070 PWA-under-a-subpath deferral.**
+`tests/Feature/Pwa/PwaTest.php` → 14 cases green.
+  - **⚠ OWNER VALIDATION (real device/host, not machine-verifiable here):** install the app under a `/community/`
+    mount and confirm (1) the install prompt appears, (2) the SW registers — DevTools → Application → Service Workers,
+    scope `/community/`, and (3) the install/home-screen icon shows the blue "N" PNG, not a blank square.
+
+**Unit B — i18n view-string sweep, wave 1 (ADR-0079; extends ADR-0043/0073):** externalized the **forum**,
+**members**, and **profiles** domains into `lang/en/forum.php` + `profiles.php` (joining auth/common/errors/search),
+plus `common.edit` and the **members labels in `common.*`** (members/directory/top_members — NOT a `members.php`
+group; see the collision lesson). Each is a gated, DCO-signed `i18n(<domain>)` commit with a
+per-domain guard test (`tests/Feature/I18n/*LangKeysTest.php`: keys resolve + a page renders English with no raw
+`"<domain>."` token). **English output is byte-for-byte unchanged** (curly punctuation preserved; count suffixes kept
+as static keys — trans_choice would change the n=1 text). A residue scan verified the three swept domains carry no
+remaining bare literals.
+  - **Residue (recorded, community-contributable — same pattern):** clubs (~25), settings (~20), notifications (~20),
+    tags (~15), pm (~12), the ACP `admin/*` (~150+), and the Livewire ⚡ components under `resources/views/components/**`
+    (~370+, the largest pool). Highest-value next: components → admin → clubs + settings.
+  - **Lesson logged:** the forum sweep was delegated to a Sonnet sub-agent which introduced **smart-quote
+    delimiters** (`__(‘forum.x’)`) in two empty-state blocks → a 500 the per-domain guard missed (it didn't hit the
+    empty path) but the full suite caught. Fixed (perl byte-replace); members/profiles were then done in-loop with
+    straight quotes. Takeaway: gate agent-edited Blade with the FULL suite, not just the domain guard.
+  - **Lesson logged (case-collision):** a `lang/en/members.php` group made `__('Members')` (the live string-key in
+    ForumStatsWidget / clubs / nav) return the whole array on the case-insensitive bind-mount → 500. Fix: members
+    labels live in `common.*`, no `members.php`. **Rule (ADR-0079):** never name a group file after a word used as a
+    bare `__('Capitalized')` key. `forum`/`profiles` groups are safe only because grep confirmed no `__('Forum')` /
+    `__('Profiles')` caller. The full suite (not the domain guard) caught this too.
+
+**Branch commits (local, unpushed):** `da4c460` merge → then `518bb18` feat(pwa), `af6b430` chore(pwa icons),
+`d6d8405` i18n(forum), `13e70ff` i18n(members), `1e75f74` i18n(profiles), + the ADR-0079 docs commit.
+
+## 🎨 UI/UX polish on `claude/ui-ux-nav-login-infocenter` — 2026-06-17 (MERGED → `main` via `da4c460`)
 
 Three independent, conventional, DCO-signed, `Tommy Huynh`-authored commits, cut off `main` after `claude/phase-5-ga`
 (PR #30) and RH-4 landed. **NOTHING IS PUSHED** — push is interactive-only in the sandbox; the owner pushes + opens

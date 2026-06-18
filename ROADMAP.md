@@ -34,6 +34,15 @@ rebuild-drift (G2) guards in the install matrix. Recipe + Hostinger walkthrough 
 **deploy gap** — redeploy with `lang/` + `optimize:clear`), and a **classic Info Center** on the board index
 (statistics + opt-in who's-online, aggregate-only, **no migration** — **ADR-0077**).
 
+**PWA + i18n polish (branch `claude/pwa-i18n-polish`, 2026-06-17):** **PWA is now subpath-aware (ADR-0078)** — the
+manifest `start_url`/`scope`, icon srcs, the SW registration scope, and `Service-Worker-Allowed` all derive from the
+mount base, so the app installs + the service worker registers under `/community/` as well as a root (a strict no-op
+at a root); adds 192/512 + maskable PNG install icons. This **resolves the ADR-0070 PWA-under-a-subpath deferral**.
+The **i18n view-string sweep — wave 1 (ADR-0079)** externalizes the **forum / members / profiles** domains into
+`lang/en/*.php` keys (joining auth/common/errors/search), each a gated per-domain commit with a guard test, byte-for-byte
+English unchanged. Residue (clubs / settings / notifications / tags / pm / ACP admin / Livewire components) is recorded
+as community-contributable, same pattern (extends ADR-0043 + ADR-0073).
+
 **Carried-in refinements:** Laravel 13 + Livewire 4; **PHP 8.3 floor** *(revises brief's 11/3 and the 8.2
 floor — flagged at the Phase 0 gate)*; no-SSH installer; coarse-cron-tolerant queue; WYSIWYG↔Livewire spike as
 the #1 risk; anti-spam first-class from Phase 1; a11y/i18n baked in throughout.

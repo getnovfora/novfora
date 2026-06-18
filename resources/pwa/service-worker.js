@@ -5,10 +5,14 @@
 // requests, so authenticated MUTATIONS (POST/PUT/PATCH/DELETE) are never cached and never replayed, and it
 // never stores a personal/authenticated page. Bump CACHE_VERSION to invalidate all caches on deploy.
 
-const CACHE_VERSION = 'novfora-pwa-v1';
+const CACHE_VERSION = 'novfora-pwa-v2';
 const SHELL_CACHE = CACHE_VERSION + '-shell';
 const PAGE_CACHE = CACHE_VERSION + '-pages';
-const OFFLINE_URL = '/offline';
+// Derive the mount base from the registration scope (ADR-0078) so the SW is correct under any mount with NO
+// server templating: "/" at a domain root, "/community/" under a subdirectory mount. Every cached prefix +
+// the offline fallback below are made scope-relative from it.
+const SCOPE = new URL(self.registration.scope).pathname;
+const OFFLINE_URL = SCOPE + 'offline';
 
 const ASSET_RE = /\.(?:css|js|mjs|woff2?|ttf|png|svg|ico|jpe?g|webp|gif|avif)$/;
 
@@ -35,8 +39,9 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // same-origin only
 
-  // Static, public, immutable assets → cache-first (no PII possible).
-  if (url.pathname.startsWith('/build/') || url.pathname.startsWith('/icons/') || ASSET_RE.test(url.pathname)) {
+  // Static, public, immutable assets → cache-first (no PII possible). Prefixes are scope-relative so they
+  // match under a subdirectory mount too (SCOPE + 'build/' = "/build/" at a root, "/community/build/" under one).
+  if (url.pathname.startsWith(SCOPE + 'build/') || url.pathname.startsWith(SCOPE + 'icons/') || ASSET_RE.test(url.pathname)) {
     event.respondWith(cacheFirst(req));
     return;
   }

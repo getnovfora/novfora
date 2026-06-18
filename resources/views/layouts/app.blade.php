@@ -62,14 +62,18 @@
         <link rel="icon" href="{{ $themeAssets['favicon'] }}">
     @endif
 
-    {{-- PWA (Phase 4 · M3.1): installable manifest + theme colour + maskable icon + a no-PII service worker. --}}
+    {{-- PWA (Phase 4 · M3.1; ADR-0078 subpath-aware): installable manifest + theme colour + maskable icon + a
+         no-PII service worker. The SW is registered WITH an explicit scope = the mount base path so it
+         registers under a subdirectory mount (/community/) as well as a root; at a root $swScope == "/" so
+         this is byte-identical to before. --}}
+    @php $swScope = rtrim(parse_url(url('/'), PHP_URL_PATH) ?: '/', '/').'/'; @endphp
     <link rel="manifest" href="{{ route('pwa.manifest') }}">
     <meta name="theme-color" content="#2563eb">
-    <link rel="apple-touch-icon" href="/icons/novfora.svg">
+    <link rel="apple-touch-icon" href="{{ asset('icons/novfora.svg') }}">
     <script @if ($nonce) nonce="{{ $nonce }}" @endif>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function () {
-                navigator.serviceWorker.register('/sw.js').catch(function () {});
+                navigator.serviceWorker.register(@js(route('pwa.service-worker')), { scope: @js($swScope) }).catch(function () {});
             });
         }
     </script>

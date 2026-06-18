@@ -3036,10 +3036,10 @@ patch is insufficient.
 **Consequences.** Subdirectory installs are first-class; the §3b copy recipe is demoted to last-resort and the
 runbook documents Options A/B/C + a concrete Hostinger walkthrough. New surface: a small conservative bootstrap
 detector and an A/B/C host matrix the install tests cover.
-**Known limitation (deferred follow-up, recorded not built):** the PWA manifest + service worker still emit
-root-relative paths (`start_url`/`scope`/`/icons/`/`/build/`/`/offline`). Under a subpath the SW simply fails to
-register (a caught no-op) → offline caching is off; **core forum browsing + the installer are unaffected**. Not in
-any RH-4 unit or acceptance test; tracked as a fast-follow. **Also recorded:** post-install HTTP URL correctness for
+**Known limitation (deferred follow-up, recorded not built) — ✅ RESOLVED by ADR-0078 (2026-06-17):** the PWA
+manifest + service worker still emit root-relative paths (`start_url`/`scope`/`/icons/`/`/build/`/`/offline`). Under
+a subpath the SW simply fails to register (a caught no-op) → offline caching is off; **core forum browsing + the
+installer are unaffected**. Not in any RH-4 unit or acceptance test; tracked as a fast-follow. **Also recorded:** post-install HTTP URL correctness for
 the subpath relies on the web server reporting a correct `SCRIPT_NAME`/base path (Options A and B both do); the
 detector intentionally does not force from a configured `APP_URL`.
 
@@ -3096,3 +3096,82 @@ existing live widget's read path.
 canonical model queries; newest member = the most-recently-registered ACTIVE user (banned excluded); posts-today
 honours the app-tz day boundary; who's-online respects opt-in + window; and the cache holds primitives only with the
 newest member correctly rehydrated. Pint + PHPStan L5 green.
+
+### ADR-0078 — Subpath-aware PWA + raster install icons (2026-06-17, resolves the ADR-0070 PWA deferral)
+**Status: Accepted — owner-authorized unattended build; flagged for review.**
+
+**Context.** ADR-0070 (RH-4) made `route()`/`asset()`/`@vite`/Livewire subpath-correct under a subdirectory mount
+but explicitly **DEFERRED** the PWA: the manifest hard-coded `start_url`/`scope` `'/'` + root-absolute icon paths,
+and the service worker hard-coded `'/offline'` + `'/build/'`/`'/icons/'` prefixes and registered at `'/sw.js'` with
+`Service-Worker-Allowed '/'`. Under a `/community` mount the SW therefore failed to register (a caught no-op) → no
+installability + no offline cache. The manifest also shipped only an SVG + the favicon — no 192/512 PNGs, which
+Android/Chrome want for the richest install prompt.
+
+**Decision.**
+1. **Manifest (`PwaController`):** derive the mount base once from `url('/')` (`""` at a root, `"/community"` under a
+   mount); set `start_url` + `scope` = `base.'/'`; emit every icon src via `asset()` so it inherits ASSET_URL / the
+   prefix. Add `icon-192.png` (192, any), `icon-512.png` (512, any), `maskable-512.png` (512, maskable) alongside the
+   existing SVG (any maskable) + favicon.
+2. **SW registration (layout head):** register the `route('pwa.service-worker')` URL WITH an explicit `scope = base.'/'`;
+   `apple-touch-icon` via `asset()`.
+3. **SW source:** derive `SCOPE = new URL(self.registration.scope).pathname` inside the worker (no server templating)
+   and make `OFFLINE_URL` + the `build/`//`icons/` cache-first prefixes scope-relative; bump `CACHE_VERSION` to v2.
+   The GET-only fence + the `X-PWA-Cacheable` page-cache gate are **UNCHANGED**.
+4. **`Service-Worker-Allowed`** header = `base.'/'` so the SW may claim the whole mount, never the parent site.
+5. **Raster icons:** `icon-192`/`512` rasterized from `public/icons/novfora.svg` (rounded-corner transparency, `'any'`);
+   `maskable-512` flattened onto the brand blue `#2563eb` so it is full-bleed for the maskable safe zone. Committed to
+   `public/icons/` (a tracked dir, unlike the gitignored `public/build`).
+
+**Root no-op fence (G4-style).** At a domain/subdomain root the base path is empty, so `start_url`/`scope`/
+`Service-Worker-Allowed`/`SCOPE` are all `"/"` and the registration scope is `"/"` — byte-identical to the
+pre-ADR-0078 behaviour. Tested both ways.
+
+**Consequences.** The PWA installs and the SW registers + caches offline under `/community/` as well as a root; the
+ADR-0070 "PWA under a subpath is DEFERRED" limitation is **RESOLVED**. No new server templating in the SW (it reads
+its own scope). Three small PNGs added (~15KB). No migration.
+
+**Tested.** `tests/Feature/Pwa/PwaTest.php` (14 cases): root manifest/SW unchanged (`start_url`/`scope`/allowed `'/'`,
+register scope `'/'`); 192+512+maskable PNG entries present; subpath manifest `start_url`/`scope` `'/community/'` with
+prefixed icon srcs; subpath `Service-Worker-Allowed '/community/'`; the head registers the SW at `/community/sw.js`
+with scope `/community/`; the SW source derives `SCOPE` from `registration.scope`. Pint + PHPStan L5 green.
+
+### ADR-0079 — i18n view-string sweep, wave 1 (forum / members / profiles) (2026-06-17, extends ADR-0043 + ADR-0073)
+**Status: Accepted — owner-authorized unattended build; flagged for review.**
+
+**Context.** ADR-0073 externalized the auth + error surfaces and left the rest of the front-end / ACP view copy as
+community-contributable residue. This wave begins the systematic sweep: replace literal English in the Blade views
+with `__()`/`trans_choice` keys backed by `lang/en/<domain>.php`, **domain-by-domain**, so each ships as its own
+reviewable, revertible commit. **Partial coverage is always correct** — a missing key falls back to the literal en.
+
+**Decision.**
+1. **Per-domain lang files + keys.** New `lang/en/forum.php` + `profiles.php` (joining auth/common/errors/
+   search). The members-directory labels went into `common.php` (members/directory/top_members) — see the
+   collision constraint below. Cross-cutting words live in `common.php` (delete/save/cancel/**edit**/forums).
+   `en` is authoritative; other locales fall back per missing string (ADR-0043).
+2. **Case-collision constraint (hard, learned the hard way).** A group file `lang/en/<name>.php` makes
+   `__('<Name>')` (the capitalized string-key, ADR-0073 style) return the WHOLE group array on a
+   **case-insensitive filesystem** (the Windows/macOS dev mount + the forum-dev gate): Laravel's FileLoader
+   matches `<Name>.php` → `<name>.php`, so `__('Members')` loaded `members.php` and 500'd on
+   `htmlspecialchars(array)` (ForumStatsWidget / clubs / nav all call `__('Members')`). **Rule:** never name a
+   group file after a word that is (or is likely to be) used as a bare `__('Capitalized')` string-key. So the
+   members labels live in `common.*`. `forum`/`profiles` groups are retained ONLY because a grep confirmed
+   **no** bare `__('Forum')` / `__('Profiles')` caller exists — do not introduce one (use `__('forum.x')`). A
+   guard test pins `trans('Members')` as a string.
+3. **Byte-for-byte English.** Every new key carries a complete `en` value identical to the original literal **bytes**
+   (curly apostrophes `’`, em-dashes `—`, ellipses `…` preserved); the broad existing feature suites + a per-domain
+   guard test (keys resolve + a representative page renders English with **no raw `"<domain>."` token** — the
+   AuthLangKeysTest pattern) protect against drift.
+4. **Count suffixes stay static.** Where the board markup renders a number styled separately from an always-plural
+   suffix word (`"3"` + `"replies"`/`"views"`/`"topics"`/`"posts"`), the suffix is a STATIC key, **not** trans_choice
+   — trans_choice would change the n=1 output, violating byte-for-byte. Correct singular/plural is deferred. (New
+   *combined* count strings, e.g. the Info Center's "N members online", DO use trans_choice, where it changes no
+   existing output.)
+
+**Scope / residue (recorded, honest).** Swept this wave: **forum** (8 views), **members** (2), **profiles** (2) —
+a residue scan verified no remaining bare user-facing literals in them. Already done earlier: auth, errors, search.
+**Residue (community-contributable, same pattern):** clubs (~25), settings (~20), notifications (~20), tags (~15),
+pm (~12), the ACP `admin/*` (~150+), and the Livewire ⚡ components under `resources/views/components/**` (~370+, the
+largest pool). Highest-value next: `components/`, then `admin/`, then clubs + settings.
+
+**Consequences.** Three more localizable domains; **no behaviour change** (English output identical); no migration.
+The per-domain guard-test pattern is established for the remaining domains.

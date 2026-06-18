@@ -14,7 +14,7 @@
 
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[
-        ['label' => 'Forums', 'url' => route('forums.index')],
+        ['label' => __('common.forums'), 'url' => route('forums.index')],
         ['label' => $forum->title],
     ]" />
 @endsection
@@ -37,12 +37,12 @@
                     <x-ui.button type="button" variant="ghost" size="sm" dusk="bulk-select-toggle"
                                  x-on:click="$store.bulkSelect.toggleMode()"
                                  x-bind:class="$store.bulkSelect.active ? 'border-accent text-accent' : ''">
-                        <span x-text="$store.bulkSelect.active ? 'Done' : 'Select'"></span>
+                        <span x-text="$store.bulkSelect.active ? @js(__('forum.done')) : @js(__('forum.select'))"></span>
                     </x-ui.button>
                 @endif
                 @if ($canPost)
                     <x-ui.button :href="route('topics.create', $forum)">
-                        <x-ui.icon name="plus" class="h-4 w-4" /> New topic
+                        <x-ui.icon name="plus" class="h-4 w-4" /> {{ __('forum.new_topic') }}
                     </x-ui.button>
                 @endif
             </div>
@@ -59,7 +59,7 @@
         {{-- Sub-boards (ProBoards-style) — child forums above the topic table, reusing the shared forum row. --}}
         @if ($children->isNotEmpty())
             <section class="space-y-2">
-                <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle">Sub-boards</h2>
+                <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ __('forum.sub_boards') }}</h2>
                 <x-ui.card flush>
                     <div class="divide-y divide-line">
                         @foreach ($children as $child)
@@ -73,10 +73,10 @@
         {{-- Prefix filter bar — shown only when this forum has at least one prefix. --}}
         @if ($prefixes->isNotEmpty())
             <div class="flex flex-wrap items-center gap-2 text-sm">
-                <span class="text-ink-subtle">Filter:</span>
+                <span class="text-ink-subtle">{{ __('forum.filter') }}</span>
                 <a href="{{ route('forums.show', $forum) }}"
                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border transition-colors {{ request('prefix') === null ? 'border-accent bg-accent-soft text-accent-soft-ink' : 'border-line hover:border-accent text-ink-muted' }}">
-                    All
+                    {{ __('forum.filter_all') }}
                 </a>
                 @foreach ($prefixes as $prefix)
                     @php($pColor = \App\Support\GroupColor::cssVar($prefix->color_token))
@@ -99,10 +99,10 @@
                 <table class="w-full border-collapse text-sm">
                     <thead>
                         <tr class="border-b border-line text-left text-xs font-semibold uppercase tracking-wide text-ink-subtle">
-                            <th scope="col" class="px-4 py-2.5">Subject</th>
-                            <th scope="col" class="w-24 px-4 py-2.5 text-right">Replies</th>
-                            <th scope="col" class="w-24 px-4 py-2.5 text-right">Views</th>
-                            <th scope="col" class="w-52 px-4 py-2.5">Last post</th>
+                            <th scope="col" class="px-4 py-2.5">{{ __('forum.col_subject') }}</th>
+                            <th scope="col" class="w-24 px-4 py-2.5 text-right">{{ __('forum.col_replies') }}</th>
+                            <th scope="col" class="w-24 px-4 py-2.5 text-right">{{ __('forum.col_views') }}</th>
+                            <th scope="col" class="w-52 px-4 py-2.5">{{ __('forum.col_last_post') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-line">
@@ -128,15 +128,15 @@
                                                         <x-forum.tag-chip :tag="$tag" />
                                                     @endforeach
                                                     @if ($topic->is_pinned)
-                                                        <x-ui.badge variant="accent"><x-ui.icon name="pin" class="h-3 w-3" /> Pinned</x-ui.badge>
+                                                        <x-ui.badge variant="accent"><x-ui.icon name="pin" class="h-3 w-3" /> {{ __('forum.pinned') }}</x-ui.badge>
                                                     @endif
                                                     @if ($topic->status === 'locked')
-                                                        <x-ui.badge variant="neutral"><x-ui.icon name="lock" class="h-3 w-3" /> Locked</x-ui.badge>
+                                                        <x-ui.badge variant="neutral"><x-ui.icon name="lock" class="h-3 w-3" /> {{ __('forum.locked') }}</x-ui.badge>
                                                     @endif
                                                 </div>
                                             @endif
                                             <a href="{{ route('topics.show', $topic) }}" class="block font-semibold text-ink hover:text-accent">{{ $topic->title }}</a>
-                                            <p class="text-xs text-ink-subtle">by <x-ui.user-name :user="$topic->author" /></p>
+                                            <p class="text-xs text-ink-subtle">{{ __('forum.by') }} <x-ui.user-name :user="$topic->author" /></p>
                                         </div>
                                     </div>
                                 </td>
@@ -151,7 +151,7 @@
                                             <span class="block text-xs text-ink-subtle nums">{{ $topic->last_posted_at->diffForHumans() }}</span>
                                         </a>
                                     @else
-                                        <span class="text-xs text-ink-subtle">No replies yet</span>
+                                        <span class="text-xs text-ink-subtle">{{ __('forum.no_replies_yet') }}</span>
                                     @endif
                                 </td>
                             </tr>
@@ -174,7 +174,7 @@
                                            x-on:change="$store.bulkSelect.toggle({{ $topic->id }})"
                                            dusk="bulk-topic-{{ $topic->id }}"
                                            class="h-4 w-4 rounded-sm border-line-strong text-accent focus-visible:ring-accent">
-                                    Select
+                                    {{ __('forum.select') }}
                                 </label>
                             @endif
                             @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix || $topic->tags->isNotEmpty())
@@ -184,29 +184,29 @@
                                         <x-forum.tag-chip :tag="$tag" />
                                     @endforeach
                                     @if ($topic->is_pinned)
-                                        <x-ui.badge variant="accent"><x-ui.icon name="pin" class="h-3 w-3" /> Pinned</x-ui.badge>
+                                        <x-ui.badge variant="accent"><x-ui.icon name="pin" class="h-3 w-3" /> {{ __('forum.pinned') }}</x-ui.badge>
                                     @endif
                                     @if ($topic->status === 'locked')
-                                        <x-ui.badge variant="neutral"><x-ui.icon name="lock" class="h-3 w-3" /> Locked</x-ui.badge>
+                                        <x-ui.badge variant="neutral"><x-ui.icon name="lock" class="h-3 w-3" /> {{ __('forum.locked') }}</x-ui.badge>
                                     @endif
                                 </div>
                             @endif
                             <a href="{{ route('topics.show', $topic) }}" class="block font-semibold text-ink hover:text-accent">{{ $topic->title }}</a>
-                            <p class="mt-0.5 text-sm text-ink-muted">by <x-ui.user-name :user="$topic->author" /></p>
+                            <p class="mt-0.5 text-sm text-ink-muted">{{ __('forum.by') }} <x-ui.user-name :user="$topic->author" /></p>
                             <dl class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-subtle">
                                 <div class="flex items-center gap-1">
-                                    <dt class="sr-only">Replies</dt>
-                                    <dd class="nums font-medium text-ink-muted">{{ number_format($topic->reply_count) }}</dd><span>replies</span>
+                                    <dt class="sr-only">{{ __('forum.col_replies') }}</dt>
+                                    <dd class="nums font-medium text-ink-muted">{{ number_format($topic->reply_count) }}</dd><span>{{ __('forum.replies') }}</span>
                                 </div>
                                 <div class="flex items-center gap-1">
-                                    <dt class="sr-only">Views</dt>
-                                    <dd class="nums font-medium text-ink-muted">{{ number_format($topic->view_count) }}</dd><span>views</span>
+                                    <dt class="sr-only">{{ __('forum.col_views') }}</dt>
+                                    <dd class="nums font-medium text-ink-muted">{{ number_format($topic->view_count) }}</dd><span>{{ __('forum.views') }}</span>
                                 </div>
                                 @if ($topic->last_posted_at)
                                     <div class="flex items-center gap-1">
-                                        <dt class="sr-only">Last post</dt>
+                                        <dt class="sr-only">{{ __('forum.col_last_post') }}</dt>
                                         <dd>
-                                            <a href="{{ route('topics.show', ['topic' => $topic, 'page' => $lastPage]).($topic->last_post_id ? '#post-'.$topic->last_post_id : '') }}" class="text-accent hover:underline">last by <x-ui.user-name :user="$topic->lastPostUser" /></a>
+                                            <a href="{{ route('topics.show', ['topic' => $topic, 'page' => $lastPage]).($topic->last_post_id ? '#post-'.$topic->last_post_id : '') }}" class="text-accent hover:underline">{{ __('forum.last_by') }} <x-ui.user-name :user="$topic->lastPostUser" /></a>
                                             <span class="nums">· {{ $topic->last_posted_at->diffForHumans() }}</span>
                                         </dd>
                                     </div>
@@ -220,17 +220,17 @@
             <div>{{ $topics->links() }}</div>
         @else
             <x-ui.card flush>
-                <x-ui.empty title="No topics here yet">
+                <x-ui.empty title="{{ __('forum.empty_topics_title') }}">
                     <x-slot:icon><x-ui.icon name="message" class="h-6 w-6" /></x-slot:icon>
                     @if ($canPost)
-                        Be the first to start the conversation in this forum.
+                        {{ __('forum.empty_topics_can_post') }}
                         <div class="mt-4">
                             <x-ui.button :href="route('topics.create', $forum)">
-                                <x-ui.icon name="plus" class="h-4 w-4" /> Start a topic
+                                <x-ui.icon name="plus" class="h-4 w-4" /> {{ __('forum.start_a_topic') }}
                             </x-ui.button>
                         </div>
                     @else
-                        Check back soon — there’s nothing posted here right now.
+                        {{ __('forum.empty_topics_guest') }}
                     @endif
                 </x-ui.empty>
             </x-ui.card>
