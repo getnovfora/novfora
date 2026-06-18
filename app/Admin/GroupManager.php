@@ -6,11 +6,14 @@ declare(strict_types=1);
 
 namespace App\Admin;
 
+use App\Groups\GroupAutoPromoter;
+use App\Groups\GroupDirectory;
 use App\Models\AclEntry;
 use App\Models\Group;
 use App\Models\Role;
 use App\Models\RoleAssignment;
 use App\Models\User;
+use App\Permissions\MembershipCache;
 use App\Permissions\RoleExpander;
 use App\Permissions\Scope;
 use App\Support\Audit;
@@ -35,7 +38,10 @@ use Illuminate\Support\Str;
  */
 final class GroupManager
 {
-    public function __construct(private readonly RoleExpander $expander) {}
+    public function __construct(
+        private readonly RoleExpander $expander,
+        private readonly GroupAutoPromoter $autoPromoter,
+    ) {}
 
     /** @param array<string,mixed> $data */
     public function create(array $data): Group
@@ -53,13 +59,16 @@ final class GroupManager
             'type' => 'custom',
             'priority' => $this->cleanPriority($data['priority'] ?? 50),
             'is_system' => false,
-            'auto_promotion' => null,
+            'auto_promotion' => $this->cleanAutoPromotion($data['auto_promotion'] ?? null),
+            'membership_model' => $this->cleanMembershipModel($data['membership_model'] ?? null),
+            'is_public' => (bool) ($data['is_public'] ?? false),
         ]);
 
         if (! empty($data['role_id'])) {
             $this->setRole($group, Role::find((int) $data['role_id']));
         }
 
+        GroupDirectory::forgetEnabled(); // is_public may now make the public directory non-empty
         Audit::log('group.created', $group, ['name' => $name, 'type' => 'custom']);
 
         return $group;
@@ -80,10 +89,21 @@ final class GroupManager
             'description' => $this->cleanDescription($data['description'] ?? null),
         ];
 
-        // Priority + the permission preset are editable for CUSTOM groups only — a system group's priority
-        // (rank) and role preset are its identity and feed the trust engine / permission seeds.
+        // Priority, the permission preset, and the v3-e membership/auto-promotion config are editable for
+        // CUSTOM groups only — a system group's priority (rank) and role preset are its identity and feed the
+        // trust engine / permission seeds, and its membership is engine-managed (so no human join model / no
+        // auto-promotion config applies).
         if (! $group->is_system) {
             $attributes['priority'] = $this->cleanPriority($data['priority'] ?? $group->priority);
+            if (array_key_exists('membership_model', $data)) {
+                $attributes['membership_model'] = $this->cleanMembershipModel($data['membership_model']);
+            }
+            if (array_key_exists('is_public', $data)) {
+                $attributes['is_public'] = (bool) $data['is_public'];
+            }
+            if (array_key_exists('auto_promotion', $data)) {
+                $attributes['auto_promotion'] = $this->cleanAutoPromotion($data['auto_promotion']);
+            }
         }
 
         $group->update($attributes);
@@ -92,6 +112,7 @@ final class GroupManager
             $this->setRole($group, ! empty($data['role_id']) ? Role::find((int) $data['role_id']) : null);
         }
 
+        GroupDirectory::forgetEnabled(); // is_public may have toggled the public directory's emptiness
         Audit::log('group.updated', $group, ['name' => $name]);
 
         return $group->refresh();
@@ -134,6 +155,13 @@ final class GroupManager
             $group->delete();
         });
 
+        // The reassign (syncWithoutDetaching) + detach are pivot writes with no model events; the reassigned
+        // and detached users' group-sets changed, so drop any verdict memoised this request (v3-e seam). This is
+        // a REDUCTION (members lose the deleted group), so bump the version too — a detached user can land back
+        // on a previously-cached signature. Cross-request caches otherwise self-heal via the changed signature.
+        MembershipCache::flushRequestScopedMemos(bumpVersion: true);
+        GroupDirectory::forgetEnabled(); // a deleted public group may have emptied the directory
+
         Audit::log('group.deleted', null, ['name' => $group->name, 'reassigned' => $reassigned, 'to' => $reassignTo?->name]);
 
         return $reassigned;
@@ -163,6 +191,13 @@ final class GroupManager
         $added = $group->users()->count() - $before;
 
         if ($added > 0) {
+            // The pivot write fires no model events — invalidate each newly-grouped user's resolver caches
+            // explicitly (ACP v3 · v3-e seam, ADR-0083). admin-assign is a holder change with no acl_entries write.
+            foreach ($ids as $id) {
+                if (($u = User::find($id)) instanceof User) {
+                    MembershipCache::flushFor($u);
+                }
+            }
             Audit::log('group.members.added', $group, ['count' => $added]);
         }
 
@@ -174,6 +209,11 @@ final class GroupManager
         $this->assertManualMembership($group);
 
         if ($group->users()->detach($userId) > 0) {
+            // Holder change, no acl_entries write → invalidate this user's resolver caches explicitly (v3-e seam).
+            // Reduction: a removal can return the user to a previously-cached group signature → bump.
+            if (($u = User::find($userId)) instanceof User) {
+                MembershipCache::flushFor($u, bumpVersion: true);
+            }
             Audit::log('group.members.removed', $group, ['user_id' => $userId]);
         }
     }
@@ -242,6 +282,25 @@ final class GroupManager
         $description = is_string($description) ? trim($description) : '';
 
         return $description === '' ? null : Str::limit($description, 255, '');
+    }
+
+    private function cleanMembershipModel(mixed $model): string
+    {
+        $model = is_string($model) ? $model : Group::MEMBERSHIP_ADMIN;
+
+        return in_array($model, Group::MEMBERSHIP_MODELS, true) ? $model : Group::MEMBERSHIP_ADMIN;
+    }
+
+    /**
+     * Sanitise a submitted auto-promotion rule tree through the engine's normaliser — only recognised
+     * leaves/nodes survive, so a malformed or half-built tree can never persist as something that evaluates
+     * true. An empty/blank config stores NULL (no auto-promotion).
+     *
+     * @return array{op:string,rules:list<array<string,mixed>>}|null
+     */
+    private function cleanAutoPromotion(mixed $tree): ?array
+    {
+        return is_array($tree) ? $this->autoPromoter->normalize($tree) : null;
     }
 
     private function cleanPriority(mixed $priority): int

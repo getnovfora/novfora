@@ -12,7 +12,7 @@ use App\Models\Post;
 use App\Models\TopicRead;
 use App\Models\User;
 use App\Models\Warning;
-use App\Permissions\PermissionResolver;
+use App\Permissions\MembershipCache;
 use App\Support\Audit;
 
 /**
@@ -129,9 +129,13 @@ final class TrustLevelManager
         $user->groups()->detach(Group::where('type', 'trust')->pluck('id')->all());
         $user->groups()->attach($group->getKey(), ['is_primary' => false]);
 
-        // The user's group-set changed, so any permission already memoised this request is stale — clear it
-        // so the re-render below (and any later check in this process, e.g. the cron recompute) re-resolves.
-        app(PermissionResolver::class)->flushMemo();
+        // The pivot writes above fire no model events, so invalidate this user's resolver caches explicitly
+        // (ACP v3 · v3-e seam, ADR-0083 — G9's sibling): refresh the in-memory groups relation + flush the
+        // per-request memo and VisibleForumIds, so the re-render below and any later check this process
+        // (e.g. the cron recompute loop) re-resolve against the NEW trust group. On an actual level CHANGE
+        // (incl. a demotion, which can return the user to a previously-cached signature) also bump the version;
+        // an unchanged recompute is a no-op swap, so it stays on the cheap signature path (no hourly-sweep thrash).
+        MembershipCache::flushFor($user, bumpVersion: $from !== $target);
 
         if ($from !== $target) {
             $user->forceFill(['trust_level' => $target])->save();

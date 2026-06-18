@@ -45,6 +45,7 @@ final class ScheduledTasks
             ['name' => 'Digest assembler', 'detail' => $this->deliverabilityDetail('Coalesces pending notifications into one digest email'), 'cadence' => 'Every minute', 'last' => null],
             ['name' => 'Bounce poll', 'detail' => $this->deliverabilityDetail('Polls the bounce mailbox; suppresses hard bounces / complaints'), 'cadence' => 'Every minute', 'last' => null],
             ['name' => 'Trust recompute', 'detail' => 'Promotes/demotes trust levels', 'cadence' => 'Hourly', 'last' => null],
+            ['name' => 'Group auto-promotion', 'detail' => 'Promotes users into custom groups by AND/OR criteria', 'cadence' => 'Hourly', 'last' => null],
             ['name' => 'Anti-spam purge', 'detail' => 'GDPR retention purge of registration checks', 'cadence' => 'Daily', 'last' => null],
             ['name' => 'Blocklist warm', 'detail' => 'Refreshes the crowdsourced spam blocklist', 'cadence' => 'Daily', 'last' => null],
             ['name' => 'Automated backups', 'detail' => 'Database + uploads → a portable archive', 'cadence' => $backupCadence === 'off' ? 'Off' : ucfirst($backupCadence), 'last' => $this->newestBackupEpoch()],

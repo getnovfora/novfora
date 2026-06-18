@@ -5,6 +5,7 @@
 use App\Community\MembersDirectory;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ForumPermissionsController;
+use App\Http\Controllers\Admin\MemberPrimaryGroupController;
 use App\Http\Controllers\Admin\SearchController as AdminSearchController;
 use App\Http\Controllers\Admin\SectionController;
 use App\Http\Controllers\Admin\TasksController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\BookmarkController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\FeedController;
 use App\Http\Controllers\ForumController;
+use App\Http\Controllers\GroupDirectoryController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\LegacyRedirectController;
 use App\Http\Controllers\LocaleController;
@@ -102,6 +104,11 @@ Route::get('/trending', [TrendingController::class, 'index'])->name('trending.in
 // enforced in the controller (an unlisted club a viewer may not see 404s — no disclosure). The literal
 // "create" segment is registered (auth+verified) BEFORE the {club} wildcard so it is never read as a slug.
 Route::get('/clubs', [ClubController::class, 'index'])->name('clubs.index');
+
+// Public Groups directory (ACP v3 · v3-e). Lists only groups an admin has flagged public (is_public, OFF by
+// default) — never a hidden group, never a non-public group's roster. The open-join Join button is gated by
+// GroupJoinGate (a banned/restricted/unverified account can't self-join). Empty when nothing is public.
+Route::get('/groups', [GroupDirectoryController::class, 'index'])->name('groups.index');
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/clubs/create', [ClubController::class, 'create'])->name('clubs.create');
     Route::get('/clubs/{club:slug}/edit', [ClubController::class, 'edit'])->name('clubs.edit');
@@ -286,6 +293,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/settings/profile', [ProfileController::class, 'edit'])->name('settings.profile');
     Route::post('/settings/profile', [ProfileController::class, 'update'])->name('settings.profile.save');
 
+    // Primary group chooser (ACP v3 · v3-e, ADR-0083): the ⚡primary-group SFC lets the member pick which of
+    // their current groups is displayed as their rank badge and name colour. Refused when admin-locked.
+    Route::view('/settings/primary-group', 'settings.primary-group')->name('settings.primary-group');
+
     // Account: voluntary deletion (ADR-0025). The ⚡delete-account SFC re-authenticates + confirms; the
     // cascade and all guards live in AccountDeletionService.
     Route::view('/settings/account', 'settings.account')->name('settings.account');
@@ -367,15 +378,20 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/forums/prefixes', 'admin.prefixes')->name('prefixes');         // <livewire:admin.prefixes />
         Route::get('/forums/{forum}/permissions', ForumPermissionsController::class)->name('forums.permissions');
 
-        // Groups section — the member-group manager + the GLOBAL card-per-group permission editor (v3-c).
+        // Groups section — the member-group manager + the GLOBAL card-per-group permission editor (v3-c) +
+        // the v3-e join-request approval queue.
         Route::view('/groups/manage', 'admin.groups')->name('members.groups');       // <livewire:admin.groups />
         Route::view('/groups/permissions', 'admin.group-permissions')->name('groups.permissions'); // <livewire:permissions.group-editor>
+        Route::view('/groups/requests', 'admin.group-requests')->name('groups.requests'); // <livewire:admin.group-requests /> (v3-e)
 
         // Members section — directory visibility, badges, and membership tiers/grants.
         Route::view('/members/directory', 'admin.members.directory')->name('members.directory');
         Route::view('/members/badges', 'admin.badges')->name('badges');              // <livewire:admin.badges />
         Route::view('/members/tiers', 'admin.tiers')->name('tiers');                 // <livewire:admin.tiers /> (no charge here)
         Route::view('/members/memberships', 'admin.memberships')->name('memberships'); // <livewire:admin.member-grants />
+
+        // Per-member primary-group editor (ACP v3 · v3-e, ADR-0083): set/lock/clear the primary group override.
+        Route::get('/members/{user}/primary-group', MemberPrimaryGroupController::class)->name('members.primary-group');
 
         // Moderation section — spam intelligence + moderation policy (queues/reports are the MCP, linked out).
         Route::view('/moderation/spam-intelligence', 'admin.spam-intelligence')->name('spam-intelligence');

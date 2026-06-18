@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 use App\Admin\GroupException;
 use App\Admin\GroupManager;
+use App\Groups\GroupAutoPromoter;
 use App\Models\Group;
 use App\Models\Role;
 use App\Models\RoleAssignment;
 use App\Models\User;
 use App\Permissions\Scope;
 use App\Support\GroupColor;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 
 /**
@@ -32,6 +34,16 @@ new class extends Component
     public int $priority = 50;
 
     public ?int $roleId = null;
+
+    // v3-e group config (custom groups only).
+    public string $membershipModel = 'admin'; // admin | request | open
+
+    public bool $isPublic = false;
+
+    public string $promoteOp = 'AND'; // AND = match all, OR = match any
+
+    /** @var list<array{criterion:string,gte:int}> the auto-promotion criteria rows (single-level AND/OR builder). */
+    public array $promoteRules = [];
 
     public bool $editingSystem = false;
 
@@ -70,6 +82,9 @@ new class extends Component
         $this->priority = (int) $group->priority;
         $this->roleId = optional(RoleAssignment::where('holder_type', 'group')->where('holder_id', $group->id)->first())->role_id;
         $this->editingSystem = (bool) $group->is_system;
+        $this->membershipModel = $group->membershipModel();
+        $this->isPublic = (bool) $group->is_public;
+        $this->hydratePromotion($group);
         $this->deleteId = null;
         $this->membersId = null;
         $this->showForm = true;
@@ -92,6 +107,12 @@ new class extends Component
         if (! $this->editingSystem) {
             $rules['priority'] = ['nullable', 'integer', 'min:1', 'max:99'];
             $rules['roleId'] = ['nullable', 'integer', 'exists:roles,id'];
+            $rules['membershipModel'] = ['required', Rule::in(Group::MEMBERSHIP_MODELS)];
+            $rules['isPublic'] = ['boolean'];
+            $rules['promoteOp'] = ['required', Rule::in(['AND', 'OR'])];
+            $rules['promoteRules'] = ['array'];
+            $rules['promoteRules.*.criterion'] = ['required', Rule::in(GroupAutoPromoter::CRITERIA)];
+            $rules['promoteRules.*.gte'] = ['required', 'integer', 'min:0'];
         }
         $data = $this->validate($rules);
 
@@ -102,6 +123,14 @@ new class extends Component
             'priority' => $data['priority'] ?? $this->priority,
             'role_id' => $data['roleId'] ?? $this->roleId,
         ];
+
+        // v3-e config is custom-group-only; for a system group these keys are simply not sent (GroupManager
+        // ignores them on a system group regardless).
+        if (! $this->editingSystem) {
+            $payload['membership_model'] = $this->membershipModel;
+            $payload['is_public'] = $this->isPublic;
+            $payload['auto_promotion'] = $this->buildPromotionTree();
+        }
 
         try {
             if ($this->formId === null) {
@@ -295,10 +324,65 @@ new class extends Component
         return route('admin.security.permissions');
     }
 
+    /** Add a blank auto-promotion criterion row (the AND/OR builder). */
+    public function addRule(): void
+    {
+        $this->ensureAdmin();
+        $this->promoteRules[] = ['criterion' => 'posts', 'gte' => 0];
+    }
+
+    public function removeRule(int $i): void
+    {
+        $this->ensureAdmin();
+        unset($this->promoteRules[$i]);
+        $this->promoteRules = array_values($this->promoteRules);
+    }
+
+    /** The closed criterion vocabulary for the builder select (key => human label). */
+    public function criterionOptions(): array
+    {
+        return [
+            'posts' => 'Post count',
+            'tenure_days' => 'Account age (days)',
+            'trust' => 'Trust level',
+            'reputation' => 'Reputation points',
+        ];
+    }
+
+    /** Hydrate the single-level builder from a group's stored auto_promotion tree (top-level leaves only). */
+    private function hydratePromotion(Group $group): void
+    {
+        $tree = app(GroupAutoPromoter::class)->normalize($group->auto_promotion);
+        $this->promoteOp = $tree['op'] ?? 'AND';
+        $this->promoteRules = [];
+        foreach (($tree['rules'] ?? []) as $rule) {
+            // The builder edits a flat list of leaves; a nested node (only reachable via import) is skipped here.
+            if (isset($rule['criterion'])) {
+                $this->promoteRules[] = ['criterion' => (string) $rule['criterion'], 'gte' => (int) ($rule['gte'] ?? 0)];
+            }
+        }
+    }
+
+    /** Assemble the builder state into an {op, rules} tree, or null when no criteria are set. */
+    private function buildPromotionTree(): ?array
+    {
+        $rules = [];
+        foreach ($this->promoteRules as $row) {
+            if (isset($row['criterion'])) {
+                $rules[] = ['criterion' => (string) $row['criterion'], 'gte' => (int) ($row['gte'] ?? 0)];
+            }
+        }
+
+        return $rules === [] ? null : ['op' => $this->promoteOp, 'rules' => $rules];
+    }
+
     private function resetForm(): void
     {
-        $this->reset(['formId', 'name', 'description', 'color', 'priority', 'roleId', 'editingSystem']);
+        $this->reset(['formId', 'name', 'description', 'color', 'priority', 'roleId', 'editingSystem', 'membershipModel', 'isPublic', 'promoteOp', 'promoteRules']);
         $this->priority = 50;
+        $this->membershipModel = 'admin';
+        $this->promoteOp = 'AND';
+        $this->promoteRules = [];
         $this->resetErrorBag();
     }
 
@@ -375,6 +459,65 @@ new class extends Component
                         </x-ui.select>
                         <x-ui.input label="Rank priority" name="priority" type="number" min="1" max="99" wire:model="priority"
                                     hint="1–99. Higher wins when a member is in several coloured groups." />
+                    </div>
+
+                    {{-- v3-e: how members join + public visibility. --}}
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <x-ui.select label="How members join" name="membershipModel" wire:model="membershipModel"
+                                     hint="Auto-promotion (below) can add members on top of any model.">
+                            <option value="admin">Admin-assigned only</option>
+                            <option value="request">Request &amp; approval</option>
+                            <option value="open">Open join (public Join button)</option>
+                        </x-ui.select>
+                        <label class="flex items-start gap-2 pt-7 text-sm text-ink">
+                            <input type="checkbox" wire:model="isPublic" class="mt-0.5 rounded border-line text-accent focus:ring-accent" dusk="acp-group-public" />
+                            <span>List on the public <strong>Groups</strong> page <span class="text-ink-subtle">(off by default)</span></span>
+                        </label>
+                    </div>
+
+                    {{-- v3-e: AND/OR auto-promotion builder. --}}
+                    <div class="rounded-md border border-line bg-surface-sunken p-4 space-y-3" dusk="acp-autopromote">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <h3 class="text-sm font-semibold text-ink">Auto-promotion</h3>
+                            <p class="text-xs text-ink-subtle">The system promotes members who meet the criteria. Promotion-only — never removes anyone.</p>
+                        </div>
+
+                        @if (! empty($promoteRules))
+                            <div class="flex items-center gap-2 text-sm">
+                                <span class="text-ink-muted">Match</span>
+                                <x-ui.select name="promoteOp" wire:model="promoteOp" class="w-auto">
+                                    <option value="AND">ALL of</option>
+                                    <option value="OR">ANY of</option>
+                                </x-ui.select>
+                                <span class="text-ink-muted">these criteria:</span>
+                            </div>
+                        @endif
+
+                        <div class="space-y-2">
+                            @foreach ($promoteRules as $i => $rule)
+                                <div class="flex flex-wrap items-end gap-2" wire:key="rule-{{ $i }}">
+                                    <x-ui.select :label="$i === 0 ? 'Criterion' : null" name="promoteRules.{{ $i }}.criterion" wire:model="promoteRules.{{ $i }}.criterion" class="w-48">
+                                        @foreach ($this->criterionOptions() as $key => $label)
+                                            <option value="{{ $key }}">{{ $label }}</option>
+                                        @endforeach
+                                    </x-ui.select>
+                                    <span class="pb-2.5 text-sm text-ink-muted">at least</span>
+                                    <x-ui.input :label="$i === 0 ? 'Threshold' : null" name="promoteRules.{{ $i }}.gte" type="number" min="0" wire:model="promoteRules.{{ $i }}.gte" class="w-28" />
+                                    <x-ui.button type="button" variant="danger-ghost" size="sm" icon wire:click="removeRule({{ $i }})" title="Remove criterion" class="mb-0.5">
+                                        <x-ui.icon name="trash" class="h-4 w-4" />
+                                    </x-ui.button>
+                                </div>
+                                @error("promoteRules.{$i}.gte") <p class="text-xs text-danger">{{ $message }}</p> @enderror
+                            @endforeach
+                        </div>
+
+                        @if (empty($promoteRules))
+                            <p class="text-sm text-ink-subtle">No auto-promotion — members are added only by the join model above (or manually).</p>
+                        @endif
+
+                        <x-ui.button type="button" variant="subtle" size="sm" wire:click="addRule" dusk="acp-add-rule">
+                            <x-ui.icon name="plus" class="h-4 w-4" /> Add criterion
+                        </x-ui.button>
                     </div>
                 @endunless
 

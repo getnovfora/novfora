@@ -5,6 +5,7 @@
 @php
     $tabs = [
         ['label' => 'Profile', 'url' => route('settings.profile'), 'active' => request()->routeIs('settings.profile')],
+        ['label' => 'Groups', 'url' => route('settings.primary-group'), 'active' => request()->routeIs('settings.primary-group')],
         ['label' => 'Appearance', 'url' => route('settings.appearance'), 'active' => request()->routeIs('settings.appearance')],
         ['label' => 'Preferences', 'url' => route('settings.preferences'), 'active' => request()->routeIs('settings.preferences')],
         ['label' => 'Notifications', 'url' => route('settings.notifications'), 'active' => request()->routeIs('settings.notifications')],

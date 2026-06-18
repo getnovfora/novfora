@@ -48,6 +48,7 @@ return [
         'prefixes' => 'Prefixes',
         'groups' => 'Groups',
         'group_permissions' => 'Group permissions',
+        'join_requests' => 'Join requests',
         'directory' => 'Directory',
         'profile_fields' => 'Profile fields',
         'badges' => 'Badges',

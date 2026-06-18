@@ -55,6 +55,7 @@ final class AdminNavigation
             [null, [
                 ['groups', 'admin.members.groups', 'grid'],
                 ['group_permissions', 'admin.groups.permissions', 'shield'],
+                ['join_requests', 'admin.groups.requests', 'inbox'],
             ]],
         ]],
         'moderation' => ['flag', 'admin.moderation', [

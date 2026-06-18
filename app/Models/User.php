@@ -58,7 +58,19 @@ class User extends Authenticatable implements MustVerifyEmail
     /** @return BelongsToMany<Group, $this> */
     public function groups(): BelongsToMany
     {
-        return $this->belongsToMany(Group::class)->withPivot('is_primary')->withTimestamps();
+        return $this->belongsToMany(Group::class)->withPivot(['is_primary', 'is_primary_locked'])->withTimestamps();
+    }
+
+    /** Outstanding/decided requests this user made to join `request`-model groups (v3-e). @return HasMany<GroupJoinRequest, $this> */
+    public function groupJoinRequests(): HasMany
+    {
+        return $this->hasMany(GroupJoinRequest::class);
+    }
+
+    /** The user's chosen/assigned primary group (rank badge, colour, title under the avatar), or null. */
+    public function primaryGroup(): ?Group
+    {
+        return $this->groups()->wherePivot('is_primary', true)->first();
     }
 
     /** @return HasMany<CustomFieldValue, $this> */

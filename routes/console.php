@@ -93,6 +93,13 @@ Schedule::call(fn () => app(RestoreRunner::class)->runPending())
 // long run on a large board never doubles up on a coarse interval. Skipped during a restore (writes users).
 Schedule::command('novfora:trust:recompute')->hourly()->withoutOverlapping()->skip($duringRestore);
 
+// Custom-group AND/OR auto-promotion (ACP v3 · v3-e / ADR-0083): promote users into the custom groups whose
+// criteria they now meet. Promotion-only + idempotent (an already-member is skipped), so a coarse/overlapping
+// run is safe; it self-skips when no group auto-promotes. The catch-up + the only path that crosses the
+// time-based `tenure_days` bar (the post/reputation events promote eagerly). Skipped during a restore (writes
+// the group_user pivot).
+Schedule::command('novfora:groups:auto-promote')->hourly()->withoutOverlapping()->skip($duringRestore);
+
 // Post scheduling (member tool 2.4): publish replies whose time has passed. Every minute so a scheduled
 // time is honoured promptly; a SHORT overlap mutex + PostScheduler's per-row claim make a coarse/overlapping
 // run safe (never a double-publish). Skipped during a restore (it writes posts).
