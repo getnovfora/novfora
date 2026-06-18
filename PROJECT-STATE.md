@@ -29,7 +29,29 @@ PNG (rasterized from `novfora.svg`). **Resolves the ADR-0070 PWA-under-a-subpath
     mount and confirm (1) the install prompt appears, (2) the SW registers — DevTools → Application → Service Workers,
     scope `/community/`, and (3) the install/home-screen icon shows the blue "N" PNG, not a blank square.
 
-**Unit B — full i18n view-string sweep (ADR-0079):** _(see the wrap section once complete)._
+**Unit B — i18n view-string sweep, wave 1 (ADR-0079; extends ADR-0043/0073):** externalized the **forum**,
+**members**, and **profiles** domains into `lang/en/forum.php` + `profiles.php` (joining auth/common/errors/search),
+plus `common.edit` and the **members labels in `common.*`** (members/directory/top_members — NOT a `members.php`
+group; see the collision lesson). Each is a gated, DCO-signed `i18n(<domain>)` commit with a
+per-domain guard test (`tests/Feature/I18n/*LangKeysTest.php`: keys resolve + a page renders English with no raw
+`"<domain>."` token). **English output is byte-for-byte unchanged** (curly punctuation preserved; count suffixes kept
+as static keys — trans_choice would change the n=1 text). A residue scan verified the three swept domains carry no
+remaining bare literals.
+  - **Residue (recorded, community-contributable — same pattern):** clubs (~25), settings (~20), notifications (~20),
+    tags (~15), pm (~12), the ACP `admin/*` (~150+), and the Livewire ⚡ components under `resources/views/components/**`
+    (~370+, the largest pool). Highest-value next: components → admin → clubs + settings.
+  - **Lesson logged:** the forum sweep was delegated to a Sonnet sub-agent which introduced **smart-quote
+    delimiters** (`__(‘forum.x’)`) in two empty-state blocks → a 500 the per-domain guard missed (it didn't hit the
+    empty path) but the full suite caught. Fixed (perl byte-replace); members/profiles were then done in-loop with
+    straight quotes. Takeaway: gate agent-edited Blade with the FULL suite, not just the domain guard.
+  - **Lesson logged (case-collision):** a `lang/en/members.php` group made `__('Members')` (the live string-key in
+    ForumStatsWidget / clubs / nav) return the whole array on the case-insensitive bind-mount → 500. Fix: members
+    labels live in `common.*`, no `members.php`. **Rule (ADR-0079):** never name a group file after a word used as a
+    bare `__('Capitalized')` key. `forum`/`profiles` groups are safe only because grep confirmed no `__('Forum')` /
+    `__('Profiles')` caller. The full suite (not the domain guard) caught this too.
+
+**Branch commits (local, unpushed):** `da4c460` merge → then `518bb18` feat(pwa), `af6b430` chore(pwa icons),
+`d6d8405` i18n(forum), `13e70ff` i18n(members), `1e75f74` i18n(profiles), + the ADR-0079 docs commit.
 
 ## 🎨 UI/UX polish on `claude/ui-ux-nav-login-infocenter` — 2026-06-17 (MERGED → `main` via `da4c460`)
 
