@@ -17,4 +17,12 @@ return [
     'forums' => 'Forums',
     'language' => 'Language',
     'choose_language' => 'Choose language',
+
+    // Members directory nav labels. Kept in common (not a `members` group file) on purpose: a `members.php`
+    // group case-collides with the live `__('Members')` string-key (ForumStatsWidget / clubs / nav) on a
+    // case-insensitive filesystem — Laravel would load the group array for `__('Members')` and 500 on
+    // htmlspecialchars(array). See ADR-0079.
+    'members' => 'Members',
+    'directory' => 'Directory',
+    'top_members' => 'Top members',
 ];
