@@ -8,7 +8,7 @@
 
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[
-        ['label' => 'Forums', 'url' => route('forums.index')],
+        ['label' => __('common.forums'), 'url' => route('forums.index')],
         ['label' => $user->display_name ?? $user->username],
     ]" />
 @endsection
@@ -33,8 +33,8 @@
                         <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
                             <span>{{ '@'.$user->username }}</span>
                             <span class="text-ink-subtle" aria-hidden="true">·</span>
-                            <x-ui.badge variant="accent">Trust level <span class="nums">{{ (int) $user->trust_level }}</span></x-ui.badge>
-                            <x-ui.badge variant="neutral" dusk="reputation-points"><span class="nums">{{ (int) $user->reputation_points }}</span>&nbsp;reputation</x-ui.badge>
+                            <x-ui.badge variant="accent">{{ __('profiles.trust_level') }} <span class="nums">{{ (int) $user->trust_level }}</span></x-ui.badge>
+                            <x-ui.badge variant="neutral" dusk="reputation-points"><span class="nums">{{ (int) $user->reputation_points }}</span>&nbsp;{{ __('profiles.reputation') }}</x-ui.badge>
                         </p>
                     </div>
                 </div>
@@ -47,7 +47,7 @@
 
                 @php($earned = $user->badges()->orderBy('name')->get())
                 @if ($earned->isNotEmpty())
-                    <div class="mt-4 flex flex-wrap items-center gap-1.5" dusk="profile-badges" aria-label="Badges">
+                    <div class="mt-4 flex flex-wrap items-center gap-1.5" dusk="profile-badges" aria-label="{{ __('profiles.badges') }}">
                         @foreach ($earned as $badge)
                             {{-- cssVar palette-validates the token (defence in depth — never interpolate a raw DB value into CSS). --}}
                             @php($badgeColor = \App\Support\GroupColor::cssVar($badge->color_token))
@@ -67,11 +67,11 @@
         @php($viewer = auth()->user())
         @if ($viewer instanceof \App\Models\User && \App\Account\AccountDeletionService::canForceDelete($viewer, $user))
             <x-ui.card class="space-y-3">
-                <h2 class="text-sm font-semibold text-ink">Staff tools</h2>
-                <p class="text-sm text-ink-subtle">Moderator actions for this member.</p>
+                <h2 class="text-sm font-semibold text-ink">{{ __('profiles.staff_tools') }}</h2>
+                <p class="text-sm text-ink-subtle">{{ __('profiles.staff_tools_intro') }}</p>
                 <div class="flex flex-wrap gap-3">
                     <x-ui.button :href="route('moderation.user-delete.confirm', $user)" variant="danger" size="sm" dusk="staff-delete-account">
-                        Delete account…
+                        {{ __('profiles.delete_account') }}
                     </x-ui.button>
                 </div>
             </x-ui.card>
@@ -86,7 +86,7 @@
         @php($hasFields = $fields->contains(fn ($field) => filled($values->get($field->id)?->value)))
         @if ($hasFields)
             <x-ui.card class="space-y-3">
-                <h2 class="text-sm font-semibold text-ink">About</h2>
+                <h2 class="text-sm font-semibold text-ink">{{ __('profiles.about') }}</h2>
                 <dl class="grid gap-x-6 gap-y-3 sm:grid-cols-2">
                     @foreach ($fields as $field)
                         @php($value = $values->get($field->id)?->value)
@@ -110,7 +110,7 @@
 
         @if ($user->signature_html)
             <x-ui.card class="space-y-2">
-                <h2 class="text-sm font-semibold text-ink">Signature</h2>
+                <h2 class="text-sm font-semibold text-ink">{{ __('profiles.signature') }}</h2>
                 <div class="novfora-prose text-ink-muted">{!! $user->signature_html !!}</div>
             </x-ui.card>
         @endif

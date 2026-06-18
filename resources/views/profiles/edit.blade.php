@@ -1,11 +1,10 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => 'Edit profile · '.config('app.name', 'NovFora')])
+@extends('layouts.app', ['title' => __('profiles.edit_title').' · '.config('app.name', 'NovFora')])
 
 @section('content')
-    <x-settings.shell title="Profile">
+    <x-settings.shell title="{{ __('profiles.shell_title') }}">
         <p class="text-sm text-ink-muted">
-            Update how you appear across {{ config('app.name', 'NovFora') }}. Your signature and custom fields
-            show on your public profile and posts.
+            {{ __('profiles.edit_intro', ['app' => config('app.name', 'NovFora')]) }}
         </p>
 
         {{-- enctype is required for the avatar/cover file uploads. Field names and ids are unchanged so the
@@ -15,9 +14,9 @@
             @csrf
 
             <x-ui.card class="space-y-5">
-                <x-ui.textarea name="signature" id="signature" label="Signature (Markdown)" rows="4"
+                <x-ui.textarea name="signature" id="signature" label="{{ __('profiles.signature_label') }}" rows="4"
                                maxlength="1000" class="font-mono text-sm"
-                               hint="Markdown is rendered through the canonical sanitisation pipeline.">{{ old('signature', $user->signature_doc['source'] ?? '') }}</x-ui.textarea>
+                               hint="{{ __('profiles.signature_hint') }}">{{ old('signature', $user->signature_doc['source'] ?? '') }}</x-ui.textarea>
 
                 @foreach ($fields as $field)
                     <x-ui.input id="field-{{ $field->key }}" name="fields[{{ $field->key }}]"
@@ -29,19 +28,19 @@
 
             <x-ui.card class="space-y-5">
                 <div class="space-y-1.5">
-                    <label for="avatar" class="block text-sm font-medium text-ink">Avatar</label>
+                    <label for="avatar" class="block text-sm font-medium text-ink">{{ __('profiles.avatar') }}</label>
                     <input id="avatar" type="file" name="avatar" accept="image/*"
                            class="block w-full text-sm text-ink-muted file:mr-3 file:min-h-9 file:rounded-md file:border file:border-line file:bg-surface-raised file:px-3 file:text-sm file:font-medium file:text-ink hover:file:bg-surface-sunken">
                 </div>
                 <div class="space-y-1.5">
-                    <label for="cover" class="block text-sm font-medium text-ink">Cover image</label>
+                    <label for="cover" class="block text-sm font-medium text-ink">{{ __('profiles.cover_image') }}</label>
                     <input id="cover" type="file" name="cover" accept="image/*"
                            class="block w-full text-sm text-ink-muted file:mr-3 file:min-h-9 file:rounded-md file:border file:border-line file:bg-surface-raised file:px-3 file:text-sm file:font-medium file:text-ink hover:file:bg-surface-sunken">
                 </div>
             </x-ui.card>
 
             <div class="flex items-center gap-3">
-                <x-ui.button type="submit">Save profile</x-ui.button>
+                <x-ui.button type="submit">{{ __('profiles.save_profile') }}</x-ui.button>
             </div>
         </form>
     </x-settings.shell>
