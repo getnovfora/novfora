@@ -11,7 +11,27 @@
 
 ---
 
-## 🎨 UI/UX polish on `claude/ui-ux-nav-login-infocenter` — 2026-06-17 (LATEST · off `main`; phase-5-ga + RH-4 merged)
+## 🧩 PWA + i18n polish on `claude/pwa-i18n-polish` — 2026-06-17 (LATEST · off a freshly-integrated `main`)
+
+**Unattended, owner-authorized session.** **Step 0** first integrated the outstanding UI/UX branch into `main`
+(`git merge --no-ff claude/ui-ux-nav-login-infocenter` → `da4c460`, gated green: 1596 pass / PHPStan L5 / Pint /
+migrate) and cut this branch off it. **NOTHING IS PUSHED** — pushing `main` + reconciling origin is interactive-only;
+the owner does it. Conventional, DCO-signed, `Tommy Huynh`-authored commits, gated in `forum-dev` at each green
+boundary. ADRs: **0078** (PWA), **0079** (i18n).
+
+**Unit A — PWA subpath-aware + raster icons (ADR-0078):** the manifest `start_url`/`scope` + icon srcs, the SW
+registration scope, `Service-Worker-Allowed`, and the SW's own `SCOPE` (read from `registration.scope`) all derive
+from the mount base, so the PWA installs + the service worker registers/caches under a `/community/` subdirectory
+mount as well as a domain root (a byte-identical no-op at a root). Added 192/512 `any` + a full-bleed `maskable-512`
+PNG (rasterized from `novfora.svg`). **Resolves the ADR-0070 PWA-under-a-subpath deferral.**
+`tests/Feature/Pwa/PwaTest.php` → 14 cases green.
+  - **⚠ OWNER VALIDATION (real device/host, not machine-verifiable here):** install the app under a `/community/`
+    mount and confirm (1) the install prompt appears, (2) the SW registers — DevTools → Application → Service Workers,
+    scope `/community/`, and (3) the install/home-screen icon shows the blue "N" PNG, not a blank square.
+
+**Unit B — full i18n view-string sweep (ADR-0079):** _(see the wrap section once complete)._
+
+## 🎨 UI/UX polish on `claude/ui-ux-nav-login-infocenter` — 2026-06-17 (MERGED → `main` via `da4c460`)
 
 Three independent, conventional, DCO-signed, `Tommy Huynh`-authored commits, cut off `main` after `claude/phase-5-ga`
 (PR #30) and RH-4 landed. **NOTHING IS PUSHED** — push is interactive-only in the sandbox; the owner pushes + opens
