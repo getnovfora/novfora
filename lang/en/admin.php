@@ -47,6 +47,7 @@ return [
         'structure' => 'Forums & structure',
         'prefixes' => 'Prefixes',
         'groups' => 'Groups',
+        'group_permissions' => 'Group permissions',
         'directory' => 'Directory',
         'profile_fields' => 'Profile fields',
         'badges' => 'Badges',
@@ -94,6 +95,33 @@ return [
     ],
     'landing_jump' => 'Open a page in this section:',
     'landing_empty' => 'No pages are available in this section yet.',
+
+    // The card-per-group permission editor (v3-c).
+    'perms' => [
+        'title' => 'Group permissions',
+        'intro_global' => 'Set the GLOBAL default for each group. Per-forum and club screens override these.',
+        'intro_forum' => 'Override the global defaults for this forum. “No” falls back to the global default.',
+        'intro_club' => 'Set permissions for this club. “No” falls back to the global default.',
+        'state' => [
+            'yes' => 'Yes',
+            'no' => 'No',
+            'never' => 'Never',
+        ],
+        'state_help' => [
+            'yes' => 'Allowed (grants the permission)',
+            'no' => 'Not set — inherits from the parent scope',
+            'never' => 'Never — a hard deny no allow can override',
+        ],
+        'inherits' => 'inherits',
+        'locked_rank' => 'This group outranks you — you cannot edit it.',
+        'locked_recovery' => 'You cannot remove the administrators group’s own admin access — it would lock everyone out.',
+        'saved' => 'Saved.',
+        'bulk_apply' => 'Apply to every forum in this category',
+        'bulk_help' => 'Copy this forum’s group permissions onto every other forum under its category.',
+        'bulk_done' => ':count forum(s) updated.',
+        'no_category' => 'This forum is not inside a category, so there is nothing to apply to.',
+        'empty_groups' => 'No groups to show.',
+    ],
 
     // The ACP search (pages · settings · members).
     'search' => [

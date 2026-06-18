@@ -3274,3 +3274,50 @@ member's profile until the dedicated member-management surface lands in a later 
 **Alternatives considered.** (a) Restructure only the nav, leave URLs — rejected (the spec requires the pages to
 move + 301). (b) Move URLs *and* rename every route to its section — rejected (needless call-site/test churn;
 "keep names stable where you can"). (c) Per-section `lang` group files — rejected (G8 case-collision risk).
+
+### ADR-0082 — ACP v3 · v3-c: card-per-group permission editor (global / forum / club) + category bulk-apply (2026-06-18)
+**Status: Accepted — child of ADR-0080; owner-authorized unattended build, gated, APEX-reviewed, flagged for
+review.**
+
+**Context.** The headline "simple mode": the engine has fully supported group ACL since ADR-0006, but admins
+could only shape permissions through seeded role presets and the v2 groups manager — there was no plain-language
+editor. v3-c adds a card-per-group editor with **three homes on the SAME `acl_entries` data**: GLOBAL defaults
+(Groups → Group permissions), per-FORUM overrides (Forums → forum → Permissions), and per-CLUB (the club manage
+screen).
+
+**Decision.** A `GroupPermissionEditor` service writes a group's OWN entries DIRECTLY (holder_type='group') at the
+chosen scope — **not** via `RoleExpander` (which expands ROLE presets; this edits the group's standing entries).
+Three UI states: **Yes = ALLOW (+1)** · **No = delete the row** (→ inherit; never a value=0 row) · **Never =
+NEVER (−1)**. One Livewire SFC (`permissions.group-editor`, `#[Locked]` scope) serves all three homes; the
+PermissionInspector is the test oracle. The **category bulk-apply** (foundations §4, option A) copies a source
+forum's group overrides onto every forum under its parent category in ONE transaction, audited — the phpBB
+"copy permissions" ergonomic without a category scope. `acl_entries` model events bump `AclVersion`
+automatically; the 'no' branch uses a query-builder delete (which skips the event) so it bumps by hand.
+
+**Apex security fences (the adversarial review found and these close two HIGH issues).** (1) **Gate:** global /
+forum require `admin.access` + staff-2FA + the **manage-permissions capability** (`permissions.manage`); club
+requires `club.manage` on that club — re-asserted on every action (Livewire actions skip route middleware).
+(2) **Rank guard:** you cannot edit a group ranked at/above you (admins bypass; `rankPriority()` vs the target
+group's `priority`). (3) **Per-key escalation fence (review HIGH #1):** only a full admin may grant/deny an
+**Administration-tier** key (`admin.*`, `permissions.manage`, `users.manage`, `groups.manage`) — without it a
+non-admin `permissions.manage` holder could hand admin access to a group it merely outranks. (4) **Self-lockout
+guard (review HIGH #2):** the service refuses (throws; the SFC 403s) to strip the system **admins** group's own
+`admin.access` / `permissions.manage` at global scope — that would brick all ACP access with no in-app recovery
+(the last-owner-guard pattern; the full board-wide co-owner guard is v3-a). (5) `#[Locked]` scope +
+key-visibility check (a forum/club editor exposes only forum-scoped keys); the bulk write is admin-only and
+excludes club forums.
+
+**Consequences.** The editor edits a group's standing entries — including the rows the seeded role presets wrote
+(editing the members group's `forum.view` modifies that preset row). The full board-wide "≥ 1 admin path" guard
+belongs to v3-a (co-owners); v3-c guards the system admins group's recovery keys as the interim fence. Inheritance
+is shown per row (a forum/club "No" surfaces its global default). NEVER stays absolute and priority-independent.
+
+**Verification.** Inspector-oracle tests across global / forum / club; No-removes-the-row + inheritance; NEVER
+beats a higher-priority Yes; category bulk-apply writes every child forum; 403 for a non-permission-admin; the
+rank guard; the escalation fence; the self-lockout guard (SFC + service backstop). A 4-lens APEX adversarial
+verify-then-refute review ran before commit; its two HIGH findings are fixed and pinned by tests.
+
+**Alternatives considered.** (a) Route writes through `RoleExpander` — rejected (it expands role presets, not a
+group's own entries; would split the write path). (b) A true category permission scope — deferred (engine /
+`ScopeChain` change; the bulk-apply covers the ergonomic). (c) Leave the escalation/lockout fences to v3-a —
+rejected (the editor ships a write path now, so it must be safe now).

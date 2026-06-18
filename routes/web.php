@@ -4,6 +4,7 @@
 
 use App\Community\MembersDirectory;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\ForumPermissionsController;
 use App\Http\Controllers\Admin\SearchController as AdminSearchController;
 use App\Http\Controllers\Admin\SectionController;
 use App\Http\Controllers\Admin\TasksController;
@@ -361,12 +362,14 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::get('/system', SectionController::class)->name('system');
         Route::get('/security', SectionController::class)->name('security');
 
-        // Forums section — the structure tree + topic prefixes.
+        // Forums section — the structure tree + topic prefixes + the per-forum card-per-group editor (v3-c).
         Route::view('/forums/structure', 'admin.structure')->name('structure');      // <livewire:admin.structure />
         Route::view('/forums/prefixes', 'admin.prefixes')->name('prefixes');         // <livewire:admin.prefixes />
+        Route::get('/forums/{forum}/permissions', ForumPermissionsController::class)->name('forums.permissions');
 
-        // Groups section — the member-group manager (custom roles / card editor land in later slices).
+        // Groups section — the member-group manager + the GLOBAL card-per-group permission editor (v3-c).
         Route::view('/groups/manage', 'admin.groups')->name('members.groups');       // <livewire:admin.groups />
+        Route::view('/groups/permissions', 'admin.group-permissions')->name('groups.permissions'); // <livewire:permissions.group-editor>
 
         // Members section — directory visibility, badges, and membership tiers/grants.
         Route::view('/members/directory', 'admin.members.directory')->name('members.directory');
