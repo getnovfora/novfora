@@ -5,6 +5,7 @@ use App\Community\ActivityFeed;
 use App\Community\FollowService;
 use App\Models\Activity;
 use App\Models\User;
+use App\Settings\Settings;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -41,19 +42,21 @@ new class extends Component
     {
         $viewer = auth()->user() ?? User::guest();
         $feed = app(ActivityFeed::class);
+        // Admin-configurable homepage page size (BUG-012); clamp to the same 1–50 range the ACP validates.
+        $limit = max(1, min(50, app(Settings::class)->int('general.activity_feed_limit')));
 
         if ($this->mode === 'following' && $viewer->exists) {
             $followedIds = app(FollowService::class)->followingIds($viewer);
 
             if ($followedIds !== []) {
-                return ['items' => $feed->forFollowing($viewer, $followedIds), 'fallback' => false];
+                return ['items' => $feed->forFollowing($viewer, $followedIds, $limit), 'fallback' => false];
             }
 
             // Empty follow set → the global feed plus the personalisation hint.
-            return ['items' => $feed->for($viewer), 'fallback' => true];
+            return ['items' => $feed->for($viewer, $limit), 'fallback' => true];
         }
 
-        return ['items' => $feed->for($viewer), 'fallback' => false];
+        return ['items' => $feed->for($viewer, $limit), 'fallback' => false];
     }
 };
 ?>

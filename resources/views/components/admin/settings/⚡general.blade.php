@@ -22,6 +22,8 @@ new class extends Component
 
     public string $boardOfflineMessage = '';
 
+    public int $activityFeedLimit = 15;
+
     public ?string $saved = null;
 
     public function mount(Settings $settings): void
@@ -32,6 +34,7 @@ new class extends Component
         $this->siteNotice = $settings->string('general.site_notice');
         $this->boardOffline = $settings->bool('general.board_offline');
         $this->boardOfflineMessage = $settings->string('general.board_offline_message');
+        $this->activityFeedLimit = $settings->int('general.activity_feed_limit');
     }
 
     public function save(Settings $settings): void
@@ -43,6 +46,7 @@ new class extends Component
             'siteNotice' => ['nullable', 'string', 'max:500'],
             'boardOffline' => ['boolean'],
             'boardOfflineMessage' => ['nullable', 'string', 'max:500'],
+            'activityFeedLimit' => ['required', 'integer', 'min:1', 'max:50'],
         ]);
 
         $settings->set('general.site_name', $data['siteName']);
@@ -50,6 +54,7 @@ new class extends Component
         $settings->set('general.site_notice', $data['siteNotice'] ?? '');
         $settings->set('general.board_offline', $data['boardOffline']);
         $settings->set('general.board_offline_message', $data['boardOfflineMessage'] ?? '');
+        $settings->set('general.activity_feed_limit', $data['activityFeedLimit']);
 
         $this->saved = 'Saved.';
     }
@@ -90,6 +95,12 @@ new class extends Component
                 <x-ui.textarea label="Offline message" name="boardOfflineMessage" wire:model="boardOfflineMessage" rows="2" />
             </div>
         @endif
+    </div>
+
+    <div class="border-t border-line pt-5" id="setting-general-activity-feed-limit">
+        <x-ui.input label="Recent activity items on the homepage" name="activityFeedLimit" type="number"
+                    wire:model="activityFeedLimit" min="1" max="50" required
+                    hint="How many recent-activity entries the homepage feed shows (1–50)." />
     </div>
 
     <div>
