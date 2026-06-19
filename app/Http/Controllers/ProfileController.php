@@ -6,14 +6,18 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Community\ActivityFeed;
 use App\Content\ContentRenderer;
 use App\Models\CustomField;
 use App\Models\CustomFieldValue;
+use App\Models\Post;
 use App\Models\User;
 use App\Permissions\Scope;
+use App\Permissions\VisibleForumIds;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 /**
  * Member profiles (data-model §1): avatar/cover, signature, and admin-defined custom fields. The signature
@@ -22,12 +26,49 @@ use Illuminate\Http\Request;
  */
 class ProfileController extends Controller
 {
-    public function show(User $user): View
+    public function show(Request $request, User $user): View
     {
         $fields = CustomField::where('is_active', true)->orderBy('position')->get();
         $values = $user->customFieldValues()->get()->keyBy('custom_field_id');
 
-        return view('profiles.show', compact('user', 'fields', 'values'));
+        // Tab is query-param driven (single route, server-rendered for SEO). Default = About.
+        $tab = in_array($request->query('tab'), ['posts', 'activity'], true)
+            ? (string) $request->query('tab')
+            : 'about';
+
+        $viewer = $request->user() ?? User::guest();
+        $posts = $tab === 'posts' ? $this->visiblePosts($viewer, $user) : collect();
+        $activity = $tab === 'activity' ? app(ActivityFeed::class)->forActor($viewer, $user, 20) : [];
+
+        return view('profiles.show', compact('user', 'fields', 'values', 'tab', 'posts', 'activity'));
+    }
+
+    /**
+     * The author's recent posts, filtered to the VIEWER's visible forums — correctness-load-bearing: a post
+     * in a forum the viewer cannot see must never leak onto a public profile. Mirrors the VisibleForumIds
+     * boundary the activity feed uses; only approved posts in non-trashed topics are listed (the Post + Topic
+     * SoftDeletes scopes drop trashed rows).
+     *
+     * @return Collection<int, Post>
+     */
+    private function visiblePosts(User $viewer, User $author, int $limit = 20): Collection
+    {
+        $visibleForumIds = VisibleForumIds::for($viewer);
+        if ($visibleForumIds === []) {
+            return collect(); // viewer sees no forum → no posts
+        }
+
+        return Post::query()
+            ->where('user_id', $author->getKey())
+            ->where('approved_state', 'approved')
+            ->whereHas('topic', fn ($t) => $t->when(
+                $visibleForumIds !== null,
+                fn ($q) => $q->whereIn('forum_id', $visibleForumIds),
+            ))
+            ->with('topic')
+            ->latest('id')
+            ->limit($limit)
+            ->get();
     }
 
     public function edit(Request $request): View

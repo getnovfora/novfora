@@ -70,6 +70,24 @@ final class ActivityFeed
     }
 
     /**
+     * The ACTOR variant (BUG-017 profile Activity tab): the feed restricted to one member's own activity.
+     * It runs through the SAME page() path, so the per-viewer VisibleForumIds filter still applies — a
+     * subject's activity in a forum the viewer cannot see stays hidden (one permission path, never bypassed).
+     * The per-actor window is not cached (lower-traffic surface; one indexed query on activities.actor_id).
+     *
+     * @return list<ActivityFeedItem>
+     */
+    public function forActor(User $viewer, User $subject, int $limit = self::LIMIT): array
+    {
+        $actorId = (int) $subject->getKey();
+        if ($actorId <= 0) {
+            return [];
+        }
+
+        return $this->page($viewer, fn (): array => $this->loadWindow([$actorId]), $limit);
+    }
+
+    /**
      * Shared read path: short-circuit a sees-no-forum viewer BEFORE touching the window, then apply the
      * per-viewer permission filter and rehydrate — both strictly AFTER the cache boundary (RH-9).
      *

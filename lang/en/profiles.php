@@ -29,4 +29,12 @@ return [
     'delete_account' => 'Delete account…',
     'about' => 'About',
     'signature' => 'Signature',
+
+    // Profile tabs (BUG-017)
+    'tab_activity' => 'Activity',
+    'tab_posts' => 'Posts',
+    'tab_about' => 'About',
+    'no_activity' => 'No recent activity yet.',
+    'no_posts' => 'No posts yet.',
+    'no_about' => 'This member hasn’t added any profile details yet.',
 ];
