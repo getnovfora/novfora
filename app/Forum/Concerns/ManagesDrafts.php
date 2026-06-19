@@ -43,7 +43,7 @@ trait ManagesDrafts
             return;
         }
 
-        if (empty($canonical['content'])) {
+        if ($this->docIsBlank($canonical)) {
             $this->discardDraft();
 
             return;
@@ -75,7 +75,7 @@ trait ManagesDrafts
 
         if ($draft instanceof PostDraft
             && is_array($draft->body_canonical)
-            && ! empty($draft->body_canonical['content'])) {
+            && ! $this->docIsBlank($draft->body_canonical)) {
             $this->canonicalJson = $draft->body_canonical;
             $this->format = 'tiptap_json'; // drafts are autosaved from the rich-text editor only
             $this->draftRestored = true;
@@ -99,5 +99,52 @@ trait ManagesDrafts
             ->delete();
 
         $this->draftRestored = false;
+    }
+
+    /**
+     * True when a TipTap doc has no real content. An "empty" editor still emits a doc whose content is
+     * [{type:'paragraph'}] — a non-empty array, so empty($content) is false even though it is blank to the
+     * user (BUG-014). Blank = no text node with non-whitespace text AND no atomic content node (image /
+     * mention / horizontalRule / embed) anywhere in the tree.
+     *
+     * @param  array<string,mixed>|null  $canonical
+     */
+    protected function docIsBlank(?array $canonical): bool
+    {
+        return ! is_array($canonical)
+            || empty($canonical['content'])
+            || ! $this->hasContent($canonical['content']);
+    }
+
+    /**
+     * Recursively scan TipTap nodes for any non-whitespace text or atomic content node.
+     */
+    private function hasContent(mixed $nodes): bool
+    {
+        if (! is_array($nodes)) {
+            return false;
+        }
+
+        foreach ($nodes as $node) {
+            if (! is_array($node)) {
+                continue;
+            }
+
+            $type = $node['type'] ?? null;
+
+            if ($type === 'text') {
+                if (trim((string) ($node['text'] ?? '')) !== '') {
+                    return true;
+                }
+            } elseif (in_array($type, ['image', 'mention', 'horizontalRule', 'embed'], true)) {
+                return true; // atomic content — meaningful even without text
+            }
+
+            if (isset($node['content']) && $this->hasContent($node['content'])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
