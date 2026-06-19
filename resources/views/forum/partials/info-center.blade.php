@@ -54,7 +54,7 @@
                 <ul class="flex flex-wrap gap-x-2 gap-y-1 text-sm">
                     @foreach ($online['members'] as $member)
                         <li>
-                            <a class="text-ink hover:text-accent" href="{{ route('profiles.show', $member->id) }}">{{ $member->username }}</a>
+                            <a class="text-ink hover:text-accent" href="{{ route('profiles.show', $member) }}">{{ $member->username }}</a>
                         </li>
                     @endforeach
                 </ul>

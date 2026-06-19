@@ -8,7 +8,7 @@
     </span>
 
     <div class="min-w-0 flex-1">
-        <a href="{{ route('forums.show', $forum->id) }}" class="block font-semibold text-ink hover:text-accent">{{ $forum->title }}</a>
+        <a href="{{ route('forums.show', $forum->slug ?: $forum->id) }}" class="block font-semibold text-ink hover:text-accent">{{ $forum->title }}</a>
         @if ($forum->description)
             <p class="mt-0.5 text-sm text-ink-muted">{{ $forum->description }}</p>
         @endif

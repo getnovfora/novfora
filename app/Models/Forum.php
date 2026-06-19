@@ -30,6 +30,25 @@ class Forum extends Model
         'club_id' => 'integer',
     ];
 
+    /**
+     * Canonical key for URL generation: the clean slug, so route('forums.show', $forum) yields
+     * /forums/announcements rather than /forums/2. slug is NOT NULL UNIQUE, so it is always present.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
+    /**
+     * Non-breaking dual resolver (locked 2026-06-19): numeric input still binds by id so existing /forums/2
+     * links keep working, everything else binds by slug (/forums/announcements). The model's default query
+     * carries the SoftDeletes scope, so a trashed forum never resolves — the resolver must not widen visibility.
+     */
+    public function resolveRouteBinding($value, $field = null): ?Model
+    {
+        return $this->where($field ?? (ctype_digit((string) $value) ? 'id' : 'slug'), $value)->first();
+    }
+
     protected static function booted(): void
     {
         // Maintain the materialised path + depth (ADR-0004) so the scope chain is O(depth), one query.
