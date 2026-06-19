@@ -157,7 +157,12 @@ new class extends Component
                                 <div><dt class="sr-only">Joined</dt><dd>Joined {{ $member->created_at?->isoFormat('MMM YYYY') }}</dd></div>
                                 <div><dt class="sr-only">Posts</dt><dd class="nums">{{ number_format((int) $member->post_count) }} posts</dd></div>
                                 <div><dt class="sr-only">Reputation</dt><dd class="nums">{{ number_format((int) $member->reputation_points) }} rep</dd></div>
-                                @if ($member->isOnline())
+                                {{-- Gate the badge on the SAME opt-in the header count uses (OnlineMembers::baseQuery
+                                     requires show_online_status). isOnline() alone only checks last_active_at, so an
+                                     opted-out member leaked a green "Online" badge while being absent from the count
+                                     (BUG-010 — both inconsistent and a presence leak). Scoped here on purpose: do not
+                                     change User::isOnline(), which the topic-poster sidebar badge also calls. --}}
+                                @if ($member->isOnline() && $member->showsOnlineStatus())
                                     <div class="flex items-center gap-1.5"><x-ui.online-badge :user="$member" /> Online</div>
                                 @endif
                             </dl>
