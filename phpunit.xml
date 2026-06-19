@@ -19,6 +19,7 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <env name="APP_URL" value="http://localhost"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <!-- The test suite provisions its own database, so it must never be redirected to the installer
              or have its drivers hardened by the pre-install boot hook. Installer-specific tests opt back
