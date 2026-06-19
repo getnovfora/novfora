@@ -17,11 +17,11 @@
         <dl class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-subtle sm:hidden">
             <div class="flex items-center gap-1">
                 <dt class="sr-only">{{ __('forum.topics_label') }}</dt>
-                <dd class="nums font-medium text-ink-muted">{{ number_format($forum->topic_count) }}</dd><span>{{ __('forum.topics') }}</span>
+                <dd class="nums font-medium text-ink-muted">{{ number_format($forum->topic_count) }}</dd><span>{{ trans_choice('forum.topics', $forum->topic_count) }}</span>
             </div>
             <div class="flex items-center gap-1">
                 <dt class="sr-only">{{ __('forum.posts_label') }}</dt>
-                <dd class="nums font-medium text-ink-muted">{{ number_format($forum->post_count) }}</dd><span>{{ __('forum.posts') }}</span>
+                <dd class="nums font-medium text-ink-muted">{{ number_format($forum->post_count) }}</dd><span>{{ trans_choice('forum.posts', $forum->post_count) }}</span>
             </div>
             @if ($forum->last_posted_at)
                 <div class="flex items-center gap-1">
@@ -35,8 +35,8 @@
     {{-- Desktop: counts + a right-aligned "latest activity" column (links to the forum's most recent topic). --}}
     <div class="hidden shrink-0 items-start gap-6 sm:flex">
         <div class="text-right text-xs text-ink-subtle">
-            <div><span class="nums font-semibold text-ink-muted">{{ number_format($forum->topic_count) }}</span> {{ __('forum.topics') }}</div>
-            <div class="mt-0.5"><span class="nums font-semibold text-ink-muted">{{ number_format($forum->post_count) }}</span> {{ __('forum.posts') }}</div>
+            <div><span class="nums font-semibold text-ink-muted">{{ number_format($forum->topic_count) }}</span> {{ trans_choice('forum.topics', $forum->topic_count) }}</div>
+            <div class="mt-0.5"><span class="nums font-semibold text-ink-muted">{{ number_format($forum->post_count) }}</span> {{ trans_choice('forum.posts', $forum->post_count) }}</div>
         </div>
         <div class="w-40 text-right text-xs">
             @if ($forum->last_posted_at)

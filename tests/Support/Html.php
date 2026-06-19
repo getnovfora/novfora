@@ -21,7 +21,13 @@ final class Html
         }
 
         // Decode entities so labels read as the human sees them ("What&#039;s new" → "What's new").
-        $text = html_entity_decode(strip_tags($m[0]), ENT_QUOTES | ENT_HTML5);
+        return self::visibleText($m[0]);
+    }
+
+    /** All visible text of an HTML fragment: tags stripped, entities decoded, whitespace collapsed. */
+    public static function visibleText(string $html): string
+    {
+        $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5);
 
         return trim(preg_replace('/\s+/', ' ', $text) ?? '');
     }
