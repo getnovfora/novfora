@@ -85,11 +85,16 @@ class ProfileController extends Controller
         $user = $this->user($request);
 
         $data = $request->validate([
+            'display_name' => ['nullable', 'string', 'max:50'],
             'signature' => ['nullable', 'string', 'max:1000'],
             'fields' => ['array'],
             'avatar' => ['nullable', 'image', 'max:2048'],
             'cover' => ['nullable', 'image', 'max:5120'],
         ]);
+
+        // Display name (BUG-019): editable; a blank value clears it (the profile then falls back to @username).
+        // Username itself stays read-only this pass — it is never read from the request here.
+        $user->display_name = filled($data['display_name'] ?? null) ? trim((string) $data['display_name']) : null;
 
         // Signature via the canonical pipeline (markdown → server-sanitized HTML). Never trust client HTML.
         $signature = trim((string) ($data['signature'] ?? ''));

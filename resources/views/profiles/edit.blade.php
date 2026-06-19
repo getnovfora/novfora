@@ -13,6 +13,18 @@
         <form method="POST" action="{{ route('settings.profile.save') }}" enctype="multipart/form-data" class="space-y-6">
             @csrf
 
+            {{-- BUG-019 (locked): display-name editing only. Username is the canonical handle and stays
+                 read-only this pass — no username input, no cooldown, no redirect logic. --}}
+            <x-ui.card class="space-y-5">
+                <x-ui.input name="display_name" id="display_name" label="{{ __('profiles.display_name_label') }}"
+                            maxlength="50" :value="old('display_name', $user->display_name)"
+                            hint="{{ __('profiles.display_name_hint') }}" />
+                <p class="text-sm text-ink-subtle">
+                    {{ __('profiles.username_readonly') }}
+                    <span class="font-medium text-ink-muted">{{ '@'.$user->username }}</span>
+                </p>
+            </x-ui.card>
+
             <x-ui.card class="space-y-5">
                 <x-ui.textarea name="signature" id="signature" label="{{ __('profiles.signature_label') }}" rows="4"
                                maxlength="1000" class="font-mono text-sm"

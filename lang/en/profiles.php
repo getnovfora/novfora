@@ -19,6 +19,9 @@ return [
     'avatar' => 'Avatar',
     'cover_image' => 'Cover image',
     'save_profile' => 'Save profile',
+    'display_name_label' => 'Display name',
+    'display_name_hint' => 'The name shown on your profile and posts. Your @username stays the same.',
+    'username_readonly' => 'Username (read-only):',
 
     // Public profile (profiles/show.blade.php)
     'trust_level' => 'Trust level',
