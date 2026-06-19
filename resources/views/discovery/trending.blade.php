@@ -6,7 +6,7 @@
 @endpush
 
 @section('breadcrumbs')
-    <x-ui.breadcrumbs :items="[['label' => 'Forums', 'url' => route('forums.index')], ['label' => 'Trending']]" />
+    <x-ui.breadcrumbs :items="[['label' => 'Trending']]" />
 @endsection
 
 @section('content')
