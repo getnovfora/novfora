@@ -60,4 +60,4 @@ StopForumSpam submission API are **scaffolded and unit-tested but NOT validated 
 `PROJECT-STATE.md → VALIDATE-BEFORE-GO-LIVE` and each ADR's enable steps. Enhanced-tier load numbers were not
 captured against a real host.
 
-[1.0.0]: https://github.com/echo5tech/novfora/releases/tag/v1.0.0
+[1.0.0]: https://github.com/getnovfora/novfora/releases/tag/v1.0.0

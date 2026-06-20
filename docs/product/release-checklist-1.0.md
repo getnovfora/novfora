@@ -26,6 +26,32 @@ Copyright 2026 The NovFora Authors
 
 ## Cut the release
 
+### Deploy artifact must include (runtime-required paths that are easy to drop)
+
+`scripts/build-release.sh` stages an **allowlist**, so a new runtime dependency is invisible in the bundle
+until something 404s/500s on a real host — the test suite won't catch it. Before cutting, confirm the bundle
+stages **every** path the running app reads at runtime. The ones that have bitten us (all load-bearing):
+
+- [ ] **`lang/`** — the root Laravel translation tree (auth / forum / profiles / …). Drop it and the host
+      renders raw `auth.login.*` / `forum.*` tokens instead of localized labels — the **Fix 2** deploy gap,
+      now board-wide after the i18n sweep.
+- [ ] **`public/icons/`** — the PWA web-manifest icons + the apple-touch-icon (`asset('icons/…')` in
+      `PwaController::manifest` and the app layout). Without it every manifest icon + the apple-touch icon 404.
+- [ ] **`public/build/`** — the Vite manifest (`manifest.json`) + hashed CSS/JS assets; the host has no Node
+      to rebuild them, so a missing `public/build/` is an unstyled, script-less site.
+- [ ] **`bootstrap/cache/packages.php`** — the package manifest (**RH-1**). A cold first boot 500s with
+      *"Target class [view] does not exist"* without it. (Ship ONLY this from `bootstrap/cache/` — the
+      `services/config/routes/events` caches are per-host and must NOT ship.)
+- [ ] **`modules/` + `themes/`** — the first-party module (`novfora/{hello,kudos,qa}`) and example theme
+      (`aurora`, `nebula`) trees. Tracked, shipped content that load at runtime via ModuleLoader/ThemeManager
+      (not composer); omit them and they silently vanish from every deployment's ACP / theme picker.
+
+**The rule:** anything referenced by **`lang_path()`**, **`asset()` / `resource_path()`**, or the **Vite
+manifest** must be in the staged allowlist. When you add such a dependency, add it to `build-release.sh` **and**
+a guard to `verify-release.sh`. `verify-release.sh` now guards **`lang/`** (ships *and* resolves at runtime via
+`lib/i18n-probe.php`) and **`public/icons/`** (every manifest icon present), alongside the existing
+`packages.php`-present / `services.php`-absent assertions.
+
 - [ ] **Build the installable artifact:** `bash scripts/build-release.sh` → `novfora-release.zip`.
 - [ ] **Verify the artifact:** `bash scripts/verify-release.sh novfora-release.zip` (truly-cold HTTP boot →
       `/` 302 `/install`; ships `bootstrap/cache/packages.php`; ships NO `.env` / install marker / env caches).

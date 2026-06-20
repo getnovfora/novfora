@@ -18,7 +18,7 @@ matches the shared-host baseline, disposable).
 
 ```bash
 gh auth login                                   # first time on a new machine
-gh repo clone echo5tech/novfora && cd novfora     # or: git clone https://github.com/echo5tech/novfora.git
+gh repo clone getnovfora/novfora && cd novfora     # or: git clone https://github.com/getnovfora/novfora.git
 
 ./scripts/dev-setup-macos.sh                    # MacBook (Homebrew)
 ./scripts/dev-setup-linux.sh                    # Ubuntu/Debian laptop (apt)
@@ -144,7 +144,7 @@ stays the parity target — run the suite against MySQL before merging DB-touchi
 
 ## Working across machines
 
-GitHub (`echo5tech/novfora`) is the source of truth:
+GitHub (`getnovfora/novfora`) is the source of truth:
 
 ```bash
 git pull       # when you sit down at any machine

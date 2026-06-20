@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 · Copyright 2026 The NovFora Authors -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NovFora — Reevaluation Scorecard</title>
+<style>
+  :root{
+    --bg:#0f1117; --panel:#171a22; --panel2:#1d212b; --line:#2a2f3a;
+    --ink:#e7e9ee; --mut:#9aa3b2; --mut2:#6b7280;
+    --shipped:#2f9e6b; --gap:#e0556b; --partial:#e0a23a; --netnew:#5b8def; --conflict:#8a93a3;
+    --accent:#6ea8fe;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+  header h1{margin:0 0 4px;font-size:26px;letter-spacing:-.3px}
+  header .sub{color:var(--mut);font-size:14px}
+  .thesis{background:linear-gradient(180deg,#1a1f2b,#171a22);border:1px solid var(--line);
+    border-left:3px solid var(--accent);border-radius:10px;padding:14px 16px;margin:18px 0 22px;color:#d6dae3}
+  .thesis b{color:#fff}
+  /* stat tiles */
+  .tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:24px}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 12px;cursor:pointer;
+    transition:.15s;text-align:center}
+  .tile:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .tile.active{outline:2px solid var(--accent);outline-offset:-2px}
+  .tile .n{font-size:24px;font-weight:700;line-height:1}
+  .tile .l{font-size:11px;color:var(--mut);margin-top:5px;text-transform:uppercase;letter-spacing:.4px}
+  .tile.s-shipped .n{color:var(--shipped)} .tile.s-gap .n{color:var(--gap)}
+  .tile.s-partial .n{color:var(--partial)} .tile.s-netnew .n{color:var(--netnew)}
+  .tile.s-conflict .n{color:var(--conflict)} .tile.s-all .n{color:var(--ink)}
+  /* review cards */
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut);margin:26px 0 12px;font-weight:600}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .card h3{margin:0 0 2px;font-size:14px}
+  .card .who{font-size:11px;color:var(--mut2);margin-bottom:10px}
+  .bar{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:11px;color:var(--mut)}
+  .bar .lab{width:74px;flex:none;text-transform:uppercase;letter-spacing:.3px}
+  .track{flex:1;height:6px;background:#0c0e13;border-radius:4px;overflow:hidden}
+  .fill{height:100%;border-radius:4px}
+  .verdict{margin-top:10px;font-size:12px;color:#cfd5df;border-top:1px dashed var(--line);padding-top:9px}
+  .verdict b{color:#fff}
+  /* controls */
+  .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:24px 0 12px}
+  .chip{background:var(--panel);border:1px solid var(--line);color:var(--mut);border-radius:20px;
+    padding:6px 13px;font-size:12.5px;cursor:pointer;transition:.12s}
+  .chip:hover{color:var(--ink);border-color:#3a4150}
+  .chip.active{background:#243049;border-color:var(--accent);color:#fff}
+  .search{margin-left:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    padding:7px 11px;color:var(--ink);font-size:13px;min-width:210px}
+  .search::placeholder{color:var(--mut2)}
+  /* table */
+  table{width:100%;border-collapse:collapse;margin-top:6px}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut2);text-align:left;
+    padding:8px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg)}
+  td{padding:10px;border-bottom:1px solid #20242e;vertical-align:top;font-size:13.5px}
+  tr:hover td{background:#14171f}
+  .item{font-weight:600;color:#fff}
+  .note{color:var(--mut);font-size:12px;margin-top:3px;line-height:1.45}
+  .ev{color:var(--mut2);font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:3px}
+  .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+  .b-shipped{background:rgba(47,158,107,.16);color:#5fd39b;border:1px solid rgba(47,158,107,.4)}
+  .b-gap{background:rgba(224,85,107,.16);color:#f2899a;border:1px solid rgba(224,85,107,.4)}
+  .b-partial{background:rgba(224,162,58,.16);color:#f0c479;border:1px solid rgba(224,162,58,.4)}
+  .b-netnew{background:rgba(91,141,239,.16);color:#9bbcfb;border:1px solid rgba(91,141,239,.4)}
+  .b-conflict{background:rgba(138,147,163,.16);color:#b8bfca;border:1px solid rgba(138,147,163,.4)}
+  .pill{display:inline-block;padding:1px 7px;border-radius:5px;font-size:11px;background:#0c0e13;border:1px solid var(--line);color:var(--mut)}
+  .apex{color:#f2899a;font-weight:700;font-size:10px;letter-spacing:.4px}
+  .src{font-size:11px;color:var(--mut2)}
+  footer{margin-top:30px;color:var(--mut2);font-size:12px;border-top:1px solid var(--line);padding-top:14px;line-height:1.6}
+  .countline{color:var(--mut);font-size:12px;margin:10px 2px 0}
+  @media(max-width:900px){.tiles{grid-template-columns:repeat(3,1fr)}.cards{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.tiles{grid-template-columns:repeat(2,1fr)}.cards{grid-template-columns:1fr}.search{margin-left:0;width:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>NovFora — Reevaluation Scorecard</h1>
+    <div class="sub">Codex · Gemini · Claude reviews, reconciled against the shipped v1.0.0 codebase · 2026-06-18 · scope: core forum + admin/ops breadth</div>
+  </header>
+
+  <div class="thesis">
+    <b>Verdict:</b> "Best of the best" is <b>not the union of the three</b> — it's the Claude review's architecture-aware roadmap,
+    <b>minus the ~12 items already shipped</b> (its own #1/#2 P0s, attachments + read/unread, included),
+    <b>plus the one real net-new idea</b> the others surfaced (Embed/SSI), with theming routed through the
+    <b>locked sandboxed-evaluator path</b> (ADR-0037/0038) instead of the conflicting raw-Blade proposal.
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <h2>How each review scored</h2>
+  <div class="cards" id="cards"></div>
+
+  <h2>Master reconciliation — every claim vs. the code</h2>
+  <div class="controls" id="chips"></div>
+  <div class="countline" id="countline"></div>
+  <table>
+    <thead><tr><th style="width:30%">Item</th><th>Status</th><th>Tier</th><th>Effort</th><th>Source</th><th style="width:34%">Evidence / note</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <footer>
+    <b>Status legend:</b> <span class="badge b-shipped">Shipped</span> already built — stale claim ·
+    <span class="badge b-partial">Partial</span> partly built, finish it ·
+    <span class="badge b-gap">Real gap</span> absent, build it ·
+    <span class="badge b-netnew">Net-new</span> the keepers from the other reviews ·
+    <span class="badge b-conflict">Conflict</span> do not adopt as written.<br>
+    Companion doc: <code>docs/product/reevaluation-synthesis.md</code>. Every gap was verified read-only against
+    <code>app/ · database/migrations/ · resources/views/ · routes/ · modules/</code>. APEX = permission / untrusted-input / concurrency surface → apex rung + verify-then-refute before merge.
+  </footer>
+</div>
+
+<script>
+const STAT = {shipped:"Shipped", gap:"Real gap", partial:"Partial", netnew:"Net-new", conflict:"Conflict"};
+
+const REVIEWS = [
+  {name:"Claude — Gap Analysis & Build Roadmap", who:"code-grounded · read D:\\Forum", verdict:"<b>The spine.</b> Adopt ~75% as-is; re-verify its status column (2 flagship P0s already shipped).",
+   scores:{Grounding:5, Accuracy:4, "Net-new":5, "No conflict":5}},
+  {name:"Codex/Gemini — Implementation Plan", who:"wrong dir D:\\NovFora_DEV", verdict:"<b>Mostly stale.</b> ~6 proposals already shipped; keep only Embed/SSI + username history.",
+   scores:{Grounding:1, Accuracy:1, "Net-new":2, "No conflict":2}},
+  {name:"Codex/Gemini — Platform Comparison", who:"landscape, not gaps", verdict:"<b>Positioning gold.</b> Use for README / pitch, not the build plan.",
+   scores:{Grounding:1, Accuracy:3, "Net-new":3, "No conflict":5}},
+  {name:"Codex/Gemini — Legacy Comparison", who:"phpBB/MyBB/SMF framing", verdict:"<b>A 2nd vote for Embed/SSI.</b> Re-proposes the shipped inspector (no-op).",
+   scores:{Grounding:1, Accuracy:2, "Net-new":2, "No conflict":5}},
+];
+
+const ROWS = [
+  // SHIPPED (stale claims)
+  {item:"First-class attachments / media upload", status:"shipped", tier:"—", effort:"—", apex:false, src:"Claude G1 (P0/XL)", note:"Claude's #1 item — actually fully built.", ev:"attachments · AttachmentController · AttachmentService · TipTap drag-drop"},
+  {item:"Read / unread tracking", status:"shipped", tier:"—", effort:"—", apex:false, src:"Claude G2 (P0)", note:"Claude's #2 item — already built.", ev:"topic_reads · TopicRead · WhatsNewController watermark"},
+  {item:"Member leaderboard pages", status:"shipped", tier:"—", effort:"—", apex:false, src:"Claude E4", note:"Rep/posts · all-time/30d/7d.", ev:"members.top · ⚡leaderboard"},
+  {item:"Profile cover / banner photo", status:"shipped", tier:"—", effort:"—", apex:false, src:"Claude G12", note:"Avatar upload + letter fallback + cover all present.", ev:"ProfileController → covers/"},
+  {item:"CAPTCHA provider (Turnstile)", status:"shipped", tier:"—", effort:"—", apex:false, src:"Claude G14", note:"Turnstile + Q&A live; only hCaptcha/reCAPTCHA missing.", ev:"TurnstileCaptchaProvider · CaptchaManager"},
+  {item:"ACP global search (⌘K)", status:"shipped", tier:"—", effort:"—", apex:false, src:"Codex/Gemini Impl §1.1", note:"Proposed as a build — already shipped (v3-h).", ev:"Admin/SearchController · admin.search"},
+  {item:"Permission “why” inspector", status:"shipped", tier:"—", effort:"—", apex:false, src:"Codex/Gemini Impl §4.3 · Legacy §A", note:"Proposed twice — already shipped (CLI + ACP).", ev:"PermissionInspector · novfora:why"},
+  {item:"System health dashboard", status:"shipped", tier:"—", effort:"—", apex:false, src:"Codex/Gemini Impl §1.3", note:"7 status indicators + queues + reports.", ev:"admin/dashboard.blade"},
+  {item:"Audit / forensic logging", status:"shipped", tier:"—", effort:"—", apex:false, src:"Codex/Gemini Impl §1.2", note:"No new dependency needed.", ev:"AuditLog · ⚡audit-log"},
+  {item:"Warning / infraction engine", status:"shipped", tier:"—", effort:"—", apex:false, src:"Codex/Gemini Impl §3.3", note:"Decay + auto-consequences + ack.", ev:"CHANGELOG Phase 2"},
+  {item:"Inline + bulk moderation", status:"shipped", tier:"—", effort:"—", apex:false, src:"Codex/Gemini Impl §3.1", note:"ACP queue + bulk select built.", ev:"BulkModerationService"},
+  {item:"Topic split / merge", status:"shipped", tier:"—", effort:"—", apex:false, src:"Codex/Gemini Impl §3.2", note:"Chronological merge + split.", ev:"CHANGELOG Phase 2"},
+  // TIER 1 — core gaps
+  {item:"U1 · Quoting & multi-quote", status:"partial", tier:"1", effort:"M", apex:false, src:"Claude G3", note:"Only a plain blockquote button today; no per-post quote, attribution, or multi-quote.", ev:"content-editor.blade.php"},
+  {item:"U2 · Follow forums/tags + “Watched” surface", status:"partial", tier:"1", effort:"M", apex:false, src:"Claude G5", note:"Follow is user→user only; no watched-content surface, no forum/tag follow.", ev:"FollowService · ⚡follow-button"},
+  {item:"U3 · Profile wall / status posts + comments", status:"gap", tier:"1", effort:"L", apex:false, src:"Claude G4 / E1", note:"Absent. Reuse polymorphic reactions/reporting + privacy controls.", ev:"— (no ProfilePost model)"},
+  {item:"U4 · Announcements / notices (proper)", status:"partial", tier:"1", effort:"M", apex:false, src:"Claude G6", note:"Half-wired announcement topic-type col + plain site banner; no dismiss, no criteria.", ev:"topics.type · general.site_notice"},
+  {item:"U5 · Navigation / menu manager", status:"gap", tier:"1", effort:"M", apex:false, src:"Claude G7", note:"Public header nav is hardcoded; no admin-editable menu.", ev:"— (AdminNavigation is ACP-only)"},
+  {item:"U6 · Front-of-site moderator toolset", status:"partial", tier:"1", effort:"L", apex:false, src:"Claude G11", note:"ACP queue + bulk exist; the public-side inline mod menu + stored replies are the gap.", ev:"ModerationController"},
+  // TIER 2 — net-new
+  {item:"U7 · Embed API / SSI / web components", status:"netnew", tier:"2", effort:"M–L", apex:true, src:"Codex/Gemini (both)", note:"The standout net-new idea — JSON endpoints + <novfora-…> widgets for external sites. Must reuse the no-leak/SSRF fence.", ev:"— (absent)"},
+  {item:"U8 · Username history + name-change revert", status:"netnew", tier:"2", effort:"S", apex:false, src:"Codex/Gemini Impl §4.1", note:"Small, high-value for moderation/forensics; pairs with IP/ban tooling.", ev:"— (absent)"},
+  // TIER 3 — theming depth
+  {item:"U9 · Rich Style-Property system", status:"partial", tier:"3", effort:"L", apex:false, src:"Claude T1 = their “Style Properties”", note:"Theme Studio has ~7 tokens; grow to grouped typed props + live preview, keep AA guard.", ev:"StyleThemeManager · AccentPalette"},
+  {item:"U10 · Multi-style tree + user chooser", status:"partial", tier:"3", effort:"L", apex:false, src:"Claude T2", note:"Filesystem child themes exist; add DB SiteStyle.parent_id inheritance + user-selectable chooser.", ev:"themes/ overrides"},
+  {item:"U11 · Upgrade-safe hook layer + Diff3", status:"partial", tier:"3", effort:"L", apex:true, src:"Claude T3/T4 (de-conflicted)", note:"Their template editor, done right: named hook anchors + scoped sandboxed find/replace + drift detection. NEVER raw Blade.", ev:"extends ADR-0037/0038 evaluator"},
+  {item:"U12 · Style import/export + global CSS box", status:"partial", tier:"3", effort:"M", apex:false, src:"Claude T5/T8", note:"Zip+manifest install-from-file; sanitized global custom-CSS box per style.", ev:"filesystem only today"},
+  // TIER 4 — admin/ops & SEO breadth
+  {item:"U13 · IP investigation + ban-management UI", status:"partial", tier:"4", effort:"M", apex:false, src:"Claude A1/A2", note:"BanChecker engine exists; add search-by-IP, IP history, CIDR/range bans, ban list/lift UI.", ev:"BanChecker"},
+  {item:"U14 · Registration controls", status:"partial", tier:"4", effort:"M", apex:false, src:"Claude A3", note:"Open/closed + verify + anti-spam; add approval queue, ToS/age gate, domain allow/deny. (v3-e added a group request-queue.)", ev:"RegistrationGuard"},
+  {item:"U15 · Mass member ops + bulk-mail / newsletter", status:"partial", tier:"4", effort:"L", apex:true, src:"Claude G13", note:"No campaign tool / account-merge. Audience criteria + schedule + suppression, drains via cron.", ev:"member directory bulk seams"},
+  {item:"U16 · Maintenance/rebuild + log surfaces + mail test", status:"partial", tier:"4", effort:"M", apex:false, src:"Claude A5/A6/A7", note:"Self-heal crons + dashboard exist; add one-click rebuild/prune UI, broader logs, mail diagnostic.", ev:"AuditLog · health endpoint"},
+  {item:"U17 · Plugin install-from-zip + trust gate", status:"partial", tier:"4", effort:"M", apex:true, src:"Claude A9", note:"Enable/disable + trust guardrails exist; add zip install + signature/trust gate + marketplace hooks.", ev:"module API"},
+  {item:"U18 · Finish CAPTCHA drivers + Gravatar", status:"partial", tier:"4", effort:"S", apex:false, src:"Claude G14/G12", note:"Add hCaptcha + reCAPTCHA alongside Turnstile; add Gravatar to the avatar chain.", ev:"CaptchaManager · avatar.blade"},
+  {item:"U19 · Custom topic fields + move-with-redirect", status:"gap", tier:"4", effort:"M", apex:false, src:"Claude G8/G10", note:"Per-forum topic fields absent; move-redirect seam (moved_to_topic_id) exists but is dead — wire it.", ev:"— · topics.moved_to_topic_id (unused)"},
+  {item:"U20 · SEO polish — JSON-LD/OG, share, by-user", status:"partial", tier:"4", effort:"S–M", apex:false, src:"Claude S1/S2/S4", note:"Sitemap/SEO basics exist; add DiscussionForumPosting/QAPage JSON-LD + OG cards + social share + “find content by user.”", ev:"— (share absent)"},
+  {item:"U21 · i18n string sweep (residue)", status:"partial", tier:"4", effort:"L", apex:false, src:"Claude S6 / ADR-0079", note:"Framework + es proof shipped; finish components → admin → clubs/settings/pm (~600+ strings).", ev:"lang/en/*"},
+  // CONFLICTS
+  {item:"Monaco + DB raw-Blade template editor", status:"conflict", tier:"✕", effort:"—", apex:false, src:"Codex/Gemini Impl §2.1–2.2", note:"Conflicts ADR-0037/0038 (data-only sandboxed evaluator; never raw Blade/PHP). Adopt the intent via U9/U11.", ev:"sandbox-template-threat-model.md"},
+  {item:"spatie/laravel-activitylog dependency", status:"conflict", tier:"✕", effort:"—", apex:false, src:"Codex/Gemini Impl §1.2", note:"AuditLog already exists; a new dep needs DECISIONS.md and duplicates shipped work.", ev:"AuditLog"},
+  {item:"Work in D:\\NovFora_DEV", status:"conflict", tier:"✕", effort:"—", apex:false, src:"Codex/Gemini set", note:"Wrong directory — the repo is D:\\Forum. Ignore.", ev:"—"},
+];
+
+// ---- render stat tiles ----
+const counts = {all:ROWS.length}; for(const k in STAT) counts[k]=ROWS.filter(r=>r.status===k).length;
+const tileDefs = [["all","All claims"],["shipped","Already shipped"],["partial","Partial"],["gap","Real gaps"],["netnew","Net-new"],["conflict","Conflicts"]];
+document.getElementById('tiles').innerHTML = tileDefs.map(([k,l])=>
+  `<div class="tile s-${k}" data-f="${k}"><div class="n">${counts[k]}</div><div class="l">${l}</div></div>`).join('');
+
+// ---- render review cards ----
+const cColor = {Grounding:"#6ea8fe", Accuracy:"#5fd39b", "Net-new":"#9bbcfb", "No conflict":"#f0c479"};
+document.getElementById('cards').innerHTML = REVIEWS.map(r=>{
+  const bars = Object.entries(r.scores).map(([lab,v])=>
+    `<div class="bar"><span class="lab">${lab}</span><span class="track"><span class="fill" style="width:${v*20}%;background:${cColor[lab]}"></span></span></div>`).join('');
+  return `<div class="card"><h3>${r.name}</h3><div class="who">${r.who}</div>${bars}<div class="verdict">${r.verdict}</div></div>`;
+}).join('');
+
+// ---- render chips ----
+const chipDefs = [["all","All"],["shipped","Shipped"],["partial","Partial"],["gap","Real gaps"],["netnew","Net-new"],["conflict","Conflicts"]];
+let activeFilter = "all", q = "";
+document.getElementById('chips').innerHTML =
+  chipDefs.map(([k,l])=>`<span class="chip${k==='all'?' active':''}" data-f="${k}">${l}</span>`).join('') +
+  `<input class="search" id="q" placeholder="Search items, evidence…">`;
+
+function badge(s){return `<span class="badge b-${s}">${STAT[s]}</span>`;}
+function render(){
+  const rows = ROWS.filter(r=>(activeFilter==='all'||r.status===activeFilter) &&
+    (q===''|| (r.item+r.note+r.ev+r.src).toLowerCase().includes(q)));
+  document.getElementById('rows').innerHTML = rows.map(r=>`
+    <tr>
+      <td><div class="item">${r.item}</div></td>
+      <td>${badge(r.status)}</td>
+      <td>${r.tier==='—'||r.tier==='✕'?`<span class="src">${r.tier}</span>`:`<span class="pill">T${r.tier}</span>`}</td>
+      <td>${r.effort==='—'?'<span class="src">—</span>':`<span class="pill">${r.effort}</span>`} ${r.apex?'<div class="apex">APEX</div>':''}</td>
+      <td><span class="src">${r.src}</span></td>
+      <td><div class="note">${r.note}</div><div class="ev">${r.ev}</div></td>
+    </tr>`).join('');
+  document.getElementById('countline').textContent =
+    `Showing ${rows.length} of ${ROWS.length} · ${counts.shipped} shipped (drop) · ${counts.partial} partial · ${counts.gap} real gaps · ${counts.netnew} net-new · ${counts.conflict} conflicts`;
+}
+function setFilter(f){
+  activeFilter=f;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',c.dataset.f===f));
+  document.querySelectorAll('.tile').forEach(t=>t.classList.toggle('active',t.dataset.f===f));
+  render();
+}
+document.getElementById('chips').addEventListener('click',e=>{if(e.target.dataset.f)setFilter(e.target.dataset.f);});
+document.getElementById('tiles').addEventListener('click',e=>{const t=e.target.closest('.tile');if(t)setFilter(t.dataset.f);});
+document.getElementById('q').addEventListener('input',e=>{q=e.target.value.toLowerCase().trim();render();});
+render();
+</script>
+</body>
+</html>
