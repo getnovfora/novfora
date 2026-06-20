@@ -308,6 +308,46 @@ Scaffolded/disabled-by-default; unit-tested against fakes only. Enable + validat
    script doesn't cleanly *return* under `docker exec` because the backgrounded `php -S` isn't reaped — env, not
    a defect).
 
+#### Enhanced-tier live validation — 2026-06-19 (build VPS, against live backends)
+Ran `docs/product/enhanced-tier-validation-kickoff.md`. First time the scaffolded Enhanced tier was exercised
+against real backends (everything was unit-tested against fakes only). **Items 1–2 above are now PROVEN; the
+Redis cache/queue path too.**
+- **Prereqs discovered + fixed (the box was only half-bootstrapped):** the app was **not installed** (no
+  `storage/installed` marker) and the DB was **migrated-but-empty**, so `AppServiceProvider::prepareForInstaller`
+  force-hardened cache/session/queue to file/file/sync — masking the Enhanced `.env` entirely. Ran
+  `php artisan novfora:install --demo` (preserves the Enhanced `.env`; APP_ENV→production; admin
+  `admin@novfora.test`). Two **Enhanced client libs were missing from composer** (scaffolded but never added,
+  since tests fake them) → added on `chore/enable-reverb`: `meilisearch/meilisearch-php`, `laravel/reverb` +
+  `pusher/pusher-php-server`.
+- **Redis (cache/session/queue):** cache round-trips via Redis (DB 1, key `novfora-database-novfora-cache-vt`);
+  a real `RegenerateUserPostHtml` job was drained by the `novfora-queue` worker in ~0.25 s (effect applied);
+  `queue:failed` = 0; `ServiceTierFallbackTest` green.
+- **Meilisearch (#1):** 14 approved posts indexed (`numberOfDocuments:14`); live keyword search served by the
+  engine (proved via typo-tolerance a DB `LIKE` can't do); **private-club no-leak HELD** over the live index —
+  a non-member got 0 for a term that IS in the index, the member got 1 (the index is never the sole gate;
+  `SearchService` re-gates via `clubContentVisibleTo`); on a dead engine `search()`/`posts()` degrade to the DB
+  with no error and the no-leak still holds. *(Validated against a dev-run `meilisearch` instance because the
+  system `meilisearch.service` is crashed — see findings.)*
+- **Reverb (#2):** authorized subscriber on `private-thread.{id}` received the **id-only** payload
+  `{post_id,topic_id,user_id}` over a live socket (no body crosses the wire); an unauthorized subscriber was
+  **rejected 403 at `/broadcasting/auth`** (`ChannelAuthorizer::canViewThread`). Enablement committed on
+  `chore/enable-reverb`; gates green *(1746/1748 Pest — the 1 failure is the pre-existing v3-e
+  `HotPathQueryTest` query-budget, 42 vs 41, unrelated to these deps which are inert under the test env's
+  sqlite/`scout=database`/`broadcast=null`; PHPStan 0, Pint clean)*.
+- **Findings / follow-ups (NOT blockers for #1–#2 correctness, but for box hygiene):**
+  - `scout.queue=false` → with the `meilisearch` driver a Meili **outage makes searchable writes throw inline**
+    (post creation breaks). Recommend `SCOUT_QUEUE=true` on Enhanced so a transient engine outage degrades
+    gracefully on writes too.
+  - System `meilisearch.service` **crashed**: its `/var/lib/meilisearch` DB was created by an older version and
+    binary 1.47.0 refuses it in `--env production`. Needs (sudo) move-aside of the empty DB + restart, then
+    `scout:import`.
+  - Port **8080 is occupied by an unrelated "Hello World" service** (another user) → the `novfora-reverb` unit
+    (configured for 8080) will conflict; free 8080 or repoint Reverb before `systemctl enable --now`.
+  - `composer audit`: 3 **medium** advisories in transitive `guzzlehttp/guzzle` (<7.12.1) + `guzzlehttp/psr7`
+    (<2.12.1), disclosed 2026-06-18 — recommend bumping both (separate maintenance commit).
+- **Still deferred (need external accounts/creds):** #3 live Stripe, #4 OAuth/SAML, #5 Web Push, #6
+  StopForumSpam, #7 load-at-scale, #8 manual a11y.
+
 ### Is the build 1.0-tag-ready?
 **Yes — code-wise.** The 1.0 brand gate passes + is CI-enforced, version is 1.0.0, the gate is green
 (1560/0-fail · PHPStan 0 · Pint), the fresh-install + release-artifact paths are proven, and no HIGH/MEDIUM
