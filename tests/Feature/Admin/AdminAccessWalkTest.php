@@ -2,6 +2,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 
+use App\Models\Forum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\Route;
@@ -100,7 +101,28 @@ it('renders every admin page (ACP + system) for a 2FA admin with no exception', 
 
     foreach ($pages as $uri) {
         $this->actingAs($admin)->get($uri)
-            ->assertOk("admin page {$uri} should render 200 for a 2FA admin (no exception)");
+            ->assertOk("admin page {$uri} should render 200 for a 2FA admin (no exception)")
+            // …and INSIDE the app layout — a full <html> document, not a bare <x-admin.shell> fragment. BUG-001:
+            // a view that emits the shell with no @extends('layouts.app')/@section('content') envelope returns
+            // 200 but renders only the shell — its first icon <svg> unconstrained, no page chrome. assertOk()
+            // alone can't see that; the presence of <html proves the layout actually ran.
+            ->assertSee('<html', false);
+    }
+});
+
+it('renders the per-forum admin pages (permissions + moderators) with full chrome for a 2FA admin', function () {
+    // These two ACP pages take a {forum} param, so the parameterless walk above skips them — yet they are the
+    // exact BUG-001 shape (a bare <x-admin.shell> with no layout envelope). Walk them explicitly.
+    $admin = Users::withTwoFactor(Users::inGroups(['admins']));
+    $forum = Forum::create(['slug' => 'general', 'title' => 'General', 'type' => 'forum']);
+
+    foreach ([
+        route('admin.forums.permissions', $forum),
+        route('admin.forums.moderators', $forum),
+    ] as $url) {
+        $this->actingAs($admin)->get($url)
+            ->assertOk("{$url} should render 200 for a 2FA admin")
+            ->assertSee('<html', false); // full layout document, not a bare shell fragment (BUG-001)
     }
 });
 
