@@ -343,10 +343,10 @@ Redis cache/queue path too.**
     `meilisearch` user (uid 999) cannot write — Meili exits `Permission denied (os error 13)` at startup. Added
     `WorkingDirectory=/var/lib/meilisearch`; the service is now active + enabled and the 16 posts re-imported.
     *(If a provisioning script generates this unit, apply the same fix there.)*
-  - Port **8080 is held by nginx** (CloudPanel's web server) — it can't be freed; the `novfora-reverb` unit
-    (hardcoded `--port=8080`) must be **repointed to a free port** (e.g. 8090, with matching `REVERB_PORT`)
-    before `systemctl enable --now`. The round-trip was proven on a dev-run Reverb (8085); the persistent unit
-    enable is pending an explicit go-ahead. Production WSS also needs an nginx proxy to the chosen port.
+  - Port **8080 is held by nginx** (CloudPanel's web server), so the `novfora-reverb` unit (which hardcoded
+    `--port=8080`) was **repointed to 8090 → FIXED**: unit `--port=8090` + `.env REVERB_PORT=8090`, `enable
+    --now`; now active + boot-persistent and the round-trip was re-verified over the systemd-managed server.
+    Production WSS still needs an nginx proxy from the public origin to `127.0.0.1:8090` (CloudPanel config).
   - `composer audit`: 3 **medium** advisories in transitive `guzzlehttp/guzzle` (<7.12.1) + `guzzlehttp/psr7`
     (<2.12.1), disclosed 2026-06-18 — recommend bumping both (separate maintenance commit).
 - **Still deferred (need external accounts/creds):** #3 live Stripe, #4 OAuth/SAML, #5 Web Push, #6
