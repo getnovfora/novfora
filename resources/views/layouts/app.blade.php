@@ -35,16 +35,19 @@
         $appearanceCss .= ":root[data-theme='dark']{".$vars($accent['dark']).'}';
     }
 
-    // DB-backed style theme (ACP visual theme editor): the active theme's compiled CSS (its AA-safe accent +
-    // sanitised custom CSS), cached and read once per request. Emitted AFTER the appearance overrides below
-    // so an active theme wins on equal specificity.
-    $styleThemeCss = app(\App\Theme\StyleThemeManager::class)->css();
+    // DB-backed style theme (ACP visual theme editor). Resolve the manager ONCE so css()/chrome()/assets()
+    // share a single active-theme lookup on a cold cache (one site_themes query, not three).
+    $styleTheme = app(\App\Theme\StyleThemeManager::class);
+
+    // The active theme's compiled CSS (its AA-safe accent + sanitised custom CSS), cached and read once per
+    // request. Emitted AFTER the appearance overrides below so an active theme wins on equal specificity.
+    $styleThemeCss = $styleTheme->css();
 
     // Theme Studio 1.2: the active theme's custom header/footer HTML (sanitised at write time, cached).
-    $themeChrome = app(\App\Theme\StyleThemeManager::class)->chrome();
+    $themeChrome = $styleTheme->chrome();
 
     // Theme Studio 1.5: the active theme's logo + favicon URLs (the background rides $styleThemeCss).
-    $themeAssets = app(\App\Theme\StyleThemeManager::class)->assets();
+    $themeAssets = $styleTheme->assets();
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
