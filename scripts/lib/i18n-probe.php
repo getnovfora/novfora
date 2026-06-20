@@ -1,5 +1,8 @@
 <?php
 
+use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Foundation\Application;
+
 // SPDX-License-Identifier: Apache-2.0
 //
 // i18n resolution probe for the release acceptance test (scripts/verify-release.sh). Boots the EXTRACTED
@@ -14,16 +17,16 @@
 //
 // Usage: php i18n-probe.php <extractedAppDir>
 
-$base = rtrim($argv[1] ?? getcwd(), "/\\");
+$base = rtrim($argv[1] ?? getcwd(), '/\\');
 
 require $base.'/vendor/autoload.php';
 
-/** @var \Illuminate\Foundation\Application $app */
+/** @var Application $app */
 $app = require $base.'/bootstrap/app.php';
 
 try {
-    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-} catch (\Throwable $e) {
+    $app->make(Kernel::class)->bootstrap();
+} catch (Throwable $e) {
     fwrite(STDOUT, 'BOOT_ERROR: '.$e->getMessage()."\n");
     fwrite(STDOUT, "I18N_PROBE_FAIL\n");
     exit(1);
@@ -33,7 +36,7 @@ try {
 app('translator')->setLocale('en');
 
 $expected = [
-    'auth.login.title'       => 'Sign in',
+    'auth.login.title' => 'Sign in',
     'auth.login.email_label' => 'Email',
 ];
 
