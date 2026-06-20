@@ -308,6 +308,50 @@ Scaffolded/disabled-by-default; unit-tested against fakes only. Enable + validat
    script doesn't cleanly *return* under `docker exec` because the backgrounded `php -S` isn't reaped — env, not
    a defect).
 
+#### Enhanced-tier live validation — 2026-06-19 (build VPS, against live backends)
+Ran `docs/product/enhanced-tier-validation-kickoff.md`. First time the scaffolded Enhanced tier was exercised
+against real backends (everything was unit-tested against fakes only). **Items 1–2 above are now PROVEN; the
+Redis cache/queue path too.**
+- **Prereqs discovered + fixed (the box was only half-bootstrapped):** the app was **not installed** (no
+  `storage/installed` marker) and the DB was **migrated-but-empty**, so `AppServiceProvider::prepareForInstaller`
+  force-hardened cache/session/queue to file/file/sync — masking the Enhanced `.env` entirely. Ran
+  `php artisan novfora:install --demo` (preserves the Enhanced `.env`; APP_ENV→production; admin
+  `admin@novfora.test`). Two **Enhanced client libs were missing from composer** (scaffolded but never added,
+  since tests fake them) → added on `chore/enable-reverb`: `meilisearch/meilisearch-php`, `laravel/reverb` +
+  `pusher/pusher-php-server`.
+- **Redis (cache/session/queue):** cache round-trips via Redis (DB 1, key `novfora-database-novfora-cache-vt`);
+  a real `RegenerateUserPostHtml` job was drained by the `novfora-queue` worker in ~0.25 s (effect applied);
+  `queue:failed` = 0; `ServiceTierFallbackTest` green.
+- **Meilisearch (#1):** 14 approved posts indexed (`numberOfDocuments:14`); live keyword search served by the
+  engine (proved via typo-tolerance a DB `LIKE` can't do); **private-club no-leak HELD** over the live index —
+  a non-member got 0 for a term that IS in the index, the member got 1 (the index is never the sole gate;
+  `SearchService` re-gates via `clubContentVisibleTo`); on a dead engine `search()`/`posts()` degrade to the DB
+  with no error and the no-leak still holds. *(First validated against a dev-run `meilisearch` instance; then
+  re-verified over the now-fixed system `meilisearch.service` — see findings.)*
+- **Reverb (#2):** authorized subscriber on `private-thread.{id}` received the **id-only** payload
+  `{post_id,topic_id,user_id}` over a live socket (no body crosses the wire); an unauthorized subscriber was
+  **rejected 403 at `/broadcasting/auth`** (`ChannelAuthorizer::canViewThread`). Enablement committed on
+  `chore/enable-reverb`; gates green *(1746/1748 Pest — the 1 failure is the pre-existing v3-e
+  `HotPathQueryTest` query-budget, 42 vs 41, unrelated to these deps which are inert under the test env's
+  sqlite/`scout=database`/`broadcast=null`; PHPStan 0, Pint clean)*.
+- **Findings / follow-ups (NOT blockers for #1–#2 correctness, but for box hygiene):**
+  - `scout.queue=false` → with the `meilisearch` driver a Meili **outage makes searchable writes throw inline**
+    (post creation breaks). Recommend `SCOUT_QUEUE=true` on Enhanced so a transient engine outage degrades
+    gracefully on writes too.
+  - System `meilisearch.service` **crashed → FIXED**. Root cause was NOT a version mismatch (the DB `VERSION`
+    matched binary 1.47.0): the unit had **no `WorkingDirectory`**, so CWD defaulted to `/`, which the
+    `meilisearch` user (uid 999) cannot write — Meili exits `Permission denied (os error 13)` at startup. Added
+    `WorkingDirectory=/var/lib/meilisearch`; the service is now active + enabled and the 16 posts re-imported.
+    *(If a provisioning script generates this unit, apply the same fix there.)*
+  - Port **8080 is held by nginx** (CloudPanel's web server), so the `novfora-reverb` unit (which hardcoded
+    `--port=8080`) was **repointed to 8090 → FIXED**: unit `--port=8090` + `.env REVERB_PORT=8090`, `enable
+    --now`; now active + boot-persistent and the round-trip was re-verified over the systemd-managed server.
+    Production WSS still needs an nginx proxy from the public origin to `127.0.0.1:8090` (CloudPanel config).
+  - `composer audit`: 3 **medium** advisories in transitive `guzzlehttp/guzzle` (<7.12.1) + `guzzlehttp/psr7`
+    (<2.12.1), disclosed 2026-06-18 — recommend bumping both (separate maintenance commit).
+- **Still deferred (need external accounts/creds):** #3 live Stripe, #4 OAuth/SAML, #5 Web Push, #6
+  StopForumSpam, #7 load-at-scale, #8 manual a11y.
+
 ### Is the build 1.0-tag-ready?
 **Yes — code-wise.** The 1.0 brand gate passes + is CI-enforced, version is 1.0.0, the gate is green
 (1560/0-fail · PHPStan 0 · Pint), the fresh-install + release-artifact paths are proven, and no HIGH/MEDIUM
