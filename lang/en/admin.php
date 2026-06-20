@@ -59,6 +59,7 @@ return [
         'reports' => 'Reports',
         'mod_panel' => 'Mod control panel',
         'spam_intelligence' => 'Spam intelligence',
+        'moderators' => 'Moderators',
         'moderation_settings' => 'Moderation settings',
         'appearance' => 'Appearance',
         'themes' => 'Themes',
@@ -101,6 +102,11 @@ return [
     // The custom role builder (v3-d).
     'roles' => [
         'title' => 'Roles',
+    ],
+
+    // Per-forum moderator assignment (v3-b).
+    'moderators' => [
+        'title' => 'Forum moderators',
     ],
 
     // The card-per-group permission editor (v3-c).
