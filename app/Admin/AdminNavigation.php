@@ -112,6 +112,8 @@ final class AdminNavigation
         ]],
         'security' => ['shield', 'admin.security', [
             [null, [
+                ['co_owners', 'admin.security.co-owners', 'shield'], // v3-a: co-owner tier
+                ['admin_accounts', 'admin.security.accounts', 'users'], // v3-a: Admin Manager (restricted admins)
                 ['permissions', 'admin.security.permissions', 'shield'],
             ]],
         ]],

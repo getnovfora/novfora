@@ -2,6 +2,10 @@
 
 // SPDX-License-Identifier: Apache-2.0
 
+use App\Models\AclEntry;
+use App\Models\Group;
+use App\Models\User;
+use App\Permissions\PermissionValue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\Route;
@@ -10,6 +14,25 @@ use Tests\Support\Users;
 uses(RefreshDatabase::class);
 
 beforeEach(fn () => $this->seed());
+
+/**
+ * A 2FA admin crowned a CO-OWNER (the operator the installer crowns): holds admin.security.access + the
+ * is_co_owner flag, so they can render the WHOLE panel — including the v3-a Security section, which gates on
+ * admin.security.access. A plain admin 403s there by design (covered by the deny-walk).
+ */
+function walkCoOwner(): User
+{
+    $admin = Users::withTwoFactor(Users::inGroups(['admins']));
+    $adminsId = (int) Group::query()->where('slug', 'admins')->value('id');
+    $admin->groups()->updateExistingPivot($adminsId, ['is_co_owner' => true]);
+    AclEntry::updateOrCreate(
+        ['permission_key' => 'admin.security.access', 'holder_type' => 'user', 'holder_id' => (int) $admin->id,
+            'scope_type' => 'global', 'scope_id' => null],
+        ['value' => PermissionValue::Allow->value],
+    );
+
+    return $admin->fresh();
+}
 
 /**
  * Every registered GET admin page that has no required route parameters — i.e. every directly-loadable
@@ -92,15 +115,19 @@ it('admits an admin with admin.access + confirmed 2FA to the dashboard', functio
 // whole "renders fine for guests-denied but 500s for admins" class. (This test FAILS on the unpatched
 // registration page and PASSES once `gates()` no longer demands an un-injectable argument.)
 
-it('renders every admin page (ACP + system) for a 2FA admin with no exception', function () {
-    $admin = Users::withTwoFactor(Users::inGroups(['admins']));
+it('renders every admin page (ACP + system) for a 2FA co-owner with no exception', function () {
+    // The operator is a CO-OWNER (v3-a): holds admin.security.access + every section key, so they render the
+    // WHOLE panel including the Security section. A plain admin 403s on the Security pages by design — the
+    // deny-walk above + the dedicated per-section gating test cover that.
+    $admin = walkCoOwner();
 
     $pages = acpGetPages();
     expect($pages)->toContain('/admin/settings/registration'); // the page that shipped the 500 — must be walked
+    expect($pages)->toContain('/admin/security/co-owners');     // the v3-a Security pages must be walked too
 
     foreach ($pages as $uri) {
         $this->actingAs($admin)->get($uri)
-            ->assertOk("admin page {$uri} should render 200 for a 2FA admin (no exception)");
+            ->assertOk("admin page {$uri} should render 200 for a 2FA co-owner (no exception)");
     }
 });
 
