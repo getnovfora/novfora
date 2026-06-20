@@ -35,16 +35,19 @@
         $appearanceCss .= ":root[data-theme='dark']{".$vars($accent['dark']).'}';
     }
 
-    // DB-backed style theme (ACP visual theme editor): the active theme's compiled CSS (its AA-safe accent +
-    // sanitised custom CSS), cached and read once per request. Emitted AFTER the appearance overrides below
-    // so an active theme wins on equal specificity.
-    $styleThemeCss = app(\App\Theme\StyleThemeManager::class)->css();
+    // DB-backed style theme (ACP visual theme editor). Resolve the manager ONCE so css()/chrome()/assets()
+    // share a single active-theme lookup on a cold cache (one site_themes query, not three).
+    $styleTheme = app(\App\Theme\StyleThemeManager::class);
+
+    // The active theme's compiled CSS (its AA-safe accent + sanitised custom CSS), cached and read once per
+    // request. Emitted AFTER the appearance overrides below so an active theme wins on equal specificity.
+    $styleThemeCss = $styleTheme->css();
 
     // Theme Studio 1.2: the active theme's custom header/footer HTML (sanitised at write time, cached).
-    $themeChrome = app(\App\Theme\StyleThemeManager::class)->chrome();
+    $themeChrome = $styleTheme->chrome();
 
     // Theme Studio 1.5: the active theme's logo + favicon URLs (the background rides $styleThemeCss).
-    $themeAssets = app(\App\Theme\StyleThemeManager::class)->assets();
+    $themeAssets = $styleTheme->assets();
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
@@ -203,21 +206,9 @@
 
             {{-- Right cluster. (Mobile search lives in the hamburger panel, so the bar stays uncrowded at 360px.) --}}
             <div class="flex items-center gap-1 ml-auto md:ml-1 shrink-0">
-                {{-- Colour-mode toggle (auto → light → dark). Works for everyone; persists server-side when signed in. --}}
-                <button type="button"
-                        x-data="{ mode: document.documentElement.getAttribute('data-color-mode') || 'auto' }"
-                        x-on:novfora:color-mode.window="mode = $event.detail"
-                        @click="window.NovFora.cycleColorMode()"
-                        {{-- Static accessible name for the pre-hydration / no-JS state; Alpine enhances it
-                             with the live mode once mounted (a11y, Wave 8.2). --}}
-                        aria-label="Change colour theme"
-                        :aria-label="'Theme: ' + mode + ' (click to change)'" :title="'Theme: ' + mode"
-                        class="inline-flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink">
-                    <span x-show="mode === 'auto'" @if ($colorMode !== 'auto') x-cloak @endif><x-ui.icon name="monitor" /></span>
-                    <span x-show="mode === 'light'" @if ($colorMode !== 'light') x-cloak @endif><x-ui.icon name="sun" /></span>
-                    <span x-show="mode === 'dark'" @if ($colorMode !== 'dark') x-cloak @endif><x-ui.icon name="moon" /></span>
-                </button>
-
+                {{-- The colour-mode control lives in the user dropdown → Appearance (/settings/appearance); it
+                     was removed from the nav so the right cluster stays on one line. Guests fall back to `auto`
+                     (follows the OS) — the accepted tradeoff (no per-guest nav toggle). --}}
                 @auth
                     <livewire:notification-bell />
                     <livewire:pm.inbox-badge />

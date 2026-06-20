@@ -35,14 +35,29 @@ final class StyleThemeManager
     /** @var array<string,string> asset kind => the column it lives in */
     private const ASSET_COLUMNS = ['logo' => 'logo_path', 'favicon' => 'favicon_path', 'background' => 'background_path'];
 
-    /** The active style theme, or null when none is active / the table isn't ready (pre-install). */
+    /** Per-instance memo of the resolved active theme (the layout asks css()/chrome()/assets() of ONE
+     *  instance, so this collapses their cold-cache lookups to a single site_themes query). Reset on write. */
+    private ?SiteTheme $activeMemo = null;
+
+    private bool $activeResolved = false;
+
+    /** The active style theme, or null when none is active / the table isn't ready (pre-install). Resolved at
+     *  most once per instance — css(), chrome(), and assets() share the single lookup on a cold cache. */
     public function active(): ?SiteTheme
     {
+        if ($this->activeResolved) {
+            return $this->activeMemo;
+        }
+
         try {
-            return SiteTheme::query()->where('is_active', true)->first();
+            $this->activeMemo = SiteTheme::query()->where('is_active', true)->first();
+            $this->activeResolved = true;
         } catch (\Throwable) {
+            // Pre-install / mid-migration: the table isn't ready. Don't memoise a transient failure.
             return null;
         }
+
+        return $this->activeMemo;
     }
 
     /**
@@ -322,6 +337,9 @@ final class StyleThemeManager
     /** Drop the cached compiled CSS + chrome HTML + asset URLs. Called on every write. */
     public function invalidate(): void
     {
+        // Drop the per-instance active-theme memo too, so a read after a write on the same instance re-resolves.
+        $this->activeMemo = null;
+        $this->activeResolved = false;
         Cache::forget(self::CACHE_KEY);
         Cache::forget(self::CHROME_CACHE_KEY);
         Cache::forget(self::ASSET_CACHE_KEY);
