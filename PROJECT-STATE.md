@@ -11,7 +11,44 @@
 
 ---
 
-## 🛡️ ACP v3 · v3-b — per-forum moderators on `claude/acp-v3-b-moderators` — 2026-06-19 (LATEST · off `main`)
+## 🛡️ ACP v3 · v3-a — co-owners + Admin Manager + per-section bundles on `claude/acp-v3-a` — 2026-06-20 (LATEST · off `main`)
+
+**Unattended, owner-authorized session.** Built ACP v3 slice **v3-a** (co-owners + Admin Manager + the per-section
+`admin.<section>.access` gating, ADR-0086) — the top admin tier, additive over the existing engine (G1, no new eval
+path; G3 reversible). **Base note:** off `main`, independent of the unmerged v3-c/d/e stack (reuses the shared engine +
+the v3-d role model). Conventional DCO-signed `Tommy Huynh` commits, one per step, each gated green; the two apex
+services each had an adversarial verify-then-refute review before commit.
+
+**What shipped.** (1) Ten `admin.<section>.access` catalog keys (Administration cluster); the `administrator` preset
+gains the nine non-security ones additively (`PermissionSync` reaches existing installs). (2) An additive/reversible
+`is_co_owner` `group_user` pivot col + the installer crowning the first admin (flag + a per-user `admin.security.access`
+grant). (3) `AdminCoOwnerService` — grant/revoke with the **last-owner guard** (`assertNotSoleCoOwnerLocked`, a
+`lockForUpdate` re-read mirroring `AccountDeletionService::assertNotSoleAdminLocked`). (4) `AdminBundleService` +
+`AdminBundleSeeder` (6 `is_preset` bundles) — a **restricted admin** is NOT in `admins`; they hold `admin.access` + a
+bundle's section keys as PER-USER grants (disjoint rows; G10). (5) Two Security SFCs (Co-owners + Admin Manager),
+routes, wrapper views (`@extends` envelope), nav. (6) Per-section rail + landing gating
+(`AdminNavigation::canAccessSection`, `SectionController`, the Analytics SFC).
+
+**Apex correctness.** The last-owner guard is enforced SYSTEM-WIDE — the apex review found two OTHER doors that could
+strand the owner tier (`AccountDeletionService` deleting the sole co-owner; `GroupManager::removeMember` detaching them)
+and BOTH now run the same locked guard. The G10 escalation fence holds (`isAdmin()` is group-based → a restricted admin
+can't mint admin-tier keys; `EnsureSystemPanelAccess` still admits them key-based). Security-by-default: 2FA is now
+required for any panel-reacher (`isStaff()` OR `canDo('admin.access')`), not just staff groups — **flagged** in the ADR.
+
+**Apex reviews.** Two adversarial verify-then-refute passes: co-owner service (21 candidates → 2 HIGH cross-path strand
+bugs fixed + pinned), bundle service (16 candidates → the destructive-path actor backstop fixed + pinned). All other
+candidates refuted.
+
+**Gate.** `pest` **1814 pass / 1 skip / 1 pre-existing fail** (+~40 new tests; the 1 fail is the pre-existing
+`HotPathQueryTest` topic budget 42 vs 41 that polish-R2 / PR #35 fixes — v3-a touches no topic-render path) · `pint` ·
+`phpstan` 0 · `migrate` apply+rollback+re-apply. Bundles are seed-only (mirrors v3-b); the Admin Manager degrades via
+per-key toggles on an upgrade where a preset is absent.
+
+**Next: v3-f** (temporary-access delegation — the `expires_at` TTL), then v3-g per ADR-0080.
+
+---
+
+## 🛡️ ACP v3 · v3-b — per-forum moderators on `claude/acp-v3-b-moderators` — 2026-06-19 (off `main`)
 
 **Unattended, owner-authorized session.** Built ACP v3 slice **v3-b** (per-forum moderator assignment, ADR-0085) — a
 CONSUMER of the v3-d role model, as a **projector slice** that adds NO new evaluation path (G1). **Base note:**

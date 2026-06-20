@@ -78,10 +78,16 @@ capability set (three seeded preset bundles `forum-mod-full`/`-content`/`-queue`
 FORUM-scope `acl_entries` through the one engine; a per-forum **Moderators** tab (3rd structure-tree button) + a
 global **Moderation → Moderators** pane. Its apex fences: **grant-only** (a mod role may never carry a NEVER — the
 review's finding), admin-tier refusal, the **ceiling reused at forum scope** (`assertWithinCeiling` now
-scope-parameterized), and the `ActorRank` rank guard; key-scoped deletes only (G10). Each apex slice (v3-0, v3-c,
-v3-d, v3-b) + the v3-e seam had an adversarial verify-then-refute review before commit. **Next: v3-a** (admin
-bundles), then v3-f / v3-g per ADR-0080. Branches are **local-only** (owner pushes); v3-b is off `main` (the v3-c/d/e
-stack is unmerged — v3-b reuses the engine + the v3-d role model but is independent of those branches).
+scope-parameterized), and the `ActorRank` rank guard; key-scoped deletes only (G10). **v3-a ✅ co-owners + Admin
+Manager + per-section bundles (ADR-0086, branch `claude/acp-v3-a`)** — the top tier: **multiple co-owners** (no Root,
+no transfer) protected by a **last-owner guard** (`assertNotSoleCoOwnerLocked`, the locked re-read mirroring the
+sole-admin guard, enforced across `revoke` + account deletion + group removal); an **Admin Manager** giving an
+individual a subset of sections (a **restricted admin** — NOT in `admins`, holding `admin.access` + section keys as
+per-user grants, disjoint rows; G10); the ten `admin.<section>.access` keys gating the rail/landings per-section; 2FA
+extended to any panel-reacher. Each apex slice (v3-0, v3-c, v3-d, v3-b, v3-a) + the v3-e seam had an adversarial
+verify-then-refute review before commit. **Next: v3-f** (temporary-access delegation — the `expires_at` TTL the v3-0
+foundation already shipped), then v3-g per ADR-0080. Branches are **local-only** (owner pushes); v3-a/v3-b are off
+`main` (the v3-c/d/e stack is unmerged — they reuse the engine + the v3-d role model but are independent of it).
 
 **Carried-in refinements:** Laravel 13 + Livewire 4; **PHP 8.3 floor** *(revises brief's 11/3 and the 8.2
 floor — flagged at the Phase 0 gate)*; no-SSH installer; coarse-cron-tolerant queue; WYSIWYG↔Livewire spike as
