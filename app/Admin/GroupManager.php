@@ -208,14 +208,29 @@ final class GroupManager
     {
         $this->assertManualMembership($group);
 
-        if ($group->users()->detach($userId) > 0) {
-            // Holder change, no acl_entries write → invalidate this user's resolver caches explicitly (v3-e seam).
-            // Reduction: a removal can return the user to a previously-cached group signature → bump.
-            if (($u = User::find($userId)) instanceof User) {
-                MembershipCache::flushFor($u, bumpVersion: true);
+        DB::transaction(function () use ($group, $userId): void {
+            // The admins membership carries co-ownership (the is_co_owner pivot flag + the per-user
+            // admin.security.access grant), so removing it is a SECOND door onto the last-owner invariant
+            // AdminCoOwnerService::revoke() guards (ADR-0080). Unguarded it could strand the forum at zero
+            // co-owners and orphan the security grant. Tear co-ownership down — the locked last-owner guard
+            // refuses the sole co-owner — BEFORE the detach drops the pivot flag, atomically in this transaction.
+            if ($group->slug === 'admins' && ($target = User::find($userId)) instanceof User) {
+                try {
+                    app(AdminCoOwnerService::class)->tearDownForAdminsRemoval($target);
+                } catch (AdminCoOwnerException $e) {
+                    throw new GroupException($e->getMessage(), previous: $e);
+                }
             }
-            Audit::log('group.members.removed', $group, ['user_id' => $userId]);
-        }
+
+            if ($group->users()->detach($userId) > 0) {
+                // Holder change, no acl_entries write → invalidate this user's resolver caches explicitly (v3-e seam).
+                // Reduction: a removal can return the user to a previously-cached group signature → bump.
+                if (($u = User::find($userId)) instanceof User) {
+                    MembershipCache::flushFor($u, bumpVersion: true);
+                }
+                Audit::log('group.members.removed', $group, ['user_id' => $userId]);
+            }
+        });
     }
 
     /** Swap a group's permission preset: clear its current expansion, then expand the new role (if any). */

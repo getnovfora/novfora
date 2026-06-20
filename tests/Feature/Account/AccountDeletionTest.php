@@ -39,6 +39,7 @@ use App\Models\User;
 use App\Models\UserRelationship;
 use App\Models\Warning;
 use App\Permissions\PermissionResolver;
+use App\Permissions\PermissionValue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -369,6 +370,48 @@ it('still allows the genuine last-of-two admin deletion to complete through the 
     expect(fn () => app(AccountDeletionService::class)->deleteOwnAccount($admin2))
         ->toThrow(AccountDeletionException::class);
     expect(User::find($admin2->id))->not->toBeNull();
+});
+
+/** Bootstrap a co-owner the way the installer crowns one: admins membership + is_co_owner flag + security grant. */
+function delCoOwner(): User
+{
+    $adminsId = (int) Group::where('slug', 'admins')->value('id');
+    $u = Users::inGroups(['admins']);
+    $u->groups()->updateExistingPivot($adminsId, ['is_co_owner' => true]);
+    AclEntry::updateOrCreate(
+        ['permission_key' => 'admin.security.access', 'holder_type' => 'user', 'holder_id' => (int) $u->id,
+            'scope_type' => 'global', 'scope_id' => null],
+        ['value' => PermissionValue::Allow->value],
+    );
+
+    return $u->fresh();
+}
+
+it('blocks deleting the last co-owner even when other admins remain (A5 co-owner, ADR-0080)', function () {
+    delForum();
+    Users::inGroups(['admins']); // a second PLAIN admin — so the sole-ADMIN guard does NOT fire…
+    $soleCo = delCoOwner();      // …but this is the only CO-OWNER.
+
+    expect(app(AccountDeletionService::class)->isSoleAdmin($soleCo))->toBeFalse();
+    expect(app(AccountDeletionService::class)->isSoleCoOwner($soleCo))->toBeTrue();
+
+    $this->actingAs($soleCo);
+    expect(fn () => app(AccountDeletionService::class)->deleteOwnAccount($soleCo))
+        ->toThrow(AccountDeletionException::class);
+    expect(User::find($soleCo->id))->not->toBeNull(); // not stranded — the Security tier survives
+});
+
+it('allows deleting a co-owner when another co-owner remains (A5 co-owner)', function () {
+    delForum();
+    $coA = delCoOwner();
+    $coB = delCoOwner();
+
+    expect(app(AccountDeletionService::class)->isSoleCoOwner($coA))->toBeFalse();
+
+    $this->actingAs($coA);
+    app(AccountDeletionService::class)->deleteOwnAccount($coA);
+
+    expect(User::find($coA->id))->toBeNull()->and(User::find($coB->id))->not->toBeNull();
 });
 
 it('summarises the pre-deletion footprint', function () {

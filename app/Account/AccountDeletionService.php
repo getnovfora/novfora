@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Account;
 
+use App\Admin\AdminCoOwnerService;
 use App\Community\ReputationService;
 use App\Forum\PollService;
 use App\Forum\ReactionService;
@@ -186,6 +187,60 @@ final class AccountDeletionService
     }
 
     /**
+     * Whether removing this user would leave the forum with zero CO-OWNERS (ACP v3 · v3-a, ADR-0080). The fast,
+     * NON-locking pre-filter — the UI "deletion unavailable" signal — mirroring {@see isSoleAdmin}. NOT the
+     * authority: the TOCTOU window is closed by assertNotSoleCoOwnerLocked() inside the cascade transaction.
+     */
+    public function isSoleCoOwner(User $user): bool
+    {
+        if (! $user->isAdmin()) {
+            return false; // co-owners are a subset of admins
+        }
+
+        $coOwners = $this->coOwnerIds(locked: false);
+
+        return in_array((int) $user->getKey(), $coOwners, true) && count($coOwners) <= 1;
+    }
+
+    /**
+     * The AUTHORITATIVE last-co-owner guard (apex, ADR-0080), the co-owner sibling of {@see assertNotSoleAdminLocked}.
+     * A LOCKING current read of the admins-group co-owner set, run inside the deletion transaction so it serialises
+     * against any concurrent co-owner removal. Throws — rolling the transaction back — when deleting $userId would
+     * strand the forum with zero co-owners (an unrecoverable lockout of the Security tier). Kept in lockstep with
+     * {@see AdminCoOwnerService::assertNotSoleCoOwnerLocked}, which guards the demote/remove doors.
+     *
+     * @throws AccountDeletionException when $userId is the sole remaining co-owner
+     */
+    private function assertNotSoleCoOwnerLocked(int $userId): void
+    {
+        $coOwnerIds = $this->coOwnerIds(locked: true);
+
+        if (in_array($userId, $coOwnerIds, true) && count($coOwnerIds) <= 1) {
+            throw new AccountDeletionException('The last co-owner account cannot be deleted — appoint another co-owner first.');
+        }
+    }
+
+    /**
+     * The admins-group co-owner user ids (members flagged is_co_owner). `$locked` adds FOR UPDATE for the
+     * in-transaction guard; the non-locking form feeds the UI pre-filter.
+     *
+     * @return list<int>
+     */
+    private function coOwnerIds(bool $locked): array
+    {
+        return DB::table('group_user')
+            ->join('groups', 'groups.id', '=', 'group_user.group_id')
+            ->where('groups.slug', 'admins')
+            ->where('group_user.is_co_owner', true)
+            ->when($locked, fn ($q) => $q->lockForUpdate())
+            ->pluck('group_user.user_id')
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
      * The one ordered cascade, shared by both entry points, inside a single transaction.
      *
      * @param  string  $initiatedBy  'self' | 'admin' — recorded in the audit trail
@@ -205,6 +260,14 @@ final class AccountDeletionService
             //      deletes + commits, the second then reads only ONE admin (itself) and aborts here — so the
             //      forum can never be stranded with zero administrators.
             $this->assertNotSoleAdminLocked($userId);
+            // (a0b) v3-a (ADR-0080): the SAME locked discipline for the CO-OWNER tier. A sole co-owner need not be
+            //       the sole admin (other plain admins can remain), so the admin guard above does not catch them —
+            //       yet deleting the last co-owner strands the Security section permanently (admin.security.access
+            //       is granted only per-user to co-owners; with none left, nobody can appoint a replacement). This
+            //       sits in the shared cascade and is authoritative on the self-service path; the admin-forced path
+            //       additionally can never force-delete an equal-rank admin (canForceDelete), so a co-owner is safe
+            //       on both.
+            $this->assertNotSoleCoOwnerLocked($userId);
 
             // (a) CAPTURE the denormalised-tally inputs BEFORE anything drops the rows that derive them.
             $reactedPostIds = Reaction::where('user_id', $userId)
