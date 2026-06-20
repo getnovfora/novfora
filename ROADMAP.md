@@ -72,9 +72,16 @@ editing a role converges everywhere (added appear, removed disappear) and deleti
 guard as v3-c gate it: only a full admin may mint/assign/tear-down an Administration-tier key, no ALLOW may exceed
 the actor's own ceiling, and the admins group can never be stripped of its recovery keys (the apex review hardened
 the self-lockout onto the destructive delete/unassign paths). No migration — `is_preset` already distinguishes
-custom from preset. Each apex slice (v3-0, v3-c, v3-d) + the v3-e seam had an adversarial verify-then-refute review
-before commit. **Next: v3-b** (per-forum moderator assignment), then v3-a / v3-f / v3-g per ADR-0080. Branches are
-**local-only** (owner pushes); v3-d stacks on v3-e stacks on foundations — merge order **foundations → v3-e → v3-d**.
+custom from preset. **v3-b ✅ per-forum moderator assignment (ADR-0085, branch `claude/acp-v3-b-moderators`)** — a
+`moderator_assignments` table + `ForumModeratorProjector` (mirrors `ClubRoleProjector`) expands a user/group + a
+capability set (three seeded preset bundles `forum-mod-full`/`-content`/`-queue`, or a custom v3-d role) into
+FORUM-scope `acl_entries` through the one engine; a per-forum **Moderators** tab (3rd structure-tree button) + a
+global **Moderation → Moderators** pane. Its apex fences: **grant-only** (a mod role may never carry a NEVER — the
+review's finding), admin-tier refusal, the **ceiling reused at forum scope** (`assertWithinCeiling` now
+scope-parameterized), and the `ActorRank` rank guard; key-scoped deletes only (G10). Each apex slice (v3-0, v3-c,
+v3-d, v3-b) + the v3-e seam had an adversarial verify-then-refute review before commit. **Next: v3-a** (admin
+bundles), then v3-f / v3-g per ADR-0080. Branches are **local-only** (owner pushes); v3-b is off `main` (the v3-c/d/e
+stack is unmerged — v3-b reuses the engine + the v3-d role model but is independent of those branches).
 
 **Carried-in refinements:** Laravel 13 + Livewire 4; **PHP 8.3 floor** *(revises brief's 11/3 and the 8.2
 floor — flagged at the Phase 0 gate)*; no-SSH installer; coarse-cron-tolerant queue; WYSIWYG↔Livewire spike as

@@ -11,7 +11,42 @@
 
 ---
 
-## 🛡️ ACP v3 · v3-d — custom role builder on `claude/acp-v3-d-roles` — 2026-06-18 (LATEST · stacked on `claude/acp-v3-e-groups`, which stacks on `claude/acp-v3-foundations`)
+## 🛡️ ACP v3 · v3-b — per-forum moderators on `claude/acp-v3-b-moderators` — 2026-06-19 (LATEST · off `main`)
+
+**Unattended, owner-authorized session.** Built ACP v3 slice **v3-b** (per-forum moderator assignment, ADR-0085) — a
+CONSUMER of the v3-d role model, as a **projector slice** that adds NO new evaluation path (G1). **Base note:**
+branched off `main` — v3-b only reuses the shared permission engine + the v3-d role model, so it is independent of the
+unmerged v3-c/d/e stack (the owner merges all). Conventional, DCO-signed, `Tommy Huynh`-authored commits; each step
+gated green.
+
+**What shipped.** A `moderator_assignments` table (holder + `forum_id` + `role_id` XOR `bundle` slug, unique per
+holder+forum; additive/reversible) + `App\Permissions\ForumModeratorProjector` (`assign()`/`revoke()`, mirrors
+`ClubRoleProjector`) expanding into FORUM-scope `acl_entries` via `RoleExpander::assign`. Three seeded preset bundles
+(`forum-mod-full` / `-content` / `-queue`) as `is_preset` roles, NOT group-expanded — only the projector expands them,
+at forum scope. Custom path = any v3-d `is_preset=false` role. Surfaces: a per-forum **Moderators** tab
+(`admin.forums.moderators`, a 3rd structure-tree button) + a global **Moderation → Moderators** pane.
+
+**Apex fences (projector = actor-independent backstop; the SFCs self-guard admin.access + permissions.manage +
+staff-2FA).** Grant-only (a mod role may carry no NEVER — the review's finding), admin-tier refusal (admin.access can
+never be a mod power), the **ceiling reused at forum scope** (`RoleManager::assertWithinCeiling` is now
+`?Scope`-parameterized — default global keeps the v3-d callers byte-identical), and the `ActorRank` rank guard (user
+holders). Key-scoped deletes only + drop the forum-scope `RoleAssignment` on revoke/re-assign (G10 — a later role
+edit's `reexpand` can't re-grant a revoked holder). `bans.manage` rides in the full bundle but is global-kind, so its
+forum-scope row is inert (flagged).
+
+**Apex review.** Adversarial verify-then-refute (security / integrity / concurrency lenses) before commit: **1
+finding** — a NEVER-valued custom role would mint a forum-scope hard-deny (ceiling-exempt + `reexpand`-amplified).
+Fixed with the grant-only fence + pinned by oracle case 8; no other finding survived refutation.
+
+**Gate.** `pest` **1775/1777** (+29 new tests; the 1 fail is the pre-existing v3-e `HotPathQueryTest` query budget,
+42 vs 41 — unrelated: v3-b touches no topic-render path) · `pint` · `phpstan` 0 · `migrate` apply+rollback+re-apply.
+**Deferred follow-up:** the per-user "Moderation" tab on the member-edit screen (spec §4) — noted, not built.
+
+**Next: v3-a** (admin bundles), then v3-f / v3-g per ADR-0080.
+
+---
+
+## 🛡️ ACP v3 · v3-d — custom role builder on `claude/acp-v3-d-roles` — 2026-06-18 (stacked on `claude/acp-v3-e-groups`, which stacks on `claude/acp-v3-foundations`)
 
 **Unattended, owner-authorized session.** Built ACP v3 slice **v3-d** (custom role builder) on the existing engine,
 per ADR-0080 slice order. **Base note (STACKING):** branched off `claude/acp-v3-e-groups` HEAD (NOT `main`) — v3-e
@@ -48,8 +83,8 @@ re-apply** (no new migration — the existing reversible chain). Inspector-oracl
 proof: a DROPPED key disappears from holders AND its row is gone (+ version bumped); ADD appears; co-grant survives;
 swap converges; the fences hold on every create/assign/unassign/delete path. ADR **0084** lifted into `DECISIONS.md`.
 
-**Next: v3-b** (per-forum moderator assignment + custom mod capabilities — a CONSUMER of the role model), then
-v3-a / v3-f / v3-g per ADR-0080.
+**Next: v3-a** (admin bundles) — **v3-b ✅ shipped 2026-06-19 (ADR-0085, `claude/acp-v3-b-moderators`)** — then
+v3-f / v3-g per ADR-0080.
 
 ---
 
