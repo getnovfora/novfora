@@ -13,7 +13,7 @@
     $searchUrl = route('admin.search');
 @endphp
 
-<x-ui.container size="xl" x-data="{ navOpen: false }">
+<x-ui.container size="lg" x-data="{ navOpen: false }">
     <div class="lg:grid lg:grid-cols-[4.5rem_14rem_minmax(0,1fr)] lg:gap-6">
         {{-- Mobile: heading row + the nav-drawer toggle. --}}
         <div class="lg:hidden mb-3 flex items-center justify-between gap-3">
