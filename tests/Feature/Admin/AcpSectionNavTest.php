@@ -4,7 +4,10 @@
 
 declare(strict_types=1);
 
+use App\Models\AclEntry;
+use App\Models\Group;
 use App\Models\User;
+use App\Permissions\PermissionValue;
 use App\Settings\SettingsRegistry;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,6 +21,25 @@ use Tests\Support\Users;
 uses(RefreshDatabase::class);
 
 beforeEach(fn () => $this->seed(DatabaseSeeder::class));
+
+/**
+ * A 2FA CO-OWNER — the operator who sees the WHOLE rail, including the v3-a Security section (gated on
+ * admin.security.access). A plain admin holds the nine non-security keys via the preset but NOT Security; the
+ * dedicated PerSectionRailTest covers that. (v3-a, ADR-0080.)
+ */
+function acpFullOperator(): User
+{
+    $u = Users::withTwoFactor(Users::inGroups(['admins']));
+    $adminsId = (int) Group::query()->where('slug', 'admins')->value('id');
+    $u->groups()->updateExistingPivot($adminsId, ['is_co_owner' => true]);
+    AclEntry::updateOrCreate(
+        ['permission_key' => 'admin.security.access', 'holder_type' => 'user', 'holder_id' => (int) $u->id,
+            'scope_type' => 'global', 'scope_id' => null],
+        ['value' => PermissionValue::Allow->value],
+    );
+
+    return $u->fresh();
+}
 
 /** The rail sections that have a generic dashboard landing (Overview = dashboard, Analytics = its own page). */
 function acpSectionLandings(): array
@@ -58,8 +80,8 @@ function acpRouteMoves(): array
 }
 
 describe('per-section dashboard landings', function () {
-    it('renders every section landing (200) with its title for a 2FA admin', function () {
-        $admin = Users::withTwoFactor(Users::inGroups(['admins']));
+    it('renders every section landing (200) with its title for a 2FA co-owner', function () {
+        $admin = acpFullOperator(); // a co-owner sees every section, including Security (v3-a gating)
 
         foreach (acpSectionLandings() as $route => $title) {
             $this->actingAs($admin)->get(route($route))
@@ -79,7 +101,7 @@ describe('per-section dashboard landings', function () {
 
 describe('the icon rail', function () {
     it('renders the full section set on an admin page', function () {
-        $admin = Users::withTwoFactor(Users::inGroups(['admins']));
+        $admin = acpFullOperator(); // a co-owner sees the full rail incl. Security (per-section gating, v3-a)
 
         $res = $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk();
 

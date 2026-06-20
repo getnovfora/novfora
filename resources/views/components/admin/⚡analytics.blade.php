@@ -70,6 +70,8 @@ new class extends Component
         $user = auth()->user();
         abort_unless($user instanceof User && $user->canDo('admin.access', Scope::global()), 403);
         abort_if($user->isStaff() && $user->two_factor_confirmed_at === null, 403);
+        // Per-section gate (v3-a, ADR-0080): the Analytics page is its own section landing.
+        abort_unless($user->canDo('admin.analytics.access', Scope::global()), 403);
     }
 };
 ?>
