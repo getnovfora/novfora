@@ -76,6 +76,20 @@ class RoleSeeder extends Seeder
             // Clubs (Phase 4 · M1.2): a global admin manages ANY club. Held at global scope so it inherits into
             // every club scope; club OWNERS get it per-club via ClubRoleProjector (scope_type='club').
             'club.manage' => $allow,
+            // Per-section ACP access (ACP v3 · v3-a, ADR-0080). The administrator preset grants every rail section
+            // EXCEPT Security — additive, so every existing admin keeps the full rail once PermissionSync
+            // propagates these on upgrade. admin.security.access is held only by co-owners (AdminCoOwnerService),
+            // and a bundle-restricted admin (NOT in the admins group) holds only their bundle's subset as per-user
+            // grants. Keep these in sync with the catalog's Administration cluster.
+            'admin.forums.access' => $allow,
+            'admin.members.access' => $allow,
+            'admin.groups.access' => $allow,
+            'admin.moderation.access' => $allow,
+            'admin.appearance.access' => $allow,
+            'admin.plugins.access' => $allow,
+            'admin.analytics.access' => $allow,
+            'admin.settings.access' => $allow,
+            'admin.system.access' => $allow,
         ];
 
         return [
