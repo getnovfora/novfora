@@ -250,8 +250,12 @@ final class RoleManager
      *      your own ceiling). NEVER is a restriction, not an escalation, so it is exempt from the ceiling.
      *
      * @param  array<string,int>  $map
+     * @param  ?Scope  $scope  the scope the grant targets — the ALLOW ceiling is checked HERE; defaults to global.
+     *                         The v3-b {@see ForumModeratorProjector} passes Scope::forum() so a delegated
+     *                         forum-mod grant is ceiling-checked against the actor's reach ON THAT FORUM, not
+     *                         globally. The admin-tier rule is scope-independent.
      */
-    private function assertWithinCeiling(array $map, User $actor): void
+    public function assertWithinCeiling(array $map, User $actor, ?Scope $scope = null): void
     {
         $adminTier = $this->adminTierKeys();
         $isAdmin = $actor->isAdmin();
@@ -260,7 +264,7 @@ final class RoleManager
             if (in_array($key, $adminTier, true) && ! $isAdmin) {
                 throw new RoleException("Only a full administrator may put the “{$key}” administration capability in a role.");
             }
-            if ($value === PermissionValue::Allow->value && ! $actor->canDo($key, Scope::global())) {
+            if ($value === PermissionValue::Allow->value && ! $actor->canDo($key, $scope ?? Scope::global())) {
                 throw new RoleException("You cannot grant “{$key}” — it exceeds your own permissions.");
             }
         }

@@ -4,6 +4,7 @@
 
 use App\Community\MembersDirectory;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\ForumModeratorsController;
 use App\Http\Controllers\Admin\ForumPermissionsController;
 use App\Http\Controllers\Admin\MemberPrimaryGroupController;
 use App\Http\Controllers\Admin\SearchController as AdminSearchController;
@@ -377,6 +378,8 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/forums/structure', 'admin.structure')->name('structure');      // <livewire:admin.structure />
         Route::view('/forums/prefixes', 'admin.prefixes')->name('prefixes');         // <livewire:admin.prefixes />
         Route::get('/forums/{forum}/permissions', ForumPermissionsController::class)->name('forums.permissions');
+        // ACP v3 · v3-b — per-forum moderator assignment (Forums → forum → Moderators).
+        Route::get('/forums/{forum}/moderators', ForumModeratorsController::class)->name('forums.moderators');
 
         // Groups section — the member-group manager + the GLOBAL card-per-group permission editor (v3-c) +
         // the v3-e join-request approval queue.
@@ -397,6 +400,8 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         // Moderation section — spam intelligence + moderation policy (queues/reports are the MCP, linked out).
         Route::view('/moderation/spam-intelligence', 'admin.spam-intelligence')->name('spam-intelligence');
         Route::view('/moderation/settings', 'admin.settings.moderation')->name('settings.moderation');
+        // ACP v3 · v3-b — the global single-pane: every per-forum moderator assignment, grouped by forum.
+        Route::view('/moderation/moderators', 'admin.moderators')->name('moderators');
 
         // Appearance section — appearance, themes, the sandboxed template editor, and the layout/widget regions.
         // The bare /appearance URL is the section dashboard landing (admin.appearance); the settings page sits

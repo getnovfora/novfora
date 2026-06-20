@@ -3472,3 +3472,66 @@ clobbering card-editor forum overrides; v3-d's swap is surgical at global). (c) 
 every key at the holder/scope, then re-expand) — rejected (clobbers card-editor co-grants on other keys; the
 `old − new` diff is surgical). (d) Block role deletion while assigned — rejected in favour of delete-with-cleanup
 (better UX; exercises the convergence machinery; no orphaned grants either way).
+
+### ADR-0085 — ACP v3 · v3-b: per-forum moderator assignment — projector + the forum-scope grant-only / ceiling / rank fences (2026-06-19)
+**Status: Accepted — child of ADR-0080; owner-authorized unattended build, gated, APEX-reviewed (verify-then-refute;
+1 finding fixed + pinned), flagged for review.**
+
+**Context.** Moderation was global-only: the `moderators` system group holds the `moderator` preset at global
+scope. v3-b adds PER-FORUM moderators — an admin assigns a user or group to moderate one forum with a capability
+set — as a **projector slice** that adds NO new evaluation path (G1): it stores into / expands into `acl_entries`
+and resolves through the existing `PermissionResolver`, exactly like `ClubRoleProjector`. The hazards: delegating
+capabilities the actor doesn't hold (ceiling), elevating a same-or-higher-ranked target (rank), minting an
+Administration-tier power as "moderation", and — surfaced by the apex review — minting forum-scope HARD-DENIALS
+via a NEVER-valued custom role.
+
+**Decision.** A `moderator_assignments` source-of-truth table (`holder_type`/`holder_id`, `forum_id` FK,
+`role_id` FK NULLABLE **XOR** `bundle` slug, UNIQUE per holder+forum) + `App\Permissions\ForumModeratorProjector`
+(`assign()`/`revoke()`, mirrors `ClubRoleProjector`) that expands the assignment into **forum-scope** `acl_entries`
+via `RoleExpander::assign(role, holderType, holderId, Scope::forum())`. Three seeded preset bundles
+(`forum-mod-full` / `-content` / `-queue`) as `is_preset` roles that — unlike `RoleSeeder` — are NOT expanded onto
+any group; only the projector expands them, at forum scope, on demand. The custom path reuses the v3-d builder
+(assign any `is_preset=false` role). Surfaces: a per-forum **Moderators** tab (`admin.forums.moderators`, a 3rd
+structure-tree button beside Inspector + Permissions) and a global **Moderation → Moderators** pane.
+
+**Apex fences (in the projector — the actor-independent backstop; the SFCs self-guard `admin.access` +
+`permissions.manage` + staff-2FA for a clean 403).**
+- **Grant-only (the review's finding).** A forum-mod role only ever GRANTS — `assign()` refuses any non-ALLOW
+  (NEVER) value. A NEVER would mint a forum-scope hard-deny (e.g. `forum.view:NEVER` on a group) that the ceiling
+  cannot catch (NEVER is ceiling-exempt by design) and that re-expands onto live holders on a later role edit. All
+  bundles are ALLOW-only; custom roles must be too here.
+- **Admin-tier refusal.** No Administration-cluster key (`admin.access`, …) may be a forum-mod capability,
+  regardless of the actor — stricter than the v3-d ceiling (which only blocks non-admins).
+- **Ceiling at FORUM scope.** Reuses `RoleManager::assertWithinCeiling`, now scope-parameterized (`?Scope`,
+  default global = backward-compatible for the v3-d callers); the actor may only grant keys they can exercise on
+  THIS forum (`canDo(key, Scope::forum())`).
+- **Rank.** `ActorRank::canActOn` for USER holders — a non-admin can't elevate a same-or-higher-ranked user.
+
+**G10 — key-scoping (the provenance caveat, honored not refactored).** `acl_entries` has no `role_id`; forum scope
+is co-managed by the v3-c card editor. The projector is the SOLE manager of a moderator's forum-scope rows and uses
+KEY-SCOPED deletes ONLY (the assigned role's own keys at the (holder, forum) cell) and drops the specific
+forum-scope `RoleAssignment` on revoke / re-assign, so a later role edit's `reexpand` can never re-grant a revoked
+holder. `bans.manage` rides in the full bundle for completeness but its catalog `scope_kind` is GLOBAL, so its
+forum-scope row is INERT at resolution (bans stay global) — flagged in the bundle definition.
+
+**Consequences.** Additive reversible migration (G3); the gate exercises apply+rollback+re-apply. No change to the
+global `moderators` group or the `moderator` preset — the pre-v3 global-moderation suite is byte-identical. No
+category scope (deferred, ADR-0080). **Deferred follow-up:** the per-user "Moderation" tab on the member-edit
+screen (spec §4) — not built this pass.
+
+**Verification.** Inspector-oracle (G4) at forum scope (7 + the review case): a USER grant → `user_allow`; the same
+user DENIED on a different forum (scope isolation); a GROUP grant → `group_allow`; a preset bundle expands EXACTLY
+its keys; **revoke** deletes the rows + flips to denied + bumps `AclVersion`; the **rank** guard refuses a
+≥-ranked target; the **ceiling** refuses an unheld key and `admin.access` can't be a mod capability; **grant-only**
+refuses a NEVER (nothing written). SFC tests pin the page/mount gate + assign (user + group) + revoke + the
+ceiling throw surfacing as a flash. Gate: `pest` (1775/1777 — the 1 fail is the pre-existing v3-e `HotPathQuery`
+budget, unrelated: v3-b touches no topic-render path) · `pint` · `phpstan` · `migrate` apply+rollback+re-apply. An
+apex adversarial verify-then-refute review (security / integrity / concurrency lenses) ran before commit: 1 finding
+(the NEVER forum-scope hard-deny vector) — fixed + pinned by a test; no other finding survived refutation.
+
+**Alternatives considered.** (a) Mirror `ClubRoleProjector`'s direct `AclEntry` writes (no `RoleExpander`) —
+rejected: the spec wants `RoleExpander` so a custom role's edit re-expands onto its forum moderators (convergence);
+the cost (managing the forum-scope `RoleAssignment` on revoke) is contained. (b) Whole-(holder, forum) acl wipe on
+revoke — rejected (clobbers card-editor co-grants; G10 key-scoped). (c) Store a preset by `role_id` instead of the
+`bundle` slug — rejected (the slug is stable across re-seeds and cleanly distinguishes preset from custom). (d)
+Allow NEVER in a mod role — rejected (the review finding; moderation is a grant surface, not a denial surface).

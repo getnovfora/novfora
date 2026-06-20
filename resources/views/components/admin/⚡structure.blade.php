@@ -220,6 +220,12 @@ new class extends Component
         return route('admin.forums.permissions', $node);
     }
 
+    /** ACP v3 · v3-b: the per-forum moderator assignment page (Forums → forum → Moderators). */
+    public function moderatorsEditorUrl(Forum $node): string
+    {
+        return route('admin.forums.moderators', $node);
+    }
+
     private function resetForm(): void
     {
         $this->reset(['formId', 'title', 'description', 'parentId']);
@@ -337,6 +343,9 @@ new class extends Component
                                     </x-ui.button>
                                     <x-ui.button variant="ghost" size="sm" icon :href="$this->permissionsEditorUrl($node)" title="Edit permissions">
                                         <x-ui.icon name="sliders" class="h-4 w-4" />
+                                    </x-ui.button>
+                                    <x-ui.button variant="ghost" size="sm" icon :href="$this->moderatorsEditorUrl($node)" title="Moderators">
+                                        <x-ui.icon name="users" class="h-4 w-4" />
                                     </x-ui.button>
                                 @endunless
                                 <x-ui.button type="button" variant="ghost" size="sm" icon wire:click="edit({{ $node->id }})" title="Edit">
