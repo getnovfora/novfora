@@ -326,8 +326,8 @@ Redis cache/queue path too.**
   engine (proved via typo-tolerance a DB `LIKE` can't do); **private-club no-leak HELD** over the live index —
   a non-member got 0 for a term that IS in the index, the member got 1 (the index is never the sole gate;
   `SearchService` re-gates via `clubContentVisibleTo`); on a dead engine `search()`/`posts()` degrade to the DB
-  with no error and the no-leak still holds. *(Validated against a dev-run `meilisearch` instance because the
-  system `meilisearch.service` is crashed — see findings.)*
+  with no error and the no-leak still holds. *(First validated against a dev-run `meilisearch` instance; then
+  re-verified over the now-fixed system `meilisearch.service` — see findings.)*
 - **Reverb (#2):** authorized subscriber on `private-thread.{id}` received the **id-only** payload
   `{post_id,topic_id,user_id}` over a live socket (no body crosses the wire); an unauthorized subscriber was
   **rejected 403 at `/broadcasting/auth`** (`ChannelAuthorizer::canViewThread`). Enablement committed on
@@ -338,11 +338,15 @@ Redis cache/queue path too.**
   - `scout.queue=false` → with the `meilisearch` driver a Meili **outage makes searchable writes throw inline**
     (post creation breaks). Recommend `SCOUT_QUEUE=true` on Enhanced so a transient engine outage degrades
     gracefully on writes too.
-  - System `meilisearch.service` **crashed**: its `/var/lib/meilisearch` DB was created by an older version and
-    binary 1.47.0 refuses it in `--env production`. Needs (sudo) move-aside of the empty DB + restart, then
-    `scout:import`.
-  - Port **8080 is occupied by an unrelated "Hello World" service** (another user) → the `novfora-reverb` unit
-    (configured for 8080) will conflict; free 8080 or repoint Reverb before `systemctl enable --now`.
+  - System `meilisearch.service` **crashed → FIXED**. Root cause was NOT a version mismatch (the DB `VERSION`
+    matched binary 1.47.0): the unit had **no `WorkingDirectory`**, so CWD defaulted to `/`, which the
+    `meilisearch` user (uid 999) cannot write — Meili exits `Permission denied (os error 13)` at startup. Added
+    `WorkingDirectory=/var/lib/meilisearch`; the service is now active + enabled and the 16 posts re-imported.
+    *(If a provisioning script generates this unit, apply the same fix there.)*
+  - Port **8080 is held by nginx** (CloudPanel's web server) — it can't be freed; the `novfora-reverb` unit
+    (hardcoded `--port=8080`) must be **repointed to a free port** (e.g. 8090, with matching `REVERB_PORT`)
+    before `systemctl enable --now`. The round-trip was proven on a dev-run Reverb (8085); the persistent unit
+    enable is pending an explicit go-ahead. Production WSS also needs an nginx proxy to the chosen port.
   - `composer audit`: 3 **medium** advisories in transitive `guzzlehttp/guzzle` (<7.12.1) + `guzzlehttp/psr7`
     (<2.12.1), disclosed 2026-06-18 — recommend bumping both (separate maintenance commit).
 - **Still deferred (need external accounts/creds):** #3 live Stripe, #4 OAuth/SAML, #5 Web Push, #6
