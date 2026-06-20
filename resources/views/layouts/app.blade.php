@@ -206,21 +206,9 @@
 
             {{-- Right cluster. (Mobile search lives in the hamburger panel, so the bar stays uncrowded at 360px.) --}}
             <div class="flex items-center gap-1 ml-auto md:ml-1 shrink-0">
-                {{-- Colour-mode toggle (auto → light → dark). Works for everyone; persists server-side when signed in. --}}
-                <button type="button"
-                        x-data="{ mode: document.documentElement.getAttribute('data-color-mode') || 'auto' }"
-                        x-on:novfora:color-mode.window="mode = $event.detail"
-                        @click="window.NovFora.cycleColorMode()"
-                        {{-- Static accessible name for the pre-hydration / no-JS state; Alpine enhances it
-                             with the live mode once mounted (a11y, Wave 8.2). --}}
-                        aria-label="Change colour theme"
-                        :aria-label="'Theme: ' + mode + ' (click to change)'" :title="'Theme: ' + mode"
-                        class="inline-flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink">
-                    <span x-show="mode === 'auto'" @if ($colorMode !== 'auto') x-cloak @endif><x-ui.icon name="monitor" /></span>
-                    <span x-show="mode === 'light'" @if ($colorMode !== 'light') x-cloak @endif><x-ui.icon name="sun" /></span>
-                    <span x-show="mode === 'dark'" @if ($colorMode !== 'dark') x-cloak @endif><x-ui.icon name="moon" /></span>
-                </button>
-
+                {{-- The colour-mode control lives in the user dropdown → Appearance (/settings/appearance); it
+                     was removed from the nav so the right cluster stays on one line. Guests fall back to `auto`
+                     (follows the OS) — the accepted tradeoff (no per-guest nav toggle). --}}
                 @auth
                     <livewire:notification-bell />
                     <livewire:pm.inbox-badge />
