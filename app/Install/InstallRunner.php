@@ -6,8 +6,10 @@ declare(strict_types=1);
 
 namespace App\Install;
 
+use App\Models\AclEntry;
 use App\Models\Group;
 use App\Models\User;
+use App\Permissions\PermissionValue;
 use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Support\Facades\Artisan;
@@ -207,9 +209,29 @@ final class InstallRunner
         $groups = Group::whereIn('slug', ['admins', 'tl4'])->get();
         $sync = [];
         foreach ($groups as $group) {
-            $sync[$group->id] = ['is_primary' => $group->slug === 'admins'];
+            // v3-a (ADR-0080): crown the first admin as a CO-OWNER (top tier) via the is_co_owner pivot flag on
+            // the admins membership. The flag marks the tier the last-owner guard counts; the security grant
+            // written below is what the resolver actually gates the Security section on.
+            $sync[$group->id] = [
+                'is_primary' => $group->slug === 'admins',
+                'is_co_owner' => $group->slug === 'admins',
+            ];
         }
         $admin->groups()->sync($sync);
+
+        // The administrator preset deliberately withholds admin.security.access (co-owner-only), so grant it to
+        // the first operator as a per-user GLOBAL ALLOW — without it the sole co-owner could never reach the
+        // Security section to appoint anyone. Idempotent; the model write bumps AclVersion via AclEntry::booted().
+        AclEntry::updateOrCreate(
+            [
+                'permission_key' => 'admin.security.access',
+                'holder_type' => 'user',
+                'holder_id' => (int) $admin->id,
+                'scope_type' => 'global',
+                'scope_id' => null,
+            ],
+            ['value' => PermissionValue::Allow->value],
+        );
 
         return $admin->refresh();
     }
