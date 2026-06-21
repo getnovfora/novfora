@@ -51,6 +51,7 @@ return [
         'roles' => 'Roles',
         'join_requests' => 'Join requests',
         'directory' => 'Directory',
+        'staff_flair' => 'Staff flair',
         'profile_fields' => 'Profile fields',
         'badges' => 'Badges',
         'tiers' => 'Membership tiers',

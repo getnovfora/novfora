@@ -47,6 +47,7 @@ final class AdminNavigation
         'members' => ['users', 'admin.members', [
             [null, [
                 ['directory', 'admin.members.directory', 'users'],
+                ['staff_flair', 'admin.members.staff-flair', 'shield'], // v3-g: staff flair + Team roster (display-only)
                 ['profile_fields', 'admin.members.profile-fields', 'list'],
                 ['badges', 'admin.badges', 'check-circle'],
                 ['tiers', 'admin.tiers', 'check-circle'],
