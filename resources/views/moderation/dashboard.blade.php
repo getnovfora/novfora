@@ -32,7 +32,8 @@
                 </span>
                 <span class="min-w-0">
                     <span class="block font-medium text-ink group-hover:text-accent">Approval queue</span>
-                    <span class="mt-0.5 block text-sm text-ink-muted nums">{{ $counts['pending_topics'] + $counts['pending_posts'] }} item(s) awaiting review</span>
+                    @php($queueCount = $counts['pending_topics'] + $counts['pending_posts'])
+                    <span class="mt-0.5 block text-sm text-ink-muted nums">{{ $queueCount }} {{ trans_choice('item awaiting review|items awaiting review', $queueCount) }}</span>
                 </span>
             </a>
 
@@ -43,7 +44,7 @@
                 </span>
                 <span class="min-w-0">
                     <span class="block font-medium text-ink group-hover:text-accent">Reports</span>
-                    <span class="mt-0.5 block text-sm text-ink-muted nums">{{ $counts['open_reports'] }} open report(s)</span>
+                    <span class="mt-0.5 block text-sm text-ink-muted nums">{{ $counts['open_reports'] }} {{ trans_choice('open report|open reports', $counts['open_reports']) }}</span>
                 </span>
             </a>
 

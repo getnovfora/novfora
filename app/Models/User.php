@@ -13,6 +13,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -33,6 +34,34 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, TwoFactorAuthenticatable;
+
+    /**
+     * Canonical key for URL generation: the clean username, so route('profiles.show', $user) yields
+     * /users/tommy rather than /users/6.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'username';
+    }
+
+    /**
+     * username is the canonical profile key, but the column is nullable (legacy / social-login rows). Fall back
+     * to the numeric id for URL GENERATION so a null-username user never produces a broken /users/ link; the
+     * dual resolver below then binds that id form.
+     */
+    public function getRouteKey()
+    {
+        return $this->username ?? $this->getKey();
+    }
+
+    /**
+     * Non-breaking dual resolver (locked 2026-06-19): numeric input binds by id (existing /users/6 links + the
+     * id fallback above keep working), everything else binds by username (/users/tommy).
+     */
+    public function resolveRouteBinding($value, $field = null): ?Model
+    {
+        return $this->where($field ?? (ctype_digit((string) $value) ? 'id' : 'username'), $value)->first();
+    }
 
     /** Display-preference vocabulary (P2-M4). posts_per_page/thread_sort are written ONLY by the
      *  ⚡user-preferences SFC (validated against these sets), never mass-assigned — they stay out of #[Fillable]. */

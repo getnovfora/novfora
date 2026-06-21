@@ -115,6 +115,10 @@ return [
         ],
     ],
 
+    // Recent-activity feed page size on the homepage (BUG-012). DB-overridable via ACP → Settings → General
+    // (setting key general.activity_feed_limit); env is the fallback. Clamped to the cached window at read.
+    'activity_feed_limit' => (int) env('NOVFORA_ACTIVITY_FEED_LIMIT', 15),
+
     // oEmbed / rich embeds (P2-M1). SECURITY: the canonical post stores ONLY the URL (a client never supplies
     // embed HTML). An ALLOWLISTED provider renders a SINGLE sandboxed <iframe> built by
     // App\Content\Oembed\EmbedPolicy from a VALIDATED player URL on an allowlisted embed host — NOT through the

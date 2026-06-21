@@ -3,7 +3,6 @@
 
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[
-        ['label' => 'Forums', 'url' => route('forums.index')],
         ['label' => 'Clubs', 'url' => route('clubs.index')],
         ['label' => $club->name, 'url' => route('clubs.show', $club)],
         ['label' => 'Manage'],

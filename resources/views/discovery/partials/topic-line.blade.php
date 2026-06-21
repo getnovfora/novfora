@@ -8,6 +8,6 @@
     <span class="shrink-0 text-xs text-ink-subtle">
         in <a href="{{ route('forums.show', $topic->forum) }}" class="hover:text-accent">{{ $topic->forum?->title }}</a>
         · <span class="nums">{{ number_format((int) $topic->reply_count) }}</span> {{ \Illuminate\Support\Str::plural('reply', (int) $topic->reply_count) }}
-        · <span class="nums">{{ number_format((int) $topic->view_count) }}</span> views
+        · <span class="nums">{{ number_format((int) $topic->view_count) }}</span> {{ \Illuminate\Support\Str::plural('view', (int) $topic->view_count) }}
     </span>
 </li>

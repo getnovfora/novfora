@@ -88,6 +88,7 @@ final class SettingsRegistry
             new SettingDefinition('general.site_notice', 'string', default: '', group: 'general', label: 'Site-wide notice'),
             new SettingDefinition('general.board_offline', 'bool', default: false, group: 'general', label: 'Take the board offline'),
             new SettingDefinition('general.board_offline_message', 'string', default: 'The board is temporarily offline for maintenance. Please check back soon.', group: 'general', label: 'Board-offline message'),
+            new SettingDefinition('general.activity_feed_limit', 'int', config: 'novfora.activity_feed_limit', default: 15, group: 'general', label: 'Recent activity items on the homepage'),
 
             // ── Registration (PART 3.2) ─────────────────────────────────────────────────────────────
             new SettingDefinition('registration.enabled', 'bool', default: true, group: 'registration', label: 'Allow new registrations'),

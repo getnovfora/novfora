@@ -19,6 +19,9 @@ return [
     'avatar' => 'Avatar',
     'cover_image' => 'Cover image',
     'save_profile' => 'Save profile',
+    'display_name_label' => 'Display name',
+    'display_name_hint' => 'The name shown on your profile and posts. Your @username stays the same.',
+    'username_readonly' => 'Username (read-only):',
 
     // Public profile (profiles/show.blade.php)
     'trust_level' => 'Trust level',
@@ -29,4 +32,12 @@ return [
     'delete_account' => 'Delete account…',
     'about' => 'About',
     'signature' => 'Signature',
+
+    // Profile tabs (BUG-017)
+    'tab_activity' => 'Activity',
+    'tab_posts' => 'Posts',
+    'tab_about' => 'About',
+    'no_activity' => 'No recent activity yet.',
+    'no_posts' => 'No posts yet.',
+    'no_about' => 'This member hasn’t added any profile details yet.',
 ];

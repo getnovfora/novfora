@@ -66,55 +66,115 @@
             </div>
         </x-ui.card>
 
-        @php($viewer = auth()->user())
-        @if ($viewer instanceof \App\Models\User && \App\Account\AccountDeletionService::canForceDelete($viewer, $user))
-            <x-ui.card class="space-y-3">
-                <h2 class="text-sm font-semibold text-ink">{{ __('profiles.staff_tools') }}</h2>
-                <p class="text-sm text-ink-subtle">{{ __('profiles.staff_tools_intro') }}</p>
-                <div class="flex flex-wrap gap-3">
-                    <x-ui.button :href="route('moderation.user-delete.confirm', $user)" variant="danger" size="sm" dusk="staff-delete-account">
-                        {{ __('profiles.delete_account') }}
-                    </x-ui.button>
-                </div>
+        {{-- BUG-017: Activity / Posts / About tabs (query-param driven, server-rendered for SEO). The About tab
+             holds the custom-field card + signature that previously sat inline under the hero. --}}
+        @php($tabs = [
+            ['label' => __('profiles.tab_activity'), 'url' => route('profiles.show', [$user, 'tab' => 'activity']), 'active' => $tab === 'activity'],
+            ['label' => __('profiles.tab_posts'), 'url' => route('profiles.show', [$user, 'tab' => 'posts']), 'active' => $tab === 'posts'],
+            ['label' => __('profiles.tab_about'), 'url' => route('profiles.show', $user), 'active' => $tab === 'about'],
+        ])
+        <x-ui.tabs :items="$tabs" dusk="profile-tabs" />
+
+        @if ($tab === 'activity')
+            <x-ui.card flush dusk="profile-activity">
+                @forelse ($activity as $item)
+                    @php($phrase = match ($item->verb) {
+                        \App\Models\Activity::VERB_TOPIC_CREATED => __('started a topic'),
+                        \App\Models\Activity::VERB_POST_CREATED => __('replied in'),
+                        \App\Models\Activity::VERB_REACT_GIVEN => __('reacted to a post in'),
+                        default => __('posted in'),
+                    })
+                    <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-b border-line px-4 py-3 text-sm last:border-0">
+                        <span class="text-ink-subtle">{{ $phrase }}</span>
+                        @if ($item->isMissing())
+                            <span class="italic text-ink-subtle">{{ __('a removed item') }}</span>
+                        @else
+                            <a href="{{ $item->url() }}" class="font-medium text-accent hover:text-accent-hover break-words">{{ $item->title() }}</a>
+                        @endif
+                        @if ($item->createdAt)
+                            <span class="nums ml-auto text-xs text-ink-subtle" title="{{ $item->createdAt->toDateTimeString() }}">{{ $item->createdAt->diffForHumans() }}</span>
+                        @endif
+                    </div>
+                @empty
+                    <p class="px-4 py-6 text-center text-sm text-ink-subtle">{{ __('profiles.no_activity') }}</p>
+                @endforelse
             </x-ui.card>
+        @elseif ($tab === 'posts')
+            <x-ui.card flush dusk="profile-posts">
+                @forelse ($posts as $post)
+                    <div class="space-y-1 border-b border-line px-4 py-3 last:border-0">
+                        <a href="{{ route('topics.show', $post->topic).'#post-'.$post->id }}" class="font-medium text-ink hover:text-accent break-words">{{ $post->topic?->title }}</a>
+                        @if (filled($post->body_text))
+                            <p class="text-sm text-ink-muted">{{ \Illuminate\Support\Str::limit((string) $post->body_text, 200) }}</p>
+                        @endif
+                        @if ($post->created_at)
+                            <p class="nums text-xs text-ink-subtle">{{ $post->created_at->diffForHumans() }}</p>
+                        @endif
+                    </div>
+                @empty
+                    <p class="px-4 py-6 text-center text-sm text-ink-subtle">{{ __('profiles.no_posts') }}</p>
+                @endforelse
+            </x-ui.card>
+        @else
+            @php($hasFields = $fields->contains(fn ($field) => filled($values->get($field->id)?->value)))
+            @if ($hasFields)
+                <x-ui.card class="space-y-3" dusk="profile-about">
+                    <h2 class="text-sm font-semibold text-ink">{{ __('profiles.about') }}</h2>
+                    <dl class="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+                        @foreach ($fields as $field)
+                            @php($value = $values->get($field->id)?->value)
+                            @if ($value)
+                                <div class="space-y-0.5">
+                                    <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">{{ $field->label }}</dt>
+                                    <dd class="text-sm text-ink">
+                                        @if ($field->type === 'url' && \Illuminate\Support\Str::startsWith($value, ['http://', 'https://']))
+                                            <a href="{{ $value }}" rel="nofollow noopener noreferrer"
+                                               class="text-accent hover:text-accent-hover break-words">{{ $value }}</a>
+                                        @else
+                                            {{ $value }}
+                                        @endif
+                                    </dd>
+                                </div>
+                            @endif
+                        @endforeach
+                    </dl>
+                </x-ui.card>
+            @endif
+
+            @if ($user->signature_html)
+                <x-ui.card class="space-y-2">
+                    <h2 class="text-sm font-semibold text-ink">{{ __('profiles.signature') }}</h2>
+                    <div class="novfora-prose text-ink-muted">{!! $user->signature_html !!}</div>
+                </x-ui.card>
+            @endif
+
+            @unless ($hasFields || $user->signature_html)
+                <p class="px-1 py-6 text-center text-sm text-ink-subtle" dusk="profile-about">{{ __('profiles.no_about') }}</p>
+            @endunless
+        @endif
+
+        @php($viewer = auth()->user())
+        {{-- BUG-018: staff tools are gated AND now de-emphasised — a collapsed <details> below the tabs, not a
+             red "Delete account" button front-and-centre under the hero. The permission gate + confirmation
+             page are unchanged. --}}
+        @if ($viewer instanceof \App\Models\User && \App\Account\AccountDeletionService::canForceDelete($viewer, $user))
+            <details class="rounded-lg border border-line bg-surface-raised" dusk="staff-tools">
+                <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-ink">{{ __('profiles.staff_tools') }}</summary>
+                <div class="space-y-3 border-t border-line px-4 py-4">
+                    <p class="text-sm text-ink-subtle">{{ __('profiles.staff_tools_intro') }}</p>
+                    <div class="flex flex-wrap gap-3">
+                        <x-ui.button :href="route('moderation.user-delete.confirm', $user)" variant="danger" size="sm" dusk="staff-delete-account">
+                            {{ __('profiles.delete_account') }}
+                        </x-ui.button>
+                    </div>
+                </div>
+            </details>
         @endif
 
         {{-- Private staff-only notes (A1). Gated by the same authority the SFC re-asserts in mount() and every
              action — never rendered for the subject or a non-staff viewer. --}}
         @if (\App\Moderation\StaffNotes::visibleTo($viewer instanceof \App\Models\User ? $viewer : null, $user))
             <livewire:moderation.staff-notes :subject-id="$user->id" />
-        @endif
-
-        @php($hasFields = $fields->contains(fn ($field) => filled($values->get($field->id)?->value)))
-        @if ($hasFields)
-            <x-ui.card class="space-y-3">
-                <h2 class="text-sm font-semibold text-ink">{{ __('profiles.about') }}</h2>
-                <dl class="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-                    @foreach ($fields as $field)
-                        @php($value = $values->get($field->id)?->value)
-                        @if ($value)
-                            <div class="space-y-0.5">
-                                <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">{{ $field->label }}</dt>
-                                <dd class="text-sm text-ink">
-                                    @if ($field->type === 'url' && \Illuminate\Support\Str::startsWith($value, ['http://', 'https://']))
-                                        <a href="{{ $value }}" rel="nofollow noopener noreferrer"
-                                           class="text-accent hover:text-accent-hover break-words">{{ $value }}</a>
-                                    @else
-                                        {{ $value }}
-                                    @endif
-                                </dd>
-                            </div>
-                        @endif
-                    @endforeach
-                </dl>
-            </x-ui.card>
-        @endif
-
-        @if ($user->signature_html)
-            <x-ui.card class="space-y-2">
-                <h2 class="text-sm font-semibold text-ink">{{ __('profiles.signature') }}</h2>
-                <div class="novfora-prose text-ink-muted">{!! $user->signature_html !!}</div>
-            </x-ui.card>
         @endif
     </x-ui.container>
 @endsection

@@ -9,9 +9,9 @@ declare(strict_types=1);
 | topic view, create/edit, and the recycle bin. This `en` set is authoritative — other locales fall back here
 | per missing string. Cross-cutting words (Delete/Save/Cancel/Forums/Edit) live in common.php.
 |
-| NOTE on counts: the board/row markup renders the NUMBER (styled) separately from an always-plural suffix
-| word ("3" + "replies"). Those suffix words are kept as STATIC keys (not trans_choice) so the English output
-| stays byte-for-byte identical; proper singular/plural is deferred (it would change the n=1 output).
+| NOTE on counts: the board/row markup renders the NUMBER (styled) separately from a suffix word ("3" +
+| "topics"). The forum-row topics/posts suffixes use trans_choice singular|plural forms (BUG-007), so n=1
+| reads "1 topic". The board-view replies/views suffixes are still always-plural pending the same treatment.
 */
 
 return [
@@ -20,8 +20,8 @@ return [
     'no_forums_body' => 'Once forums are created, they’ll show up here for everyone to browse.',
 
     // Forum/board row (forum/partials/forum-row.blade.php)
-    'topics' => 'topics',                       // count suffix
-    'posts' => 'posts',                         // count suffix
+    'topics' => 'topic|topics',                 // count suffix (trans_choice — BUG-007)
+    'posts' => 'post|posts',                     // count suffix (trans_choice — BUG-007)
     'updated_ago' => 'updated :ago',
     'latest_activity' => 'Latest activity',
     'no_posts_yet' => 'No posts yet',

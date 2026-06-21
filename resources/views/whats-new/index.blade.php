@@ -2,10 +2,7 @@
 @extends('layouts.app', ['title' => "What's new · ".config('app.name', 'NovFora')])
 
 @section('breadcrumbs')
-    <x-ui.breadcrumbs :items="[
-        ['label' => 'Forums', 'url' => route('forums.index')],
-        ['label' => 'What\'s new'],
-    ]" />
+    <x-ui.breadcrumbs :items="[['label' => 'What\'s new']]" />
 @endsection
 
 @section('content')

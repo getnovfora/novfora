@@ -44,9 +44,9 @@ final class ActivityFeed
      *
      * @return list<ActivityFeedItem>
      */
-    public function for(User $viewer): array
+    public function for(User $viewer, int $limit = self::LIMIT): array
     {
-        return $this->page($viewer, fn (): array => $this->window());
+        return $this->page($viewer, fn (): array => $this->window(), $limit);
     }
 
     /**
@@ -59,14 +59,32 @@ final class ActivityFeed
      * @param  list<int>  $followedIds
      * @return list<ActivityFeedItem>
      */
-    public function forFollowing(User $viewer, array $followedIds): array
+    public function forFollowing(User $viewer, array $followedIds, int $limit = self::LIMIT): array
     {
         $followedIds = array_values(array_unique(array_map('intval', $followedIds)));
         if ($followedIds === []) {
             return [];
         }
 
-        return $this->page($viewer, fn (): array => $this->followingWindow($followedIds));
+        return $this->page($viewer, fn (): array => $this->followingWindow($followedIds), $limit);
+    }
+
+    /**
+     * The ACTOR variant (BUG-017 profile Activity tab): the feed restricted to one member's own activity.
+     * It runs through the SAME page() path, so the per-viewer VisibleForumIds filter still applies — a
+     * subject's activity in a forum the viewer cannot see stays hidden (one permission path, never bypassed).
+     * The per-actor window is not cached (lower-traffic surface; one indexed query on activities.actor_id).
+     *
+     * @return list<ActivityFeedItem>
+     */
+    public function forActor(User $viewer, User $subject, int $limit = self::LIMIT): array
+    {
+        $actorId = (int) $subject->getKey();
+        if ($actorId <= 0) {
+            return [];
+        }
+
+        return $this->page($viewer, fn (): array => $this->loadWindow([$actorId]), $limit);
     }
 
     /**
@@ -74,10 +92,14 @@ final class ActivityFeed
      * per-viewer permission filter and rehydrate — both strictly AFTER the cache boundary (RH-9).
      *
      * @param  \Closure(): list<array<string, mixed>>  $window
+     * @param  int  $limit  final page size, clamped to [1, WINDOW]
      * @return list<ActivityFeedItem>
      */
-    private function page(User $viewer, \Closure $window): array
+    private function page(User $viewer, \Closure $window, int $limit = self::LIMIT): array
     {
+        // Clamp to [1, WINDOW]: the limit can never ask for more rows than the cached window holds, nor for none.
+        $limit = max(1, min(self::WINDOW, $limit));
+
         // Per-viewer permission filter (NOT cached). [] = sees no forum → no forum-scoped activity at all.
         $visibleIds = VisibleForumIds::for($viewer);
         if ($visibleIds === []) {
@@ -94,7 +116,7 @@ final class ActivityFeed
             ));
         }
 
-        $rows = array_slice($rows, 0, self::LIMIT);
+        $rows = array_slice($rows, 0, $limit);
         if ($rows === []) {
             return [];
         }

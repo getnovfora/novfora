@@ -31,6 +31,7 @@ final class ForumNode
         public readonly int $id,
         public readonly string $type,
         public readonly string $title,
+        public readonly string $slug,
         public readonly ?string $description,
         public readonly int $topic_count,
         public readonly int $post_count,
@@ -51,6 +52,8 @@ final class ForumNode
             'id' => (int) $forum->id,
             'type' => (string) $forum->type,
             'title' => (string) $forum->title,
+            // Carried so the cached index row can generate the clean slug URL (route key is slug — BUG-002).
+            'slug' => (string) $forum->slug,
             'description' => $forum->description !== null ? (string) $forum->description : null,
             'topic_count' => (int) $forum->topic_count,
             'post_count' => (int) $forum->post_count,
@@ -78,6 +81,9 @@ final class ForumNode
             id: (int) $row['id'],
             type: (string) $row['type'],
             title: (string) $row['title'],
+            // Default '' tolerates a pre-upgrade cache entry written before slug was carried; the row template
+            // falls back to id when the slug is blank, so a stale entry degrades to /forums/{id}, never a 500.
+            slug: (string) ($row['slug'] ?? ''),
             description: isset($row['description']) ? (string) $row['description'] : null,
             topic_count: (int) ($row['topic_count'] ?? 0),
             post_count: (int) ($row['post_count'] ?? 0),

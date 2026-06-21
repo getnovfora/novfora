@@ -1,6 +1,10 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 @extends('layouts.app', ['title' => 'Notifications · '.config('app.name', 'NovFora')])
 
+@section('breadcrumbs')
+    <x-ui.breadcrumbs :items="[['label' => 'Notifications']]" />
+@endsection
+
 @section('content')
     <x-ui.container size="lg" class="space-y-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
