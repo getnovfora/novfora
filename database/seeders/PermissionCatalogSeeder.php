@@ -29,6 +29,24 @@ class PermissionCatalogSeeder extends Seeder
             'prefix.manage' => ['Manage topic prefixes', 'global', 'Administration', 'Create, edit, reorder and delete topic prefixes.'],
             'badge.manage' => ['Manage badges', 'global', 'Administration', 'Create, edit, deactivate and delete badges and their award criteria.'],
             'permissions.manage' => ['Manage roles & permissions', 'global', 'Administration', 'Edit ACL entries and role presets.'],
+
+            // Per-section ACP access (ACP v3 · v3-a, ADR-0080). Each key gates ONE rail SECTION of the Invision
+            // information architecture (App\Admin\AdminNavigation::SECTIONS). They are Administration-tier, so the
+            // escalation fence (RoleManager::assertWithinCeiling) lets only a FULL admin mint them into a role. The
+            // `administrator` preset grants the nine NON-security keys additively (RoleSeeder) — so every existing
+            // admin keeps the full rail once PermissionSync propagates them on upgrade. admin.security.access is
+            // granted per-user to co-owners only (AdminCoOwnerService); it is the gate on the Security section.
+            'admin.forums.access' => ['Access the Forums admin section', 'global', 'Administration', 'Open the Forums section of the ACP (structure, prefixes).'],
+            'admin.members.access' => ['Access the Members admin section', 'global', 'Administration', 'Open the Members section of the ACP (directory, profile fields, badges, tiers, memberships).'],
+            'admin.groups.access' => ['Access the Groups admin section', 'global', 'Administration', 'Open the Groups section of the ACP (groups, group permissions, roles, join requests).'],
+            'admin.moderation.access' => ['Access the Moderation admin section', 'global', 'Administration', 'Open the Moderation section of the ACP (spam intelligence, moderators, moderation settings).'],
+            'admin.appearance.access' => ['Access the Appearance admin section', 'global', 'Administration', 'Open the Appearance section of the ACP (appearance, themes, templates, layout).'],
+            'admin.plugins.access' => ['Access the Plugins admin section', 'global', 'Administration', 'Open the Plugins section of the ACP (modules, webhooks).'],
+            'admin.analytics.access' => ['Access the Analytics admin section', 'global', 'Administration', 'Open the Analytics section of the ACP.'],
+            'admin.settings.access' => ['Access the Settings admin section', 'global', 'Administration', 'Open the Settings section of the ACP (general, registration, email, anti-spam, SSO, search, payments).'],
+            'admin.system.access' => ['Access the System admin section', 'global', 'Administration', 'Open the System section of the ACP (service tier, backups, upgrade, suppressions, audit, tasks).'],
+            'admin.security.access' => ['Access the Security admin section', 'global', 'Administration', 'Open the Security section of the ACP (co-owners, Admin Manager, permission inspector). Held only by co-owners.'],
+
             'bans.manage' => ['Issue & lift bans', 'global', 'Moderation', 'Ban or unban users, globally or per scope.'],
 
             // Reading / posting / moderation (forum scope)

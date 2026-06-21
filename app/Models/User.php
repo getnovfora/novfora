@@ -58,7 +58,7 @@ class User extends Authenticatable implements MustVerifyEmail
     /** @return BelongsToMany<Group, $this> */
     public function groups(): BelongsToMany
     {
-        return $this->belongsToMany(Group::class)->withPivot(['is_primary', 'is_primary_locked'])->withTimestamps();
+        return $this->belongsToMany(Group::class)->withPivot(['is_primary', 'is_primary_locked', 'is_co_owner'])->withTimestamps();
     }
 
     /** Outstanding/decided requests this user made to join `request`-model groups (v3-e). @return HasMany<GroupJoinRequest, $this> */

@@ -4,13 +4,16 @@
 
 declare(strict_types=1);
 
+use App\Admin\AdminCoOwnerService;
 use App\Admin\GroupException;
 use App\Admin\GroupManager;
 use App\Models\AclEntry;
 use App\Models\AuditLog;
 use App\Models\Group;
 use App\Models\Role;
+use App\Models\User;
 use App\Permissions\PermissionResolver;
+use App\Permissions\PermissionValue;
 use App\Permissions\Scope;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -191,4 +194,48 @@ it('audit-logs a group permission-preset change (from/to), not just the name', f
     $entry = AuditLog::where('action', 'group.role.assigned')->latest('id')->first();
     expect($entry)->not->toBeNull()
         ->and($entry->changes['to_role'])->toBe('Moderator');
+});
+
+// ── Co-owner last-owner guard on the Groups member-removal door (ACP v3 · v3-a, ADR-0080) ─────────────────
+
+/** Bootstrap a co-owner the way the installer crowns one: admins membership + is_co_owner flag + security grant. */
+function gmCoOwner(): User
+{
+    $adminsId = (int) Group::where('slug', 'admins')->value('id');
+    $u = Users::inGroups(['admins']);
+    $u->groups()->updateExistingPivot($adminsId, ['is_co_owner' => true]);
+    AclEntry::updateOrCreate(
+        ['permission_key' => 'admin.security.access', 'holder_type' => 'user', 'holder_id' => (int) $u->id,
+            'scope_type' => 'global', 'scope_id' => null],
+        ['value' => PermissionValue::Allow->value],
+    );
+
+    return $u->fresh();
+}
+
+it('removeMember refuses to detach the sole co-owner from admins (last-owner guard)', function () {
+    $admins = Group::where('slug', 'admins')->firstOrFail();
+    $soleCo = gmCoOwner();
+
+    expect(fn () => gm()->removeMember($admins, (int) $soleCo->id))->toThrow(GroupException::class);
+
+    // The transaction rolled back: membership, the flag, and the security grant all survive.
+    expect(app(AdminCoOwnerService::class)->isCoOwner($soleCo))->toBeTrue();
+    expect($soleCo->fresh()->groups->pluck('slug')->contains('admins'))->toBeTrue();
+});
+
+it('removeMember detaches a non-sole co-owner, tearing down the flag and the security grant', function () {
+    $admins = Group::where('slug', 'admins')->firstOrFail();
+    $coKeep = gmCoOwner();
+    $coGo = gmCoOwner();
+
+    gm()->removeMember($admins, (int) $coGo->id);
+
+    // Detached, no longer a co-owner, and the orphan-prone security grant is cleaned up in lockstep.
+    expect($coGo->fresh()->groups->pluck('slug')->contains('admins'))->toBeFalse();
+    expect(app(AdminCoOwnerService::class)->isCoOwner($coGo))->toBeFalse();
+    expect(AclEntry::where('permission_key', 'admin.security.access')->where('holder_type', 'user')
+        ->where('holder_id', $coGo->id)->exists())->toBeFalse();
+    // The remaining co-owner is untouched.
+    expect(app(AdminCoOwnerService::class)->isCoOwner($coKeep))->toBeTrue();
 });

@@ -13,6 +13,7 @@ use App\Install\RequirementChecker;
 use App\Models\Forum;
 use App\Models\Topic;
 use App\Models\User;
+use App\Permissions\Scope;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Livewire;
 
@@ -159,6 +160,12 @@ it('runs the full install — env, migrate, seed, admin — then locks; a re-run
     expect($admin)->not->toBeNull();
     expect($admin->groups->pluck('slug')->all())->toContain('admins')->toContain('tl4');
     expect($admin->isStaff())->toBeTrue();
+
+    // 5b. v3-a (ADR-0080): the first admin is crowned a CO-OWNER — the is_co_owner pivot flag on the admins
+    //     membership (the tier the last-owner guard counts) + the per-user admin.security.access grant the
+    //     Security section gates on (the preset withholds it). Together: a fully-functional sole co-owner.
+    expect((bool) $admin->groups->firstWhere('slug', 'admins')->pivot->is_co_owner)->toBeTrue();
+    expect($admin->canDo('admin.security.access', Scope::global()))->toBeTrue();
     expect($admin->email_verified_at)->not->toBeNull();
     expect($admin->trust_level)->toBe(4);                       // set via forceFill (guarded), not mass assignment
     expect($admin->status)->toBe('active');

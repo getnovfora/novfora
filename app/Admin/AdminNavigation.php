@@ -6,6 +6,8 @@ declare(strict_types=1);
 
 namespace App\Admin;
 
+use App\Models\User;
+use App\Permissions\Scope;
 use App\Settings\SettingsRegistry;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -112,6 +114,8 @@ final class AdminNavigation
         ]],
         'security' => ['shield', 'admin.security', [
             [null, [
+                ['co_owners', 'admin.security.co-owners', 'shield'], // v3-a: co-owner tier
+                ['admin_accounts', 'admin.security.accounts', 'users'], // v3-a: Admin Manager (restricted admins)
                 ['permissions', 'admin.security.permissions', 'shield'],
             ]],
         ]],
@@ -139,10 +143,11 @@ final class AdminNavigation
     public static function rail(): array
     {
         $active = self::activeSectionKey();
+        $user = auth()->user();
         $rail = [];
 
         foreach (self::SECTIONS as $key => [$icon, $landing]) {
-            if (! Route::has($landing)) {
+            if (! Route::has($landing) || ! self::canAccessSection($user, $key)) {
                 continue;
             }
             $rail[] = [
@@ -167,7 +172,7 @@ final class AdminNavigation
     {
         $sectionKey ??= self::activeSectionKey();
         $def = self::SECTIONS[$sectionKey] ?? null;
-        if ($def === null) {
+        if ($def === null || ! self::canAccessSection(auth()->user(), $sectionKey)) {
             return [];
         }
 
@@ -204,6 +209,22 @@ final class AdminNavigation
     public static function sectionLabel(string $key): string
     {
         return (string) __("admin.sections.$key");
+    }
+
+    /**
+     * Whether $user may see a rail SECTION (ACP v3 · v3-a, ADR-0080). 'overview' is the any-admin home — anyone
+     * who passed the admin.access gate. Every other section gates on admin.<section>.access: a full admin holds
+     * all nine non-security keys via the administrator preset, a bundle-restricted admin only their granted
+     * subset, and admin.security.access is co-owner-only. The rail, sidebar, and search all honour this, and
+     * SectionController re-checks it for direct URL loads.
+     */
+    public static function canAccessSection(?User $user, string $key): bool
+    {
+        if ($key === 'overview') {
+            return true;
+        }
+
+        return $user instanceof User && $user->canDo("admin.{$key}.access", Scope::global());
     }
 
     /**
@@ -256,9 +277,15 @@ final class AdminNavigation
     public static function searchIndex(): array
     {
         $index = [];
+        $user = auth()->user();
+        $sectionOf = self::routeToSection(); // route name → owning section (for the settings-field gate below)
 
-        // Every reachable nav page (skip external links — they leave the ACP).
+        // Every reachable nav page the viewer may open (skip external links — they leave the ACP; skip a section
+        // the viewer can't access so a restricted admin never sees a result that would 403 — v3-a, ADR-0080).
         foreach (self::SECTIONS as $sectionKey => [, , $clusters]) {
+            if (! self::canAccessSection($user, $sectionKey)) {
+                continue;
+            }
             foreach ($clusters as [, $items]) {
                 foreach ($items as $item) {
                     if (! empty($item[3] ?? false) || ! Route::has($item[1])) {
@@ -274,10 +301,11 @@ final class AdminNavigation
             }
         }
 
-        // Every settings field label → its page + anchor (the SMF/Invision "jump to a setting" ergonomic).
+        // Every settings field label → its page + anchor (the SMF/Invision "jump to a setting" ergonomic), gated
+        // by the access of the section that owns the target page.
         foreach (SettingsRegistry::all() as $key => $def) {
             $target = self::SETTINGS_GROUPS[$def->group] ?? null;
-            if ($target === null || ! Route::has($target[0])) {
+            if ($target === null || ! Route::has($target[0]) || ! self::canAccessSection($user, $sectionOf[$target[0]] ?? '')) {
                 continue;
             }
             $index[] = [

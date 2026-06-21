@@ -428,8 +428,12 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/settings/search', 'admin.settings.search')->name('settings.search'); // Phase 4 · M4.1
         Route::view('/settings/payments', 'admin.settings.payments')->name('settings.payments'); // Phase 4 · M5.3
 
-        // Security section — houses the EXISTING Permission Inspector under its current gate (co-owner gating
-        // arrives in v3-a). Renamed admin.system.permissions → admin.security.permissions (foundations §3).
+        // Security section (ACP v3 · v3-a, ADR-0080) — the owner tier. Co-owners + the Admin Manager + the
+        // existing Permission Inspector. The route group keeps the flat admin.access middleware (a co-owner holds
+        // it); the finer admin.security.access (co-owner) gate is re-asserted in each SFC's mount() — Livewire
+        // actions reach the component with no route middleware, so the gate lives there, mirroring v3-c/v3-d.
+        Route::view('/security/co-owners', 'admin.security.co-owners')->name('security.co-owners'); // <livewire:admin.security.co-owners />
+        Route::view('/security/accounts', 'admin.security.accounts')->name('security.accounts');    // <livewire:admin.security.admin-accounts />
         Route::view('/security/permissions', 'admin.permissions')->name('security.permissions');
     });
 

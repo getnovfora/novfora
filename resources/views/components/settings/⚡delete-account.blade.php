@@ -35,7 +35,11 @@ new class extends Component
     {
         $user = $this->user();
         $this->summary = app(AccountDeletionService::class)->summary($user);
-        $this->blocked = app(AccountDeletionService::class)->isSoleAdmin($user);
+        // Blocked while this account is the last administrator OR the last co-owner (ADR-0080): deleting either
+        // strands the forum (zero admins, or zero co-owners → an unreachable Security tier). The cascade re-checks
+        // both under a row lock as the authority; this is just the pre-emptive UI signal.
+        $service = app(AccountDeletionService::class);
+        $this->blocked = $service->isSoleAdmin($user) || $service->isSoleCoOwner($user);
     }
 
     /** Step 1 → 2: reveal the confirmation form. No password is collected until step 2 submits. */
@@ -63,7 +67,7 @@ new class extends Component
         $this->error = null;
 
         if ($this->blocked) {
-            $this->error = __('The last administrator account cannot be deleted.');
+            $this->error = __('This account cannot be deleted while it is the last administrator or co-owner.');
 
             return;
         }
@@ -120,7 +124,7 @@ new class extends Component
 
     @if ($blocked)
         <x-ui.alert variant="warn" :title="__('Deletion unavailable')">
-            {{ __('You are the only administrator. Promote another administrator before deleting your account.') }}
+            {{ __('You are the last administrator or co-owner. Appoint another before deleting your account.') }}
         </x-ui.alert>
     @endif
 
