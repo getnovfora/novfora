@@ -4,8 +4,11 @@
 
 declare(strict_types=1);
 
+use App\Models\AclEntry;
 use App\Models\Forum;
+use App\Models\Group;
 use App\Models\User;
+use App\Permissions\PermissionValue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\Users;
 
@@ -41,6 +44,25 @@ describe('Forum slug binding (BUG-002)', function () {
 
         expect((new Forum)->resolveRouteBinding('archived'))->toBeNull()
             ->and((new Forum)->resolveRouteBinding((string) $forum->id))->toBeNull();
+    });
+
+    it('a private forum by slug 403s for a guest exactly as the id URL does — no visibility widening', function () {
+        // The resolver only FINDS the model; the controller's forum.view check runs identically for either
+        // URL form. A forum-scope NEVER on the Guests group makes this forum private (NEVER is absolute).
+        $forum = Forum::create(['slug' => 'staff-only', 'title' => 'Staff Only', 'type' => 'forum']);
+        $guests = Group::where('slug', 'guests')->firstOrFail();
+        AclEntry::create([
+            'permission_key' => 'forum.view',
+            'holder_type' => 'group', 'holder_id' => $guests->id,
+            'scope_type' => 'forum', 'scope_id' => $forum->id,
+            'value' => PermissionValue::Never->value,
+        ]);
+
+        $bySlug = $this->get('/forums/staff-only');
+        $byId = $this->get('/forums/'.$forum->id);
+
+        expect($bySlug->status())->toBe($byId->status())  // identical treatment for both URL forms
+            ->and($bySlug->status())->toBe(403);           // blocked — the slug form does not widen visibility
     });
 
     it('serves both URL forms over HTTP', function () {
