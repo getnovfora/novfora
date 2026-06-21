@@ -11,7 +11,23 @@
 
 ---
 
-## 🎉 ACP v3 · v3-g — staff flair + "The Team" roster on `claude/acp-v3-g` — 2026-06-21 (LATEST · off `main` · **completes the ACP v3 program**)
+## 🚀 Unattended batch 2026-06-21 — demo-shakeout fixes (5 branches off `main`, specs written, awaiting Code)
+
+**Demo is live on current `main`.** `demo.novfora.com` upgraded cleanly (5 migrations, backup-first); cron now
+firing hourly. Next unattended Code run is a **5-branch batch** from the live shakeout — master spec
+`docs/product/batch-2026-06-21-kickoff.md` (single entry point; per-branch detail specs alongside it):
+
+1. **`claude/admin-perm-mgmt`** — "can't add admins" is a *discoverability* fix (full-admin add lives under Groups→Manage; Security pages don't link there) + group/role **clone** (apex: `GroupManager::clone()`/`RoleManager::clone()` copy `acl_entries` exactly + bump `AclVersion`) + member/group UX. `docs/product/admin-perm-mgmt-kickoff.md`.
+2. **`claude/post-approval-promotion`** — "Dan" stuck in the approval queue: `ModerationController::approvePost()` never re-runs trust eval, so a TL0 user is in a circular hold trap; + a live warning freezes trust recompute. Moderation layer, not apex. `docs/product/post-approval-promotion-kickoff.md`.
+3. **`claude/activity-feed-fixes`** — restricted-viewer empty feed (global 100-row window), a `scope_forum_id=NULL` visibility leak after hard forum delete (apex-adjacent), profile tab ignoring the limit. `docs/product/activity-feed-fixes-kickoff.md`.
+4. **`claude/oauth-sfs-hardening`** — small nits only (rate-limit `oauth.redirect`, route SFS enable through `ExternalSignalPolicy`, confirm `SocialiteServiceProvider` registered). Inline in master.
+5. **`claude/release-tooling`** — `verify-release.sh` exit-143 trap fix, exec bits, `.gitignore` the zip, asset-drift CI guard. Inline in master.
+
+**Important:** OAuth/social login **and** StopForumSpam registration screening are **already fully implemented** on `main` — Branch 4 only hardens edges; do NOT rebuild. Each branch is independent (off `main`); Code opens one PR per branch and merges none.
+
+---
+
+## 🎉 ACP v3 · v3-g — staff flair + "The Team" roster on `claude/acp-v3-g` — 2026-06-21 (off `main` · **completes the ACP v3 program**)
 
 **Unattended, owner-authorized session.** Built the FINAL ACP v3 slice **v3-g** (staff flair + roster, ADR-0088) — the
 **display capstone**: surface who's staff at a glance + a curated public "The Team" page. Deliberately the only
