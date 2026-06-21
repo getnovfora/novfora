@@ -153,4 +153,63 @@ return [
         'open' => 'Open',
         'view_member' => 'View member',
     ],
+
+    // ── The Permission Inspector's plain-language explanation layer (polish R3) ──────────────────────
+    // A read-only presentation over the resolver trace: ONE faithful sentence per Decision::$reason, with
+    // the user / permission label / scope name / holder name interpolated. The machine summary, the
+    // technical detail card, and the candidate-entries table all stay BELOW it, unchanged, for power users.
+    // The mapping mirrors PermissionResolver exactly: NEVER is absolute (no grant overrides it); a grant
+    // decided below the global scope overrides the broader default; a ban pre-empts every ACL rule.
+    // G8 (ADR-0079): always reference admin.inspector.*, never a bare key.
+    'inspector' => [
+        'heading' => 'In plain language',
+        'technical_heading' => 'Technical resolution',
+        'about_permission' => 'About this permission',
+        'fact_permission' => 'Permission',
+        'fact_decided_by' => 'Decided by',
+        'fact_scope' => 'Where',
+
+        'verdict' => [
+            'allowed' => 'Allowed',
+            'denied' => 'Denied',
+        ],
+
+        // One sentence per reason code (Decision::$reason). Placeholders: :user :permission :scope :holder.
+        // :scope is a prepositional phrase ("site-wide" or "in the General Discussion forum"), so the
+        // templates carry NO preposition before it — global reads as an adverb, named scopes as "in …".
+        'reason' => [
+            'user_allow' => ':user can :permission — a rule set directly on their account grants it :scope.',
+            'group_allow' => ':user can :permission — :holder grants it :scope.',
+            'never' => ':user is hard-denied :permission — a NEVER rule held by :holder :scope cannot be overridden by any grant.',
+            'banned' => ':user is currently banned, so they cannot :permission — a ban (site-wide or scoped to this area) takes priority over every grant.',
+            'default' => ':user cannot :permission — no rule grants it :scope or in any scope above it, so access is denied by default.',
+        ],
+        // Appended to a user_allow / group_allow sentence that was decided below the global scope.
+        'override' => ' It overrides the broader site-wide default.',
+
+        'scope' => [
+            'global' => 'site-wide',             // facts-strip label AND the adverb used in the sentence
+            'named' => 'the :name :level',        // facts-strip label, e.g. "the General Discussion forum"
+            'unknown' => 'a :level (#:id)',        // an orphaned scope whose row is gone — never a raw "forum:2" code
+            'in' => 'in :place',                  // wraps a named/unknown label into the sentence's :scope slot
+            'level' => [
+                'category' => 'category',
+                'forum' => 'forum',
+                'thread' => 'topic',
+                'club' => 'club',
+            ],
+        ],
+
+        'holder' => [
+            'group_one' => 'the :name group',     // a single group grants / holds the NEVER
+            'group_many' => 'the :names groups',   // several groups grant at the deciding scope
+            'some_group' => 'a group',             // group_allow with no resolvable group row (defensive)
+            'unknown_group' => 'a deleted group (#:id)',
+            'unknown_user' => 'a deleted user (#:id)',
+            'ban' => 'an active ban',              // facts strip — banned. NOT "a site ban": BanChecker matches a
+            // global OR a scoped (category/forum/ancestor) ban and cannot
+            // tell which, so the label must not assert a site-wide scope.
+            'none' => 'no matching rule',          // facts strip — deny-by-default
+        ],
+    ],
 ];
