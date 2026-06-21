@@ -50,10 +50,10 @@ yarn-error.log
 /.nova
 /.zed
 
-# Deployable release bundle — build artifact; never commit the binary (see docs/REAL-HOST-VALIDATION.md §2).
-/novfora-release.zip
-/novfora-release.zip
-/hearth-release.zip
+# Deployable release bundle(s) — build artifact; never commit the binary (see docs/REAL-HOST-VALIDATION.md §2).
+# /*.zip covers novfora-release.zip + any future root release archive (and the retired hearth-release.zip);
+# replaces the prior duplicated /novfora-release.zip entries.
+/*.zip
 
 # Owner's local visual-feedback drops (round screenshots) + the scratch PR-body draft — local-only.
 /1st_Visual_Feedback/
