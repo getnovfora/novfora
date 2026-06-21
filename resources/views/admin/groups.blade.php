@@ -1,10 +1,9 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => 'Members · Groups'])
+@extends('layouts.app', ['title' => 'Groups'])
 
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[
         ['label' => 'Admin'],
-        ['label' => 'Members'],
         ['label' => 'Groups'],
     ]" />
 @endsection

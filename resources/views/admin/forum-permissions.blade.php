@@ -3,7 +3,7 @@
 @extends('layouts.app', ['title' => 'Admin · Forum permissions'])
 
 @section('content')
-    @php($mode = request()->query('mode') === 'advanced' ? 'advanced' : 'simple')
+    @php($mode = \App\Support\PermMode::resolve())
     <x-admin.shell :title="__('admin.perms.title').' — '.$forum->title">
         <div class="mb-4"><x-admin.perm-mode-switch :mode="$mode" /></div>
         @if ($mode === 'advanced')
