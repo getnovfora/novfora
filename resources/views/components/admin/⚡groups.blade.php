@@ -566,9 +566,17 @@ new class extends Component
                         <div class="text-ink-muted sm:text-right nums">{{ number_format($row['members']) }}</div>
                         <div class="flex flex-wrap items-center gap-1 sm:justify-end">
                             @if ($row['membership'])
-                                <x-ui.button type="button" variant="ghost" size="sm" icon wire:click="manageMembers({{ $g->id }})" title="Members">
-                                    <x-ui.icon name="users" class="h-4 w-4" />
-                                </x-ui.button>
+                                @if ($g->slug === 'admins')
+                                    {{-- Discoverability: adding a FULL admin is "join the Administrators group", so the
+                                         admins row gets a clear labelled affordance rather than a bare icon. --}}
+                                    <x-ui.button type="button" variant="subtle" size="sm" wire:click="manageMembers({{ $g->id }})" dusk="acp-admins-members" title="Add or remove administrators">
+                                        <x-ui.icon name="users" class="h-4 w-4" /> Add / manage members
+                                    </x-ui.button>
+                                @else
+                                    <x-ui.button type="button" variant="ghost" size="sm" icon wire:click="manageMembers({{ $g->id }})" title="Members">
+                                        <x-ui.icon name="users" class="h-4 w-4" />
+                                    </x-ui.button>
+                                @endif
                             @endif
                             <x-ui.button type="button" variant="ghost" size="sm" icon wire:click="edit({{ $g->id }})" title="Edit" dusk="acp-group-edit-{{ $g->id }}">
                                 <x-ui.icon name="pencil" class="h-4 w-4" />

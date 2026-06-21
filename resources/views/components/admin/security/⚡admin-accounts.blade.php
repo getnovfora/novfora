@@ -210,7 +210,8 @@ new class extends Component
     <p class="max-w-2xl text-sm text-ink-muted">
         A <strong>restricted admin</strong> can access only the ACP sections you grant — they do not appear in
         the Administrators group. To give someone full admin access, add them to the Administrators group via
-        <strong>Groups</strong>. Co-owners are managed on the Co-owners tab above.
+        <a href="{{ route('admin.members.groups') }}" class="font-semibold text-accent hover:underline" dusk="admin-accounts-groups-link">Groups</a>.
+        Co-owners are managed on the Co-owners tab above.
     </p>
 
     {{-- Current restricted admins --}}

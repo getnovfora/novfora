@@ -180,7 +180,8 @@ new class extends Component
         @php($candidates = $this->candidates())
         @if ($candidates->isEmpty())
             <p class="px-4 py-6 sm:px-5 text-sm text-ink-subtle">
-                All administrators are already co-owners. Add an administrator via Groups first.
+                All administrators are already co-owners.
+                <a href="{{ route('admin.members.groups') }}" class="text-accent hover:underline" dusk="co-owners-groups-link">Add an administrator via Groups</a> first.
             </p>
         @else
             <ul class="divide-y divide-line">
