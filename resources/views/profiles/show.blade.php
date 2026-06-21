@@ -32,6 +32,8 @@
                         <h1 class="text-2xl font-semibold tracking-tight text-ink"><x-ui.user-name :user="$user" /></h1>
                         <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
                             <span>{{ '@'.$user->username }}</span>
+                            {{-- Live staff flair (ACP v3 · v3-g) — gated by members.staff_flair_show_badge; nothing for a non-staff member. --}}
+                            <x-ui.staff-flair :user="$user" />
                             <span class="text-ink-subtle" aria-hidden="true">·</span>
                             <x-ui.badge variant="accent">{{ __('profiles.trust_level') }} <span class="nums">{{ (int) $user->trust_level }}</span></x-ui.badge>
                             <x-ui.badge variant="neutral" dusk="reputation-points"><span class="nums">{{ (int) $user->reputation_points }}</span>&nbsp;{{ __('profiles.reputation') }}</x-ui.badge>

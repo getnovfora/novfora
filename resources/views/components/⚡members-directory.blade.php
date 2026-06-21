@@ -47,7 +47,7 @@ new class extends Component
     {
         abort_unless(MembersDirectory::visibleTo(auth()->user()), 404);
 
-        $q = User::query()->with('groups')->where('status', 'active');
+        $q = User::query()->with(['groups', 'moderatorAssignments'])->where('status', 'active');
 
         $term = trim($this->search);
         if (strlen($term) >= 2) {
@@ -151,6 +151,8 @@ new class extends Component
                                 <x-ui.user-name :user="$member" :link="true" />
                             </p>
                             <p class="text-xs text-ink-subtle truncate">{{ '@'.$member->username }}</p>
+                            {{-- Live staff flair (ACP v3 · v3-g) — gated by members.staff_flair_show_badge. --}}
+                            <div class="mt-1 empty:hidden"><x-ui.staff-flair :user="$member" /></div>
                             <dl class="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-ink-muted">
                                 <div><dt class="sr-only">Joined</dt><dd>Joined {{ $member->created_at?->isoFormat('MMM YYYY') }}</dd></div>
                                 <div><dt class="sr-only">Posts</dt><dd class="nums">{{ number_format((int) $member->post_count) }} posts</dd></div>

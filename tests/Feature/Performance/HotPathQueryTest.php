@@ -81,11 +81,11 @@ it('renders a topic page with a bounded query count regardless of post count', f
     }
 
     $q = countQueries(fn () => $this->get(route('topics.show', $topic))->assertOk());
-    // ≤40 (was ≤39): the v3-e public-Groups nav gate adds ONE cached EXISTS to the shared layout (rendered on
-    // every page). It is a board-wide constant (cached 6h, busted only on rare group writes — amortised ~0 in
-    // production), NOT a per-post cost; an N+1 would still blow far past this. This test measures a single
-    // cold-cache render (no warm-up), so it pays the one-time miss here.
-    expect($q)->toBeLessThan(41);
+    // ≤41 (was ≤40): v3-g eager-loads the post authors' per-forum moderator assignments (author.moderatorAssignments)
+    // so the staff flair's forum_moderator check resolves from loaded data — ONE board-wide IN query, NOT a per-post
+    // cost (an N+1 would still blow far past this). (The prior +1, v3-e, was the public-Groups nav EXISTS in the
+    // shared layout.) This test measures a single cold-cache render (no warm-up), so it pays the one-time miss here.
+    expect($q)->toBeLessThan(42);
 })->group('perf');
 
 it('renders search results with a bounded query count', function () {

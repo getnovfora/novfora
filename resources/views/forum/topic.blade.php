@@ -124,9 +124,9 @@
         <div class="space-y-4">
             @foreach ($posts as $post)
                 @php($author = $post->author)
-                @php($role = $author?->isAdmin() ? __('forum.role_admin') : ($author?->isStaff() ? __('forum.role_moderator') : null))
-                {{-- Member tool 2.2: collapse a post by an ignored member — but NEVER a staff member ($role set). --}}
-                @php($authorIgnored = $role === null && in_array((int) $post->user_id, $ignoredIds ?? [], true))
+                @php($staffRole = $author?->staffRole())
+                {{-- Member tool 2.2: collapse a post by an ignored member — but NEVER a staff member (staffRole set). --}}
+                @php($authorIgnored = $staffRole === null && in_array((int) $post->user_id, $ignoredIds ?? [], true))
                 <x-ui.card id="post-{{ $post->id }}" :class="$post->approved_state === 'pending' ? 'ring-1 ring-warn-soft' : ''">
                     @if ($canModerate)
                         {{-- Bulk-select checkbox (P2-M4): shown only in select mode, bound to the Alpine store. --}}
@@ -145,9 +145,8 @@
                             <span class="hidden md:inline-flex"><x-ui.avatar :user="$author" :guest="$author === null" size="xl" /></span>
                             <div class="min-w-0 md:mt-1">
                                 <p class="font-semibold text-ink truncate"><x-ui.user-name :user="$author" :link="true" :fallback="__('[Deleted]')" /></p>
-                                @if ($role)
-                                    <x-ui.badge variant="accent" class="mt-1">{{ $role }}</x-ui.badge>
-                                @endif
+                                {{-- Live staff flair (ACP v3 · v3-g) — replaces the old inline role badge; gated by members.staff_flair_show_badge. --}}
+                                <x-ui.staff-flair :user="$author" class="mt-1" />
                                 {{-- Poster stats from already-loaded columns (desktop sidebar only). --}}
                                 <dl class="mt-2 hidden space-y-0.5 text-xs text-ink-subtle md:block">
                                     @if ($author?->created_at)

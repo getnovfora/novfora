@@ -88,12 +88,14 @@ class TopicController extends Controller
         // Moderation-queue visibility (ADR-0007 §2.4): pending posts are hidden from everyone except their
         // author and staff who can moderate here. Approved posts are visible to all.
         // Eager-load the author's groups too so the poster sidebar's staff/role badge ($author->isStaff())
-        // resolves from already-loaded data — one bounded query, never per-post (N+1).
+        // resolves from already-loaded data — one bounded query, never per-post (N+1). v3-g: also eager-load the
+        // author's per-forum moderator assignments so the staff flair's forum_moderator check (User::staffRole())
+        // reads loaded data — ONE board-wide IN query, never per-post.
         // Per-viewer display preferences (P2-M4): posts-per-page + thread sort order. A guest resolves to the
         // site defaults (15 / oldest). Newest-first reverses the position+id order so page 1 holds the latest.
         $newestFirst = $viewer->threadSortNewestFirst();
         $posts = $topic->posts()
-            ->with(['author.groups', 'revisions'])
+            ->with(['author.groups', 'author.moderatorAssignments', 'revisions'])
             ->unless($canModerate, fn ($q) => $q->where(function ($q2) use ($user) {
                 $q2->where('approved_state', 'approved');
                 if ($user) {
