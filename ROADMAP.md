@@ -93,9 +93,18 @@ only what you hold), **co-owner / Administration-tier keys never delegable**, th
 (never time-box a recipient's permanent grant nor lift a NEVER; revoke deletes only the `whereNotNull(expires_at)`
 row). The **current-mask cascade** (`cascadeForActor`, re-checking `canDo` post-demotion) is wired into
 `GroupManager::removeMember` (the real delegable-mask reduction) + the spec-named co-owner/bundle revoke paths; the
-`GroupPermissionEditor` group-key fan-out is the documented bounded gap (capped by the 30-day expiry). Each apex slice
+`GroupPermissionEditor` group-key fan-out is the documented bounded gap (capped by the 30-day expiry). **v3-g ✅ staff
+flair + "The Team" roster (ADR-0088, branch `claude/acp-v3-g`) — the FINAL slice, DISPLAY-ONLY (no apex seam):** a live,
+group-derived `User::staffRole()` (`co_owner`/`administrator`/`moderator`/`forum_moderator`, reusing `isAdmin`/`isStaff`
++ the co-owner check + `moderator_assignments`) feeds a `<x-ui.staff-flair>` badge on posts / profiles / the members
+directory (gated by `members.staff_flair_show_badge`) + a public `/staff` roster grouped by role (gated by
+`members.staff_roster_enabled`, 404 when off, no non-flagged-group leak). Three additive display-only `groups` columns
+(`show_on_staff_page` seeded on admins+moderators, `show_staff_icon`, `staff_title`). **No `acl_entries`/resolver/
+`AclVersion` change**; the only seam is a perf one (the `forum_moderator` check is eager-loaded via
+`User::moderatorAssignments()` so the topic hot path stays O(1) — ceiling `<41`→`<42`). Each apex slice
 (v3-0, v3-c, v3-d, v3-b, v3-a, v3-f) + the v3-e seam had an adversarial verify-then-refute review before commit.
-**Next: v3-g** per ADR-0080. Branches are **local-only** (owner pushes); v3-a/v3-b/v3-f are off `main` (the
+**The ACP v3 program (ADR-0080) is COMPLETE** — all nine slices (v3-0, v3-h, v3-c, v3-e, v3-d, v3-b, v3-a, v3-f, v3-g)
+shipped. Branches are **local-only** (owner pushes); v3-a/v3-b/v3-f/v3-g are off `main` (the
 v3-c/d/e stack is unmerged — they reuse the engine + the v3-d role model but are independent of it).
 
 **Carried-in refinements:** Laravel 13 + Livewire 4; **PHP 8.3 floor** *(revises brief's 11/3 and the 8.2
