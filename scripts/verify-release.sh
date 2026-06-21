@@ -23,7 +23,10 @@ ZIP="${1:?usage: verify-release.sh <zip> [port]}"
 PORT="${2:-8123}"
 SELF="$(cd "$(dirname "$0")" && pwd)"
 WORK="$(mktemp -d)"
-trap 'kill ${SV:-0} 2>/dev/null || true; rm -rf "$WORK"' EXIT
+# Clean up the cold-boot php -S server (if still running) + the temp tree. GUARDED: only kill when SV names a
+# real PID — an unguarded `kill ${SV:-0}` becomes `kill 0` once SV is reset after the boot, which SIGTERMs the
+# whole process group and makes a PASS run exit 143 (a CI gate on the exit code would misread PASS as failure).
+trap 'if [ -n "${SV:-}" ]; then kill "$SV" 2>/dev/null || true; fi; rm -rf "$WORK"' EXIT
 APP="$WORK/app"
 mkdir -p "$APP"
 
