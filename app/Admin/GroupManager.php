@@ -13,6 +13,7 @@ use App\Models\Group;
 use App\Models\Role;
 use App\Models\RoleAssignment;
 use App\Models\User;
+use App\Permissions\AclVersion;
 use App\Permissions\MembershipCache;
 use App\Permissions\RoleExpander;
 use App\Permissions\Scope;
@@ -116,6 +117,91 @@ final class GroupManager
         Audit::log('group.updated', $group, ['name' => $name]);
 
         return $group->refresh();
+    }
+
+    /**
+     * Clone a CUSTOM group into a new group whose effective permissions are IDENTICAL to the source's, with ZERO
+     * members — in ONE transaction. The copy is provably exact:
+     *   1. a fresh groups row copies the source's cosmetic + structural config (NOT its membership/flags);
+     *   2. each of the source's role_assignments is re-expanded onto the clone (so role_assignments AND their
+     *      expanded acl_entries stay in sync — the role-derived rows are written by the expander, not hand-copied);
+     *   3. then EVERY one of the source's own acl_entries rows is copied verbatim (value + expires_at) across all
+     *      scopes. Copying the physical rows AFTER the role expansion reproduces the source's last-writer-wins
+     *      state exactly (a card-editor override that differs from the role wins, just as on the source) — and
+     *      acl_entries carries no role_id to discriminate provenance, so the physical-row copy IS the exact rule.
+     * ALLOW stays ALLOW, NEVER stays NEVER, a 'no' (no row) is simply not copied (→ inherit). System/trust groups
+     * are not cloneable (their preset is their seeded identity). Membership, is_co_owner, and is_primary are never
+     * copied. The actor-facing escalation guard (rank + admin-tier + manage-permissions) is enforced by the SFC;
+     * this throws as the actor-independent backstop for the custom-only invariant.
+     */
+    public function clone(Group $source): Group
+    {
+        if ($source->type !== 'custom' || $source->is_system) {
+            throw new GroupException("“{$source->name}” is a system group and cannot be cloned — only custom groups can be cloned.");
+        }
+
+        return DB::transaction(function () use ($source): Group {
+            $name = $source->name.' (copy)';
+            $clone = Group::create([
+                'slug' => $this->uniqueSlug($name),
+                'name' => $name,
+                'color' => $source->color,
+                'description' => $source->description,
+                'type' => 'custom',
+                'priority' => (int) $source->priority,
+                'is_system' => false,
+                'auto_promotion' => $source->auto_promotion,
+                'membership_model' => $source->membershipModel(),
+                'is_public' => (bool) $source->is_public,
+                'show_on_staff_page' => (bool) $source->show_on_staff_page,
+                'show_staff_icon' => (bool) $source->show_staff_icon,
+                'staff_title' => $source->staff_title,
+            ]);
+
+            // 2. Role baseline(s) — re-expand each assigned scope onto the clone (keeps role_assignments ↔ acl_entries in sync).
+            foreach (RoleAssignment::query()->where('holder_type', 'group')->where('holder_id', $source->getKey())->get() as $assignment) {
+                $role = Role::find($assignment->role_id);
+                if (! $role instanceof Role) {
+                    continue;
+                }
+                $scope = new Scope(
+                    (string) $assignment->scope_type,
+                    $assignment->scope_id !== null ? (int) $assignment->scope_id : null,
+                );
+                $this->expander->assign($role, 'group', (int) $clone->getKey(), $scope);
+            }
+
+            // 3. The source's OWN acl_entries — copy EVERY row verbatim (after step 2 so a manual override wins, exactly as on the source).
+            foreach (AclEntry::query()->where('holder_type', 'group')->where('holder_id', $source->getKey())->get() as $entry) {
+                AclEntry::updateOrCreate(
+                    [
+                        'permission_key' => $entry->permission_key,
+                        'holder_type' => 'group',
+                        'holder_id' => (int) $clone->getKey(),
+                        'scope_type' => $entry->scope_type,
+                        'scope_id' => $entry->scope_id,
+                    ],
+                    ['value' => (int) $entry->value, 'expires_at' => $entry->expires_at],
+                );
+            }
+
+            // 4. Bump the ACL version explicitly (G9). The Eloquent writes above bump via model events, but bump
+            //    once more unconditionally so the guarantee holds even for a zero-entry source — a resolve right
+            //    after clone must reflect the copied grants, never a stale cached verdict.
+            app(AclVersion::class)->bump();
+
+            // 5. Cache + audit (one entry).
+            if ($clone->is_public) {
+                GroupDirectory::forgetEnabled();
+            }
+            Audit::log('group.cloned', $clone, [
+                'source_id' => (int) $source->getKey(),
+                'source' => $source->name,
+                'name' => $clone->name,
+            ]);
+
+            return $clone;
+        });
     }
 
     /** Delete a custom group, reassigning its members first. Returns the number reassigned. */

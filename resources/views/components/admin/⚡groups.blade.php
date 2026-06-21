@@ -3,7 +3,9 @@
 use App\Admin\GroupException;
 use App\Admin\GroupManager;
 use App\Groups\GroupAutoPromoter;
+use App\Models\AclEntry;
 use App\Models\Group;
+use App\Models\Permission;
 use App\Models\Role;
 use App\Models\RoleAssignment;
 use App\Models\User;
@@ -183,6 +185,19 @@ new class extends Component
             $this->flash("Deleted “{$group->name}”.".($moved > 0 ? " Reassigned {$moved} member(s) to “{$reassignTo?->name}”." : ''), 'success');
             $this->deleteId = null;
             $this->reassignId = null;
+        } catch (GroupException $e) {
+            $this->flash($e->getMessage(), 'danger');
+        }
+    }
+
+    public function clone(int $id, GroupManager $manager): void
+    {
+        $source = Group::findOrFail($id);
+        $this->ensureCanClone($source);
+
+        try {
+            $clone = $manager->clone($source);
+            $this->flash("Cloned “{$source->name}” → “{$clone->name}”. The copy has no members yet.", 'success');
         } catch (GroupException $e) {
             $this->flash($e->getMessage(), 'danger');
         }
@@ -398,6 +413,38 @@ new class extends Component
         abort_unless($user instanceof User && $user->canDo('admin.access', Scope::global()), 403);
         abort_if($user->isStaff() && $user->two_factor_confirmed_at === null, 403);
     }
+
+    /**
+     * Cloning WRITES acl_entries, so it is a permission operation: reuse the card editor's full guard set — the
+     * manage-permissions capability, the rank guard (you can't clone a group you couldn't edit), and the
+     * admin-tier fence (a non-admin must not mint an Administration-tier grant onto a new group). Only custom
+     * groups are cloneable. Pre-checks for a clean 403; GroupManager::clone() is the actor-independent backstop.
+     */
+    private function ensureCanClone(Group $source): void
+    {
+        $this->ensureAdmin(); // admin.access + staff-2FA
+        $user = auth()->user();
+        abort_unless($user instanceof User && $user->canDo('permissions.manage', Scope::global()), 403);
+        abort_unless($source->type === 'custom' && ! $source->is_system, 403);          // only custom groups
+        abort_unless($user->isAdmin() || $user->rankPriority() > (int) $source->priority, 403); // rank guard
+        if (! $user->isAdmin() && $this->sourceHoldsAdminTierKey($source)) {
+            abort(403); // admin-tier fence
+        }
+    }
+
+    /** Whether the source group carries any Administration-tier acl_entries key (full-admin-only to clone). */
+    private function sourceHoldsAdminTierKey(Group $source): bool
+    {
+        $adminTier = Permission::query()->where('group', 'Administration')->pluck('key')->all();
+        if ($adminTier === []) {
+            return false;
+        }
+
+        return AclEntry::query()
+            ->where('holder_type', 'group')->where('holder_id', $source->getKey())
+            ->whereIn('permission_key', $adminTier)
+            ->exists();
+    }
 };
 ?>
 
@@ -581,6 +628,10 @@ new class extends Component
                             <x-ui.button type="button" variant="ghost" size="sm" icon wire:click="edit({{ $g->id }})" title="Edit" dusk="acp-group-edit-{{ $g->id }}">
                                 <x-ui.icon name="pencil" class="h-4 w-4" />
                             </x-ui.button>
+                            @if ($g->type === 'custom')
+                                {{-- Clone duplicates this group's permissions into a new, member-less group (custom groups only). --}}
+                                <x-ui.button type="button" variant="ghost" size="sm" wire:click="clone({{ $g->id }})" title="Clone this group's permissions into a new group" dusk="acp-group-clone-{{ $g->id }}">Clone</x-ui.button>
+                            @endif
                             @unless ($row['system'])
                                 <x-ui.button type="button" variant="danger-ghost" size="sm" icon wire:click="askDelete({{ $g->id }})" title="Delete">
                                     <x-ui.icon name="trash" class="h-4 w-4" />
