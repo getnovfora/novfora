@@ -137,6 +137,22 @@ return [
         'bulk_done' => ':count forum(s) updated.',
         'no_category' => 'This forum is not inside a category, so there is nothing to apply to.',
         'empty_groups' => 'No groups to show.',
+
+        // Simple-mode permissions (ADR-0089): the layman capability toggles + the Simple/Advanced switch.
+        'mode_label' => 'Editor mode',
+        'mode_simple' => 'Simple',
+        'mode_advanced' => 'Advanced',
+        'simple_intro' => 'Turn each capability on or off for a group. Switch to Advanced for the full Yes / No / Never controls.',
+        'restricted_note' => 'Restricted by a trust-level or Never rule — manage in Advanced.',
+        'capabilities' => [
+            'read_reply' => ['label' => 'Read & reply', 'subtitle' => 'View forums and post replies'],
+            'start_topics' => ['label' => 'Start new topics', 'subtitle' => 'Open new threads'],
+            'post_media' => ['label' => 'Post links & images', 'subtitle' => 'Hyperlinks and embedded images (restricted for brand-new accounts)'],
+            'react_vote' => ['label' => 'React & vote', 'subtitle' => 'React to posts and vote in polls'],
+            'polls_tags' => ['label' => 'Create polls & tags', 'subtitle' => 'Attach polls; create and apply tags'],
+            'follow' => ['label' => 'Follow members', 'subtitle' => 'Follow other members'],
+            'pm' => ['label' => 'Send private messages', 'subtitle' => 'Start and reply to private conversations'],
+        ],
     ],
 
     // The ACP search (pages · settings · members).
