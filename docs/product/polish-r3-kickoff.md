@@ -15,14 +15,24 @@ presentation layer over the existing trace. i18n under `admin.inspector.*` (ADR-
 Tests with each fix; `pint` · `phpstan` · `pest` (+ `dusk` for #1), capped output; small conventional commits,
 `-s` (DCO), `Tommy Huynh <tommy@saturnhq.net>`, no AI trailers; clean-room. Branch `claude/polish-r3` off `main`.
 
-## Fix 1 — Dusk `InstallerWizardTest` TimeoutException (the last CI red) — Opus `high`
+## Fix 1 — Dusk `InstallerWizardTest` TimeoutException (the last CI red) — Opus `high` to diagnose; escalate if it's a real installer defect
+**Rung:** `high` to find the cause (this is test-infra diagnosis, not security reasoning). **But the installer
+surface is apex-listed** — so if the root cause is a genuine installer-logic or security-boundary bug (a broken
+wizard step, an auth/token gate, a DB-test SSRF path), escalate the *fix* to `xhigh` / Fable @ max. A pure
+flaky-test harden (readiness wait, Chrome/MySQL startup) stays at `high`.
 The installer-wizard browser test times out in CI; it's been red on `main` and is unrelated to recent feature
 work. **Reproduce first** (Dusk needs Chrome + the disposable MySQL via `docker/dusk/`).
 - Run it; capture **where** it times out (which step/selector/wait). Decide: a genuine installer regression (a wizard step broken, a changed selector, a JS error) **or** a Dusk/env flake (Chrome startup, MySQL readiness, a too-short or blind wait)?
 - If a real bug: fix the wizard or the stale selector. If env/timing: harden with a proper `waitFor…` on a real readiness signal — **do not paper over a real hang by bumping a timeout**.
 - Verify: `php artisan dusk` green for `InstallerWizardTest`; record the root cause in the PR.
 
-## Fix 2 — Permission Inspector: human-readable explanation — Opus `high`
+## Fix 2 — Permission Inspector: human-readable explanation — ultracode (start Fable @ max on the mapping; downgrade scaffolding)
+**Rung:** the inspector is **apex-listed** in CLAUDE.md. The readable layer doesn't change permission *semantics*,
+but it must *faithfully represent* them — a wrong explanation (mis-stating a NEVER, an override, or who decided)
+is a security-trust defect that propagates into real grant/revoke decisions. So **verify the reason-code → sentence
+mapping at the top rung** (each template must match exactly what the resolver decided, incl. NEVER short-circuit
+and the override chain), then **downgrade the Blade/i18n scaffolding + the name lookups to Sonnet**. Floor is
+`xhigh`, not plain `high`.
 `/admin/security/permissions` → `resources/views/components/admin/⚡permission-inspector.blade.php` renders
 raw codes today (`group_allow`, `forum:2`, `group#7`). Add a **plain-language explanation block ABOVE the
 existing technical trace** (keep the trace + candidate-entries table for power users) — read-only, **core untouched**.
