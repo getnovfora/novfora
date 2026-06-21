@@ -27,11 +27,16 @@ class Group extends Model
     // helper. `color`/`description` (ACP v2) are cosmetic — they don't feed resolution — so they're safe to
     // include; the structural slug/type/priority/is_system stay server-written only. `membership_model`/
     // `is_public`/`auto_promotion` (v3-e) are config the GroupManager validates against a closed vocabulary.
-    protected $fillable = ['slug', 'name', 'color', 'description', 'type', 'priority', 'is_system', 'auto_promotion', 'membership_model', 'is_public'];
+    // `show_on_staff_page`/`show_staff_icon`/`staff_title` (ACP v3 · v3-g) are DISPLAY-ONLY cosmetics — they
+    // drive the staff flair + the public /staff roster and never feed permission resolution, so they are safe to
+    // mass-assign (like color/description), unlike the structural slug/type/priority/is_system.
+    protected $fillable = ['slug', 'name', 'color', 'description', 'type', 'priority', 'is_system', 'auto_promotion', 'membership_model', 'is_public', 'show_on_staff_page', 'show_staff_icon', 'staff_title'];
 
     protected $casts = [
         'is_system' => 'boolean',
         'is_public' => 'boolean',
+        'show_on_staff_page' => 'boolean',
+        'show_staff_icon' => 'boolean',
         'priority' => 'integer',
         'auto_promotion' => 'array',
     ];

@@ -50,7 +50,11 @@ class GroupSeeder extends Seeder
         foreach (self::systemGroups() as $slug => $data) {
             Group::updateOrCreate(
                 ['slug' => $slug],
-                ['name' => $data['name'], 'type' => 'system', 'priority' => $data['priority'], 'is_system' => true, 'auto_promotion' => null],
+                // v3-g: the Administrators + Moderators groups are surfaced on the public /staff roster by default
+                // (display-only; the per-group flag is not yet admin-editable in this slice, so re-seeding it to
+                // the default is safe).
+                ['name' => $data['name'], 'type' => 'system', 'priority' => $data['priority'], 'is_system' => true,
+                    'auto_promotion' => null, 'show_on_staff_page' => in_array($slug, ['admins', 'moderators'], true)],
             );
         }
 

@@ -142,6 +142,15 @@ final class SettingsRegistry
             // 'staff' → 'disabled' (off). Read by App\Community\MembersDirectory::visibleTo().
             new SettingDefinition('members.directory_visibility', 'string', default: 'everyone', group: 'members', label: 'Members directory visibility', options: ['disabled', 'staff', 'members', 'everyone']),
 
+            // ── Staff flair + roster (ACP v3 · v3-g) ────────────────────────────────────────────────
+            // Display-only, no acl_entries touch. staff_flair_show_badge (default ON): the master switch for the
+            // live, group-derived staff role badge across the UI (post author block / profile / members
+            // directory) — read by the <x-ui.staff-flair> component. staff_roster_enabled (default OFF, opt-in
+            // disclosure): publishes the public /staff "The Team" page — read by the ⚡community.staff-roster SFC
+            // (the route 404s when off). Both managed from Admin → Members → Staff flair.
+            new SettingDefinition('members.staff_flair_show_badge', 'bool', default: true, group: 'members', label: 'Show staff role badges'),
+            new SettingDefinition('members.staff_roster_enabled', 'bool', default: false, group: 'members', label: 'Publish the public Team page'),
+
             // ── Search engine (Phase 4 · M4.1) ──────────────────────────────────────────────────────
             // The Scout driver + Meilisearch connection. `database` is the baseline (no service); switching
             // to `meilisearch` is an OPT-IN enhanced upgrade — the ACP refuses the switch unless the host is
