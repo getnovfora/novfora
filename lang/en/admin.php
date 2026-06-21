@@ -84,6 +84,7 @@ return [
         'co_owners' => 'Co-owners',
         'admin_accounts' => 'Admin Manager',
         'permissions' => 'Permission Inspector',
+        'active_delegations' => 'Active delegations',
     ],
 
     // Per-section dashboard landing copy (foundations §3: start with the section summary; widgets land later).
@@ -210,6 +211,32 @@ return [
             // global OR a scoped (category/forum/ancestor) ban and cannot
             // tell which, so the label must not assert a site-wide scope.
             'none' => 'no matching rule',          // facts strip — deny-by-default
+        ],
+    ],
+
+    // ── Security → Active delegations (ACP v3 · v3-f, ADR-0087) ──────────────────────────────────────────
+    // Time-boxed, ceiling-bounded capability delegation. The co-owner-only Security pane's strings.
+    'security' => [
+        'delegations' => [
+            'intro' => 'Hand an individual a single capability for a bounded window. The grant can never exceed your own access, auto-expires (up to 30 days), and you can revoke it early at any time.',
+            'recipient' => 'Recipient (id, username, or email)',
+            'capability' => 'Capability',
+            'choose_capability' => 'Choose a capability…',
+            'scope' => 'Scope',
+            'scope_global' => 'site-wide',
+            'days' => 'Days',
+            'grant_action' => 'Delegate',
+            'cap_hint' => 'Up to :days days; the window is capped automatically.',
+            'active_heading' => 'Active delegations',
+            'by_until' => 'granted by :by · expires :expires',
+            'empty' => 'No active delegations.',
+            'revoke_action' => 'Revoke',
+            'revoke_confirm' => 'Revoke this delegation?',
+            'confirm' => 'Confirm',
+            'cancel' => 'Cancel',
+            'granted' => 'Delegated to :user — expires :expires.',
+            'revoked' => 'Delegation revoked.',
+            'no_user' => 'No user matched “:ref”.',
         ],
     ],
 ];
