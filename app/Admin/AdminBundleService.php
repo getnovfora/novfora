@@ -114,6 +114,11 @@ final class AdminBundleService
         });
 
         MembershipCache::flushFor($target);
+
+        // v3-f (ADR-0087): keep a delegation from outliving its delegator's current mask. A restricted admin holds
+        // only Administration-tier keys (never delegable) and cannot delegate (no admin.security.access), so this
+        // is a defensive no-op — wired for completeness should the model ever let such a user hold a delegable key.
+        app(DelegationService::class)->cascadeForActor($target);
     }
 
     /** Whether $target is a RESTRICTED admin: holds a per-user admin.access grant but is NOT a full (group) admin. */

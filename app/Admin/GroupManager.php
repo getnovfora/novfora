@@ -231,6 +231,14 @@ final class GroupManager
                 Audit::log('group.members.removed', $group, ['user_id' => $userId]);
             }
         });
+
+        // v3-f (ADR-0087): a group removal can drop the user below a capability they delegated as a co-owner —
+        // this is the path that actually reduces a delegator's delegable mask (those keys flow from the admins
+        // group). Re-check post-commit so canDo() reads the detached state; revoke any delegation that now exceeds
+        // the reduced mask. A no-op when the user granted no delegations or still holds the keys via another source.
+        if (($removed = User::find($userId)) instanceof User) {
+            app(DelegationService::class)->cascadeForActor($removed);
+        }
     }
 
     /** Swap a group's permission preset: clear its current expansion, then expand the new role (if any). */

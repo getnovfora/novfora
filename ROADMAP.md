@@ -84,10 +84,19 @@ no transfer) protected by a **last-owner guard** (`assertNotSoleCoOwnerLocked`, 
 sole-admin guard, enforced across `revoke` + account deletion + group removal); an **Admin Manager** giving an
 individual a subset of sections (a **restricted admin** — NOT in `admins`, holding `admin.access` + section keys as
 per-user grants, disjoint rows; G10); the ten `admin.<section>.access` keys gating the rail/landings per-section; 2FA
-extended to any panel-reacher. Each apex slice (v3-0, v3-c, v3-d, v3-b, v3-a) + the v3-e seam had an adversarial
-verify-then-refute review before commit. **Next: v3-f** (temporary-access delegation — the `expires_at` TTL the v3-0
-foundation already shipped), then v3-g per ADR-0080. Branches are **local-only** (owner pushes); v3-a/v3-b are off
-`main` (the v3-c/d/e stack is unmerged — they reuse the engine + the v3-d role model but are independent of it).
+extended to any panel-reacher. **v3-f ✅ temporary-access delegation (ADR-0087, branch `claude/acp-v3-f`)** — a co-owner
+hands an individual ONE capability for a bounded window (≤ 30 days), riding the v3-0 `expires_at` seam (no new eval
+path, no resolver change, no new cron). A `delegations` provenance table + `DelegationService` project each live row
+into ONE time-boxed user-holder `acl_entries` ALLOW; an **Active delegations** Security pane (co-owner-gated) lists +
+early-revokes them. Its apex fences: the **ceiling reused** (`assertWithinCeiling` at the target scope — delegate
+only what you hold), **co-owner / Administration-tier keys never delegable**, the **30-day cap**, and **no-clobber**
+(never time-box a recipient's permanent grant nor lift a NEVER; revoke deletes only the `whereNotNull(expires_at)`
+row). The **current-mask cascade** (`cascadeForActor`, re-checking `canDo` post-demotion) is wired into
+`GroupManager::removeMember` (the real delegable-mask reduction) + the spec-named co-owner/bundle revoke paths; the
+`GroupPermissionEditor` group-key fan-out is the documented bounded gap (capped by the 30-day expiry). Each apex slice
+(v3-0, v3-c, v3-d, v3-b, v3-a, v3-f) + the v3-e seam had an adversarial verify-then-refute review before commit.
+**Next: v3-g** per ADR-0080. Branches are **local-only** (owner pushes); v3-a/v3-b/v3-f are off `main` (the
+v3-c/d/e stack is unmerged — they reuse the engine + the v3-d role model but are independent of it).
 
 **Carried-in refinements:** Laravel 13 + Livewire 4; **PHP 8.3 floor** *(revises brief's 11/3 and the 8.2
 floor — flagged at the Phase 0 gate)*; no-SSH installer; coarse-cron-tolerant queue; WYSIWYG↔Livewire spike as
