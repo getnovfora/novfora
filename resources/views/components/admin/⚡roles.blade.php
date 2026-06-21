@@ -200,6 +200,24 @@ new class extends Component
         $this->deleteId = null;
     }
 
+    /**
+     * Clone a role (custom OR a system preset) into a new, editable, UNASSIGNED custom role. The same admin-tier
+     * fence as assign/delete applies: a non-admin must not duplicate a role carrying an Administration-tier key.
+     */
+    public function cloneRole(int $id, RoleManager $manager): void
+    {
+        $this->ensureManager();
+        $role = Role::findOrFail($id);
+        $this->assertNotAdminTierRole($role);
+
+        try {
+            $clone = $manager->clone($role);
+            $this->flash("Cloned “{$role->name}” → “{$clone->name}”. Edit and assign it when ready.", 'success');
+        } catch (RoleException $e) {
+            $this->flash($e->getMessage(), 'danger');
+        }
+    }
+
     public function delete(RoleManager $manager): void
     {
         $this->ensureManager();
@@ -449,6 +467,7 @@ new class extends Component
                         </div>
                         <div class="flex flex-wrap items-center gap-1">
                             <x-ui.button type="button" variant="ghost" size="sm" wire:click="openAssign({{ $r->id }})" dusk="acp-role-assign-{{ $r->id }}">Assign</x-ui.button>
+                            <x-ui.button type="button" variant="ghost" size="sm" wire:click="cloneRole({{ $r->id }})" title="Duplicate this role" dusk="acp-role-clone-{{ $r->id }}">Clone</x-ui.button>
                             <x-ui.button type="button" variant="ghost" size="sm" icon wire:click="edit({{ $r->id }})" title="Edit" dusk="acp-role-edit-{{ $r->id }}">
                                 <x-ui.icon name="pencil" class="h-4 w-4" />
                             </x-ui.button>
@@ -507,7 +526,11 @@ new class extends Component
                         <span class="font-medium text-ink">{{ $r->name }}</span>
                         <span class="ml-2 text-xs text-ink-subtle nums">{{ $row['keys'] }} permission(s)</span>
                     </div>
-                    <x-ui.button type="button" variant="ghost" size="sm" wire:click="edit({{ $r->id }})" title="View">View</x-ui.button>
+                    <div class="flex items-center gap-1">
+                        {{-- Clone a read-only preset into an editable custom role to use as a starting point. --}}
+                        <x-ui.button type="button" variant="ghost" size="sm" wire:click="cloneRole({{ $r->id }})" title="Copy into an editable custom role" dusk="acp-preset-clone-{{ $r->id }}">Clone</x-ui.button>
+                        <x-ui.button type="button" variant="ghost" size="sm" wire:click="edit({{ $r->id }})" title="View">View</x-ui.button>
+                    </div>
                 </li>
             @endforeach
         </ul>
