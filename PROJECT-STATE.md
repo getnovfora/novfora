@@ -11,7 +11,35 @@
 
 ---
 
-## ⏳ ACP v3 · v3-f — temporary-access delegation on `claude/acp-v3-f` — 2026-06-21 (LATEST · off `main`)
+## 🎉 ACP v3 · v3-g — staff flair + "The Team" roster on `claude/acp-v3-g` — 2026-06-21 (LATEST · off `main` · **completes the ACP v3 program**)
+
+**Unattended, owner-authorized session.** Built the FINAL ACP v3 slice **v3-g** (staff flair + roster, ADR-0088) — the
+**display capstone**: surface who's staff at a glance + a curated public "The Team" page. Deliberately the only
+**DISPLAY-ONLY** slice — **no `acl_entries` touch, no resolver, no `AclVersion` bump, no apex seam** (Sonnet-forward).
+Off `main`. Conventional DCO-signed `Tommy Huynh` commits, one per step, each gated green.
+
+**What shipped.** (1) `User::staffRole(): ?string` — a canonical role KEY (`co_owner` / `administrator` / `moderator` /
+`forum_moderator` / null), memoized; reuses `isAdmin()`/`isStaff()` + `AdminCoOwnerService::isCoOwner` (the only extra DB
+touch, admins-only) + `moderator_assignments`; companions `staffTitle()` / `showsStaffIcon()` read the loaded groups. (2)
+`<x-ui.staff-flair :user>` (badge + optional icon, gated by `members.staff_flair_show_badge`) slotted into the post
+author block (replacing the old inline role ternary), profile hero, and members-directory card (online list deferred —
+spec-optional). (3) One additive/reversible migration: 3 display-only `groups` columns (`show_on_staff_page` seeded true
+on admins+moderators, `show_staff_icon`, `staff_title`) + 2 `members.*` settings. (4) `/staff` → `members.staff` →
+`⚡community.staff-roster` (gated 404 when off; active members of flagged groups ∪ per-user forum-mods, bucketed by role
+Co-owners→Administrators→Moderators→Forum moderators; no non-flagged leak). (5) `⚡admin.settings.staff-flair` ACP
+toggles + Members nav sub-page + `admin.nav.staff_flair`.
+
+**The one perf seam (not apex).** The `forum_moderator` check would N+1 the topic hot path, so `User::moderatorAssignments()`
+is eager-loadable and `TopicController` (+ the members-directory SFC) eager-loads it — ONE board-wide IN query; the
+`HotPathQuery` topic ceiling moved `<41`→`<42` for that single constant (gate verified, 16 distinct authors).
+
+**Gates.** `pest` full suite **1864 pass / 1 skip** (StaffFlairTest + StaffRosterTest = 19 cases) · `pint` · `phpstan`
+L max (app/) · `migrate` apply+rollback+re-apply. **ACP v3 program (ADR-0080) is COMPLETE** — v3-0, v3-h, v3-c, v3-e,
+v3-d, v3-b, v3-a, v3-f, v3-g all shipped. No remaining v3 slices.
+
+---
+
+## ⏳ ACP v3 · v3-f — temporary-access delegation on `claude/acp-v3-f` — 2026-06-21 (off `main`)
 
 **Unattended, owner-authorized session.** Built ACP v3 slice **v3-f** (temporary-access delegation, ADR-0087) — a
 co-owner hands an individual ONE capability for a bounded window (≤ 30 days), riding the v3-0 `expires_at` seam:

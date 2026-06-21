@@ -63,6 +63,18 @@ return [
     'confirm_delete_post' => 'Delete this post?',
     'role_admin' => 'Admin',
     'role_moderator' => 'Moderator',
+    // Staff flair role labels (ACP v3 · v3-g) — the canonical labels User::staffRole() maps to.
+    'role_co_owner' => 'Co-owner',
+    'role_administrator' => 'Administrator',
+    'role_forum_moderator' => 'Forum moderator',
+    // "The Team" public staff roster (/staff, ACP v3 · v3-g).
+    'staff_page_title' => 'The Team',
+    'staff_page_intro' => 'Meet the people who keep this community running.',
+    'staff_empty' => 'There are no staff members to show yet.',
+    'staff_heading_co_owner' => 'Co-owners',
+    'staff_heading_administrator' => 'Administrators',
+    'staff_heading_moderator' => 'Moderators',
+    'staff_heading_forum_moderator' => 'Forum moderators',
     'joined_label' => 'Joined',                 // sr-only
     'joined_on' => 'Joined :date',
     'post_count' => ':count posts',

@@ -4,6 +4,7 @@
 
 namespace App\Models;
 
+use App\Admin\AdminCoOwnerService;
 use App\Permissions\PermissionResolver;
 use App\Permissions\Scope;
 use App\Support\GroupColor;
@@ -41,6 +42,11 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public const THREAD_SORTS = ['oldest', 'newest'];
 
+    /** Per-instance memo for {@see staffRole()} (display-only; resolved at most once per request). */
+    private ?string $staffRoleMemo = null;
+
+    private bool $staffRoleResolved = false;
+
     protected function casts(): array
     {
         return [
@@ -65,6 +71,17 @@ class User extends Authenticatable implements MustVerifyEmail
     public function groupJoinRequests(): HasMany
     {
         return $this->hasMany(GroupJoinRequest::class);
+    }
+
+    /**
+     * The per-user, per-forum moderator assignments this user holds (v3-b) — the signal for the
+     * `forum_moderator` staff flair (v3-g). The polymorphic holder is keyed on `holder_id` with a baked-in
+     * `holder_type='user'` constraint, so it eager-loads in one IN query; load it on list surfaces (the topic
+     * page, the members directory) so {@see staffRole()} resolves with NO per-row query. @return HasMany<ModeratorAssignment, $this>
+     */
+    public function moderatorAssignments(): HasMany
+    {
+        return $this->hasMany(ModeratorAssignment::class, 'holder_id')->where('holder_type', 'user');
     }
 
     /** The user's chosen/assigned primary group (rank badge, colour, title under the avatar), or null. */
@@ -163,6 +180,64 @@ class User extends Authenticatable implements MustVerifyEmail
     public function rankPriority(): int
     {
         return (int) ($this->groups->max('priority') ?? 0);
+    }
+
+    /**
+     * The user's canonical STAFF ROLE key (ACP v3 · v3-g), or null for a non-staff member. One of:
+     * `co_owner` (an admins-group member carrying the co-owner flag), `administrator` (any other admins-group
+     * member), `moderator` (a moderators-group member), or `forum_moderator` (a per-user per-forum moderator
+     * assignment, v3-b). DISPLAY-ONLY: it drives the {@see User} staff flair + the public "The Team"
+     * roster and NEVER reads or writes `acl_entries` (no resolver involvement, no AclVersion bump). Reads the
+     * already-loaded `groups` relation; the co-owner check ({@see AdminCoOwnerService::isCoOwner}) is the only
+     * extra DB touch, and only for an admin; the forum-moderator step reads the `moderatorAssignments` relation
+     * (eager-load it on list surfaces to keep this O(1) per page). Memoized per instance.
+     */
+    public function staffRole(): ?string
+    {
+        if ($this->staffRoleResolved) {
+            return $this->staffRoleMemo;
+        }
+        $this->staffRoleResolved = true;
+
+        if ($this->isAdmin()) {
+            return $this->staffRoleMemo = app(AdminCoOwnerService::class)->isCoOwner($this) ? 'co_owner' : 'administrator';
+        }
+        if ($this->isStaff()) { // admins already returned above → a moderators-group member
+            return $this->staffRoleMemo = 'moderator';
+        }
+        if ($this->moderatorAssignments->isNotEmpty()) {
+            return $this->staffRoleMemo = 'forum_moderator';
+        }
+
+        return $this->staffRoleMemo = null;
+    }
+
+    /**
+     * An optional per-group custom staff title (`groups.staff_title`, v3-g) that overrides the canonical role
+     * label in the flair — taken from the user's highest-priority staff group, or null when none is set. Reads
+     * the loaded `groups` relation (no query); a forum-moderator (no staff group) always falls back to the
+     * canonical label.
+     */
+    public function staffTitle(): ?string
+    {
+        $title = $this->staffGroup()?->staff_title;
+
+        return $title !== null && $title !== '' ? (string) $title : null;
+    }
+
+    /** Whether any of the user's groups opts its staff flair into an icon (`groups.show_staff_icon`, v3-g). */
+    public function showsStaffIcon(): bool
+    {
+        return $this->groups->contains(fn (Group $g): bool => (bool) $g->show_staff_icon);
+    }
+
+    /** The highest-priority system staff group (admins/moderators) the user belongs to, for title/icon derivation. */
+    private function staffGroup(): ?Group
+    {
+        return $this->groups
+            ->whereIn('slug', ['admins', 'moderators'])
+            ->sortByDesc('priority')
+            ->first();
     }
 
     /**

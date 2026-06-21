@@ -48,6 +48,7 @@ use App\Http\Middleware\RequireTwoFactorForStaff;
 use App\Models\Conversation;
 use App\Models\Forum;
 use App\Models\Post;
+use App\Settings\Settings;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Route;
 
@@ -194,6 +195,15 @@ Route::get('/members/top', function () {
 
     return view('members.top');
 })->name('members.top');
+
+// "The Team" public staff roster (ACP v3 · v3-g) — gated by members.staff_roster_enabled (OFF by default): a
+// 404 when the roster is unpublished (no disclosure), mirroring the directory's route-guard + SFC self-guard.
+// The route stays registered so nav / Route::has() can reference it. Display-only — never touches acl_entries.
+Route::get('/staff', function () {
+    abort_unless(app(Settings::class)->bool('members.staff_roster_enabled'), 404);
+
+    return view('members.staff');
+})->name('members.staff');
 
 // Compose / moderate / upload — authenticated + email-verified.
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -390,6 +400,8 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
 
         // Members section — directory visibility, badges, and membership tiers/grants.
         Route::view('/members/directory', 'admin.members.directory')->name('members.directory');
+        // ACP v3 · v3-g — staff flair + "The Team" roster toggles (display-only). <livewire:admin.settings.staff-flair />
+        Route::view('/members/staff-flair', 'admin.members.staff-flair')->name('members.staff-flair');
         Route::view('/members/badges', 'admin.badges')->name('badges');              // <livewire:admin.badges />
         Route::view('/members/tiers', 'admin.tiers')->name('tiers');                 // <livewire:admin.tiers /> (no charge here)
         Route::view('/members/memberships', 'admin.memberships')->name('memberships'); // <livewire:admin.member-grants />
