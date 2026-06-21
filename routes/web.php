@@ -435,6 +435,7 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/security/co-owners', 'admin.security.co-owners')->name('security.co-owners'); // <livewire:admin.security.co-owners />
         Route::view('/security/accounts', 'admin.security.accounts')->name('security.accounts');    // <livewire:admin.security.admin-accounts />
         Route::view('/security/permissions', 'admin.permissions')->name('security.permissions');
+        Route::view('/security/delegations', 'admin.security.delegations')->name('security.delegations'); // v3-f: <livewire:admin.security.active-delegations />
     });
 
 // ACP v3 (v3-h): 301 the OLD admin URLs to their new section homes (foundations §3). Bare redirects (no gate):

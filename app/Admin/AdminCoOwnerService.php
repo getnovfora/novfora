@@ -116,6 +116,12 @@ final class AdminCoOwnerService
         });
 
         MembershipCache::flushFor($target);
+
+        // v3-f (ADR-0087): honour "a delegation never outlives its delegator's current mask". Losing co-ownership
+        // only strips admin.security.access (not a delegable key) and leaves admins membership intact, so this is
+        // a defensive no-op in practice — but it guarantees the invariant if the demoted user can no longer hold a
+        // key they delegated. The actual delegable-mask reduction is admins-group removal (GroupManager).
+        app(DelegationService::class)->cascadeForActor($target);
     }
 
     /**

@@ -11,7 +11,37 @@
 
 ---
 
-## 🛡️ ACP v3 · v3-a — co-owners + Admin Manager + per-section bundles on `claude/acp-v3-a` — 2026-06-20 (LATEST · off `main`)
+## ⏳ ACP v3 · v3-f — temporary-access delegation on `claude/acp-v3-f` — 2026-06-21 (LATEST · off `main`)
+
+**Unattended, owner-authorized session.** Built ACP v3 slice **v3-f** (temporary-access delegation, ADR-0087) — a
+co-owner hands an individual ONE capability for a bounded window (≤ 30 days), riding the v3-0 `expires_at` seam:
+**no new eval path (G1), no resolver change, no new cron, no `acl_entries` schema change.** Off `main`, independent of
+the unmerged v3-c/d/e stack. Conventional DCO-signed `Tommy Huynh` commits, one per step, each gated green; the apex
+ceiling/no-clobber mapping had a 5-reason adversarial verify pass (caught the no-clobber + the real cascade trigger).
+
+**What shipped.** (1) An additive/reversible `delegations` provenance table (G10) + `App\Models\Delegation` (a `live()`
+scope). (2) `App\Admin\DelegationService` (apex) — `grant()` fences {co-owner only · non-delegable admin/security keys ·
+**ceiling reused** via `assertWithinCeiling` at the target scope · 30-day clamp · **no-clobber**}, projecting ONE
+time-boxed user-holder ALLOW row; `revoke()` (key-scoped delete + `AclVersion::bump`, G9); `cascadeForActor()` (the
+current-mask re-check). (3) The **Active delegations** Security SFC (`⚡active-delegations`, the 2FA co-owner gate in
+mount + every action) + `@extends` wrapper + route `security.delegations` + nav `[active_delegations, …, clock]` +
+`admin.security.delegations.*` lang. (4) Cascade hooks (one line, post-commit) in `GroupManager::removeMember` (the real
+delegable-mask reduction) + `AdminCoOwnerService::revoke` + `AdminBundleService::revoke` (spec-named, defensive).
+
+**Apex correctness.** The recipient never exceeds the delegator's mask: the grant-time ceiling reuses the engine fence;
+the **current-mask cascade** revokes a delegation once the delegator loses the key (a co-owner's delegable keys flow
+from the `admins` group → `GroupManager::removeMember` is the path that matters). **No-clobber:** `acl_entries` has no
+unique index and a forum-mod can hold a permanent row at the same cell, so grant refuses a live/NEVER cell and revoke
+deletes only the `whereNotNull(expires_at)` row — never a permanent grant. Auto-expiry is the v3-0 seam (a test pins the
+`can()` flip with **no prune run**, then the prune sweeps the dead row). **Documented bounded gap:** a co-owner's group
+later losing a key via `GroupPermissionEditor` is not cascaded (a member-set fan-out), capped by the ≤ 30-day expiry.
+
+**Gates.** `pest` (DelegationTest: 16 cases / 55 assertions; full Admin+Permissions regression 331 green) · `pint` ·
+`phpstan` L max (app/) · `migrate` apply+rollback+re-apply · asset budget (no drift). **Next: v3-g** per ADR-0080.
+
+---
+
+## 🛡️ ACP v3 · v3-a — co-owners + Admin Manager + per-section bundles on `claude/acp-v3-a` — 2026-06-20 (off `main`)
 
 **Unattended, owner-authorized session.** Built ACP v3 slice **v3-a** (co-owners + Admin Manager + the per-section
 `admin.<section>.access` gating, ADR-0086) — the top admin tier, additive over the existing engine (G1, no new eval

@@ -117,7 +117,12 @@ final class RoleExpander
                     'scope_type' => $scope->type,
                     'scope_id' => $scope->id,
                 ],
-                ['value' => $permission->value],
+                // A role/moderator expansion is a PERMANENT grant — write expires_at = null explicitly. acl_entries
+                // has no unique cell constraint, so without this an updateOrCreate landing on a v3-f delegation's
+                // time-boxed row at the same (holder, key, scope) cell would INHERIT its TTL — silently time-boxing
+                // the now-permanent grant (and exposing it to the delegation's revoke). Clearing the TTL makes the
+                // expansion authoritative and permanent (ADR-0087 no-clobber, the reverse-ordering case).
+                ['value' => $permission->value, 'expires_at' => null],
             );
         }
     }
