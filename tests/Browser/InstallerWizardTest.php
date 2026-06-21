@@ -82,6 +82,10 @@ it('drives the full installer wizard in a real browser, then locks', function ()
 
             // ── STEP 4 — review & install ────────────────────────────────────────────────────────────
             ->assertSee('Dusk Community')               // the review echoes what we typed (wire:model stuck)
+            ->press('Install NovFora')                  // wire:click -> runInstall: the actual install action.
+                                                        //   (The Hearth→NovFora rename, b0cc294, dropped this
+                                                        //    press instead of renaming it, so the wizard never
+                                                        //    left step 4 and the wait below always timed out.)
 
             ->waitForText('is installed', 60)           // step 5 — the real install ran to completion
             ->assertSee('cron');                        // the post-install cron-line guidance
