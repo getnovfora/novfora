@@ -3,7 +3,13 @@
 @extends('layouts.app', ['title' => 'Admin · Group permissions'])
 
 @section('content')
+    @php($mode = request()->query('mode') === 'advanced' ? 'advanced' : 'simple')
     <x-admin.shell :title="__('admin.perms.title')">
-        <livewire:permissions.group-editor scope-type="global" />
+        <div class="mb-4"><x-admin.perm-mode-switch :mode="$mode" /></div>
+        @if ($mode === 'advanced')
+            <livewire:permissions.group-editor scope-type="global" />
+        @else
+            <livewire:permissions.group-simple-editor scope-type="global" />
+        @endif
     </x-admin.shell>
 @endsection
