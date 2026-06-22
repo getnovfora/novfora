@@ -93,13 +93,38 @@ it('promotes a clean TL0 member to TL1 once posts + tenure thresholds are met, a
     expect(app(PermissionResolver::class)->can($user->fresh(), 'post.links', Scope::global()))->toBeTrue();
 });
 
-it('freezes promotion while a (sub-threshold) flag is live', function () {
+it('lets an active member with a live warning still graduate to TL1 — escaping new-user moderation (ADR-0092)', function () {
     $user = Users::inGroups(['members', 'tl0']);
     $user->forceFill(['created_at' => now()->subDays(3)])->save();
     givePosts($user, 6);
-    giveReads($user, 5); // qualifies on posts/tenure/reads — so the ONLY thing freezing promotion is the flag
+    giveReads($user, 5); // meets TL1 on posts/tenure/reads
+    Warning::create(['user_id' => $user->getKey(), 'points' => 3, 'expires_at' => now()->addDays(30)]); // sub-demotion
+
+    // The live warning no longer pins them at TL0 — they escape to TL1 (and out of the TL0 hold gate).
+    expect(app(TrustLevelManager::class)->recompute($user))->toBe(1);
+    expect((int) $user->fresh()->trust_level)->toBe(1);
+});
+
+it('caps a warned member at TL1 — no climb to TL2 while a warning is live (ADR-0092)', function () {
+    // A TL1 member who structurally + reputationally qualifies for TL2, but carries a live sub-demotion warning.
+    $user = Users::inGroups(['members', 'tl1'], ['trust_level' => 1]);
+    $user->forceFill(['created_at' => now()->subDays(30), 'reputation_points' => 100])->save(); // tl2: 15 days, rep ≥ 10
+    givePosts($user, 60);  // tl2 min_posts = 50
+    giveReads($user, 5);
     Warning::create(['user_id' => $user->getKey(), 'points' => 3, 'expires_at' => now()->addDays(30)]);
 
+    // Without the warning they'd reach TL2; the warning caps them at TL1 (and never demotes below it).
+    expect(app(TrustLevelManager::class)->recompute($user))->toBe(1);
+    expect((int) $user->fresh()->trust_level)->toBe(1);
+});
+
+it('keeps a NON-active member fully frozen regardless of TL1 eligibility (status freeze unchanged)', function () {
+    $user = Users::inGroups(['members', 'tl0'], ['status' => 'suspended']);
+    $user->forceFill(['created_at' => now()->subDays(3)])->save();
+    givePosts($user, 6);
+    giveReads($user, 5); // meets TL1 structurally…
+
+    // …but a suspended account stays frozen at its current level (no TL1 escape for a non-active status).
     expect(app(TrustLevelManager::class)->recompute($user))->toBe(0);
     expect((int) $user->fresh()->trust_level)->toBe(0);
 });

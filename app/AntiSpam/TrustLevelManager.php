@@ -23,10 +23,11 @@ use App\Support\Audit;
  * runs from the scheduler (`novfora:trust:recompute`, cron — ADR-0011), is idempotent, and reads the
  * numeric promotion thresholds from each TL group's `auto_promotion` config.
  *
- * Rules: a live infraction-point total ≥ `demotion_points` demotes to TL0; any lesser live flag (a warning
- * or a non-active status) freezes promotion at the current level; otherwise the user settles at the highest
- * level whose thresholds they meet. TL4 (leader) is manual — never auto-granted, and only the hard demotion
- * can lower it.
+ * Rules: a live infraction-point total ≥ `demotion_points` demotes to TL0; a non-active status (pending /
+ * suspended) freezes promotion at the current level; a sub-demotion live warning no longer PINS a member in
+ * new-user moderation — an active member still graduates to TL1 but is CAPPED there until the warning clears
+ * (ADR-0092); otherwise the user settles at the highest level whose thresholds they meet. TL4 (leader) is
+ * manual — never auto-granted, and only the hard demotion can lower it.
  */
 final class TrustLevelManager
 {
@@ -59,12 +60,101 @@ final class TrustLevelManager
             return 4;
         }
 
-        // A lesser live flag (a warning, or a pending/suspended status) freezes promotion at the current level.
-        if ($points > 0 || ($user->status ?? 'active') !== 'active') {
+        // A non-active status (pending / suspended) freezes promotion entirely at the current level.
+        if (($user->status ?? 'active') !== 'active') {
             return $current;
         }
 
-        return $this->earnedLevel($user);
+        $earned = $this->earnedLevel($user);
+
+        // ADR-0092: a sub-demotion live warning no longer PINS a member in new-user moderation. An ACTIVE member
+        // who has earned TL1 still graduates to TL1 (escaping the TL0 hold); the warning still CAPS promotion at
+        // TL1 (no climb to TL2+ while a warning is live) and never demotes — the target is max(current, min(earned, 1)).
+        if ($points > 0) {
+            return max($current, min($earned, 1)); // 1 = TL1
+        }
+
+        return $earned;
+    }
+
+    /**
+     * The reason the user's trust promotion is currently held back, or null if nothing freezes it. Read-only;
+     * reuses the SAME freeze logic as evaluate() so the diagnosis never drifts from the engine's decision.
+     */
+    public function freezeReason(User $user): ?string
+    {
+        $points = $this->liveInfractionPoints($user);
+        $demotion = (int) config('novfora.antispam.trust.demotion_points', 10);
+
+        if ($points >= $demotion) {
+            return "hard demotion: {$points} live infraction point(s) ≥ {$demotion}";
+        }
+        if (($user->status ?? 'active') !== 'active') {
+            return 'frozen: status != active ('.($user->status ?? 'active').')';
+        }
+        // A live warning no longer freezes the TL0→TL1 graduation (ADR-0092); it CAPS promotion at TL1, so it
+        // only holds a member back when they've otherwise earned past TL1 (mirrors evaluate()'s cap).
+        if ($points > 0 && $this->earnedLevel($user) > 1) {
+            return "promotion capped at TL1 by {$points} live warning point(s)";
+        }
+
+        return null;
+    }
+
+    /**
+     * A read-only diagnosis of WHERE the user's trust level stands and WHY — drives the `--user` recompute
+     * diagnostic and the moderation-queue hold reason. Reuses evaluate()/earnedLevel()/freezeReason() so it can
+     * never disagree with the engine (no forked thresholds).
+     *
+     * @return array{current:int, target:int, reason:string}
+     */
+    public function explain(User $user): array
+    {
+        $current = (int) $user->trust_level;
+        $target = $this->evaluate($user);
+        $freeze = $this->freezeReason($user);
+
+        if ($freeze !== null) {
+            $reason = $freeze;
+        } elseif ($current === 4) {
+            $reason = 'TL4 (leader) — manual level, not auto-changed';
+        } else {
+            $earned = $this->earnedLevel($user);
+            if ($earned > $current) {
+                $reason = "eligible → promoted to TL{$earned}";
+            } elseif ($earned < $current) {
+                $reason = "structural demotion → TL{$earned}";
+            } else {
+                $reason = $this->belowThresholdReason($user, $current);
+            }
+        }
+
+        return ['current' => $current, 'target' => $target, 'reason' => $reason];
+    }
+
+    /** Explain the gap to the next rung — "below threshold (posts X/5, days Y/1, reads Z/5)". */
+    private function belowThresholdReason(User $user, int $current): string
+    {
+        $next = $current + 1;
+        $rules = $this->rules('tl'.$next);
+        if ($rules === null || ($rules['manual'] ?? false)) {
+            return "at TL{$current}; TL{$next} is not auto-granted";
+        }
+
+        $posts = Post::where('user_id', $user->getKey())->count();
+        $reads = TopicRead::where('user_id', $user->getKey())->count();
+        $days = $user->created_at ? (int) abs($user->created_at->diffInDays(now())) : 0;
+
+        $parts = [
+            'posts '.$posts.'/'.(int) ($rules['min_posts'] ?? 0),
+            'days '.$days.'/'.(int) ($rules['min_days'] ?? 0),
+            'reads '.$reads.'/'.(int) ($rules['min_topics_read'] ?? 0),
+        ];
+        if ((int) ($rules['min_reputation'] ?? 0) > 0) {
+            $parts[] = 'reputation '.(int) $user->reputation_points.'/'.(int) $rules['min_reputation'];
+        }
+
+        return "below threshold for TL{$next} (".implode(', ', $parts).')';
     }
 
     /**

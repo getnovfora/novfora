@@ -6,6 +6,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\AntiSpam\NewUserModeration;
+use App\AntiSpam\TrustLevelManager;
+use App\Events\PostCreated;
 use App\Forum\PostService;
 use App\Models\Forum;
 use App\Models\Post;
@@ -151,7 +154,28 @@ class ModerationController extends Controller
             ->filter(fn (Post $p) => $p->topic && $user->canDo('topic.moderate', Scope::thread((int) $p->topic_id)))
             ->values();
 
-        return view('moderation.queue', compact('topics', 'posts'));
+        // Per-author hold reason so a moderator isn't guessing why an item sits in the queue (read-only). For a
+        // TL0 new user who is ALSO stuck because trust promotion is frozen (a live warning / non-active status),
+        // surface that too — it explains why they keep getting held instead of graduating.
+        $nm = app(NewUserModeration::class);
+        $tl = app(TrustLevelManager::class);
+        $holdReasons = [];
+        foreach ($topics->pluck('author')->merge($posts->pluck('author'))->filter() as $author) {
+            $id = (int) $author->id;
+            if (array_key_exists($id, $holdReasons)) {
+                continue;
+            }
+            $reason = $nm->holdReason($author);
+            if ($reason !== null && ($author->status ?? 'active') !== 'pending') {
+                $freeze = $tl->freezeReason($author);
+                if ($freeze !== null) {
+                    $reason .= ' '.ucfirst($freeze).'.';
+                }
+            }
+            $holdReasons[$id] = $reason;
+        }
+
+        return view('moderation.queue', compact('topics', 'posts', 'holdReasons'));
     }
 
     public function approveTopic(Request $request, Topic $topic, PostService $posts): RedirectResponse
@@ -188,6 +212,19 @@ class ModerationController extends Controller
         Audit::log('post.approved', $post);
 
         $posts->dispatchPostNotifications($post); // updated in memory (approved_state set above)
+
+        // A queue-approved reply must earn its normal post-commit side-effects (activity, badges, reputation,
+        // group auto-promotion) AND immediately count toward lifting the author out of TL0 new-user moderation —
+        // instead of waiting on the hourly trust cron. PostCreated was NEVER dispatched at write time (the held
+        // reply was `pending`, and PostService::reply only dispatches it for an approved reply), and none of its
+        // listeners send reply/mention notifications (those flow solely through dispatchPostNotifications above),
+        // so dispatching it now does not double-notify. Then recompute the author's trust eagerly via the single
+        // promotion authority so the next post isn't needlessly held by the now-stale approved-count gate.
+        PostCreated::dispatch($post);
+        $author = $post->author;
+        if ($author instanceof User) {
+            app(TrustLevelManager::class)->recompute($author);
+        }
 
         return back();
     }

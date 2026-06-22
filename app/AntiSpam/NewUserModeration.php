@@ -38,4 +38,32 @@ final class NewUserModeration
 
         return $approved < $limit;
     }
+
+    /**
+     * A human reason this gate holds the author's content, or null when THIS gate isn't what holds it (e.g. a
+     * content/word filter held the post — we don't claim to know its reason). Read-only; mirrors shouldHold()'s
+     * two conditions so a moderator isn't left guessing why an item sits in the queue.
+     */
+    public function holdReason(User $author): ?string
+    {
+        if (! $author->getKey()) {
+            return null;
+        }
+
+        if (($author->status ?? 'active') === 'pending') {
+            return 'Account flagged — all content held until staff clear it.';
+        }
+
+        $limit = (int) config('novfora.antispam.new_user_moderation.posts', 2);
+        if ($limit <= 0 || ! $author->groups()->where('slug', 'tl0')->exists()) {
+            return null;
+        }
+
+        $approved = Post::where('user_id', $author->getKey())->where('approved_state', 'approved')->count();
+        if ($approved >= $limit) {
+            return null;
+        }
+
+        return "New user — {$approved} of {$limit} posts approved.";
+    }
 }
