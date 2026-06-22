@@ -142,6 +142,10 @@
                                                 {{ $topic->title }}
                                             </a>
                                             <p class="text-xs text-ink-subtle">{{ __('forum.by') }} <x-ui.user-name :user="$topic->author" /></p>
+                                            @if ($topic->firstPost?->body_text)
+                                                {{-- M3: first-post excerpt (the cached OP text projection). --}}
+                                                <p class="mt-0.5 line-clamp-1 text-xs text-ink-subtle">{{ \Illuminate\Support\Str::limit($topic->firstPost->body_text, 140) }}</p>
+                                            @endif
                                         </div>
                                     </div>
                                 </td>
@@ -203,6 +207,10 @@
                                 {{ $topic->title }}
                             </a>
                             <p class="mt-0.5 text-sm text-ink-muted">{{ __('forum.by') }} <x-ui.user-name :user="$topic->author" /></p>
+                            @if ($topic->firstPost?->body_text)
+                                {{-- M3: first-post excerpt (the cached OP text projection). --}}
+                                <p class="mt-1 line-clamp-2 text-sm text-ink-subtle">{{ \Illuminate\Support\Str::limit($topic->firstPost->body_text, 160) }}</p>
+                            @endif
                             <dl class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-subtle">
                                 <div class="flex items-center gap-1">
                                     <dt class="sr-only">{{ __('forum.col_replies') }}</dt>
