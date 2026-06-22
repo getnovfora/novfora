@@ -7,7 +7,7 @@ Copyright 2026 The NovFora Authors
 > Goal: produce a single **ready-to-upload `novfora-release.zip`** the owner can drop onto a shared host (no
 > toolchain on their side) for the real-host validation. Small, focused build task — not features.
 > The owner has **no local PHP/Composer**, so the build runs in the Docker env, and the artifact is delivered
-> into `D:\Forum\` for download. Pairs with [REAL-HOST-VALIDATION.md](../REAL-HOST-VALIDATION.md) §2.
+> into `D:\Forum\` for download. Pairs with [REAL-HOST-VALIDATION.md](../../REAL-HOST-VALIDATION.md) §2.
 
 ---
 
@@ -61,5 +61,5 @@ built for PHP 8.3+ (the host must run 8.3+ per the checklist).
 ## After this
 
 The owner downloads `novfora-release.zip` from their `D:\Forum` folder and uploads it to each shared host per
-[REAL-HOST-VALIDATION.md](../REAL-HOST-VALIDATION.md) §3 onward (extract → point the doc root at `public/` →
+[REAL-HOST-VALIDATION.md](../../REAL-HOST-VALIDATION.md) §3 onward (extract → point the doc root at `public/` →
 create an empty DB → run the browser installer with the setup token). Cowork triages whatever the hosts surface.

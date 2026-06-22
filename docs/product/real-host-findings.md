@@ -163,7 +163,7 @@ toggle).
   Livewire auto-injection **disabled** and asserts the runtime is still shipped from the layout, the boot guard
   is present, and there is exactly **one** Livewire bundle (no duplicate). Fails on a revert to "auto-inject only".
 
-Kickoff: [installer-fix-kickoff.md](installer-fix-kickoff.md).
+Kickoff: [installer-fix-kickoff.md](archive/installer-fix-kickoff.md).
 
 ### ⭐ RH-7 — Install-enforce middleware redirects Livewire's update endpoint → wizard can't complete — FIXED + VALIDATED on the live host
 **This was the actual reason the wizard "does nothing."** Confirmed by direct live-host inspection
@@ -222,7 +222,7 @@ after the fix; full Pest **319 passed / 1 skipped (1047 assertions)**, Pint + La
 The deployable bundle was rebuilt (`scripts/build-release.sh`) and cold-boot-verified (fresh extract, empty
 `APP_KEY`, no DB → `GET /` → **302 → /install**): `novfora-release.zip` **12,937,205 bytes**, sha256
 `ebff39444dae1f6357e0f7b9c27fe5e0d4ad1ac58687d12da447ab15d27db956` (ships `bootstrap/cache/packages.php`; the
-fixed middleware is inside). Kickoff: [installer-redirect-fix-kickoff.md](installer-redirect-fix-kickoff.md).
+fixed middleware is inside). Kickoff: [installer-redirect-fix-kickoff.md](archive/installer-redirect-fix-kickoff.md).
 
 **Validated on the live host:** the operator re-uploaded the bundle and the no-SSH wizard completed end-to-end
 on `nevo.adorablespider.com` — system check → token → DB → site/admin → install → lock, then the demo

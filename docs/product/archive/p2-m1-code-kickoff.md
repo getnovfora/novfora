@@ -6,7 +6,7 @@ Copyright 2026 The NovFora Authors
 
 > Paste the block below into the **Claude Code** session to begin **Phase 2 · P2-M1**. The Phase-2 plan is
 > **owner-approved (2026-06-09)**; build source is
-> [phase-2-implementation-plan.md](phase-2-implementation-plan.md) (8 review amendments folded in — its §0 is
+> [phase-2-implementation-plan.md](../phase-2-implementation-plan.md) (8 review amendments folded in — its §0 is
 > the diff from Code's draft). P2-M1 is the **engagement & content-depth** milestone: 7 independent, beta-
 > independent, parallel-safe PR slices on the proven Phase-1 engine. **oEmbed is the one security-critical
 > slice (Opus `xhigh`).** Authoritative specs: impl-plan §0 (amendments), §1 (engineering contract), §2

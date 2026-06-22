@@ -21,7 +21,7 @@ Copyright 2026 The NovFora Authors
 > 4. **`follow.create` trust-gate / anti-spam** — mass-follow is a notification-spam vector; gate + rate-limit
 >    it; self-follow is a hard NEVER.
 >
-> Authoritative specs: [phase-2-implementation-plan.md](phase-2-implementation-plan.md) §2 (P2-M3 Held rows:
+> Authoritative specs: [phase-2-implementation-plan.md](../phase-2-implementation-plan.md) §2 (P2-M3 Held rows:
 > Follow / Reputation / Badges) + §1 (engineering contract) + §3 (security inventory) + §6 (deletion cascade);
 > ADR-0025 (cascade — must be honoured + extended); ADR-0006 (permission engine); ADR-0007 (anti-spam / trust
 > gates). Format + the reusable feed seams: [p2-m3-activity-code-kickoff.md](p2-m3-activity-code-kickoff.md).

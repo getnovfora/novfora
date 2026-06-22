@@ -344,7 +344,7 @@ beta. The 2nd example theme stays an optional M5 stretch. **Consequences:** M5 g
 closer into a meatier milestone with apex-tier work — the idempotent reputation/badge award, an **extended
 ADR-0025 deletion cascade** (revoke rep sourced from a deleted user's reactions + recompute affected third-party
 authors), and `follow.create` anti-spam; two new `nevo:` recompute crons join the Phase-5 rename surface (#8).
-Build source: [`docs/product/p2-m5-beta-social-code-kickoff.md`](docs/product/p2-m5-beta-social-code-kickoff.md).
+Build source: [`docs/product/archive/p2-m5-beta-social-code-kickoff.md`](docs/product/archive/p2-m5-beta-social-code-kickoff.md).
 A scoping override of plan §5 for these three items — recorded, not silent; no locked stack/architecture
 decision changes.
 

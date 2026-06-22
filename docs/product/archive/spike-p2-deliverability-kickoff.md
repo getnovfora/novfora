@@ -8,7 +8,7 @@ Copyright 2026 The NovFora Authors
 > suppression on the baseline tier — cron-only, no persistent daemon — without burning the host's sending
 > reputation.** Greenlit to run NOW, in parallel with the private beta (it's foundational infra, and beta
 > stresses email immediately). Output = a **GO/NO-GO memo + a reference pipeline**, NOT merged feature code
-> — the digest/bounce feature work in P2-M2 starts only after this memo says GO. Plan: [phase-2-plan.md](phase-2-plan.md) §4.
+> — the digest/bounce feature work in P2-M2 starts only after this memo says GO. Plan: [phase-2-plan.md](../phase-2-plan.md) §4.
 
 ---
 

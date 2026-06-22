@@ -7,9 +7,9 @@ Copyright 2026 The NovFora Authors
 > Paste the block below into the **Claude Code** session to begin Phase 1 **M1**. The Phase 1 plan (M0–M5) is
 > owner-approved; **M0 is done** (commit `de14e49`). M1 is the **permission-mask engine** milestone — the
 > authorization spine, flagged in CLAUDE.md for deep reasoning. Authoritative specs:
-> [phase-1-plan.md](phase-1-plan.md) §5 (M1); **[security-and-permissions.md](../architecture/security-and-permissions.md) §1**
-> (the resolution algorithm — read this closely); [data-model-initial.md](../architecture/data-model-initial.md)
-> §1/§4/§9 (schema + index); ADR-0006; [testing-strategy.md](../architecture/testing-strategy.md).
+> [phase-1-plan.md](../phase-1-plan.md) §5 (M1); **[security-and-permissions.md](../../architecture/security-and-permissions.md) §1**
+> (the resolution algorithm — read this closely); [data-model-initial.md](../../architecture/data-model-initial.md)
+> §1/§4/§9 (schema + index); ADR-0006; [testing-strategy.md](../../architecture/testing-strategy.md).
 
 ---
 

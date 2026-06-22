@@ -11,7 +11,7 @@ Copyright 2026 The NovFora Authors
 > (2) a **short ADR-0025 addendum** to `AccountDeletionService` (the `activities` table didn't
 > exist when that service was built). Get those right. The rest is Sonnet scaffolding.
 >
-> Authoritative specs: [phase-2-implementation-plan.md](phase-2-implementation-plan.md) §2 (P2-M3)
+> Authoritative specs: [phase-2-implementation-plan.md](../phase-2-implementation-plan.md) §2 (P2-M3)
 > + §1 (engineering contract); ADR-0025 (deletion cascade — the addendum must honour it);
 > ADR-0006 (permission engine).
 

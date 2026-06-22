@@ -10,8 +10,8 @@ Copyright 2026 The NovFora Authors
 > read it at session start; no ADR work needed. Reuses the existing permission engine, the M3 anti-spam
 > posture (the TL0 mass-PM NEVER gate is already seeded), and `ContentRenderer` (no new render path). Builds
 > `user_relationships` once — the **ignore** half here (Core); the **follow** half is M3.
-> Authoritative specs: [phase-2-implementation-plan.md](phase-2-implementation-plan.md) §2 (M2 Half-B) + §1;
-> [ADR-0025](../../DECISIONS.md#adr-0025--account-deletion-and-content-cascade-policy-2026-06-10) (deletion
+> Authoritative specs: [phase-2-implementation-plan.md](../phase-2-implementation-plan.md) §2 (M2 Half-B) + §1;
+> [ADR-0025](../../../DECISIONS.md#adr-0025--account-deletion-and-content-cascade-policy-2026-06-10) (deletion
 > cascade contract — binding); ADR-0006 (permission engine).
 
 ---

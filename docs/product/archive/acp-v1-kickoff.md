@@ -7,9 +7,9 @@ Copyright 2026 The NovFora Authors
 > The beta is live; the operator is not self-sufficient. There is no `/admin` landing, no admin nav (the
 > owner had to guess URLs), **no way to create a forum from the UI** (boards exist only because the demo
 > seeder made them), and every setting requires `.env`/config hand-edits on the host. ACP v1 fixes all of
-> that. Coverage benchmark: [acp-feature-taxonomy.md](acp-feature-taxonomy.md) (clean-room research —
+> that. Coverage benchmark: [acp-feature-taxonomy.md](../acp-feature-taxonomy.md) (clean-room research —
 > design stays ours). Visual language: the existing theme tokens/components per
-> [theme-design-system.md](theme-design-system.md).
+> [theme-design-system.md](../theme-design-system.md).
 
 ---
 
