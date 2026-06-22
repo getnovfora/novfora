@@ -11,12 +11,14 @@ use App\Account\AccountDeletionService;
 use App\AntiSpam\SpamCleaner;
 use App\Models\Ban;
 use App\Models\User;
+use App\Moderation\UserBanService;
 use App\Permissions\Scope;
 use App\Support\ActorRank;
 use App\Support\Audit;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 /**
  * Ban management (security §3) — user / IP / email / range bans, plus the Spam Cleaner. All gated on
@@ -25,7 +27,7 @@ use Illuminate\Http\Request;
  */
 class BanController extends Controller
 {
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, UserBanService $bans): RedirectResponse
     {
         $this->authorizeBans($request);
 
@@ -37,39 +39,37 @@ class BanController extends Controller
             'expires_at' => ['nullable', 'date'],
         ]);
 
-        // Rank check (phase-1.5 F-F): can't ban a target of equal-or-higher rank (a mod can't ban an admin).
         $actor = $request->user();
-        if ($data['type'] === 'user' && ! empty($data['user_id']) && $actor instanceof User) {
+
+        // A user ban routes through the shared UserBanService (the single ban code path, reused by ACP v4 A2).
+        // Rank check (phase-1.5 F-F): can't ban a target of equal-or-higher rank (a mod can't ban an admin).
+        if ($data['type'] === 'user' && ! empty($data['user_id'])) {
             $target = User::find($data['user_id']);
-            abort_unless($target instanceof User && ActorRank::canActOn($actor, $target), 403);
+            abort_unless($actor instanceof User && $target instanceof User && ActorRank::canActOn($actor, $target), 403);
+            $bans->ban($target, $data['reason'] ?? null, ! empty($data['expires_at']) ? Carbon::parse((string) $data['expires_at']) : null);
+
+            return back();
         }
 
+        // IP / email / range (value-based) ban — no account status flip.
         $ban = Ban::create([
-            'user_id' => $data['type'] === 'user' ? ($data['user_id'] ?? null) : null,
+            'user_id' => null,
             'type' => $data['type'],
             'value' => $data['type'] === 'user' ? null : ($data['value'] ?? null),
             'scope_type' => 'global',
             'reason' => $data['reason'] ?? null,
             'expires_at' => $data['expires_at'] ?? null,
         ]);
-
-        if ($ban->type === 'user' && $ban->user_id) {
-            User::whereKey($ban->user_id)->update(['status' => 'banned']);
-        }
         Audit::log('ban.created', $ban, ['type' => $ban->type]);
 
         return back();
     }
 
-    public function destroy(Request $request, Ban $ban): RedirectResponse
+    public function destroy(Request $request, Ban $ban, UserBanService $bans): RedirectResponse
     {
         $this->authorizeBans($request);
 
-        if ($ban->type === 'user' && $ban->user_id) {
-            User::whereKey($ban->user_id)->where('status', 'banned')->update(['status' => 'active']);
-        }
-        $ban->delete();
-        Audit::log('ban.lifted', $ban);
+        $bans->lift($ban); // restores users.status active for a user ban, deletes the row, audits
 
         return back();
     }
