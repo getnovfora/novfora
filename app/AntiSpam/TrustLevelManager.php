@@ -68,6 +68,84 @@ final class TrustLevelManager
     }
 
     /**
+     * The reason the user's trust promotion is currently held back, or null if nothing freezes it. Read-only;
+     * reuses the SAME freeze logic as evaluate() so the diagnosis never drifts from the engine's decision.
+     */
+    public function freezeReason(User $user): ?string
+    {
+        $points = $this->liveInfractionPoints($user);
+        $demotion = (int) config('novfora.antispam.trust.demotion_points', 10);
+
+        if ($points >= $demotion) {
+            return "hard demotion: {$points} live infraction point(s) ≥ {$demotion}";
+        }
+        if ($points > 0) {
+            return "frozen: {$points} live warning point(s)";
+        }
+        if (($user->status ?? 'active') !== 'active') {
+            return 'frozen: status != active ('.($user->status ?? 'active').')';
+        }
+
+        return null;
+    }
+
+    /**
+     * A read-only diagnosis of WHERE the user's trust level stands and WHY — drives the `--user` recompute
+     * diagnostic and the moderation-queue hold reason. Reuses evaluate()/earnedLevel()/freezeReason() so it can
+     * never disagree with the engine (no forked thresholds).
+     *
+     * @return array{current:int, target:int, reason:string}
+     */
+    public function explain(User $user): array
+    {
+        $current = (int) $user->trust_level;
+        $target = $this->evaluate($user);
+        $freeze = $this->freezeReason($user);
+
+        if ($freeze !== null) {
+            $reason = $freeze;
+        } elseif ($current === 4) {
+            $reason = 'TL4 (leader) — manual level, not auto-changed';
+        } else {
+            $earned = $this->earnedLevel($user);
+            if ($earned > $current) {
+                $reason = "eligible → promoted to TL{$earned}";
+            } elseif ($earned < $current) {
+                $reason = "structural demotion → TL{$earned}";
+            } else {
+                $reason = $this->belowThresholdReason($user, $current);
+            }
+        }
+
+        return ['current' => $current, 'target' => $target, 'reason' => $reason];
+    }
+
+    /** Explain the gap to the next rung — "below threshold (posts X/5, days Y/1, reads Z/5)". */
+    private function belowThresholdReason(User $user, int $current): string
+    {
+        $next = $current + 1;
+        $rules = $this->rules('tl'.$next);
+        if ($rules === null || ($rules['manual'] ?? false)) {
+            return "at TL{$current}; TL{$next} is not auto-granted";
+        }
+
+        $posts = Post::where('user_id', $user->getKey())->count();
+        $reads = TopicRead::where('user_id', $user->getKey())->count();
+        $days = $user->created_at ? (int) abs($user->created_at->diffInDays(now())) : 0;
+
+        $parts = [
+            'posts '.$posts.'/'.(int) ($rules['min_posts'] ?? 0),
+            'days '.$days.'/'.(int) ($rules['min_days'] ?? 0),
+            'reads '.$reads.'/'.(int) ($rules['min_topics_read'] ?? 0),
+        ];
+        if ((int) ($rules['min_reputation'] ?? 0) > 0) {
+            $parts[] = 'reputation '.(int) $user->reputation_points.'/'.(int) $rules['min_reputation'];
+        }
+
+        return "below threshold for TL{$next} (".implode(', ', $parts).')';
+    }
+
+    /**
      * Highest level whose thresholds the user meets (cumulative). Phase-1.5 F-D: TL0→TL1 now requires the
      * spec's §2.3 engagement signals — posts AND tenure AND topics-READ (from M4's topic_reads) — not a raw
      * self-post count, so a patient self-poster can't lift the TL0 link/image NEVER gate by talking to
