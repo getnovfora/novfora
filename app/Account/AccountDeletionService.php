@@ -30,6 +30,7 @@ use App\Models\Topic;
 use App\Models\User;
 use App\Models\UserRelationship;
 use App\Models\Warning;
+use App\Moderation\OwnerStrandGuard;
 use App\Permissions\Scope;
 use App\Support\ActorRank;
 use App\Support\Audit;
@@ -172,16 +173,11 @@ final class AccountDeletionService
      */
     private function assertNotSoleAdminLocked(int $userId): void
     {
-        $adminIds = DB::table('group_user')
-            ->join('groups', 'groups.id', '=', 'group_user.group_id')
-            ->where('groups.slug', 'admins')
-            ->lockForUpdate()
-            ->pluck('group_user.user_id')
-            ->map(fn ($id): int => (int) $id)
-            ->unique()
-            ->all();
-
-        if (in_array($userId, $adminIds, true) && count($adminIds) <= 1) {
+        // Delegates to the shared owner-strand authority (ADR-0100) so deletion reasons about REACHABLE owners
+        // identically to the ban/demote doors: an already-banned admin is not a viable remaining owner, so the
+        // last UNBANNED admin still cannot be deleted even when banned admins linger in the group (the
+        // "ban a peer, then delete the healthy one" strand). The authority takes the same group_user FOR UPDATE.
+        if (app(OwnerStrandGuard::class)->wouldStrandAdminTierLocked($userId)) {
             throw new AccountDeletionException('The last administrator account cannot be deleted.');
         }
     }
@@ -213,9 +209,9 @@ final class AccountDeletionService
      */
     private function assertNotSoleCoOwnerLocked(int $userId): void
     {
-        $coOwnerIds = $this->coOwnerIds(locked: true);
-
-        if (in_array($userId, $coOwnerIds, true) && count($coOwnerIds) <= 1) {
+        // Same shared, ban-aware authority as assertNotSoleAdminLocked (ADR-0100): the last UNBANNED co-owner
+        // cannot be deleted even while banned co-owners remain in the group.
+        if (app(OwnerStrandGuard::class)->wouldStrandCoOwnerTierLocked($userId)) {
             throw new AccountDeletionException('The last co-owner account cannot be deleted — appoint another co-owner first.');
         }
     }
