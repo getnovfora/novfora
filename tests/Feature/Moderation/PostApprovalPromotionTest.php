@@ -10,7 +10,6 @@ use App\Models\Post;
 use App\Models\Topic;
 use App\Models\TopicRead;
 use App\Models\User;
-use App\Models\Warning;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Tests\Support\Content;
@@ -148,14 +147,14 @@ it('novfora:trust:recompute --user prints the reason for eligible, below-thresho
         ->expectsOutputToContain('below threshold for TL1')
         ->assertSuccessful();
 
-    // Frozen by a live warning — looked up by USERNAME (not id).
-    $frozen = Users::inGroups(['members', 'tl0']);
+    // Frozen by a NON-active status — looked up by USERNAME (not id). (A live warning no longer freezes the
+    // TL0→TL1 graduation, ADR-0092, so a suspended account is the durable "frozen" diagnostic case.)
+    $frozen = Users::inGroups(['members', 'tl0'], ['status' => 'suspended']);
     $frozen->forceFill(['username' => 'dan_stuck', 'created_at' => now()->subDays(3)])->save();
     papGivePosts($frozen, 6);
     papGiveReads($frozen, 5);
-    Warning::create(['user_id' => $frozen->id, 'points' => 3, 'expires_at' => now()->addDays(30)]);
     $this->artisan('novfora:trust:recompute', ['--user' => 'dan_stuck'])
-        ->expectsOutputToContain('frozen: 3 live warning point(s)')
+        ->expectsOutputToContain('frozen: status != active')
         ->assertSuccessful();
 });
 

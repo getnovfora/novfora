@@ -23,10 +23,11 @@ use App\Support\Audit;
  * runs from the scheduler (`novfora:trust:recompute`, cron — ADR-0011), is idempotent, and reads the
  * numeric promotion thresholds from each TL group's `auto_promotion` config.
  *
- * Rules: a live infraction-point total ≥ `demotion_points` demotes to TL0; any lesser live flag (a warning
- * or a non-active status) freezes promotion at the current level; otherwise the user settles at the highest
- * level whose thresholds they meet. TL4 (leader) is manual — never auto-granted, and only the hard demotion
- * can lower it.
+ * Rules: a live infraction-point total ≥ `demotion_points` demotes to TL0; a non-active status (pending /
+ * suspended) freezes promotion at the current level; a sub-demotion live warning no longer PINS a member in
+ * new-user moderation — an active member still graduates to TL1 but is CAPPED there until the warning clears
+ * (ADR-0092); otherwise the user settles at the highest level whose thresholds they meet. TL4 (leader) is
+ * manual — never auto-granted, and only the hard demotion can lower it.
  */
 final class TrustLevelManager
 {
@@ -59,12 +60,21 @@ final class TrustLevelManager
             return 4;
         }
 
-        // A lesser live flag (a warning, or a pending/suspended status) freezes promotion at the current level.
-        if ($points > 0 || ($user->status ?? 'active') !== 'active') {
+        // A non-active status (pending / suspended) freezes promotion entirely at the current level.
+        if (($user->status ?? 'active') !== 'active') {
             return $current;
         }
 
-        return $this->earnedLevel($user);
+        $earned = $this->earnedLevel($user);
+
+        // ADR-0092: a sub-demotion live warning no longer PINS a member in new-user moderation. An ACTIVE member
+        // who has earned TL1 still graduates to TL1 (escaping the TL0 hold); the warning still CAPS promotion at
+        // TL1 (no climb to TL2+ while a warning is live) and never demotes — the target is max(current, min(earned, 1)).
+        if ($points > 0) {
+            return max($current, min($earned, 1)); // 1 = TL1
+        }
+
+        return $earned;
     }
 
     /**
@@ -79,11 +89,13 @@ final class TrustLevelManager
         if ($points >= $demotion) {
             return "hard demotion: {$points} live infraction point(s) ≥ {$demotion}";
         }
-        if ($points > 0) {
-            return "frozen: {$points} live warning point(s)";
-        }
         if (($user->status ?? 'active') !== 'active') {
             return 'frozen: status != active ('.($user->status ?? 'active').')';
+        }
+        // A live warning no longer freezes the TL0→TL1 graduation (ADR-0092); it CAPS promotion at TL1, so it
+        // only holds a member back when they've otherwise earned past TL1 (mirrors evaluate()'s cap).
+        if ($points > 0 && $this->earnedLevel($user) > 1) {
+            return "promotion capped at TL1 by {$points} live warning point(s)";
         }
 
         return null;
