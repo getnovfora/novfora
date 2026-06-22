@@ -11,19 +11,21 @@
 
 ---
 
-## 🚀 Unattended batch 2026-06-21 — demo-shakeout fixes (5 branches off `main`, specs written, awaiting Code)
+## ✅ Unattended batch 2026-06-21 — demo-shakeout fixes (EXECUTED: 5 branches → 5 PRs; none merged by Code)
 
-**Demo is live on current `main`.** `demo.novfora.com` upgraded cleanly (5 migrations, backup-first); cron now
-firing hourly. Next unattended Code run is a **5-branch batch** from the live shakeout — master spec
-`docs/product/batch-2026-06-21-kickoff.md` (single entry point; per-branch detail specs alongside it):
+**Executed by an unattended Code session** from master spec `docs/product/batch-2026-06-21-kickoff.md`. All 5
+branches built off `main`, each gated green (`pest` ~1.9k passed / 1 Dusk-skip, `pint`, `phpstan`), one PR each —
+**none merged by Code** (Tommy / Cowork reviews + merges; the apex seams got an in-session adversarial review).
 
-1. **`claude/admin-perm-mgmt`** — "can't add admins" is a *discoverability* fix (full-admin add lives under Groups→Manage; Security pages don't link there) + group/role **clone** (apex: `GroupManager::clone()`/`RoleManager::clone()` copy `acl_entries` exactly + bump `AclVersion`) + member/group UX. `docs/product/admin-perm-mgmt-kickoff.md`.
-2. **`claude/post-approval-promotion`** — "Dan" stuck in the approval queue: `ModerationController::approvePost()` never re-runs trust eval, so a TL0 user is in a circular hold trap; + a live warning freezes trust recompute. Moderation layer, not apex. `docs/product/post-approval-promotion-kickoff.md`.
-3. **`claude/activity-feed-fixes`** — restricted-viewer empty feed (global 100-row window), a `scope_forum_id=NULL` visibility leak after hard forum delete (apex-adjacent), profile tab ignoring the limit. `docs/product/activity-feed-fixes-kickoff.md`.
-4. **`claude/oauth-sfs-hardening`** — small nits only (rate-limit `oauth.redirect`, route SFS enable through `ExternalSignalPolicy`, confirm `SocialiteServiceProvider` registered). Inline in master.
-5. **`claude/release-tooling`** — `verify-release.sh` exit-143 trap fix, exec bits, `.gitignore` the zip, asset-drift CI guard. Inline in master.
+| Branch | PR | Status |
+|---|---|---|
+| `claude/admin-perm-mgmt` (B1 — admin/perm **clone**, apex) | **#43** | **landed** — discoverability links + `GroupManager::clone()`/`RoleManager::clone()` (ADR-0090) + groups UX. Adversarial review caught + fixed **2 HIGH** clone escalations (role re-expansion resurrected card-stripped keys; admin-tier fence was blind to assigned roles). |
+| `claude/post-approval-promotion` (B2 — "Dan", trust) | **#44** | **landed** — eager trust recompute + `PostCreated` on `approvePost()`; `novfora:trust:recompute --user` diagnostic; queue hold reason. **Warning-freeze flagged for owner decision** (NOT changed). |
+| `claude/activity-feed-fixes` (B3 — feed visibility, apex-adjacent) | **#45** | **landed** — null-scope leak + restricted-viewer underflow + profile limit (ADR-0091). Adversarial review confirmed leak closed; fixed a slice-before-filter underflow; 2 security-safe over-hiding trade-offs documented. |
+| `claude/oauth-sfs-hardening` (B4 — xhigh nits) | **#46** | **landed** — SFS live-API toggle now authoritative via `ExternalSignalPolicy::apiEnabled()` (fail-safe preserved). Items 1 (redirect throttle) & 3 (Discord provider) were already present; pinned with guard tests. |
+| `claude/release-tooling` (B5 — release/CI) | **this PR** | **landed** — `verify-release.sh` PASS→`rc=0` re-verified end-to-end; exec bits `100755`; `.gitignore /*.zip`; public/build drift fixed (the existing CI `assets` job IS the RH-5 drift guard). |
 
-**Important:** OAuth/social login **and** StopForumSpam registration screening are **already fully implemented** on `main` — Branch 4 only hardens edges; do NOT rebuild. Each branch is independent (off `main`); Code opens one PR per branch and merges none.
+**Note:** OAuth/social login **and** StopForumSpam screening were already fully implemented on `main` — B4 only hardened edges. The 5 PRs are independent; merge in any order.
 
 ---
 
