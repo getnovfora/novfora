@@ -6,6 +6,7 @@ use App\Community\MembersDirectory;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ForumModeratorsController;
 use App\Http\Controllers\Admin\ForumPermissionsController;
+use App\Http\Controllers\Admin\MemberAdminController;
 use App\Http\Controllers\Admin\MemberPrimaryGroupController;
 use App\Http\Controllers\Admin\SearchController as AdminSearchController;
 use App\Http\Controllers\Admin\SectionController;
@@ -410,6 +411,8 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/members/tiers', 'admin.tiers')->name('tiers');                 // <livewire:admin.tiers /> (no charge here)
         Route::view('/members/memberships', 'admin.memberships')->name('memberships'); // <livewire:admin.member-grants />
 
+        // ACP v4 · A2 (ADR-0096) — the per-member admin management screen (ban / warn / groups / reset / IP).
+        Route::get('/members/{user}/manage', MemberAdminController::class)->name('members.show');
         // Per-member primary-group editor (ACP v3 · v3-e, ADR-0083): set/lock/clear the primary group override.
         Route::get('/members/{user}/primary-group', MemberPrimaryGroupController::class)->name('members.primary-group');
 
