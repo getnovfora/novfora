@@ -27,6 +27,12 @@ branches built off `main`, each gated green (`pest` ~1.9k passed / 1 Dusk-skip, 
 
 **Note:** OAuth/social login **and** StopForumSpam screening were already fully implemented on `main` — B4 only hardened edges. The 5 PRs are independent; merge in any order.
 
+**Merged + deployed (2026-06-22).** All 5 merged to `main` by Cowork (HEAD `936e500`; the only conflict was `DECISIONS.md` — resolved keeping ADR-0090/0091/0092). Merged main re-gated green together (`pest` **1959 / 1 skip**, `pint`, `phpstan`, release build + `verify-release rc=0`). Deployed to **demo.novfora.com** — code-only (no migrations in this batch), `schema.pending:false`, queue draining. Verified live: add-admin links present; **"Dan" diagnosed as a `status=pending` false-flag** (activated manually — not a code bug; the systemic exit-ramp fix is spec'd at `docs/product/pending-member-review-kickoff.md` for the next cycle).
+
+**Follow-ups (deferred):**
+- **Group clone button not rendering on the live demo** despite PR #43 merged + `GroupCloneTest` green — the code is correct on `main` (`⚡groups.blade.php` renders Clone for `type='custom'` only; `GroupManager::clone()` per ADR-0090). Suspect a stale compiled-Blade / opcache on the Hostinger demo, or the checked group not being `type='custom'`. Next demo cycle: confirm the new `⚡groups.blade.php` actually deployed, `php artisan view:clear` + opcache reset, and verify the group's `type` column = `custom`.
+- **`novfora:trust:recompute --user` prints the generic summary, not the per-user reason** the spec intended (engine behaviour is correct; the diagnostic print is just terser). Small polish.
+
 ---
 
 ## 🎉 ACP v3 · v3-g — staff flair + "The Team" roster on `claude/acp-v3-g` — 2026-06-21 (off `main` · **completes the ACP v3 program**)
