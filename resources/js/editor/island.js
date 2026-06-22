@@ -56,4 +56,47 @@ document.addEventListener('alpine:init', () => {
       },
     }
   })
+
+  // ── toolbar controller: ARIA roving-tabindex + a single-variable menu state machine ──────────────────
+  // Nested inside the editor's x-data, so `cmd`/`isActive` resolve up to the parent scope while the menu
+  // + roving state live here. `menu` is the name of the one open popover (or null). Roving tabindex keeps
+  // exactly one control in the Tab order; Arrow/Home/End move focus among the VISIBLE controls (so the
+  // mobile … overflow doesn't strand focus on a hidden button). Degrades to plain focusable buttons if JS
+  // never runs.
+  window.Alpine.data('novforaToolbar', () => ({
+    menu: null,
+    linkHref: '',
+    init() {
+      const items = this._items()
+      items.forEach((el, i) => el.setAttribute('tabindex', i === 0 ? '0' : '-1'))
+    },
+    _items() {
+      return Array.from(this.$el.querySelectorAll('[data-tb-item]'))
+    },
+    _visible() {
+      return this._items().filter((el) => el.offsetParent !== null && el.getAttribute('aria-disabled') !== 'true')
+    },
+    _focusTo(i) {
+      const v = this._visible()
+      if (!v.length) return
+      const idx = ((i % v.length) + v.length) % v.length
+      this._items().forEach((el) => el.setAttribute('tabindex', '-1'))
+      v[idx].setAttribute('tabindex', '0')
+      v[idx].focus()
+    },
+    onArrow(e, dir) {
+      const cur = this._visible().indexOf(document.activeElement)
+      if (cur < 0) return // focus is inside a menu/input, not on a toolbar control — let the key through
+      e.preventDefault()
+      this._focusTo(cur + dir)
+    },
+    onHome(e) {
+      if (this._visible().includes(document.activeElement)) { e.preventDefault(); this._focusTo(0) }
+    },
+    onEnd(e) {
+      if (this._visible().includes(document.activeElement)) { e.preventDefault(); this._focusTo(this._visible().length - 1) }
+    },
+    openMenu(name) { this.menu = this.menu === name ? null : name },
+    closeMenus() { this.menu = null },
+  }))
 })

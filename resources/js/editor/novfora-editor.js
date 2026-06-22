@@ -129,6 +129,39 @@ function insertSpoiler(editor) {
   }).run()
 }
 
+function insertEmbed(editor) {
+  const url = window.prompt('Paste a URL to embed (YouTube, Vimeo, or any link)')
+  if (url && url.trim()) editor.chain().focus().insertContent({ type: 'embed', attrs: { url: url.trim() } }).run()
+}
+
+// Headings are clamped to the rendered schema (h1–h3 — CanonicalRenderer::MAX_HEADING). Anything else → h2.
+const clampLevel = (l) => Math.min(3, Math.max(1, Number(l) || 2))
+
+// A single bare http(s) URL with no surrounding whitespace — the trigger for smart-paste (URL → embed/link).
+const isBareUrl = (s) => /^https?:\/\/\S+$/i.test(s)
+
+// Defence-in-depth: never put a `javascript:`/`data:` href into the document client-side. The server
+// re-sanitises every link on render regardless (CanonicalRenderer + allowlist), so this is belt-and-braces.
+function sanitizeUrl(raw) {
+  const s = String(raw || '').trim()
+  if (!s) return ''
+  if (/^(https?:\/\/|mailto:)/i.test(s)) return s
+  if (/^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(s)) return 'https://' + s // bare domain → assume https
+  return ''
+}
+
+// Apply a link to the current selection, or — when the selection is collapsed — insert the URL as linked
+// text (the incumbent "paste-a-link-with-nothing-selected" behaviour).
+function applyLink(editor, href) {
+  const url = sanitizeUrl(href)
+  if (!url) return
+  if (editor.state.selection.empty) {
+    editor.chain().focus().insertContent([{ type: 'text', text: url, marks: [{ type: 'link', attrs: { href: url } }] }]).run()
+  } else {
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+  }
+}
+
 // ── @mentions — server-driven (mentionUrl?q=), graceful when absent ─────────────────────────────────────
 function mentionSuggestion(mentionUrl) {
   return {
@@ -158,13 +191,7 @@ const SLASH_ITEMS = [
   { title: 'Code block', run: (e) => e.chain().focus().toggleCodeBlock().run() },
   { title: 'Table', run: (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
   { title: 'Divider', run: (e) => e.chain().focus().setHorizontalRule().run() },
-  {
-    title: 'Embed (video / link)',
-    run: (e) => {
-      const url = window.prompt('Paste a URL to embed (YouTube, Vimeo, or any link)')
-      if (url && url.trim()) e.chain().focus().insertContent({ type: 'embed', attrs: { url: url.trim() } }).run()
-    },
-  },
+  { title: 'Embed (video / link)', run: (e) => insertEmbed(e) },
   { title: 'Spoiler / content warning', run: (e) => insertSpoiler(e) },
 ]
 
@@ -205,27 +232,37 @@ export async function uploadAndInsert(editor, file, uploadUrl) {
   editor.commands.insertContent({ type: 'image', attrs: { src: url } })
 }
 
-// ── toolbar commands (run from real user events; chained focus keeps the selection) ─────────────────────
-export function runCommand(editor, name) {
+// ── toolbar commands (run from real user events; chained focus keeps the selection). `attrs` carries
+// parameters for the menu-driven commands (heading level, emoji char, link href). ──────────────────────
+export function runCommand(editor, name, attrs) {
   const chain = () => editor.chain().focus()
   const commands = {
     bold: () => chain().toggleBold().run(),
     italic: () => chain().toggleItalic().run(),
     strike: () => chain().toggleStrike().run(),
     code: () => chain().toggleCode().run(),
-    h2: () => chain().toggleHeading({ level: 2 }).run(),
+    paragraph: () => chain().setParagraph().run(),
+    heading: () => chain().toggleHeading({ level: clampLevel(attrs?.level) }).run(),
+    h2: () => chain().toggleHeading({ level: 2 }).run(), // kept for back-compat (slash + older callers)
     h3: () => chain().toggleHeading({ level: 3 }).run(),
     bulletList: () => chain().toggleBulletList().run(),
     orderedList: () => chain().toggleOrderedList().run(),
     blockquote: () => chain().toggleBlockquote().run(),
     codeBlock: () => chain().toggleCodeBlock().run(),
     hr: () => chain().setHorizontalRule().run(),
+    table: () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+    embed: () => insertEmbed(editor),
+    spoiler: () => insertSpoiler(editor),
+    emoji: () => { if (attrs?.ch) chain().insertContent(String(attrs.ch)).run() },
+    // Link: the toolbar opens a proper dialog and calls setLink with the typed href; `link` is the
+    // window.prompt fallback (used if the dialog is unavailable, e.g. a host that omits it).
     link: () => {
       const url = window.prompt('Link URL (leave blank to remove)')
       if (url === null) return
-      url === '' ? chain().unsetLink().run() : chain().setLink({ href: url }).run()
+      url === '' ? chain().unsetLink().run() : applyLink(editor, url)
     },
-    spoiler: () => insertSpoiler(editor),
+    setLink: () => applyLink(editor, attrs?.href || ''),
+    unsetLink: () => chain().unsetLink().run(),
   }
   ;(commands[name] ?? (() => {}))()
 }
@@ -254,10 +291,24 @@ export function createNovForaEditor({ element, content, placeholder, uploadUrl, 
         'aria-label': 'Post editor',
       },
       handlePaste: (_view, event) => {
+        // 1) Image files → upload + insert (existing behaviour).
         const files = imageFiles(event.clipboardData?.files)
-        if (!files.length || !uploadUrl) return false
-        files.forEach((f) => uploadAndInsert(editor, f, uploadUrl))
-        return true
+        if (files.length && uploadUrl) {
+          files.forEach((f) => uploadAndInsert(editor, f, uploadUrl))
+          return true
+        }
+        // 2) Smart paste: a bare URL on its own. With a selection → link it; otherwise → an embed facade
+        // (the server resolves it to a sandboxed embed or a safe link-card). Anything else pastes normally.
+        const text = (event.clipboardData?.getData('text/plain') || '').trim()
+        if (isBareUrl(text)) {
+          if (editor.state.selection.empty) {
+            editor.chain().focus().insertContent({ type: 'embed', attrs: { url: text } }).run()
+          } else {
+            applyLink(editor, text)
+          }
+          return true
+        }
+        return false
       },
       handleDrop: (_view, event) => {
         const files = imageFiles(event.dataTransfer?.files)
