@@ -13,14 +13,86 @@
 
 ---
 
-## ▶ ACTIVE TASK (unattended) — v1.x Feature Program — 2026-06-22
+## 🌅 Morning report — v1.x Feature Program EXECUTED (2026-06-22) — 14 branches off `main`, none pushed/merged
 
-Execute [`docs/product/v1x-feature-program-kickoff.md`](docs/product/v1x-feature-program-kickoff.md) end-to-end in
+Ran [`docs/product/v1x-feature-program-kickoff.md`](docs/product/v1x-feature-program-kickoff.md) cold, unattended,
+in order **R → S → A → M → T**. Each slice is an **independent branch off `main`** (two intentional stacks, noted
+below), committed only at a fully-green gate boundary (`Tommy Huynh` identity, DCO `-s`, no AI trailers). **Nothing
+pushed, nothing merged** — all 14 branches are local for owner review; `main` is untouched at `3b70653`. Gates run
+on the **VPS native toolchain** (PHP 8.3 + MySQL; sqlite `:memory:` for the suite, isolated-sqlite for the migrate
+gate). **Dusk could not run here** (no CI Chrome) — Dusk specs are written/extended + CI-pending.
+
+| Slice | Branch | Head | Gate | Notes |
+|---|---|---|---|---|
+| R1 doc-trim | `claude/v1x-r1-doc-trim` | `be89224` | links✓ Pint✓ | PROJECT-STATE 1181→148 lines; milestone blocks → PROJECT-HISTORY |
+| S3 lift ADRs | `claude/v1x-s3-adrs` | `27f7a50` | docs✓ | ADR-0093/0094 lifted into DECISIONS.md (detail blocks; index table is unmaintained past 0035) |
+| R2 prune | `claude/v1x-r2-prune` | `a638a69` | suite 2005✓ migrate✓ links✓ | **stacked on R1+S3**; archived 45 kickoffs + index, deleted lifted draft, import-seed already gone |
+| S1 attach harden | `claude/v1x-s1-attach-hardening` | `ddcb136` | suite 2007✓ Pint✓ PHPStan0 | prune reserves scheduled/draft refs (the ADR-0094 LOW) + storage-outage graceful-degrade |
+| S2 Dusk CI | `claude/v1x-s2-dusk-ci` | `4730ad4` | php -l✓ Pint✓ | attach-zone + M0 no-scroll-trap specs added; **CI-pending (no Chrome here)** |
+| S4 groups icons | — (none) | — | verify | **already merged to `main`** (`75d463a`/`8677b4b`) → gate-and-skip |
+| A1 member table ⚠apex | `claude/v1x-a1-member-table` | `32d20c8` | 18✓ walk✓ suite 2022✓ | **review GO** — 1 MEDIUM (hidden-group leak) fixed in-session |
+| A2 per-member view ⚠apex | `claude/v1x-a2-member-admin` | `7b6d2f6` | 13✓ suite 2038✓ | **stacked on A1**; **review GO** — fixed liftBan rank gap + added last-owner guard |
+| A3 warnings ACP | `claude/v1x-a3-warnings-acp` | `a610c6b` | 8✓ walk✓ suite 2015✓ | warning-type CRUD + read-only thresholds |
+| M1 quote-reply | `claude/v1x-m1-quote-reply` | `a51a02f` | 9✓ suite 2011✓ | blockquote+attribution+parent linkage; no JS rebuild |
+| M2 subscriptions ⚠apex | `claude/v1x-m2-subscriptions` | `a62e283` | 9✓ migrate✓ suite 2016✓ | **review GO** — fail-closed hardening on the bounded+queued fan-out |
+| M3 unread/excerpt/slug | `claude/v1x-m3-list-finish` | `2857bbd` | 6✓ HotPath✓ suite 2013✓ | excerpt + slug 301 (unread/dropdown already shipped → skipped) |
+| T1 canned replies | `claude/v1x-t1-canned-replies` | `d18e9f8` | 10✓ walk✓ migrate✓ suite 2017✓ | ACP CRUD + composer ?canned insert (no JS rebuild) |
+| T3 analytics charts | `claude/v1x-t3-analytics-charts` | `40f9506` | 5✓ suite 2012✓ | hand-authored inline-SVG sparklines; no asset rebuild |
+| T2 email templates ⚠apex | `claude/v1x-t2-email-templates` | `517cd41` | 8✓ suite 2015✓ | **review GO** — reuses the SiteTemplate sandbox; no confirmed finding |
+
+### Apex adversarial reviews (mandated; verify-then-refute, ~6 agents each) — all GO, no unresolved HIGH
+- **A1** (member directory): 4 vectors refuted (authz, email-PII, SQL/orderBy, DoS); **1 MEDIUM fixed in-session** —
+  the group filter leaked hidden-group names → gated behind the same `users.manage` ceiling as email (+ regression test).
+- **A2** (per-member view): 5 vectors reviewed; **NEW MEDIUM fixed** (liftBan lacked the rank guard) + the kickoff's
+  **last-owner guard added** (can't ban/warn the sole admin/co-owner). **FLAGGED, pre-existing (NOT new to A2):** the
+  FRONT-END ban/warn paths (`BanController` + `WarningService` auto-ban consequence) still lack the last-owner guard —
+  the strand is reachable there independently; fix belongs in `UserBanService::ban` + `WarningService` (mirror
+  `AccountDeletionService`'s locked sole-admin/co-owner guards). **Engine fast-follow.**
+- **M2** (subscription fan-out): 5 vectors; the soft-deleted-forum HIGH was **refuted as structurally unreachable**
+  (`StructureService::delete` reparents all topics to a live board first) — applied the **fail-closed hardening anyway**
+  (job returns when the forum can't be loaded) + a regression test.
+- **T2** (email render-injection): 5 vectors, **no confirmed finding** — the SiteTemplate sandbox (escape + char-allowlist
+  + helper registry + skeleton lint) holds; subject is code-controlled + CRLF-stripped. Non-blocking nit: the global
+  context also merges `site.description`/`user.*`/`stats.*` (escaped, harmless) — left undeclared as not email-meaningful.
+
+### ⚠ Environment finding (corrects the prior "2 inherited reds")
+The `SubdirInstall` + `Pwa` subpath test failures were a **stale route-cache artifact** (`bootstrap/cache/routes-v7.php`),
+not a code bug: `php artisan route:clear` makes the suite fully green (2008+ pass / **0 fail** / 1 skip). **The CI/gate
+must `route:clear` (or not ship a cached route table) before testing.** Every per-slice suite count above is post-clear.
+
+### ADRs (PROPOSED — referenced in commits, NOT lifted beyond S3's 0093/0094)
+**0095** v1.x Feature Program (parent) · **0096** ACP v4 member-management (A1/A2/A3) · **0097** subscriptions (M2) ·
+**0098** canned replies (T1) · **0099** email templates (T2). Lift into `DECISIONS.md` on ratification (S3 already lifted
+0093/0094 as detail blocks — the index table stopped at 0035, so recent ADRs are detail-block-only).
+
+### Cross-branch merge notes (all additive; hand-merge where flagged)
+- **R-track stacking:** R2 contains R1+S3 (the kickoff makes R2 depend on S3's lift; R1's history move is needed for link
+  integrity). Merge R1, S3, then R2 — or just R2 (it carries all three).
+- **A-track:** A2 is stacked on A1 (A2 "rides A1's row" — the Manage link is live end-to-end). Merge A1 then A2; A3 off `main`.
+- **`reply-composer` / `topic.blade.php`:** M1 (?quote), T1 (?canned), M2 (subscribe button) each extend the composer mount
+  + the topic embed → a small hand-merge (all additive; keep all params + one `#reply-composer` anchor).
+- **`AdminAccessWalkTest` sentinel:** A1, A3, T1 each add a `toContain('/admin/...')` after the co-owners line → trivial both-add.
+- **`AdminNavigation` / `lang/en/admin.php` / `routes/web.php`:** A1/A3/T1 add adjacent nav items + lang keys + routes → adjacent, conflict-free or trivial.
+
+### ☀️ What the owner does next
+1. **Review + merge** the 14 branches (`git diff main..<branch>`). Suggested order: **R1 → S3 → R2** (hygiene), then
+   **A1 → A2 → A3**, **M1 → M2 → M3**, **T1 → T3 → T2** — apply the cross-branch merge notes above.
+2. **Lift ADRs 0095–0099** into `DECISIONS.md` on ratification (S3's 0093/0094 are already in).
+3. **Run Dusk in CI** (S2's attach-zone + scroll-trap specs + the slug-tolerant moderation path; M1/M2 interaction).
+4. **Make the gate `route:clear`** (the env finding above) so the subdir/PWA cases pass in CI.
+5. **Engine fast-follow (flagged HIGH-class, pre-existing):** add the sole-admin/co-owner guard to the BAN/WARN engine
+   (`UserBanService::ban` + `WarningService::applyConsequence`) so the front-end mod CP can't strand the owner tier either.
+6. **Push/merge are the owner's** — Code pushed/merged nothing; `main` is untouched.
+
+---
+
+## ▶ ACTIVE TASK (EXECUTED 2026-06-22 — see the morning report above) — v1.x Feature Program
+
+Executed [`docs/product/v1x-feature-program-kickoff.md`](docs/product/v1x-feature-program-kickoff.md) end-to-end in
 order (**R → S → A → M → T**). Independent branch per slice off `main`, gated, committed at a green boundary,
-**nothing pushed/merged** (owner reviews). Verify each slice against current `main` first and prefer the codebase.
-Apex slices (A1/A2 member data + ban/warn, M2 subscription fan-out, T2 email-template render) get an in-session
-adversarial verify-then-refute review — **HALT + report on any unresolved HIGH**. Write the morning report back to
-`PROJECT-STATE.md` top when done.
+**nothing pushed/merged** (owner reviews). Verified each slice against current `main` first and preferred the codebase.
+Apex slices (A1/A2 member data + ban/warn, M2 subscription fan-out, T2 email-template render) each got an in-session
+adversarial verify-then-refute review — all GO (no unresolved HIGH).
 
 > Provenance: `docs/product/audit-ips-gap-analysis-2026-06-22.md` (gap map + code anchors) +
 > `docs/product/design-polish-kickoff.md` (which deferred these as functional). ADR allocation: parent **0095**
