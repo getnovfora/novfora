@@ -401,14 +401,22 @@ body {
     font-size: 0.7rem;
 }
 
+/* Typography only — shared by the editor's editable box AND rendered posts/signatures.
+ | M0 fix: the box constraints (min/max-height + inner scroll) used to live here and leaked the
+ | editor's 28rem cap onto rendered posts, trapping any long post in an inner scroller. They are now
+ | scoped to `.novfora-editor .novfora-prose` below, so rendered posts grow with their content and the
+ | *page* scrolls. The `.novfora-prose` class name itself stays a Dusk contract (EditorJourneyTest). */
 .novfora-prose {
-    min-height: 8rem;
-    max-height: 28rem;
-    overflow-y: auto;
     padding: 0.8rem 1rem;
     outline: none;
     line-height: 1.65;
     color: var(--ink);
+}
+/* Box constraints apply ONLY to the editable box inside the composer island, never to rendered posts. */
+.novfora-editor .novfora-prose {
+    min-height: 8rem;
+    max-height: 28rem;
+    overflow-y: auto;
 }
 .novfora-prose:focus {
     box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);

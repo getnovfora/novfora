@@ -9,6 +9,18 @@ All notable changes to **NovFora** are documented here. The format follows
 Versioning](https://semver.org/spec/v2.0.0.html). The **module and theme APIs are semver'd public
 contracts** — a breaking change to either is a major-version event.
 
+## [Unreleased]
+
+### Fixed
+
+- **Editor scroll-trap on rendered posts (M0).** The `.novfora-prose` box constraints
+  (`min-height: 8rem; max-height: 28rem; overflow-y: auto`) were meant for the composer's editing box
+  but rode the shared class onto rendered posts and signatures — trapping any post over ~28rem in an
+  inner scroller and padding short posts with 8rem of dead space. The constraints are now scoped to
+  `.novfora-editor .novfora-prose`, so rendered posts grow with their content and the *page* scrolls;
+  the composer's editing box still caps at 28rem. CSS-only; the `.novfora-prose` Dusk contract is
+  preserved.
+
 ## [1.0.0] — 2026-06 (Public 1.0)
 
 First public release. Self-hosted, Apache-2.0, runs on the **baseline tier** (PHP 8.3 + MySQL/MariaDB +
