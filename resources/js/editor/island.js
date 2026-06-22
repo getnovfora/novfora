@@ -15,6 +15,9 @@ document.addEventListener('alpine:init', () => {
     let api = null
     let draftTimer = null
     return {
+      // Attach-zone state (reactive Alpine — NOT the editor, which stays in closure per SPIKE FINDING #1).
+      uploads: [],
+      maxBytes: Number(config.maxBytes) || 0,
       async init() {
         api = await import('./novfora-editor') // <-- lazy chunk (TipTap + extensions)
         editor = api.createNovForaEditor({
@@ -48,6 +51,29 @@ document.addEventListener('alpine:init', () => {
       },
       async upload(file) {
         if (file && editor) await api?.uploadAndInsert(editor, file, config.uploadUrl)
+      },
+      // Multi-file attach zone (drag-drop + click-to-browse). Each file gets a row in `uploads` with a live
+      // status; the server enforces the real size/type/security gates, the client cap is just fast feedback.
+      async uploadFiles(list) {
+        const files = Array.from(list || [])
+        for (const file of files) {
+          const entry = { name: file.name, status: 'uploading' }
+          if (this.maxBytes && file.size > this.maxBytes) {
+            entry.status = 'error'
+            this.uploads.push(entry)
+            continue
+          }
+          this.uploads.push(entry)
+          try {
+            await api?.uploadAndInsert(editor, file, config.uploadUrl)
+            entry.status = 'done'
+          } catch {
+            entry.status = 'error'
+          }
+        }
+      },
+      removeUpload(i) {
+        this.uploads.splice(i, 1)
       },
       destroy() {
         clearTimeout(draftTimer)

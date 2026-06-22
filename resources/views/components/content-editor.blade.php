@@ -30,6 +30,7 @@
     // Reaction-set seed + a fuller common set (program §Pillar 4: "reuse the 6-type reaction set + a fuller set").
     $emojis = ['👍', '❤️', '💡', '🧠', '😄', '👎', '🎉', '🔥', '✅', '❌', '⭐', '🚀',
         '💯', '👀', '🙏', '🙌', '😅', '😂', '😍', '🤔', '😎', '😢', '😮', '👏'];
+    $maxBytes = (int) config('novfora.attachments.max_bytes', 5_242_880);
 @endphp
 
 <div
@@ -42,6 +43,7 @@
         placeholder: @js($placeholder),
         draft: @js((bool) $draft),
         draftDebounce: @js((int) $draftDebounce),
+        maxBytes: @js($maxBytes),
     })"
     class="novfora-editor"
 >
@@ -151,6 +153,33 @@
     <div x-ref="mount" class="novfora-mount"></div>
 
     @if ($uploadUrl)
+        {{-- Drag-and-drop multi-file attach zone (ADR-0094). The editable area also accepts drop/paste; this
+             is the explicit, discoverable affordance with a max-size readout + a click-to-browse fallback. --}}
+        @php($maxHuman = rtrim(rtrim(number_format($maxBytes / 1048576, 1), '0'), '.').' MB')
+        <div class="novfora-attach"
+             x-on:dragover.prevent="$el.classList.add('is-drag')"
+             x-on:dragleave.prevent="$el.classList.remove('is-drag')"
+             x-on:drop.prevent="$el.classList.remove('is-drag'); uploadFiles($event.dataTransfer.files)">
+            <div class="novfora-attach-prompt">
+                <span><span aria-hidden="true">📎</span> Drag files here or
+                    <button type="button" class="novfora-attach-browse" x-on:click="$refs.attachInput.click()">browse</button>
+                </span>
+                <span class="novfora-attach-max">Max {{ $maxHuman }} per file</span>
+            </div>
+            <input type="file" multiple x-ref="attachInput" hidden
+                   x-on:change="uploadFiles($event.target.files); $event.target.value = ''">
+            <ul class="novfora-attach-list" x-show="uploads.length" x-cloak>
+                <template x-for="(u, i) in uploads" :key="i">
+                    <li class="novfora-attach-item" :class="'is-' + u.status">
+                        <span class="novfora-attach-name" x-text="u.name"></span>
+                        <span class="novfora-attach-status" x-text="u.status === 'uploading' ? 'Uploading…' : (u.status === 'done' ? 'Added' : 'Failed')"></span>
+                        <button type="button" class="novfora-attach-remove" x-on:click="removeUpload(i)" aria-label="Remove from list">&times;</button>
+                    </li>
+                </template>
+            </ul>
+        </div>
+
+        {{-- The toolbar image button still uses a single image picker. --}}
         <input type="file" accept="image/*" x-ref="file" hidden
                x-on:change="upload($event.target.files[0]); $event.target.value = ''">
     @endif

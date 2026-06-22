@@ -121,6 +121,28 @@ const SpoilerNode = Node.create({
   },
 })
 
+// ── file-card node — a non-image attachment (canonical: { type:'file', attrs:{ src, name } }). The server
+// renders it to span.novfora-file > a[href] via CanonicalRenderer::file; the serve endpoint forces a
+// download disposition + nosniff, so following it never executes. This renderHTML is editor-display only —
+// never stored or trusted (the editor emits canonical JSON; the server re-renders + sanitises). ───────────
+const FileNode = Node.create({
+  name: 'file',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+  addAttributes() {
+    return { src: { default: null }, name: { default: 'attachment' } }
+  },
+  parseHTML() {
+    return [{ tag: 'span.novfora-file' }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    const name = HTMLAttributes.name || 'attachment'
+    return ['span', { class: 'novfora-file', 'data-src': HTMLAttributes.src || '' }, `📎 ${name}`]
+  },
+})
+
 function insertSpoiler(editor) {
   const label = window.prompt('Spoiler label (shown while collapsed)', 'Spoiler')
   if (label === null) return
@@ -216,20 +238,30 @@ const SlashCommand = Extension.create({
   },
 })
 
-// ── upload (shared by paste + drop + picker) — FINDING #4: defer a tick then insertContent ──────────────
-const imageFiles = (list) => Array.from(list || []).filter((f) => f.type?.startsWith('image/'))
+// ── upload (shared by paste + drop + the attach zone) — FINDING #4: defer a tick then insertContent ─────
+const allFiles = (list) => Array.from(list || [])
 
+// Upload one file and insert the right node: an image node for images, a file-card node for everything else.
+// Throws on failure so the attach-zone UI can flag it; the paste/drop call sites swallow the rejection.
 export async function uploadAndInsert(editor, file, uploadUrl) {
   if (!uploadUrl || !file) return
   const form = new FormData()
   form.append('file', file)
   const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-  const res = await fetch(uploadUrl, { method: 'POST', headers: token ? { 'X-CSRF-TOKEN': token } : {}, body: form })
-  if (!res.ok) return
-  const { url } = await res.json().catch(() => ({}))
-  if (!url) return
+  const res = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: token ? { 'X-CSRF-TOKEN': token, Accept: 'application/json' } : { Accept: 'application/json' },
+    body: form,
+  })
+  if (!res.ok) throw new Error('upload rejected')
+  const data = await res.json().catch(() => ({}))
+  if (!data.url) throw new Error('upload returned no url')
   await new Promise((resolve) => setTimeout(resolve, 0)) // settle any in-flight view update before dispatch
-  editor.commands.insertContent({ type: 'image', attrs: { src: url } })
+  if (data.is_image) {
+    editor.commands.insertContent({ type: 'image', attrs: { src: data.url } })
+  } else {
+    editor.commands.insertContent({ type: 'file', attrs: { src: data.url, name: data.name || 'attachment' } })
+  }
 }
 
 // ── toolbar commands (run from real user events; chained focus keeps the selection). `attrs` carries
@@ -278,6 +310,7 @@ export function createNovForaEditor({ element, content, placeholder, uploadUrl, 
       Mention.configure({ HTMLAttributes: { class: 'mention' }, suggestion: mentionSuggestion(mentionUrl) }),
       EmbedNode,
       SpoilerNode,
+      FileNode,
       SlashCommand,
     ],
     content: content ?? { type: 'doc', content: [] },
@@ -291,10 +324,10 @@ export function createNovForaEditor({ element, content, placeholder, uploadUrl, 
         'aria-label': 'Post editor',
       },
       handlePaste: (_view, event) => {
-        // 1) Image files → upload + insert (existing behaviour).
-        const files = imageFiles(event.clipboardData?.files)
+        // 1) Any files (images + non-image attachments) → upload + insert.
+        const files = allFiles(event.clipboardData?.files)
         if (files.length && uploadUrl) {
-          files.forEach((f) => uploadAndInsert(editor, f, uploadUrl))
+          files.forEach((f) => uploadAndInsert(editor, f, uploadUrl).catch(() => {}))
           return true
         }
         // 2) Smart paste: a bare URL on its own. With a selection → link it; otherwise → an embed facade
@@ -311,10 +344,10 @@ export function createNovForaEditor({ element, content, placeholder, uploadUrl, 
         return false
       },
       handleDrop: (_view, event) => {
-        const files = imageFiles(event.dataTransfer?.files)
+        const files = allFiles(event.dataTransfer?.files)
         if (!files.length || !uploadUrl) return false
         event.preventDefault()
-        files.forEach((f) => uploadAndInsert(editor, f, uploadUrl))
+        files.forEach((f) => uploadAndInsert(editor, f, uploadUrl).catch(() => {}))
         return true
       },
     },

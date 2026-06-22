@@ -473,6 +473,27 @@ return [
         'public_source' => env('NOVFORA_PUBLIC_SOURCE', storage_path('app/public')),
     ],
 
+    // ── Attachments / editor uploads (the untrusted-file boundary — ADR-0094, apex) ─────────────────────
+    // Config:cache-safe scalars. Images are re-encoded + EXIF-stripped + dimension-clamped on upload
+    // (defence-in-depth vs polyglots / EXIF leakage / decompression bombs); the per-POST caps bound a single
+    // post's footprint; never-published draft "orphans" are pruned after `orphan_prune_hours`. The disk is
+    // chosen by FILESYSTEM_DISK (local on Baseline, s3 on Enhanced) with no code change.
+    'attachments' => [
+        'max_bytes' => (int) env('NOVFORA_ATTACHMENT_MAX_BYTES', 5_242_880), // per file: 5 MB
+        // Extension allowlist mirrored by the upload validator; the finfo MIME sniff is the authoritative gate.
+        'allowed_extensions' => ['png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'txt'],
+        'max_per_post' => (int) env('NOVFORA_ATTACHMENT_MAX_PER_POST', 10),                  // count cap / post
+        'max_per_post_bytes' => (int) env('NOVFORA_ATTACHMENT_MAX_PER_POST_BYTES', 26_214_400), // 25 MB / post
+        'max_image_dimension' => (int) env('NOVFORA_ATTACHMENT_MAX_IMAGE_DIM', 2000),         // clamp longest side
+        // Decompression-bomb fence, applied to the HEADER dimensions BEFORE the image is decoded. Both bound
+        // the GD decode buffer (≈4 bytes/px, allocated OUTSIDE PHP's memory_limit): the per-SIDE cap stops a
+        // long strip, and the total-PIXEL cap stops a large SQUARE bomb the per-side cap would miss (e.g.
+        // 11999×11999 = 144 MP slips a 12000 per-side fence). Output is clamped to max_image_dimension anyway.
+        'max_source_dimension' => (int) env('NOVFORA_ATTACHMENT_MAX_SOURCE_DIM', 12000),
+        'max_source_pixels' => (int) env('NOVFORA_ATTACHMENT_MAX_SOURCE_PIXELS', 25_000_000), // ≈25 MP (≈100MB)
+        'orphan_prune_hours' => (int) env('NOVFORA_ATTACHMENT_ORPHAN_HOURS', 24),             // never-published drafts
+    ],
+
     // ── Security response headers (security §4: "strict CSP" + clickjacking/MIME hardening) ────────
     // Emitted on every web response by App\Http\Middleware\SecurityHeaders. The default CSP is the
     // NON-BREAKING baseline: it locks down the high-value sinks (object/base/frame/form) but keeps

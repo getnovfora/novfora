@@ -40,6 +40,7 @@ final class PostService
         private readonly WordFilterService $words,
         private readonly Notifier $notifier,
         private readonly EmbedRenderer $embeds,
+        private readonly AttachmentService $attachments,
     ) {}
 
     /**
@@ -151,6 +152,11 @@ final class PostService
                 'edit_count' => $post->edit_count + 1,
             ])->save();
 
+            // Bind any newly-referenced draft attachments owned by the EDITOR (ADR-0094). Author-owned +
+            // unattached only, so an edit can never pull another member's file (or an already-attached one)
+            // into this post.
+            $this->attachments->attachToPost($post, $canonical, $editor->id);
+
             Audit::log('post.edited', $post, ['reason' => $reason]);
 
             return $post;
@@ -181,6 +187,11 @@ final class PostService
             'ip_address' => request()->ip(),
             'approved_state' => $verdict->held() ? 'pending' : 'approved',
         ]);
+
+        // Bind the author's own draft attachments referenced in this body to the post (ADR-0094). Until
+        // associated they are uploader-only orphans, so readers would 403 on the image; this is what makes a
+        // posted attachment visible under the thread's forum.view gate. Author-owned + unattached only.
+        $this->attachments->attachToPost($post, $canonical, $author->id);
 
         // Record WHY a post was held (Phase 4 · M6.1) for the M6.2 review surface — the spam score + signals +
         // the moderation reasons. Only held posts produce a record; approved posts add no rows on the hot path.

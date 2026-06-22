@@ -36,7 +36,7 @@ function attachInForum(Forum $forum, User $author): Attachment
 {
     $topic = app(PostService::class)->createTopic($author, $forum, 'With a file', 'tiptap_json', Content::doc('see attached'));
     $post = $topic->posts()->firstOrFail();
-    $attachment = app(AttachmentService::class)->store($author, UploadedFile::fake()->create('secret.png', 20, 'image/png'));
+    $attachment = app(AttachmentService::class)->store($author, UploadedFile::fake()->image('secret.png'));
     $attachment->forceFill(['post_id' => $post->id])->save();
 
     return $attachment;
@@ -101,7 +101,7 @@ it('denies an attachment on a soft-deleted (recycled) post to ordinary viewers, 
 it('still serves an orphan attachment only to its uploader (unchanged)', function () {
     Storage::fake('local');
     $member = Users::inGroups(['members']);
-    $orphan = app(AttachmentService::class)->store($member, UploadedFile::fake()->create('o.png', 10, 'image/png'));
+    $orphan = app(AttachmentService::class)->store($member, UploadedFile::fake()->image('o.png'));
 
     $this->get(route('attachments.show', $orphan))->assertForbidden();                 // anonymous
     $this->actingAs(Users::inGroups(['members']))->get(route('attachments.show', $orphan))->assertForbidden();
