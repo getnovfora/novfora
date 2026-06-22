@@ -1,9 +1,11 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-{{-- The ACP section sidebar (ACP v3 · v3-h): the sub-page clusters for the ACTIVE rail section, preceded by the
-     ACP quick-search. The search is a client-side filter over a built index of pages + settings labels (instant
-     jump — the SMF/Invision ergonomic); pressing Enter runs the full server-side search, which also matches
-     members. Rendered by <x-admin.shell> for both the desktop sidebar and the mobile drawer; keyboard-operable
-     and token-driven. --}}
+{{-- The ACP section sidebar (ACP v3 · v3-h; Pillar 2 feel pass): the ACP quick-search, a Recent shelf, then
+     the sub-page clusters for the ACTIVE rail section. The search is a client-side filter over a built index
+     of pages + settings labels (instant jump — the SMF/Invision ergonomic); pressing Enter runs the full
+     server-side search, which also matches members. The "/" key focuses it (when not already typing). Recents
+     are localStorage-backed (no server state), so they degrade to empty without JS. All intra-ACP links use
+     wire:navigate so switching sections morphs the page without a full reload — the persistent-shell fix for
+     the audit's "feels unstable". Keyboard-operable and token-driven. --}}
 @props(['clusters' => [], 'searchIndex' => [], 'searchUrl' => null])
 
 <nav aria-label="{{ __('admin.section_nav_label') }}" class="space-y-1">
@@ -19,20 +21,35 @@
                       .filter(i => (i.label + ' ' + i.group).toLowerCase().includes(t))
                       .slice(0, 8);
               },
+              focusOnSlash(e) {
+                  if (e.key !== '/') return;
+                  const a = document.activeElement;
+                  if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable)) return;
+                  // Only the visible instance grabs focus (the sidebar renders twice — desktop + mobile drawer).
+                  if (this.$refs.searchInput && this.$refs.searchInput.offsetParent !== null) {
+                      e.preventDefault();
+                      this.$refs.searchInput.focus();
+                  }
+              },
           }"
+          x-on:keydown.window="focusOnSlash($event)"
           class="relative mb-2">
         <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-ink-subtle">
             <x-ui.icon name="search" class="h-4 w-4" />
         </span>
-        <input type="search" name="q" x-model="q" @keydown.escape="q = ''"
+        <input type="search" name="q" x-ref="searchInput" x-model="q" @keydown.escape="q = ''; $el.blur()"
                aria-label="{{ __('admin.search.label') }}" autocomplete="off"
                placeholder="{{ __('admin.search.placeholder') }}"
-               class="w-full min-h-11 pl-9 pr-3 rounded-md bg-surface border border-line text-sm text-ink placeholder:text-ink-subtle focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+               class="w-full min-h-11 pl-9 pr-9 rounded-md bg-surface border border-line text-sm text-ink placeholder:text-ink-subtle focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+        {{-- Visible "/" shortcut affordance (desktop), hidden once the field has focus/content. --}}
+        <span x-show="q === ''" class="pointer-events-none absolute inset-y-0 right-0 hidden items-center pr-2.5 lg:flex" aria-hidden="true">
+            <kbd class="rounded border border-line bg-surface-raised px-1.5 py-0.5 text-[11px] font-medium text-ink-subtle">/</kbd>
+        </span>
 
         <div x-show="q.trim() !== ''" x-cloak
              class="absolute z-30 mt-1 w-full overflow-hidden rounded-md border border-line bg-surface-raised shadow-md">
             <template x-for="r in results" :key="r.url">
-                <a :href="r.url"
+                <a :href="r.url" wire:navigate
                    class="flex items-center justify-between gap-3 px-3 py-2 text-sm text-ink hover:bg-surface-sunken">
                     <span x-text="r.label" class="truncate"></span>
                     <span x-text="r.group" class="shrink-0 text-xs text-ink-subtle"></span>
@@ -42,6 +59,50 @@
         </div>
     </form>
 
+    {{-- Recent shelf: the last few ACP pages this browser visited (localStorage; quick-links / recents gap).
+         Records the current page on load, shows up to five others. No server state → empty without JS. --}}
+    <div
+        x-data="{
+            items: [],
+            init() {
+                const key = 'novfora.acp.recents';
+                const label = (document.title || '').replace(/^.*?·\s*/, '').trim();
+                const here = { label: label || location.pathname, url: location.pathname + location.search };
+                let list = [];
+                try { list = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { list = []; }
+                list = list.filter(i => i && i.url && i.url !== here.url);
+                if (here.label) list.unshift(here);
+                list = list.slice(0, 6);
+                try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) {}
+                this.items = list.filter(i => i.url !== here.url).slice(0, 5);
+            },
+            clear() {
+                try { localStorage.removeItem('novfora.acp.recents'); } catch (e) {}
+                this.items = [];
+            },
+        }"
+        x-show="items.length > 0"
+        x-cloak
+        class="mb-2"
+        aria-label="{{ __('admin.recent_label') }}"
+    >
+        <div class="flex items-center justify-between px-3 pt-3 pb-1">
+            <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ __('admin.recent') }}</p>
+            <button type="button" x-on:click="clear()" class="text-xs text-ink-subtle hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded">{{ __('admin.recent_clear') }}</button>
+        </div>
+        <ul class="space-y-0.5">
+            <template x-for="i in items" :key="i.url">
+                <li>
+                    <a :href="i.url" wire:navigate
+                       class="flex items-center gap-2.5 min-h-9 px-3 rounded-md text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink">
+                        <x-ui.icon name="arrow-left" class="h-3.5 w-3.5 shrink-0 rotate-180 text-ink-subtle" />
+                        <span class="flex-1 truncate" x-text="i.label"></span>
+                    </a>
+                </li>
+            </template>
+        </ul>
+    </div>
+
     @foreach ($clusters as $cluster)
         <div>
             @if ($cluster['heading'])
@@ -50,7 +111,7 @@
             <ul class="space-y-0.5">
                 @foreach ($cluster['items'] as $item)
                     <li>
-                        <a href="{{ $item['url'] }}" @if ($item['active']) aria-current="page" @endif
+                        <a href="{{ $item['url'] }}" @unless ($item['external']) wire:navigate @endunless @if ($item['active']) aria-current="page" @endif
                            class="flex items-center gap-2.5 min-h-11 px-3 rounded-md text-sm {{ $item['active'] ? 'bg-accent-soft text-accent-soft-ink font-medium' : 'text-ink-muted hover:bg-surface-sunken hover:text-ink' }}">
                             <x-ui.icon :name="$item['icon']" class="h-4 w-4 shrink-0" />
                             <span class="flex-1 truncate">{{ $item['label'] }}</span>

@@ -10,7 +10,7 @@
     <ul class="{{ $horizontal ? 'flex gap-1 overflow-x-auto pb-1' : 'space-y-1' }}">
         @foreach ($sections as $section)
             <li @class(['shrink-0' => $horizontal])>
-                <a href="{{ $section['url'] }}" @if ($section['active']) aria-current="page" @endif
+                <a href="{{ $section['url'] }}" wire:navigate @if ($section['active']) aria-current="page" @endif
                    title="{{ $section['label'] }}"
                    @class([
                        'flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-[11px] font-medium leading-tight text-center',

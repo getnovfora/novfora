@@ -23,6 +23,9 @@ return [
     'back_to_forum' => 'Back to forum',
     'sections_label' => 'Admin sections',
     'section_nav_label' => 'Section pages',
+    'recent' => 'Recent',
+    'recent_label' => 'Recently visited admin pages',
+    'recent_clear' => 'Clear recent',
 
     // The icon-rail sections (foundations §3). Keyed by section slug.
     'sections' => [
