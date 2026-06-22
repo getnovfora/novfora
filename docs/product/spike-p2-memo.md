@@ -9,7 +9,7 @@ Copyright 2026 The NovFora Authors
 > **Status:** spike reference pipeline + tests, **dormant behind `novfora.deliverability.enabled` (default
 > false)** — the live immediate notification path (`App\Notifications\Notifier`) is **untouched**. This is the
 > Phase-2 analog of Spike 0: a focused de-risk of the one uncertain, high-blast-radius Phase-2 seam, per
-> [phase-2-plan.md](phase-2-plan.md) §4 and [the kickoff](spike-p2-deliverability-kickoff.md). It is **not**
+> [phase-2-plan.md](phase-2-plan.md) §4 and [the kickoff](archive/spike-p2-deliverability-kickoff.md). It is **not**
 > merged feature code — P2-M2 builds the production version on this foundation only because this memo says GO.
 
 ---

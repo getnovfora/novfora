@@ -11,7 +11,7 @@ Copyright 2026 The NovFora Authors
 > **privacy boundary + a transactional multi-table cascade with denormalised-counter correctness** — the
 > service is **Opus `xhigh`**; the two confirm UIs are Sonnet.
 >
-> **Binding contract:** [ADR-0025](../../DECISIONS.md#adr-0025--account-deletion-and-content-cascade-policy-2026-06-10)
+> **Binding contract:** [ADR-0025](../../../DECISIONS.md#adr-0025--account-deletion-and-content-cascade-policy-2026-06-10)
 > — pseudonymise authored content (`user_id → NULL`, body kept), hard-delete participation metadata, owner-
 > confirmable, ONE audited service for both paths. Also relevant: ADR-0006 (permission engine), the M2 Half-B
 > DECISIONS entry (the PM portion + the anonymisable-author vs cascade-FK split).

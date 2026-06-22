@@ -8,7 +8,7 @@ Copyright 2026 The NovFora Authors
 > completion, Phase 1 / the **Core MVP is done** and the repo is shippable. M0–M4 are complete.
 > M5 is **operability**, not new features: the no-SSH web installer is the headline (it's what makes NovFora
 > actually self-hostable by ordinary operators), and the milestone must satisfy the **full Phase 1 exit
-> criteria** in [phase-1-plan.md](phase-1-plan.md) §1. The installer is **security-sensitive** (unauthenticated
+> criteria** in [phase-1-plan.md](../phase-1-plan.md) §1. The installer is **security-sensitive** (unauthenticated
 > pre-install endpoint that writes `.env`, sets up the DB, and creates the admin) — deep-reasoning territory.
 > Specs: phase-1-plan §1 (definition of done) + §5 (M5); PROJECT-BRIEF §6 (Operability); system-architecture §7
 > (perf budgets); ADR-0011 (cron queue), ADR-0003 (tier detection — reuse M0's `ServiceTier`).

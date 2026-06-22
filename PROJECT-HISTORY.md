@@ -41,7 +41,7 @@
 
 > **Repo baseline (2026-06-02):** `D:\Forum` is now **git-tracked** — first commit `a875a9a` on branch `main`
 > (27 files, DCO sign-off), so Code and Cowork can commit between handoffs. The ready-to-paste Code kickoff
-> prompt is saved at [`docs/product/spike-0-code-kickoff.md`](docs/product/spike-0-code-kickoff.md).
+> prompt is saved at [`docs/product/archive/spike-0-code-kickoff.md`](docs/product/archive/spike-0-code-kickoff.md).
 > *(Cowork-env caveat: the `D:\Forum` bash mount mangles git's own `config` write — if you must git-operate
 > from Cowork, enable deletes via the file-delete permission and hand-build `.git` with plain writes. The Code
 > build env has no such limitation.)*
@@ -54,7 +54,7 @@
 > 2026-06-01) — scaffold the real app at the **repo root** (skeleton + service-tier detection + CI + installer
 > skeleton + reversible-migration baseline). The validated editor pattern + `CanonicalRenderer` **port in M2**,
 > not M0 (per the plan); then M1→M5. Retire `nevo-spike/` once the real app supersedes it. M0 build kickoff:
-> [`docs/product/m0-code-kickoff.md`](docs/product/m0-code-kickoff.md). *(These Cowork doc edits are on disk;
+> [`docs/product/archive/m0-code-kickoff.md`](docs/product/archive/m0-code-kickoff.md). *(These Cowork doc edits are on disk;
 > commit them from the Code env — the Cowork mount is unreliable for git writes.)*
 
 > **Update 2026-06-02 (M0 DONE — Code):** **Phase 1 M0 (skeleton & guardrails) complete** at the repo root.
@@ -312,7 +312,7 @@ browser-journey screenshots for react/poll/prefix/tag/draft (wired into the dusk
 
 ### P2-M2 Half-A — Deliverability light-up & rich notifications — MERGED on `main` (2026-06-11)
 A LIGHT-UP + WIRE-IN of the dormant Spike-P2 pipeline (no rebuild), per
-[`p2-m2a-deliverability-code-kickoff.md`](docs/product/p2-m2a-deliverability-code-kickoff.md). Six items, small
+[`p2-m2a-deliverability-code-kickoff.md`](docs/product/archive/p2-m2a-deliverability-code-kickoff.md). Six items, small
 DCO commits:
 1. **Activate** — `.env.example` `NOVFORA_DELIVERABILITY=true`/`NOVFORA_DIGEST=true`; the SPF/DKIM/DMARC +
    on-domain-`From` operator checklist surfaced on the ACP Email page (memo §5).
@@ -340,7 +340,7 @@ green on CI's clean filesystem (the authoritative full gate, per the spike cavea
 review-queue forgery-flood guard.
 
 ### P2-M2 Half-B — Multi-participant PMs — MERGED (PR #17, commit `535a924`)
-Built per [`docs/product/p2-m2b-pms-code-kickoff.md`](docs/product/p2-m2b-pms-code-kickoff.md), 10 small DCO
+Built per [`docs/product/archive/p2-m2b-pms-code-kickoff.md`](docs/product/archive/p2-m2b-pms-code-kickoff.md), 10 small DCO
 commits: schema → **TL0 mass-PM NEVER pin** + PmRateLimiter + ConversationPolicy → send spine (pm.send re-check /
 rate / cap / **ignore** / single ContentRenderer path / report-on-PM) → live **`pm.received`** emitter →
 **ADR-0025 deletion cascade** → inbox/conversation/composer UI + nav unread badge → DECISIONS → adversarial-review
@@ -361,7 +361,7 @@ participant-only Policy; deferred full multi-table AccountDeletionService).
   Validate the flaky ones in clean CI.
 
 ### P2 account deletion (ADR-0025) — MERGED (2026-06-12, commit `b006163`)
-Built per [`docs/product/p2-account-deletion-code-kickoff.md`](docs/product/p2-account-deletion-code-kickoff.md).
+Built per [`docs/product/archive/p2-account-deletion-code-kickoff.md`](docs/product/archive/p2-account-deletion-code-kickoff.md).
 The M1-deferred forced-cascade integration tests, now that PMs have landed. Closes ADR-0025 end-to-end:
 - **`App\Account\AccountDeletionService`** — ONE audited cascade in a single `DB::transaction` for both paths:
   capture reacted-post/voted-option ids → pseudonymise authored content (`withTrashed`, attribution → NULL,
@@ -388,7 +388,7 @@ The M1-deferred forced-cascade integration tests, now that PMs have landed. Clos
   GDPR data-export, any soft-delete/grace-period/undo (this is hard, immediate, confirmed deletion).
 
 ### P2-M3 — Activity feed & community-feel pack (Core) — MERGED (2026-06-12, commit `ae9bba3`)
-Built per [`docs/product/p2-m3-activity-code-kickoff.md`](docs/product/p2-m3-activity-code-kickoff.md):
+Built per [`docs/product/archive/p2-m3-activity-code-kickoff.md`](docs/product/archive/p2-m3-activity-code-kickoff.md):
 - **`VisibleForumIds`** (⚙) — query-level `forum.view` filter; `null` = sees-all sentinel, `[]` = sees-none.
   **`ActivityFeed`** (⚙) — version-keyed global primitive-row cache (`ActivityVersion`, mirrors `AclVersion`),
   per-viewer filter + batch rehydrate AFTER the boundary; `[Deleted]`-actor + removed-subject tombstones.
@@ -407,7 +407,7 @@ Built per [`docs/product/p2-m3-activity-code-kickoff.md`](docs/product/p2-m3-act
   theme; `VisibleForumIds` is the M4 search-facet seam but is NOT wired to search here.
 
 ### P2-M4 — Moderation depth, search facets & preferences (Core) — MERGED (2026-06-12, PR #19, commit `c56126e`)
-Built per [`docs/product/p2-m4-moderation-code-kickoff.md`](docs/product/p2-m4-moderation-code-kickoff.md):
+Built per [`docs/product/archive/p2-m4-moderation-code-kickoff.md`](docs/product/archive/p2-m4-moderation-code-kickoff.md):
 - **Merge / split (⚙)** — `MergeTopicsService` / `SplitTopicService` move posts with a single raw `UPDATE`
   (bypassing `Post::syncAggregates`; merge offsets positions to APPEND after the target's OP), then re-derive
   topic + forum counters **authoritatively** (`TopicCounters`, COUNT/MAX not ±delta, overwriting observer
@@ -435,7 +435,7 @@ Built per [`docs/product/p2-m4-moderation-code-kickoff.md`](docs/product/p2-m4-m
   data-export, bulk hide/unhide (no post-level hide status — recorded). `VisibleForumIds` used, not extended.
 
 ### P2-M5 — Beta polish, full regression & the social pack (Core) → 🚩 Public Beta (2026-06-12, branch `claude/p2-m5-beta-social`)
-Built per [`docs/product/p2-m5-beta-social-code-kickoff.md`](docs/product/p2-m5-beta-social-code-kickoff.md)
+Built per [`docs/product/archive/p2-m5-beta-social-code-kickoff.md`](docs/product/archive/p2-m5-beta-social-code-kickoff.md)
 (ADR-0028 pulled follow + reputation/points + badges from HELD into M5 Core):
 - **Follow (◐)** — the follow half of `user_relationships` wired: idempotent `FollowService` (DB-UNIQUE
   `insertOrIgnore`; `Followed` fires only on a real insert; **self-follow = hard service refuse no ACL lifts**);
@@ -493,7 +493,7 @@ Built per [`docs/product/p2-m5-beta-social-code-kickoff.md`](docs/product/p2-m5-
 
 ## ✅ Unattended batch 2026-06-21 — demo-shakeout fixes (EXECUTED: 5 branches → 5 PRs; none merged by Code)
 
-**Executed by an unattended Code session** from master spec `docs/product/batch-2026-06-21-kickoff.md`. All 5
+**Executed by an unattended Code session** from master spec `docs/product/archive/batch-2026-06-21-kickoff.md`. All 5
 branches built off `main`, each gated green (`pest` ~1.9k passed / 1 Dusk-skip, `pint`, `phpstan`), one PR each —
 **none merged by Code** (Tommy / Cowork reviews + merges; the apex seams got an in-session adversarial review).
 
@@ -943,7 +943,7 @@ Scaffolded/disabled-by-default; unit-tested against fakes only. Enable + validat
    a defect).
 
 #### Enhanced-tier live validation — 2026-06-19 (build VPS, against live backends)
-Ran `docs/product/enhanced-tier-validation-kickoff.md`. First time the scaffolded Enhanced tier was exercised
+Ran `docs/product/archive/enhanced-tier-validation-kickoff.md`. First time the scaffolded Enhanced tier was exercised
 against real backends (everything was unit-tested against fakes only). **Items 1–2 above are now PROVEN; the
 Redis cache/queue path too.**
 - **Prereqs discovered + fixed (the box was only half-bootstrapped):** the app was **not installed** (no
@@ -1344,7 +1344,7 @@ gate run showed 156 false failures from a stale compiled-view cache carrying WSL
 container; cleared with `view:clear` and the authoritative single-process run is green.)*
 
 **Deployable `novfora-release.zip` built from `main` HEAD** for the no-SSH in-place beta upgrade (per
-[`docs/product/live-deploy-kickoff.md`](docs/product/live-deploy-kickoff.md)):
+[`docs/product/archive/live-deploy-kickoff.md`](docs/product/archive/live-deploy-kickoff.md)):
 - **Artifact:** `D:\Forum\novfora-release.zip` · 12.66 MB (13,271,763 bytes) · sha256
   `9ea9623d8e329011f2f741463372a7bd670819fb1c41021794f94b423df8a3e5` · **gitignored (not committed)**.
 - **Carries Phase 3:** `/api/v1`, module/theme registries, phpBB/MyBB/SMF importers, analytics rollup, H1 webhook
@@ -1550,7 +1550,7 @@ clean). Design notes in `DECISIONS.md → Fast-follow backlog notes`.
 
 1. **▶ NEXT — ship & validate the 🚩 Public Beta.** Build the deployable upgrade package from `main` and
    deploy it live (in-place, no-SSH RH-10 upgrade) per
-   [`docs/product/live-deploy-kickoff.md`](docs/product/live-deploy-kickoff.md) — back up off-host, extract
+   [`docs/product/archive/live-deploy-kickoff.md`](docs/product/archive/live-deploy-kickoff.md) — back up off-host, extract
    over the running install, watch `GET /health` `schema.pending` flip true→false. Then gather
    private/public-beta feedback (product-plan §8 may reorder later work).
 

@@ -95,7 +95,7 @@ Apex slices (A1/A2 member data + ban/warn, M2 subscription fan-out, T2 email-tem
 adversarial verify-then-refute review — all GO (no unresolved HIGH).
 
 > Provenance: `docs/product/audit-ips-gap-analysis-2026-06-22.md` (gap map + code anchors) +
-> `docs/product/design-polish-kickoff.md` (which deferred these as functional). ADR allocation: parent **0095**
+> `docs/product/archive/design-polish-kickoff.md` (which deferred these as functional). ADR allocation: parent **0095**
 > (v1.x Feature Program); children **0096** ACP v4 member-management (A1/A2/A3), **0097** subscriptions (M2),
 > **0098** canned replies (T1), **0099** email templates (T2). Confirm next-free before lifting.
 
@@ -103,7 +103,7 @@ adversarial verify-then-refute review — all GO (no unresolved HIGH).
 
 ## 🌙 Unattended session 2026-06-22 — Design-Polish Program (EXECUTED: 6 branches off `main`; none pushed/merged)
 
-**Executed cold** by an unattended Code run from `docs/product/design-polish-kickoff.md` (order **0 → 1 → 3 → 4 → 5 → 2**,
+**Executed cold** by an unattended Code run from `docs/product/archive/design-polish-kickoff.md` (order **0 → 1 → 3 → 4 → 5 → 2**,
 the apex last). Each slice is an **independent branch off `main`**, committed only at a fully-green gate boundary
 (`Tommy Huynh` identity, DCO `-s`, no AI trailers). **Nothing pushed, nothing merged** — all six branches are local
 for owner review. Gates run on the **VPS native toolchain** (PHP 8.3 + MySQL; no Docker). **Dusk could not run here**

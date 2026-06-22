@@ -17,8 +17,8 @@ Copyright 2026 The NovFora Authors
 > `php:8.3` env — the owner has no local PHP). **Part B** is your operator runbook for the live host (upload →
 > cron migrates itself). Grounded in: `scripts/build-release.sh`,
 > [release-bundle-fix-kickoff.md](release-bundle-fix-kickoff.md) (the RH-1 `packages.php` fix),
-> [rh10-auto-upgrade-kickoff.md](rh10-auto-upgrade-kickoff.md) + [getting-started.md](../getting-started.md) §5
-> (the upgrade mechanism), [REAL-HOST-VALIDATION.md](../REAL-HOST-VALIDATION.md).
+> [rh10-auto-upgrade-kickoff.md](rh10-auto-upgrade-kickoff.md) + [getting-started.md](../../getting-started.md) §5
+> (the upgrade mechanism), [REAL-HOST-VALIDATION.md](../../REAL-HOST-VALIDATION.md).
 
 ---
 
@@ -124,7 +124,7 @@ partly-migrated schema (new-schema actions can error until you apply) — go to 
 Apply pending migrations* (admin + 2FA + confirm), or with shell `php artisan novfora:upgrade`.
 
 **Enhanced tier (optional, anytime after):** the same bundle lights up Redis / Meilisearch / S3 / Reverb from
-`.env` — see [getting-started.md](../getting-started.md) §7. Your `.env` survives the upgrade, so enabling a
+`.env` — see [getting-started.md](../../getting-started.md) §7. Your `.env` survives the upgrade, so enabling a
 service is an `.env` edit, not a rebuild.
 
 ---

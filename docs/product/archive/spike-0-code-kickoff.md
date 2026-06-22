@@ -5,7 +5,7 @@ Copyright 2026 The NovFora Authors
 # Spike 0 — Claude Code kickoff prompt
 
 > Paste the block below into the **Claude Code** session to execute Spike 0. It pairs with the deterministic
-> spec in [spike-0-handoff.md](spike-0-handoff.md) (§4 of [phase-1-plan.md](phase-1-plan.md)).
+> spec in [spike-0-handoff.md](../spike-0-handoff.md) (§4 of [phase-1-plan.md](../phase-1-plan.md)).
 > **Pressure-tested + corrected 2026-06-02.** The repo baseline (`git init` + planning-doc commit) was
 > established by the Cowork session on 2026-06-02, so the build session starts from a clean tree.
 
@@ -60,5 +60,5 @@ clearly GO, record the failing criteria and drop to the §5 fallback chain rathe
 ## After the memo comes back
 
 The Cowork session folds the confirmed pattern into the M0->M5 plan, updates **ADR-0012** + the architecture
-docs (and [phase-1-plan.md](phase-1-plan.md) §4 if a fallback is chosen), and keeps **PROJECT-STATE.md** current.
+docs (and [phase-1-plan.md](../phase-1-plan.md) §4 if a fallback is chosen), and keeps **PROJECT-STATE.md** current.
 Leave those edits to Cowork so the two tools never edit the same files at once.

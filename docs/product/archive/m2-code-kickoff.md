@@ -8,10 +8,10 @@ Copyright 2026 The NovFora Authors
 > owner-approved; **M0 + M1 are done** (M1 at commit `be9040d`). **Owner sign-off (2026-06-02): the permission
 > `NO` is `neutral/inherit` — interpretation (ii); use `NEVER` to hard-deny.** M2 is where the **validated Spike 0
 > editor finally ports into the real app** and `nevo-spike/` retires.
-> Specs: [phase-1-plan.md](phase-1-plan.md) §5 (M2) + **§4 (the 7 editor findings — now you implement them)**;
-> [data-model-initial.md](../architecture/data-model-initial.md) §2 (structure) + §3 (canonical storage);
-> ADR-0005; [security-and-permissions.md](../architecture/security-and-permissions.md) §3 (soft-delete/recycle/audit)
-> + §4 (XSS/sanitize); the **[spike-0 memo](spike-0-memo.md)** + the `nevo-spike/` reference files.
+> Specs: [phase-1-plan.md](../phase-1-plan.md) §5 (M2) + **§4 (the 7 editor findings — now you implement them)**;
+> [data-model-initial.md](../../architecture/data-model-initial.md) §2 (structure) + §3 (canonical storage);
+> ADR-0005; [security-and-permissions.md](../../architecture/security-and-permissions.md) §3 (soft-delete/recycle/audit)
+> + §4 (XSS/sanitize); the **[spike-0 memo](../spike-0-memo.md)** + the `nevo-spike/` reference files.
 
 ---
 

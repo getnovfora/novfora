@@ -5,8 +5,8 @@ Copyright 2026 The NovFora Authors
 # Design-Polish Program — EXECUTABLE KICKOFF (for Claude Code, run cold)
 
 > **What this is.** A self-contained handoff Code can execute without re-deriving context. It turns the
-> [Design-Polish Program](design-polish-program-2026-06-22.md) into **sequenced, gated, branch-per-slice work**.
-> Context (the *why*) is in that doc + [`audit-ips-gap-analysis-2026-06-22.md`](audit-ips-gap-analysis-2026-06-22.md) —
+> [Design-Polish Program](../design-polish-program-2026-06-22.md) into **sequenced, gated, branch-per-slice work**.
+> Context (the *why*) is in that doc + [`audit-ips-gap-analysis-2026-06-22.md`](../audit-ips-gap-analysis-2026-06-22.md) —
 > **read those once, don't restate them in commits.**
 >
 > **Prime directive:** every slice ends **runnable + green on the Baseline tier** (PHP 8.3 + MySQL + cron), one logical

@@ -6,7 +6,7 @@ Copyright 2026 The NovFora Authors
 
 > First-beta operator feedback flagged two real gaps: **no UI to manage member groups / group permissions**
 > (mod, global-mod, admin, custom) and **no staff/group name colors**. Group management is *table stakes*
-> per the [ACP taxonomy](acp-feature-taxonomy.md) and is operationally needed once real users arrive (e.g.
+> per the [ACP taxonomy](../acp-feature-taxonomy.md) and is operationally needed once real users arrive (e.g.
 > promoting a beta tester to moderator). This cycle delivers both. **Not** beta-gated — it addresses
 > confirmed operator gaps, not speculative engagement features. The **layman-friendly permissions "simple
 > mode"** is a SEPARATE design-first cycle (see §After) — not in scope here; this cycle assigns permissions

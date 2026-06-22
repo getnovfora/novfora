@@ -11,7 +11,7 @@ Copyright 2026 The NovFora Authors
 > seam into `SearchService`; (4) **consolidated user-preferences** (folding the remaining
 > preference surfaces). Staff notes stay **Held**.
 >
-> Authoritative specs: [phase-2-implementation-plan.md](phase-2-implementation-plan.md) §2
+> Authoritative specs: [phase-2-implementation-plan.md](../phase-2-implementation-plan.md) §2
 > (P2-M4) + §1 (engineering contract); ADR-0006 (permission engine).
 
 ---

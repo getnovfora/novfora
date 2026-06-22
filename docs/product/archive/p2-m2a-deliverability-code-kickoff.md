@@ -8,8 +8,8 @@ Copyright 2026 The NovFora Authors
 > pipeline is **already merged and dormant** (Spike P2 → GO, PR #8) behind `NOVFORA_DELIVERABILITY=false`. **This
 > milestone is LIGHT-UP + WIRE-IN, not a build — do not rebuild the pipeline.** The lone intentional gap is
 > wiring `Notifier::send()` → `DigestQueue::enqueue()`, plus three memo follow-ups. Parallel-safe with P2-M1.
-> Authoritative specs: [phase-2-implementation-plan.md](phase-2-implementation-plan.md) §2 (M2 Half-A) + §1;
-> **[spike-p2-memo.md](spike-p2-memo.md) §4 (the cron contract + the 5 constraints you inherit) + §7 (the
+> Authoritative specs: [phase-2-implementation-plan.md](../phase-2-implementation-plan.md) §2 (M2 Half-A) + §1;
+> **[spike-p2-memo.md](../spike-p2-memo.md) §4 (the cron contract + the 5 constraints you inherit) + §7 (the
 > existing file map)** — read §4 closely, it is the correctness contract. Opus `xhigh` on the wiring + untrusted
 > bytes; Sonnet on prefs/vocab/docs.
 

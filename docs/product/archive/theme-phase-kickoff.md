@@ -5,7 +5,7 @@ Copyright 2026 The NovFora Authors
 # Default theme / UI polish phase — Claude Code kickoff
 
 > The engine is proven on real hosting (RH-1…RH-9 closed); this phase makes NovFora *look* like the product
-> the brief promised. The taste contract is [theme-design-brief.md](theme-design-brief.md) — read it first
+> the brief promised. The taste contract is [theme-design-brief.md](../theme-design-brief.md) — read it first
 > and treat it as binding. Appearance only: no behavior changes beyond the two user settings named below.
 
 ---

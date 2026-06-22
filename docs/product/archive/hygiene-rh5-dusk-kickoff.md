@@ -65,5 +65,5 @@ SCOPE FENCE: assets rebuild + CI guard + Dusk harness split + docs only. Nothing
 ## After this
 
 The hygiene board is clear and the next phase begins: the **default theme / UI polish pass** — see
-[theme-design-brief.md](theme-design-brief.md) for the agreed direction. Remaining real-host item afterward:
+[theme-design-brief.md](../theme-design-brief.md) for the agreed direction. Remaining real-host item afterward:
 **RH-4** (first-class subdirectory install — design spike + ADR first).

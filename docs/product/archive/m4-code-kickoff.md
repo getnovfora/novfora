@@ -8,9 +8,9 @@ Copyright 2026 The NovFora Authors
 > before M5 (operability) closes out the MVP. The Phase 1 plan is owner-approved; **M0–M3 are done**.
 > M4 is broad but mostly known-pattern; the one **deep-reasoning** piece is the **Blade theme-override layer**
 > (ADR-0009) — a semver'd public contract, so a breaking change is a major-version event.
-> Specs: [phase-1-plan.md](phase-1-plan.md) §5 (M4) + the **two trims in §3**; [data-model-initial.md](../architecture/data-model-initial.md)
-> §7 (notifications) + §8 (themes/settings); [system-architecture](../architecture/system-architecture.md) (search ADR-0010,
-> email ADR-0014, cron queue ADR-0011); [plugin-and-theme-system](../architecture/plugin-and-theme-system.md) §3 (ADR-0009).
+> Specs: [phase-1-plan.md](../phase-1-plan.md) §5 (M4) + the **two trims in §3**; [data-model-initial.md](../../architecture/data-model-initial.md)
+> §7 (notifications) + §8 (themes/settings); [system-architecture](../../architecture/system-architecture.md) (search ADR-0010,
+> email ADR-0014, cron queue ADR-0011); [plugin-and-theme-system](../../architecture/plugin-and-theme-system.md) §3 (ADR-0009).
 
 ---
 

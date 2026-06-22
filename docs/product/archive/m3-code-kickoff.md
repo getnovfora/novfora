@@ -8,8 +8,8 @@ Copyright 2026 The NovFora Authors
 > owner-approved; **M0 + M1 + M2 are done**. M3 is a **deep-reasoning / security-sensitive** milestone
 > (CLAUDE.md) — the anti-spam subsystem is NovFora's headline differentiator, and trust-level gating must run
 > **through the existing permission engine**, not a second system.
-> Specs: [phase-1-plan.md](phase-1-plan.md) §5 (M3); **[security-and-permissions.md](../architecture/security-and-permissions.md) §2
-> (anti-spam, ADR-0007) + §3 (moderation)**; [data-model-initial.md](../architecture/data-model-initial.md) §5
+> Specs: [phase-1-plan.md](../phase-1-plan.md) §5 (M3); **[security-and-permissions.md](../../architecture/security-and-permissions.md) §2
+> (anti-spam, ADR-0007) + §3 (moderation)**; [data-model-initial.md](../../architecture/data-model-initial.md) §5
 > (moderation/audit) + §6 (anti-spam storage); ADR-0007.
 
 ---

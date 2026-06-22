@@ -6,8 +6,8 @@ Copyright 2026 The NovFora Authors
 
 > Paste the block below into the **Claude Code** session to begin Phase 1 **M0**. The Phase 1 plan (M0–M5)
 > is owner-approved (2026-06-01) and **Spike 0 is GO** (2026-06-02), so this is a build kickoff, not a new gate.
-> Spec: [phase-1-plan.md](phase-1-plan.md) §1 (definition of done), §5 (M0), §6 (quality gates); the validated
-> editor pattern + its 7 M2 notes live in §4 (for M2, **not** M0). ADRs: [DECISIONS.md](../../DECISIONS.md).
+> Spec: [phase-1-plan.md](../phase-1-plan.md) §1 (definition of done), §5 (M0), §6 (quality gates); the validated
+> editor pattern + its 7 M2 notes live in §4 (for M2, **not** M0). ADRs: [DECISIONS.md](../../../DECISIONS.md).
 
 ---
 
