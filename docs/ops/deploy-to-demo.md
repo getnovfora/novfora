@@ -23,8 +23,8 @@ cd ~/novfora
 (`scripts/lib/i18n-probe.php` + the `ck lang/en/forum.php` check confirm the i18n strings ship.)
 
 ## 2. Get the zip to Hostinger — [VPS → hPanel]
-- Pull `novfora-release.zip` off the VPS (scp/Tailscale `scp dev@129.121.115.222:~/novfora/novfora-release.zip .`, or download it), then in **hPanel → File Manager** upload it into your home dir (the parent of `public_html`, where `~/novfora` lives).
-- **Extract it over the existing `~/novfora`** — overwrite `app/`, `public/build/`, `vendor/`, `bootstrap/cache/packages.php`, etc. **Do NOT touch `.env`, `storage/installed`, or `storage/`.** Nothing else — no installer, no commands.
+- Pull `novfora-release.zip` off the VPS **build box** (scp/Tailscale `scp dev@129.121.115.222:~/novfora/novfora-release.zip .`, or download it), then in **hPanel → File Manager** upload it into the demo app directory on Hostinger.
+- **Extract it over the existing demo install at `domains/novfora.com/public_html/demo/`** (NOT `~/novfora` — that is only the VPS build clone; the live demo app root, where `artisan` + `.env` + `storage/installed` sit, is `public_html/demo/`) — overwrite `app/`, `public/build/`, `vendor/`, `bootstrap/cache/packages.php`, etc. **Do NOT touch `.env`, `storage/installed`, or `storage/`.** Nothing else — no installer, no commands.
 
 ## 3. Watch the auto-upgrade — [hPanel/curl]
 Within ~2 min the cron tick takes a **pre-upgrade backup**, then migrates. The site may briefly show a branded "Just a moment…" maintenance page.
