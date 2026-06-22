@@ -402,13 +402,19 @@ body {
 }
 
 .novfora-prose {
-    min-height: 8rem;
-    max-height: 28rem;
-    overflow-y: auto;
     padding: 0.8rem 1rem;
     outline: none;
     line-height: 1.65;
     color: var(--ink);
+}
+/* M0 (audit fix): the EDITING box is a fixed-height scroller, but rendered posts/signatures reuse
+   .novfora-prose for typography and must NOT inherit that cap — otherwise a long post is trapped in
+   an inner 28rem scroller (the audit's worst-rated defect) and a short post reserves a dead 8rem.
+   Scope the box constraints to the editor only; .novfora-prose alone stays pure typography. */
+.novfora-editor .novfora-prose {
+    min-height: 8rem;
+    max-height: 28rem;
+    overflow-y: auto;
 }
 .novfora-prose:focus {
     box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
