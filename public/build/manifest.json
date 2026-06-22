@@ -1,6 +1,6 @@
 {
   "resources/css/app.css": {
-    "file": "assets/app-CIjwbheC.css",
+    "file": "assets/app-BJajjO1V.css",
     "name": "app",
     "names": [
       "app.css"
@@ -9,7 +9,7 @@
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-D36IYXpe.js",
+    "file": "assets/app-CRtdgKOO.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -18,7 +18,7 @@
     ]
   },
   "resources/js/editor/novfora-editor.js": {
-    "file": "assets/novfora-editor-BCYx44Zt.js",
+    "file": "assets/novfora-editor-w5FLr3ox.js",
     "name": "novfora-editor",
     "src": "resources/js/editor/novfora-editor.js",
     "isDynamicEntry": true
