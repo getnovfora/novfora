@@ -73,20 +73,24 @@ new class extends Component
         <x-ui.alert variant="success">{{ $saved }}</x-ui.alert>
     @endif
 
-    <div id="setting-general-site-name">
-        <x-ui.input label="Site name" name="siteName" wire:model="siteName" required maxlength="80"
-                    hint="Shown in the page title and as the default brand. Overrides APP_NAME." />
-    </div>
-    <div id="setting-general-site-description">
-        <x-ui.textarea label="Site description / tagline" name="siteDescription" wire:model="siteDescription" rows="2"
-                       hint="Used as the default meta description." />
-    </div>
-    <div id="setting-general-site-notice">
-        <x-ui.textarea label="Site-wide notice" name="siteNotice" wire:model="siteNotice" rows="2"
-                       hint="Shown as a banner on every page when set. Leave blank for none." />
-    </div>
+    {{-- Canonical x-admin.form-section rhythm (Pillar 2): heading + help + divider; the per-field
+         #setting-* ids remain the search-jump anchors. --}}
+    <x-admin.form-section first heading="Identity" help="How the site presents itself across pages and metadata.">
+        <div id="setting-general-site-name">
+            <x-ui.input label="Site name" name="siteName" wire:model="siteName" required maxlength="80"
+                        hint="Shown in the page title and as the default brand. Overrides APP_NAME." />
+        </div>
+        <div id="setting-general-site-description">
+            <x-ui.textarea label="Site description / tagline" name="siteDescription" wire:model="siteDescription" rows="2"
+                           hint="Used as the default meta description." />
+        </div>
+        <div id="setting-general-site-notice">
+            <x-ui.textarea label="Site-wide notice" name="siteNotice" wire:model="siteNotice" rows="2"
+                           hint="Shown as a banner on every page when set. Leave blank for none." />
+        </div>
+    </x-admin.form-section>
 
-    <div class="border-t border-line pt-5 space-y-3" id="setting-general-board-offline">
+    <x-admin.form-section heading="Availability" help="Control whether visitors can reach the board." id="setting-general-board-offline">
         <x-ui.toggle name="boardOffline" wire:model.live="boardOffline" :checked="$boardOffline"
                      label="Take the board offline for visitors" />
         <p class="text-xs text-ink-subtle">Guests and members see a maintenance notice; admins keep full access.</p>
@@ -95,13 +99,13 @@ new class extends Component
                 <x-ui.textarea label="Offline message" name="boardOfflineMessage" wire:model="boardOfflineMessage" rows="2" />
             </div>
         @endif
-    </div>
+    </x-admin.form-section>
 
-    <div class="border-t border-line pt-5" id="setting-general-activity-feed-limit">
+    <x-admin.form-section heading="Homepage" id="setting-general-activity-feed-limit">
         <x-ui.input label="Recent activity items on the homepage" name="activityFeedLimit" type="number"
                     wire:model="activityFeedLimit" min="1" max="50" required
                     hint="How many recent-activity entries the homepage feed shows (1–50)." />
-    </div>
+    </x-admin.form-section>
 
     <div>
         <x-ui.button type="submit" wire:loading.attr="disabled" wire:target="save">

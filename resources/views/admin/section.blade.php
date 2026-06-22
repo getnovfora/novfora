@@ -4,6 +4,13 @@
      each feature slice lands, its section dashboard grows widgets here (foundations §3). --}}
 @extends('layouts.app', ['title' => 'Admin · '.__('admin.landing.'.$section.'.title')])
 
+@section('breadcrumbs')
+    <x-ui.breadcrumbs :items="[
+        ['label' => __('admin.title'), 'url' => route('admin.dashboard')],
+        ['label' => __('admin.landing.'.$section.'.title')],
+    ]" />
+@endsection
+
 @section('content')
     @php
         $clusters = \App\Admin\AdminNavigation::sidebar($section);
@@ -19,7 +26,7 @@
             <p class="text-sm text-ink-muted">{{ __('admin.landing_jump') }}</p>
             <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 @foreach ($items as $item)
-                    <a href="{{ $item['url'] }}"
+                    <a href="{{ $item['url'] }}" @unless ($item['external']) wire:navigate @endunless
                        class="group flex items-center gap-3 rounded-lg border border-line bg-surface-raised p-4 hover:border-accent hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                         <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-soft-ink">
                             <x-ui.icon :name="$item['icon']" class="h-4.5 w-4.5" />
