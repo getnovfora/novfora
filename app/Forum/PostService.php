@@ -105,9 +105,9 @@ final class PostService
         return $topic;
     }
 
-    public function reply(User $author, Topic $topic, string $format, array $canonical): Post
+    public function reply(User $author, Topic $topic, string $format, array $canonical, ?int $parentPostId = null): Post
     {
-        $post = $this->writePost($author, $topic, $format, $canonical);
+        $post = $this->writePost($author, $topic, $format, $canonical, $parentPostId);
         Audit::log('post.created', $post);
 
         $this->dispatchPostNotifications($post);
@@ -163,9 +163,15 @@ final class PostService
         });
     }
 
-    private function writePost(User $author, Topic $topic, string $format, array $canonical): Post
+    private function writePost(User $author, Topic $topic, string $format, array $canonical, ?int $parentPostId = null): Post
     {
         $rendered = $this->renderer->render($format, $canonical, $this->restrictionsFor($author, $topic->permissionScope()));
+
+        // Quote-reply linkage (M1): only honour a parent that lives in THIS topic — a reply must never point at
+        // a post in another topic/forum (data-integrity + no cross-topic association via a forged id).
+        $parentPostId = ($parentPostId !== null
+            && Post::where('id', $parentPostId)->where('topic_id', $topic->id)->exists())
+                ? $parentPostId : null;
 
         // Post-time moderation (ADR-0007 §2.4): reject aborts the write; hold stores the post as pending
         // (new-user queue / flagged content); word-filter 'replace' rules rewrite the display.
@@ -179,6 +185,7 @@ final class PostService
         $post = Post::create([
             'topic_id' => $topic->id,
             'user_id' => $author->id,
+            'parent_post_id' => $parentPostId,
             'body_format' => $format,
             'body_canonical' => $canonical,
             'body_html_cache' => $this->displayHtml($rendered['html'], $canonical),

@@ -214,6 +214,14 @@
                                         :post-id="$post->id" :topic-id="$post->topic_id" :edit-count="$post->edit_count" />
                                 @endif
                                 @auth
+                                    @if ($canReply)
+                                        {{-- Quote-reply (M1): pre-fills the bottom composer with a blockquote +
+                                             attribution and links the reply to this post; scrolls to the composer. --}}
+                                        <x-ui.button :href="route('topics.show', $topic).'?quote='.$post->id.'#reply-composer'"
+                                                     variant="ghost" size="sm" dusk="quote-post-{{ $post->id }}">
+                                            {{ __('forum.quote') }}
+                                        </x-ui.button>
+                                    @endif
                                     <form method="POST" action="{{ route('reports.store') }}" class="ml-auto">@csrf
                                         <input type="hidden" name="post_id" value="{{ $post->id }}">
                                         <x-ui.button type="submit" variant="ghost" size="sm">
@@ -238,7 +246,11 @@
 
         @auth
             @if ($canReply)
-                <livewire:forum.reply-composer :topic-id="$topic->id" />
+                <div id="reply-composer">
+                    <livewire:forum.reply-composer :topic-id="$topic->id"
+                        :quote="(int) request('quote') ?: null"
+                        :key="'reply-composer-'.((int) request('quote'))" />
+                </div>
             @elseif ($topic->status === 'locked')
                 <x-ui.card class="flex items-center gap-3 text-ink-muted">
                     <x-ui.icon name="lock" class="h-5 w-5 shrink-0 text-ink-subtle" />
