@@ -65,6 +65,38 @@ new class extends Component
         return $rows;
     }
 
+    /**
+     * Dense 30-day value series per chartable metric (T3). The chart needs a value for EVERY day, so gaps are
+     * zero-filled over a contiguous date range — series() returns only dates that have a rollup row.
+     *
+     * @return list<array{key:string,label:string,tone:string,values:list<int>}>
+     */
+    public function charts(): array
+    {
+        $this->ensureAdmin();
+        $series = app(AnalyticsService::class)->series(30);
+
+        $dates = [];
+        for ($i = 29; $i >= 0; $i--) {
+            $dates[] = now()->subDays($i)->toDateString();
+        }
+        $dense = function (string $key) use ($series, $dates): array {
+            $byDate = [];
+            foreach (($series[$key] ?? []) as $point) {
+                $byDate[$point['date']] = (int) $point['value'];
+            }
+
+            return array_map(fn (string $d): int => $byDate[$d] ?? 0, $dates);
+        };
+
+        return [
+            ['key' => 'users_new', 'label' => __('New members'), 'tone' => 'accent', 'values' => $dense('users_new')],
+            ['key' => 'topics_new', 'label' => __('New topics'), 'tone' => 'success', 'values' => $dense('topics_new')],
+            ['key' => 'posts_new', 'label' => __('New posts'), 'tone' => 'accent', 'values' => $dense('posts_new')],
+            ['key' => 'active_users', 'label' => __('Active users'), 'tone' => 'warn', 'values' => $dense('active_users')],
+        ];
+    }
+
     private function ensureAdmin(): void
     {
         $user = auth()->user();
@@ -95,6 +127,24 @@ new class extends Component
             <x-ui.card>
                 <p class="text-xs uppercase tracking-wide text-ink-subtle">{{ $label }}</p>
                 <p class="mt-1 nums text-2xl font-semibold text-ink" dusk="metric-{{ $key }}">{{ number_format($totals[$key] ?? 0) }}</p>
+            </x-ui.card>
+        @endforeach
+    </div>
+
+    {{-- T3: 30-day trend charts — hand-authored inline SVG (no JS). Decorative; the table below is the
+         accessible data equivalent (the chart SVGs are aria-hidden). --}}
+    @php($charts = $this->charts())
+    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        @foreach ($charts as $c)
+            <x-ui.card>
+                <div class="flex items-baseline justify-between gap-2">
+                    <span class="text-xs uppercase tracking-wide text-ink-subtle">{{ $c['label'] }}</span>
+                    <span class="nums text-lg font-semibold text-ink">{{ number_format(array_sum($c['values'])) }}</span>
+                </div>
+                <p class="mt-0.5 text-xs text-ink-subtle">{{ __('last 30 days') }}</p>
+                <div class="mt-2">
+                    <x-ui.sparkline :series="$c['values']" :tone="$c['tone']" dusk="analytics-chart-{{ $c['key'] }}" />
+                </div>
             </x-ui.card>
         @endforeach
     </div>
