@@ -49,5 +49,8 @@ it('links the Co-owners empty state to the Groups manager', function () {
 it('gives the admins group row a clear add/manage-members affordance', function () {
     $this->actingAs(Users::withTwoFactor(Users::inGroups(['admins'])));
 
-    Livewire::test('admin.groups')->assertSee('Add / manage members');
+    // Icon-only affordance now; the intent rides the title + the dusk hook (click selector unchanged).
+    Livewire::test('admin.groups')
+        ->assertSeeHtml('dusk="acp-admins-members"')
+        ->assertSee('Add or remove administrators');
 });
