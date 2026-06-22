@@ -38,6 +38,7 @@
         'filter' => '<path d="M3 5h18l-7 8v6l-4-2v-4z"/>',
         'trash' => '<path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13"/>',
         'pencil' => '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+        'copy' => '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
         'arrow-up' => '<path d="M12 19V5M5 12l7-7 7 7"/>',
         'arrow-down' => '<path d="M12 5v14M19 12l-7 7-7-7"/>',
         'external' => '<path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/>',
