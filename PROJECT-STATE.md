@@ -11,6 +11,81 @@
 
 ---
 
+## 🌙 Unattended session 2026-06-22 — Design-Polish Program (EXECUTED: 6 branches off `main`; none pushed/merged)
+
+**Executed cold** by an unattended Code run from `docs/product/design-polish-kickoff.md` (order **0 → 1 → 3 → 4 → 5 → 2**,
+the apex last). Each slice is an **independent branch off `main`**, committed only at a fully-green gate boundary
+(`Tommy Huynh` identity, DCO `-s`, no AI trailers). **Nothing pushed, nothing merged** — all six branches are local
+for owner review. Gates run on the **VPS native toolchain** (PHP 8.3 + MySQL; no Docker). **Dusk could not run here**
+(no CI Chrome — per the standing note); Dusk specs were written/extended and are **CI-pending**.
+
+| # | Slice | Branch | Head | Gates (local) |
+|---|---|---|---|---|
+| 0 | M0 scroll-trap hotfix | `claude/polish-m0-prose-scope` | `cc6e8e5` | Pint ✓ · Pest 1959 ✓ · drift ✓ · Dusk contract preserved (CI) |
+| 1 | Design-system foundation (Pillar 1) | `claude/polish-p1-design-system` | `4741d36` | Pint ✓ · PHPStan 0 ✓ · Pest 1974 ✓ · drift ✓ |
+| 3 | Editor toolbar + schema (Pillar 4) | `claude/polish-p4-toolbar` | `0eb5b53` | Pint ✓ · PHPStan 0 ✓ · Pest 1973 ✓ · drift ✓ · Dusk extended (CI) |
+| 4 | ACP navigability + polish (Pillar 2) | `claude/polish-p2-acp` | `bd8bf45` | Pint ✓ · PHPStan 0 ✓ · Pest 1964 ✓ · drift ✓ |
+| 5 | Member-experience polish (Pillar 3) | `claude/polish-p3-member` | `7865f91` | Pint ✓ · PHPStan 0 ✓ · Pest 1963 ✓ · drift ✓ · Dusk (CI) |
+| 2 | Editor attachments — **APEX** | `claude/polish-p4-attachments` | `6d7f636` | Pint ✓ · PHPStan 0 ✓ · Pest 1969 ✓ · drift ✓ · no migration · **adversarial review on record** |
+
+All six end **runnable + green on the Baseline tier**; all gz asset budgets hold (editor island ≈131 KB, CSS ≈10.4 KB).
+
+### Slice-2 apex review (mandated per-finding verify-then-refute — 11 vectors, independent refutation)
+**0 HIGH ⇒ no halt.** The pre-existing backend was already serve-gate-hardened (P5.1 IDOR/club/trashed/orphan gate,
+MIME allowlist, off-webroot random-name storage, nosniff); this slice closed the remaining gaps and the review
+probed MIME/extension confusion, SVG/script, path-traversal, IDOR, private-club leak, unauth, rate-limit bypass,
+association hijack, and re-encode bypass — **all refuted**. Two residuals:
+- **1 MEDIUM — FIXED in-session + regression-tested.** The decompression-bomb fence was **per-side only**, so a
+  square bomb (11999×11999 ≈144 MP, 446 KB → ~549 MB GD alloc *outside* `memory_limit`) slipped it → worker OOM.
+  Fixed with a pre-decode **total-pixel** budget (`max_source_pixels`, ≈25 MP); test rejects a square that passes
+  the per-side fence. (Reviewer reproduced the original bomb empirically; the fix rejects it before decode.)
+- **1 LOW — owner follow-up (NOT fixed; out of apex scope).** The orphan-prune cron can delete a **scheduled**
+  reply's attachment, because the scheduled-post subsystem (`PostScheduler`/`ScheduledPost`) doesn't reserve
+  attachments — so a reply scheduled beyond `orphan_prune_hours` loses its image at publish. Self-inflicted,
+  non-confidential, recoverable (re-upload + edit). Fix belongs in the scheduler (reserve at schedule time, or
+  exclude scheduled-referenced ids from the prune), not in this upload-boundary slice.
+
+### ADRs (PROPOSED — not lifted into `DECISIONS.md`)
+**⚠ Numbering collision:** the kickoff expected `0092/0093` free, but **ADR-0092 is now taken** (the trust-warning
+freeze, `DECISIONS.md:3666`). Next-free is **0093**. So: **ADR-0093 = Design-Polish Program** (parent; its component
+conventions are documented in `docs/THEME-API.md`) and **ADR-0094 = the attachment subsystem** (apex). My commits use
+those corrected numbers. The draft `docs/product/design-polish-adrs-DRAFT.md` still says 0092/0093 — **renumber it to
+0093/0094 when lifting.**
+
+### Deviations from the spec (reality preferred over the plan; flagged per the kickoff)
+- **The M0 CSS fix + `x-ui.table`/`x-ui.skeleton` were NOT pre-staged** in this checkout (spec said "verify, don't
+  re-author") — they did not exist, so I authored them. The M0 diff matched the spec's idempotency block.
+- **The attachment backend already existed and was hardened** (table/model/service/serve-gate). Slice 2 **extended**
+  it (image re-encode/EXIF/clamp, throttle, association-on-publish, prune cron, file-card) rather than building anew.
+  No `draft_token` column was added — the existing **orphan (`post_id NULL`) + `user_id` ownership** model already
+  provides the security a draft-token would, and avoids a new forgery surface (noted in the Slice-2 commit).
+- **Association-on-publish is a real correctness fix:** before it, posted attachments stayed orphans, so a posted
+  image **403'd every reader**. Now bound to the post under per-post caps; readers see them via `forum.view`.
+- **Cross-branch file overlaps to expect on merge** (independent branches, all additive): Slices **0/2/3** all touch
+  the `app.css` editor region (`.novfora-prose`/`.novfora-editor`); Slices **2/3** both touch `novfora-editor.js`,
+  `island.js`, and `content-editor.blade.php` (Slice 3 = toolbar + smart-paste; Slice 2 = file-node + attach zone +
+  generalised paste/drop — these will conflict and need a hand-merge). Slices **1/4/5** touch different `app.css`
+  regions. **Slice 3's `content-editor.blade.php` already exposes the `attachUrl` feature-detect seam** Slice 2 fills.
+- **Deferred (scoped, with cause):** topic-list first-post **excerpt** (M3 — Topic has no excerpt/first-post data
+  source; needs a denormalised column → functional milestone); `x-ui.table` **application** to ACP data tables (lands
+  with the ACP v4 member table, gap A1, per the program); **`x-admin.form-section` broad rollout** (created + applied
+  to `settings/general` as the canonical example; remaining settings pages adopt it incrementally — mechanical,
+  AdminAccessWalkTest-guarded); per-surface **`x-ui.skeleton`** wiring (Slice 5 used inline skeleton markup since
+  Slice 1's component isn't on its branch — refactor to `x-ui.skeleton` once both merge).
+
+### What the owner does next
+1. **Review each branch** (`git log`/`git diff main..<branch>`); they are independent — **merge in any order**.
+   Slice 0 (pure hotfix) and Slice 1 (foundation) are the safest first merges; Slice 1 unblocks the `x-ui.*` reuse.
+2. **Expect a hand-merge between Slices 2 and 3** (shared editor files) — both additive; reconcile the toolbar
+   (Slice 3) + the attach zone/file-node (Slice 2) in `content-editor.blade.php` / `novfora-editor.js` / `island.js`.
+3. **Lift ADR-0093/0094** into `DECISIONS.md` (renumbered from the draft's 0092/0093) when ratifying.
+4. **Run Dusk in CI** for Slices 0/2/3/5 (the editor journey + attach interaction + roving-tabindex were written but
+   couldn't run on the VPS).
+5. **Decide the LOW follow-up** (scheduled-post attachment reservation) in the scheduler subsystem.
+6. **Push + merge are the owner's** — Code pushed/merged nothing.
+
+---
+
 ## ✅ Unattended batch 2026-06-21 — demo-shakeout fixes (EXECUTED: 5 branches → 5 PRs; none merged by Code)
 
 **Executed by an unattended Code session** from master spec `docs/product/batch-2026-06-21-kickoff.md`. All 5
