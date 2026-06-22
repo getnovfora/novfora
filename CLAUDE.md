@@ -14,8 +14,8 @@ theming, weak real-time, install friction).
 **Name: NovFora** (finalised 2026-06-10 — ADR-0026, supersedes ADR-0024). Single brand; domains
 `novfora.com` and `novfora.net` registered. "Hearth" and "NevoBB" are **retired codenames**.
 
-**Status: Stage B (active implementation).** Phase 1 / Core MVP complete; Phase 1.5 hardening complete;
-real-host fixes merged; ACP v1 + Spike P2 merged. See `PROJECT-STATE.md` for the current handoff state.
+**Status: Stage B — shipped 1.0.0 (GA).** Phases 0–5 + the full ACP v3 program complete; current work is post-1.0
+increments (Design-Polish Program, v1.x Feature Program). See `PROJECT-STATE.md` for the current handoff state.
 
 ## Locked decisions (do not relitigate — flag concerns, never silently change)
 
