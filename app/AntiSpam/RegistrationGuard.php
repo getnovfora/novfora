@@ -70,7 +70,11 @@ final class RegistrationGuard
 
         // 3. StopForumSpam (live → cached → no-signal). High confidence blocks; borderline flags.
         if ($reg['stopforumspam']['enabled'] ?? true) {
-            $sfs = $this->sfs->check($ip, $email, $username);
+            // The live-API enablement is the operator's documented setting (antispam.sfs_use_api) via
+            // ExternalSignalPolicy — so toggling it in the ACP actually controls the live call (previously the
+            // raw config did, and the setting was inert). The fail-safe holds: with the live API OFF the cached
+            // StopForumSpam + disposable + ban checks still run, and an ON-but-down API still FLAGs on degrade.
+            $sfs = $this->sfs->check($ip, $email, $username, app(ExternalSignalPolicy::class)->apiEnabled());
             $scores['stopforumspam'] = $sfs;
 
             if ($sfs['listed']) {

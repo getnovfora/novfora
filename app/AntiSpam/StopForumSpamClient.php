@@ -24,11 +24,16 @@ final class StopForumSpamClient
     /**
      * @return array{listed:bool, confidence:?int, degraded:bool, source:string}
      */
-    public function check(string $ip, string $email, string $username): array
+    public function check(string $ip, string $email, string $username, ?bool $useLiveApi = null): array
     {
         $cfg = (array) config('novfora.antispam.registration.stopforumspam', []);
 
-        if (($cfg['use_api'] ?? true) === true) {
+        // The live-API opt-in is authoritative via ExternalSignalPolicy::apiEnabled() (the operator's
+        // `antispam.sfs_use_api` setting, which backs to this config) — passed in by the guard. The config flag
+        // is only the fallback for a caller that doesn't supply the decision.
+        $useApi = $useLiveApi ?? (($cfg['use_api'] ?? true) === true);
+
+        if ($useApi) {
             $live = $this->fromApi($ip, $email, $username, (int) ($cfg['timeout'] ?? 4));
             if ($live !== null) {
                 $this->cacheListing($ip, $email, $live);
@@ -37,14 +42,16 @@ final class StopForumSpamClient
             }
         }
 
-        // API disabled or unreachable → fall back to the cron-cached blocklist.
+        // API disabled or unreachable → fall back to the cron-cached blocklist (the fail-safe: a cached listing
+        // still flags/blocks even with the live API off).
         $cached = $this->fromCache($ip, $email);
         if ($cached !== null) {
             return $cached + ['degraded' => true, 'source' => 'cache'];
         }
 
-        // Nothing live, nothing cached → no signal (the guard reads this as allow). Never an error.
-        return ['listed' => false, 'confidence' => null, 'degraded' => ($cfg['use_api'] ?? true) === true, 'source' => 'none'];
+        // Nothing live, nothing cached → no signal. `degraded` reflects whether a live call was MEANT to run, so
+        // an ON-but-DOWN API FLAGs (degraded), while an intentionally-OFF API does not flag-spam every signup.
+        return ['listed' => false, 'confidence' => null, 'degraded' => $useApi, 'source' => 'none'];
     }
 
     /**
