@@ -10,6 +10,7 @@ use App\Deliverability\Unsubscribe;
 use App\Deliverability\Verp;
 use App\Models\DigestQueueItem;
 use App\Models\User;
+use App\Theme\Sandbox\TemplateService;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -65,9 +66,26 @@ final class DigestMail extends Mailable
 
     public function content(): Content
     {
+        $unsubscribeUrl = Unsubscribe::urlFor($this->user);
+
+        // T2 (ADR-0099): the BODY is admin-customisable through the sandbox. Items are flattened to plain arrays
+        // (the sandbox does array-key access only) so a custom template can {% for item in items %}; every value
+        // is auto-escaped on output. '' = no enabled custom template → the Blade default in the view is used.
+        $customBody = app(TemplateService::class)->render('email.digest', [
+            'recipient_name' => (string) ($this->user->display_name ?? $this->user->username ?? ''),
+            'unsubscribe_url' => $unsubscribeUrl,
+            'items' => array_map(fn (DigestQueueItem $i): array => [
+                'actor' => (string) ($i->actor_username ?? 'Someone'),
+                'topic_title' => (string) ($i->payload['topic_title'] ?? ''),
+                'url' => (string) ($i->payload['url'] ?? ''),
+                'event' => (string) $i->event_type,
+            ], $this->items),
+        ]);
+
         return new Content(view: 'mail.digest', with: [
             'items' => $this->items,
-            'unsubscribeUrl' => Unsubscribe::urlFor($this->user),
+            'unsubscribeUrl' => $unsubscribeUrl,
+            'customBody' => $customBody,
         ]);
     }
 }

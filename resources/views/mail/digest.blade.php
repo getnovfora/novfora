@@ -1,6 +1,11 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 {{-- Spike P2 — the coalesced digest email. One message summarising a user's pending notifications for the
      period, instead of one email per event. $items = list<DigestQueueItem>; $unsubscribeUrl = signed link. --}}
+@if (! empty($customBody ?? ''))
+    {{-- T2 (ADR-0099): admin-customised digest body, rendered by the sandbox (variables auto-escaped, scripts
+         lint-blocked) — safe to emit raw. The unsubscribe footer below is always appended. --}}
+    {!! $customBody !!}
+@else
 <p>Hello,</p>
 
 <p>Here's what you missed on {{ config('app.name', 'NovFora') }}:</p>
@@ -40,6 +45,7 @@
         </li>
     @endforeach
 </ul>
+@endif
 
 <hr>
 <p style="color:#888;font-size:.85rem">
