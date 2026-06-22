@@ -53,6 +53,7 @@ return [
         'group_permissions' => 'Group permissions',
         'roles' => 'Roles',
         'join_requests' => 'Join requests',
+        'all_members' => 'All members',
         'directory' => 'Directory',
         'staff_flair' => 'Staff flair',
         'profile_fields' => 'Profile fields',
