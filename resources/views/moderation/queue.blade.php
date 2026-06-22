@@ -34,6 +34,12 @@
                         <p class="mt-0.5 text-sm text-ink-muted">
                             by <x-ui.user-name :user="$topic->author" /> in {{ $topic->forum?->title }}
                         </p>
+                        @php($hr = $holdReasons[$topic->author?->id] ?? null)
+                        @if ($hr)
+                            <p class="mt-1 flex items-center gap-1 text-xs text-ink-subtle">
+                                <x-ui.icon name="shield" class="h-3.5 w-3.5 shrink-0" /> {{ $hr }}
+                            </p>
+                        @endif
                     </div>
                     <div class="flex shrink-0 items-center gap-2">
                         <form method="POST" action="{{ route('topics.approve', $topic->id) }}">
@@ -66,6 +72,12 @@
                     <div class="min-w-0">
                         <p class="font-medium text-ink">Reply by <x-ui.user-name :user="$post->author" /></p>
                         <p class="mt-0.5 text-sm text-ink-muted">in {{ $post->topic?->title }}</p>
+                        @php($hr = $holdReasons[$post->author?->id] ?? null)
+                        @if ($hr)
+                            <p class="mt-1 flex items-center gap-1 text-xs text-ink-subtle">
+                                <x-ui.icon name="shield" class="h-3.5 w-3.5 shrink-0" /> {{ $hr }}
+                            </p>
+                        @endif
                     </div>
                     <div class="flex shrink-0 items-center gap-2">
                         <form method="POST" action="{{ route('posts.approve', $post->id) }}">
