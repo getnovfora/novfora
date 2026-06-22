@@ -1,6 +1,8 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-{{-- Button / link-button. variant: primary | ghost | subtle | danger | danger-ghost. size: sm | md | lg.
-     `icon` → square icon-only button. Renders as <a> when `href` is set. Touch target ≥44px at md/lg. --}}
+{{-- Button / link-button. variant: primary | ghost | subtle | danger | danger-ghost | danger-soft.
+     size: sm | md | lg. `icon` → square icon-only button. Renders as <a> when `href` is set. Touch
+     target ≥44px at md/lg. `danger-soft` is the QUIET destructive action (text-only until hover) — use it
+     for a secondary destructive control that must not compete with its neighbouring primary action. --}}
 @props([
     'variant' => 'primary',
     'size' => 'md',
@@ -22,6 +24,7 @@
         'subtle' => 'bg-surface-sunken text-ink hover:bg-line',
         'danger' => 'bg-danger-strong text-white hover:brightness-110',
         'danger-ghost' => 'border border-line text-danger bg-surface-raised hover:bg-danger-soft hover:border-danger',
+        'danger-soft' => 'text-danger bg-transparent hover:bg-danger-soft hover:text-danger-ink',
     ];
 
     $classes = $base.' '.($sizes[$size] ?? $sizes['md']).' '.($variants[$variant] ?? $variants['primary']);
