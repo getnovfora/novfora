@@ -68,11 +68,17 @@
                 <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ $topic->title }}</h1>
             </div>
 
-            @if ($canBookmark)
-                {{-- Member tool 2.1: save this topic. --}}
-                <livewire:forum.bookmark-button :key="'bm-topic-'.$topic->id" kind="topic" :target-id="$topic->id"
-                    :saved="$topicBookmarked" :can-save="$canBookmark" />
-            @endif
+            <div class="flex items-center gap-2">
+                @auth
+                    {{-- M2: follow this topic → notified of new replies. --}}
+                    <livewire:forum.subscribe-button :key="'sub-topic-'.$topic->id" kind="topic" :target-id="$topic->id" />
+                @endauth
+                @if ($canBookmark)
+                    {{-- Member tool 2.1: save this topic. --}}
+                    <livewire:forum.bookmark-button :key="'bm-topic-'.$topic->id" kind="topic" :target-id="$topic->id"
+                        :saved="$topicBookmarked" :can-save="$canBookmark" />
+                @endif
+            </div>
 
             @if ($canModerate)
                 <div class="flex flex-wrap items-center gap-2">

@@ -14,6 +14,7 @@ use App\Content\Mentions;
 use App\Content\Oembed\EmbedRenderer;
 use App\Events\PostCreated;
 use App\Events\TopicCreated;
+use App\Jobs\NotifySubscribersJob;
 use App\Models\Forum;
 use App\Models\Post;
 use App\Models\PostRevision;
@@ -266,6 +267,18 @@ final class PostService
             if ($mentioned instanceof User && $mayNotify($mentioned)) {
                 $this->notifier->send($mentioned, 'mention', $author, $payload);
             }
+        }
+
+        // Topic/forum follow-subscribe fan-out (M2, ADR-0097) — BOUNDED + QUEUED (the P5.1 @mention lesson):
+        // never a synchronous unbounded loop here. A reply notifies TOPIC followers; a new topic (the OP, with
+        // no earlier post) notifies FORUM followers. The author, OP author, and @mentioned recipients are
+        // excluded so a follower who was already notified inline isn't double-pinged.
+        $exclude = array_values(array_unique(array_merge([(int) $author->getKey()], $mentionIds)));
+        if ($isReply) {
+            $exclude[] = (int) $topic->user_id;
+            NotifySubscribersJob::dispatch($post->id, $topic->getMorphClass(), (int) $topic->id, array_values(array_unique($exclude)));
+        } elseif ($forum instanceof Forum) {
+            NotifySubscribersJob::dispatch($post->id, $forum->getMorphClass(), (int) $forum->id, $exclude);
         }
     }
 
