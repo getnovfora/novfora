@@ -401,6 +401,8 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/groups/requests', 'admin.group-requests')->name('groups.requests'); // <livewire:admin.group-requests /> (v3-e)
 
         // Members section — directory visibility, badges, and membership tiers/grants.
+        // ACP v4 · A1 (ADR-0096) — the in-admin member directory table (search/sort/filter, per-row Manage → A2).
+        Route::view('/members/all', 'admin.members.index')->name('members.index'); // <livewire:admin.members />
         Route::view('/members/directory', 'admin.members.directory')->name('members.directory');
         // ACP v3 · v3-g — staff flair + "The Team" roster toggles (display-only). <livewire:admin.settings.staff-flair />
         Route::view('/members/staff-flair', 'admin.members.staff-flair')->name('members.staff-flair');
