@@ -10,6 +10,7 @@ use App\Account\AccountDeletionService;
 use App\Models\AclEntry;
 use App\Models\Group;
 use App\Models\User;
+use App\Moderation\OwnerStrandGuard;
 use App\Permissions\AclVersion;
 use App\Permissions\MembershipCache;
 use App\Permissions\PermissionValue;
@@ -171,17 +172,11 @@ final class AdminCoOwnerService
      */
     private function assertNotSoleCoOwnerLocked(int $userId): void
     {
-        $coOwnerIds = DB::table('group_user')
-            ->join('groups', 'groups.id', '=', 'group_user.group_id')
-            ->where('groups.slug', 'admins')
-            ->where('group_user.is_co_owner', true)
-            ->lockForUpdate()
-            ->pluck('group_user.user_id')
-            ->map(fn ($id): int => (int) $id)
-            ->unique()
-            ->all();
-
-        if (in_array($userId, $coOwnerIds, true) && count($coOwnerIds) <= 1) {
+        // Delegates to the shared, ban-aware owner-strand authority (ADR-0100) so demote/remove reasons about
+        // REACHABLE co-owners identically to the ban/delete doors: a banned co-owner is not a viable remaining
+        // owner, so the last UNBANNED co-owner cannot be demoted/removed even while banned co-owners linger. The
+        // authority takes the same admins-group FOR UPDATE this method used to take inline.
+        if (app(OwnerStrandGuard::class)->wouldStrandCoOwnerTierLocked($userId)) {
             throw new AdminCoOwnerException('The last co-owner cannot be removed — appoint another co-owner first.');
         }
     }

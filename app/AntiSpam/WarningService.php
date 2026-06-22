@@ -10,6 +10,7 @@ use App\Models\Ban;
 use App\Models\User;
 use App\Models\Warning;
 use App\Models\WarningType;
+use App\Moderation\OwnerStrandGuard;
 use App\Notifications\Notifier;
 use App\Support\Audit;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,7 @@ final class WarningService
     public function __construct(
         private readonly TrustLevelManager $trust,
         private readonly Notifier $notifier,
+        private readonly OwnerStrandGuard $ownerGuard,
     ) {}
 
     public function issue(User $actor, User $target, WarningType $type, ?string $reason = null): Warning
@@ -49,7 +51,9 @@ final class WarningService
 
             Audit::log('warning.issued', $target, [
                 'type' => $type->slug, 'points' => (int) $type->default_points, 'by' => $actor->getKey(),
-                'consequence' => $consequence['action'] ?? null,
+                // Only report a consequence that was actually applied; a ban WITHHELD by the owner-strand guard
+                // is recorded separately by warning.consequence_suppressed (see applyConsequence).
+                'consequence' => ($consequence !== null && empty($consequence['suppressed'])) ? $consequence['action'] : null,
             ]);
 
             return $warning->refresh();
@@ -83,6 +87,14 @@ final class WarningService
         $thresholds = (array) config('novfora.antispam.warnings.thresholds', []);
 
         if (isset($thresholds['ban']) && $points >= (int) $thresholds['ban']) {
+            // The INDIRECT ban door (the real trap, ADR-0100): an AUTO-consequence may not strand the owner tier
+            // any more than a hand-issued ban may. The locked re-read runs inside issue()'s transaction; on a
+            // strand we SUPPRESS the lockout but KEEP the warning — the moderation note stands, the owner stays
+            // reachable. Fail-closed: the owner is never banned.
+            if ($this->ownerGuard->wouldStrandOwnerTierLocked($target)) {
+                return $this->suppressedConsequence($target, 'ban', $points);
+            }
+
             $target->forceFill(['status' => 'banned'])->save();
             Ban::firstOrCreate(
                 ['user_id' => $target->getKey(), 'type' => 'user', 'scope_type' => 'global'],
@@ -93,6 +105,12 @@ final class WarningService
         }
 
         if (isset($thresholds['temp_ban']) && $points >= (int) $thresholds['temp_ban']) {
+            // A temp ban is still an absolute lockout for its duration (BanChecker matches the unexpired row), so
+            // the same backstop applies — suppress + keep the warning when it would strand the sole owner.
+            if ($this->ownerGuard->wouldStrandOwnerTierLocked($target)) {
+                return $this->suppressedConsequence($target, 'temp_ban', $points);
+            }
+
             $days = (int) config('novfora.antispam.warnings.temp_ban_days', 7);
             Ban::create([
                 'user_id' => $target->getKey(), 'type' => 'user', 'scope_type' => 'global',
@@ -111,5 +129,20 @@ final class WarningService
         }
 
         return null;
+    }
+
+    /**
+     * Record (and audit) that a threshold-crossing ban/temp-ban was WITHHELD by the owner-strand guard. The
+     * warning row is still written; only the lockout is suppressed, so the sole owner stays reachable.
+     *
+     * @return array{action:string, points:int, suppressed:string}
+     */
+    private function suppressedConsequence(User $target, string $action, int $points): array
+    {
+        Audit::log('warning.consequence_suppressed', $target, [
+            'action' => $action, 'points' => $points, 'reason' => 'owner_strand',
+        ]);
+
+        return ['action' => $action, 'points' => $points, 'suppressed' => 'owner_strand'];
     }
 }

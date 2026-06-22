@@ -10,6 +10,8 @@ use App\Models\Ban;
 use App\Models\Post;
 use App\Models\Topic;
 use App\Models\User;
+use App\Moderation\OwnerStrandException;
+use App\Moderation\OwnerStrandGuard;
 use App\Support\Audit;
 use Illuminate\Support\Facades\DB;
 
@@ -20,10 +22,20 @@ use Illuminate\Support\Facades\DB;
  */
 final class SpamCleaner
 {
-    /** @return array{topics:int, posts:int} */
+    public function __construct(private readonly OwnerStrandGuard $ownerGuard) {}
+
+    /**
+     * @return array{topics:int, posts:int}
+     *
+     * @throws OwnerStrandException when the target is the last administrator / sole co-owner
+     */
     public function clean(User $actor, User $target, ?string $reason = null): array
     {
         return DB::transaction(function () use ($actor, $target, $reason) {
+            // Owner-strand backstop (apex, ADR-0100), the FIRST act under the transaction: a clean BANS the
+            // account, so refuse + roll back (deleting nothing) before stranding the sole owner.
+            $this->ownerGuard->assertBanWontStrandOwnerTier($target);
+
             $topics = 0;
             foreach (Topic::where('user_id', $target->getKey())->get() as $topic) {
                 $topic->delete(); // soft-delete → recycle bin

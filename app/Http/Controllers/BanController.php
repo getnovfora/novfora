@@ -11,12 +11,15 @@ use App\Account\AccountDeletionService;
 use App\AntiSpam\SpamCleaner;
 use App\Models\Ban;
 use App\Models\User;
+use App\Moderation\OwnerStrandException;
+use App\Moderation\OwnerStrandGuard;
 use App\Permissions\Scope;
 use App\Support\ActorRank;
 use App\Support\Audit;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Ban management (security §3) — user / IP / email / range bans, plus the Spam Cleaner. All gated on
@@ -25,7 +28,7 @@ use Illuminate\Http\Request;
  */
 class BanController extends Controller
 {
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, OwnerStrandGuard $ownerGuard): RedirectResponse
     {
         $this->authorizeBans($request);
 
@@ -37,25 +40,49 @@ class BanController extends Controller
             'expires_at' => ['nullable', 'date'],
         ]);
 
-        // Rank check (phase-1.5 F-F): can't ban a target of equal-or-higher rank (a mod can't ban an admin).
         $actor = $request->user();
-        if ($data['type'] === 'user' && ! empty($data['user_id']) && $actor instanceof User) {
+
+        // A USER ban flips the account to `banned` — an absolute lockout enforced by BanChecker BEFORE ACL
+        // resolution — so it carries two guards the value-bans don't:
+        //   • the actor-vs-target rank guard (phase-1.5 F-F): a mod can't ban an admin; and
+        //   • the OWNER-STRAND backstop (apex, ADR-0100): a banned owner can never reach the panel to lift their
+        //     own ban, so banning the sole owner is forum-fatal. The locked re-read, the Ban row and the status
+        //     flip commit atomically — the re-read runs FIRST, closing the TOCTOU window against a concurrent ban.
+        if ($data['type'] === 'user' && ! empty($data['user_id'])) {
             $target = User::find($data['user_id']);
-            abort_unless($target instanceof User && ActorRank::canActOn($actor, $target), 403);
+            abort_unless($actor instanceof User && $target instanceof User && ActorRank::canActOn($actor, $target), 403);
+
+            try {
+                DB::transaction(function () use ($ownerGuard, $target, $data): void {
+                    $ownerGuard->assertBanWontStrandOwnerTier($target);
+
+                    $ban = Ban::create([
+                        'user_id' => $target->getKey(),
+                        'type' => 'user',
+                        'value' => null,
+                        'scope_type' => 'global',
+                        'reason' => $data['reason'] ?? null,
+                        'expires_at' => $data['expires_at'] ?? null,
+                    ]);
+                    User::whereKey($target->getKey())->update(['status' => 'banned']);
+                    Audit::log('ban.created', $ban, ['type' => 'user']);
+                });
+            } catch (OwnerStrandException $e) {
+                return back()->with('error', $e->getMessage());
+            }
+
+            return back();
         }
 
+        // IP / email / range (value-based) ban — no account status flip, so no owner-strand surface.
         $ban = Ban::create([
-            'user_id' => $data['type'] === 'user' ? ($data['user_id'] ?? null) : null,
+            'user_id' => null,
             'type' => $data['type'],
-            'value' => $data['type'] === 'user' ? null : ($data['value'] ?? null),
+            'value' => $data['value'] ?? null,
             'scope_type' => 'global',
             'reason' => $data['reason'] ?? null,
             'expires_at' => $data['expires_at'] ?? null,
         ]);
-
-        if ($ban->type === 'user' && $ban->user_id) {
-            User::whereKey($ban->user_id)->update(['status' => 'banned']);
-        }
         Audit::log('ban.created', $ban, ['type' => $ban->type]);
 
         return back();
@@ -82,7 +109,13 @@ class BanController extends Controller
         $actor = $request->user();
         abort_unless($actor instanceof User && ActorRank::canActOn($actor, $user), 403);
 
-        $result = $cleaner->clean($actor, $user, 'Spam cleaner');
+        // The cleaner BANS the account, so it runs the owner-strand backstop (ADR-0100) inside its transaction;
+        // a refusal rolls back the whole clean (no content soft-deleted) and is surfaced gracefully here.
+        try {
+            $result = $cleaner->clean($actor, $user, 'Spam cleaner');
+        } catch (OwnerStrandException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         return back()->with('status', "Removed {$result['topics']} topic(s) and {$result['posts']} post(s); account banned.");
     }
