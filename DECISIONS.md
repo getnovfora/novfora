@@ -3719,3 +3719,62 @@ The diagnostic mirrors the engine (no drift): `freezeReason()` reorders to (demo
 **As-built note (Slice 2).** The pre-publish `draft_token` column in the draft ADR was **NOT** added — the existing **orphan (`post_id` NULL) + `user_id` ownership** model already provides the same pre-publish security without introducing a new forgery surface; association-on-publish binds orphans to the post under per-post caps (a correctness fix: before it, posted images 403'd every reader). Otherwise the subsystem is as described.
 
 **Consequences.** Rich multi-file attachments on the Baseline tier with no daemon, security-tested, reversible; a new public surface (the endpoints) that the module/REST layers may later consume; the heaviest review burden in the program — correctly, since it takes bytes from the internet. **LOW follow-up** (scheduled-post attachment reservation) is discharged by **v1.x S1**.
+
+### ADR-0095 — v1.x Feature Program (post-1.0 functional increments) (2026-06-22)
+**Status: Accepted — built, gated, and merged into `main` as the v1.x batch (2026-06-22); pending owner push to `origin`. Parent ADR; children 0096–0100. Confirmed next-free over 0093/0094 (Design-Polish).**
+
+**Context.** With 1.0 GA shipped and the Design-Polish Program (ADR-0093/0094) built, the next cycle is **functional**: the gaps incumbents close that NovFora 1.0 left thin — in-ACP member management, content subscriptions, moderator quality-of-life, and admin-editable email. Run as a tracked, parallel program off `main` so each slice is independently built + gated and merged as one batch.
+
+**Decision.** Five tracks, fourteen slices + an apex fast-follow: **R** (hygiene — R1 PROJECT-STATE trim + PROJECT-HISTORY split, R2 artifact prune), **S** (S1 attachment-prune hardening + storage-outage degrade, S2 Dusk CI browser specs, S3 lift the Design-Polish ADRs as 0093/0094), **A** = **ACP v4 member-management (ADR-0096)** (A1 directory table, A2 per-member admin view, A3 warning-type ACP), **M** (M1 quote-reply, **M2 subscriptions ADR-0097**, M3 topic-list slug/excerpt finish), **T** (**T1 canned replies ADR-0098**, **T2 email templates ADR-0099**, T3 analytics charts), and the apex fast-follow **S5 owner-strand guard (ADR-0100)** A2's review surfaced. Every slice is additive/reversible, baseline-runnable, and passes the deterministic gates (pest/pint/phpstan L max/migrate round-trip/asset-drift + the a11y page gate); apex slices (0096 member-admin, 0097 fan-out, 0099 render-sandbox, 0100 ban-strand) carry a mandatory adversarial verify-then-refute review before merge.
+
+**Consequences.** A coherent feature wave merged in dependency order (R1→S3→R2 ; A1→A2→A3→S5 ; S1 ; S2 ; M1→M2→M3 ; T1→T3→T2) with additive hand-merges kept on both sides (the reply-composer M1/T1, the AdminAccessWalk sentinel A1/A3/T1, the ban/warn services A2/S5). Two new reversible migrations (`content_subscriptions`, `canned_replies`); the bundle is the cron auto-upgrade path, not assets-only.
+
+### ADR-0096 — ACP v4: in-admin member management surface (apex) (2026-06-22)
+**Status: Accepted — built + gated + merged (v1.x A1/A2/A3); the apex per-member-action review is on record, and the front-end owner-strand gap it flagged is closed by ADR-0100.**
+
+**Context.** Moderation lived on the front-end (the bans page, profile triggers); admins had no in-panel directory or per-member console. ACP v4 brings member management into the admin panel — a directory + a per-member action view — without leaking PII and without weakening the rank/owner guards.
+
+**Decision.** **A1** — an in-admin **member directory table** (`/admin/members/all`, `<x-admin.members>`): sortable/filterable/paginated, every column + row action authorisation-gated, rank-guarded row actions, no-PII-leak. **A2** — a **per-member admin management view** (`MemberAdminController` host + `<livewire:admin.members.manage>`): ban (issue/lift), warnings (issue + history), read-only profile/role facts; each action re-asserts admin.access + admin.members.access + staff-2FA + its capability + the actor-vs-target rank guard + a **no-self** guard, and gates the destructive actions behind a **sole-owner UI guard** (`assertNotSoleOwner` = `isSoleAdmin || isSoleCoOwner`, 403). Bans route through a **shared `UserBanService`** (the single ban code path, also used by the front-end bans page) so there is ONE Ban row + status-flip + audit trail. **A3** — **warning-type CRUD + read-only consequence thresholds** in the ACP (`/admin/moderation/warning-types`). **Mandatory adversarial review** on the per-member actions (authz per column/action, rank-guard, no-PII-leak).
+
+**Consequences.** Member management is a first-class ACP surface sharing the engine's guards, not a parallel one. The review found a **pre-existing HIGH**: A2's `assertNotSoleOwner` is a non-locking UI check, and the *front-end* `BanController` / `WarningService` / `SpamCleaner` could still strand the sole owner — closed by the **owner-strand guard (ADR-0100)**, whose locking backstop now lives inside the shared `UserBanService::ban()` chokepoint A2 introduced.
+
+### ADR-0097 — Topic / forum subscriptions with bounded, queued fan-out (apex) (2026-06-22)
+**Status: Accepted — built + gated + merged (v1.x M2); the fan-out + visibility adversarial review is on record.**
+
+**Context.** Members had no "follow this topic/forum" — the standard re-engagement primitive. The risk is the **notification fan-out boundary** (the P5.1 `@mention` lesson): a hot topic can have many subscribers, so a synchronous unbounded fan-out is a self-inflicted DoS and a visibility-leak surface.
+
+**Decision.** An additive/reversible **`content_subscriptions`** table (user × polymorphic subscribable topic|forum) + a **Follow/Unfollow** control on the topic header and forum index (`<x-forum.subscribe-button>`, `SubscriptionService`, `ContentSubscription`). On a **new approved reply**, notify subscribers through the existing notification system + the digest via **`NotifySubscribersJob`** — **bounded + queued**: chunked through the cron-drained DB queue (never a synchronous unbounded loop), respecting each subscriber's notification prefs and **forum visibility** (a member who can't see the forum is never notified, and never the replier themselves). **Mandatory adversarial review** on the fan-out cap + visibility filter.
+
+**Consequences.** Re-engagement on the Baseline tier with no daemon (cron drains the queue), bounded blast radius, no visibility leak. The notify path is reusable by future subscribable types.
+
+### ADR-0098 — Canned / stock moderator replies (2026-06-22)
+**Status: Accepted — built + gated + merged (v1.x T1).**
+
+**Context.** Moderators retype the same guidance (rules reminders, close reasons). Incumbents ship a stock-reply library; NovFora had none.
+
+**Decision.** An additive/reversible **`canned_replies`** table (title · canonical-JSON body · is_active) + an **ACP CRUD** (`/admin/moderation/canned-replies`, `<livewire:admin.canned-replies>`). In the reply composer, a **staff-only picker** (gated on `bans.manage`) lists active replies; selecting one reloads the composer with `?canned={id}`, which **server-side** (the `#[Locked]`-disciplined SFC) validates the id is an active reply, the actor holds `bans.manage`, and pre-fills the canonical-JSON body — taking precedence over an autosaved draft. Non-staff never see the picker and a forged `?canned` id is inert for them.
+
+**Consequences.** Faster, more consistent moderation; the canned body flows through the same canonical-JSON → server-sanitise pipeline as any post. Coexists with quote-reply (M1) in one composer — both `?quote` and `?canned` are honoured (quote wins if both are present).
+
+### ADR-0099 — Admin-editable transactional email templates (apex) (2026-06-22)
+**Status: Accepted — built + gated + merged (v1.x T2); the injection / render-sandbox review is on record.**
+
+**Context.** Transactional emails (digest, notification) shipped with fixed copy; operators want to brand/reword them. The body becomes an **untrusted-to-the-renderer** string — the render-sanitisation boundary — so it must never reach a Mailable as raw Blade/PHP.
+
+**Decision.** An ACP editor to customise the transactional email bodies (`DigestMail`, `NotificationMail`) through the **same sandboxed, variables-only, auto-escaped** mechanism as `SiteTemplate` (`App\Theme\Sandbox\TemplateContract`): **no PHP, no raw Blade, an allow-listed variable set, auto-escaped output**. An unset template **falls back to the shipped default**, so email never breaks. **Fence + mandatory review:** the admin string is untrusted to the renderer — reuse the SiteTemplate sandbox/escaping; tested against template injection (no variable escapes the sandbox) and header injection via the subject.
+
+**Consequences.** Operator-brandable email with no new injection surface — the sandbox is the single safe-template authority, reused not re-implemented. Defaults guarantee deliverability when unset.
+
+### ADR-0100 — Owner-strand guard on the ban/warn paths (apex) (2026-06-22)
+**Status: Accepted — built + gated + merged (v1.x S5, the apex fast-follow ADR-0096's review surfaced); the mandatory adversarial verify-then-refute review found **3 HIGH** bugs, all resolved before commit and re-verified GO (0 open HIGH).**
+
+**Context.** A banned account is blocked by `BanChecker` BEFORE ACL resolution, so a banned owner can never reach the panel to lift their own ban. ADR-0096's review found a **pre-existing HIGH**: the new ACP per-member path got a (non-locking) sole-owner UI check, but the front-end **`BanController`**, the **`WarningService` auto-consequence** (a warning crossing the `temp_ban`/`ban` threshold), and the **`SpamCleaner`** could still ban/suspend the **sole owner**, stranding the owner tier — unrecoverable, forum-fatal. This pre-dates v1.x and was live on demo.
+
+**Decision.** A single actor-independent, TOCTOU-safe authority — **`App\Moderation\OwnerStrandGuard`** — routed through every effective ban/suspend application: the shared **`UserBanService::ban()`** chokepoint (so the bans page AND the ACP member view are covered), **`WarningService::applyConsequence`** (the indirect ban/temp_ban door — SUPPRESSES the lockout, keeping the warning + auditing `warning.consequence_suppressed`, rather than stranding the owner), and **`SpamCleaner::clean`**. A non-sole co-owner (with a reachable peer) is still bannable; non-last admins and ordinary users are unaffected; scoped bans are ignored (only a global lockout strands the panel).
+
+**The three review-found HIGHs (all fixed before commit, re-verified GO):**
+- **H1 — count REACHABLE owners, not membership rows.** The first design counted `group_user` rows, but a ban mutates only `users.status`/`bans` — never `group_user` — so banning owners one at a time (or two concurrently) let the last slip through. Fix: exclude owners already blocked by `BanChecker` (`status='banned'` OR a live unexpired GLOBAL user-ban row, temp bans included) from the reachable count.
+- **H2 — the removal doors shared the blind count.** The sibling **DELETE** (`AccountDeletionService`) and **DEMOTE** (`AdminCoOwnerService`) last-owner guards counted a banned owner as live, so one could ban a co-owner then remove the healthy peer. Fix: those guards now **delegate** to the shared ban-aware authority, so ban/delete/demote/admins-removal reason about reachable owners identically.
+- **H3 — driver portability.** `(int) is_co_owner === 1` mis-read PostgreSQL's `"t"`/`"f"` boolean text, silently disabling co-owner protection on a supported tier. Fix: derive co-owner-ness with a SQL `where is_co_owner = true`, like the siblings.
+
+**Consequences.** No effective ban/suspend (or owner removal) can strand the owner tier, TOCTOU-safe under a uniform `group_user → users → bans` lock order (no deadlock). The shared guard is the single source of "reachable owner" truth across four doors. Reversible (no migration); baseline-runnable. **Flagged, not fixed (pre-existing, out of S5's ban scope):** `GroupManager::removeMember` guards the co-owner tier but not the last PLAIN admin — a separate ADR-0086 removal-door gap for a follow-up.
