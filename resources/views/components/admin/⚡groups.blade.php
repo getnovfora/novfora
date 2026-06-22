@@ -8,6 +8,7 @@ use App\Models\Group;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\RoleAssignment;
+use App\Models\RolePermission;
 use App\Models\User;
 use App\Permissions\Scope;
 use App\Support\GroupColor;
@@ -464,7 +465,13 @@ new class extends Component
         }
     }
 
-    /** Whether the source group carries any Administration-tier acl_entries key (full-admin-only to clone). */
+    /**
+     * Whether the source carries any Administration-tier key the clone would reproduce — full-admin-only to
+     * clone. Checks BOTH (a) a direct admin-tier acl_entries grant on the group AND (b) an admin-tier key in a
+     * role the group is ASSIGNED (the clone copies the assignment, and a role re-expansion would propagate the
+     * grant onto the clone). Mirrors the role SFC's fence, which checks the role's permission keys — without (b)
+     * a non-admin could clone a group assigned an admin-tier role whose acl_entry was merely card-edited away.
+     */
     private function sourceHoldsAdminTierKey(Group $source): bool
     {
         $adminTier = Permission::query()->where('group', 'Administration')->pluck('key')->all();
@@ -472,10 +479,20 @@ new class extends Component
             return false;
         }
 
-        return AclEntry::query()
+        $direct = AclEntry::query()
             ->where('holder_type', 'group')->where('holder_id', $source->getKey())
             ->whereIn('permission_key', $adminTier)
             ->exists();
+        if ($direct) {
+            return true;
+        }
+
+        $roleIds = RoleAssignment::query()
+            ->where('holder_type', 'group')->where('holder_id', $source->getKey())
+            ->pluck('role_id');
+
+        return $roleIds->isNotEmpty()
+            && RolePermission::query()->whereIn('role_id', $roleIds)->whereIn('permission_key', $adminTier)->exists();
     }
 };
 ?>

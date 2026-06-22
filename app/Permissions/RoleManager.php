@@ -265,6 +265,10 @@ final class RoleManager
                 ]);
             }
 
+            // Each RolePermission::create bumps AclVersion via its model event; bump once more unconditionally so
+            // the guarantee holds even for a zero-permission source (consistent with save()/delete()/assign()).
+            $this->version->bump();
+
             Audit::log('role.cloned', $clone, [
                 'source_id' => (int) $source->getKey(),
                 'source' => $source->name,

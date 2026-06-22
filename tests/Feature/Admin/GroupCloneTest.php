@@ -14,8 +14,10 @@ use App\Models\Role;
 use App\Models\RoleAssignment;
 use App\Models\User;
 use App\Permissions\AclVersion;
+use App\Permissions\GroupPermissionEditor;
 use App\Permissions\PermissionResolver;
 use App\Permissions\PermissionValue as V;
+use App\Permissions\RoleManager;
 use App\Permissions\Scope;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -92,6 +94,32 @@ it('clones a group\'s role baseline so the clone resolves the role keys and stay
     gcm()->addMembers($clone, [$member->id]);
     app(PermissionResolver::class)->flushMemo();
     expect($member->fresh()->canDo('topic.moderate', Scope::global()))->toBeTrue();
+});
+
+it('does NOT resurrect a role key the source had stripped to "no" (no silent widening)', function () {
+    // Regression for ADR-0090 / adversarial review: re-expanding the role on clone would resurrect a key the
+    // source deleted via the card editor. The clone must mirror the source's PHYSICAL state, not the role.
+    $this->actingAs(Users::withTwoFactor(Users::inGroups(['admins'])));
+    $moderator = Role::where('slug', 'moderator')->firstOrFail();
+    $source = gcm()->create(['name' => 'Stripped', 'priority' => 60, 'role_id' => $moderator->id]);
+
+    // Strip one role-granted key on the source via the card-editor primitive (DELETE the physical acl_entry).
+    app(GroupPermissionEditor::class)->set($source, 'topic.moderate', Scope::global(), 'no');
+
+    // Sanity: the source resolves topic.moderate as NOT granted now (the row is gone, assignment remains).
+    $srcMember = Users::inGroups(['members']);
+    gcm()->addMembers($source, [$srcMember->id]);
+    app(PermissionResolver::class)->flushMemo();
+    expect($srcMember->fresh()->canDo('topic.moderate', Scope::global()))->toBeFalse();
+
+    $clone = gcm()->clone($source->fresh());
+
+    // The clone must NOT have resurrected topic.moderate — neither as a resolved grant nor a physical row.
+    $cloneMember = Users::inGroups(['members']);
+    gcm()->addMembers($clone, [$cloneMember->id]);
+    app(PermissionResolver::class)->flushMemo();
+    expect($cloneMember->fresh()->canDo('topic.moderate', Scope::global()))->toBeFalse()
+        ->and(AclEntry::where('holder_type', 'group')->where('holder_id', $clone->id)->where('permission_key', 'topic.moderate')->exists())->toBeFalse();
 });
 
 it('a manual override that differs from the role wins on the clone, exactly as on the source', function () {
@@ -174,6 +202,28 @@ it('blocks a non-admin from cloning a group that holds an admin-tier key', funct
         ->assertStatus(403);
 
     expect(Group::where('name', 'Mini-admin (copy)')->exists())->toBeFalse();
+});
+
+it('blocks a non-admin from cloning a group assigned an admin-tier ROLE (even with the acl_entry stripped)', function () {
+    // Admin builds: a custom role bearing an admin-tier key, assigned to a low-rank custom group, then strips
+    // the expanded admin-tier acl_entry via the card editor — the role ASSIGNMENT survives. A non-admin who
+    // outranks the group must STILL be refused (cloning would copy the assignment; a re-expansion mints the key).
+    $admin = Users::withTwoFactor(Users::inGroups(['admins']));
+    $this->actingAs($admin);
+
+    $adminKey = (string) Permission::where('group', 'Administration')->value('key');
+    $role = app(RoleManager::class)->save(null, 'Sneaky', [$adminKey => 'yes'], $admin);
+    $group = gcm()->create(['name' => 'Trojan', 'priority' => 40]);
+    app(RoleManager::class)->assignToGroup($role, $group, $admin);
+    app(GroupPermissionEditor::class)->set($group->fresh(), $adminKey, Scope::global(), 'no');
+    expect(AclEntry::where('holder_type', 'group')->where('holder_id', $group->id)->where('permission_key', $adminKey)->exists())->toBeFalse();
+
+    $acl = Acl::make();
+    $manager = gcPermManager($acl, 50); // outranks the priority-40 group, but the role carries the admin key
+
+    Livewire::actingAs($manager->fresh())->test('admin.groups')
+        ->call('clone', $group->id)
+        ->assertStatus(403);
 });
 
 it('blocks cloning a group ranked at or above the actor (rank guard)', function () {
