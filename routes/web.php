@@ -420,6 +420,8 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/moderation/spam-intelligence', 'admin.spam-intelligence')->name('spam-intelligence');
         // ACP v4 · A3 (ADR-0096) — warning-type CRUD + read-only consequence thresholds. <livewire:admin.warning-types />
         Route::view('/moderation/warning-types', 'admin.warning-types')->name('moderation.warning-types');
+        // T1 — canned / stock moderator replies CRUD. <livewire:admin.canned-replies />
+        Route::view('/moderation/canned-replies', 'admin.canned-replies')->name('moderation.canned-replies');
         Route::view('/moderation/settings', 'admin.settings.moderation')->name('settings.moderation');
         // ACP v3 · v3-b — the global single-pane: every per-forum moderator assignment, grouped by forum.
         Route::view('/moderation/moderators', 'admin.moderators')->name('moderators');

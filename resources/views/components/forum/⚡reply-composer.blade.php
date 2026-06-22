@@ -5,10 +5,13 @@ use App\AntiSpam\PostRateLimiter;
 use App\Forum\Concerns\ManagesDrafts;
 use App\Forum\PostScheduler;
 use App\Forum\PostService;
+use App\Models\CannedReply;
 use App\Models\Post;
 use App\Models\Topic;
 use App\Models\User;
+use App\Permissions\Scope;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -33,14 +36,18 @@ new class extends Component
     #[Locked]
     public ?int $replyToPostId = null;
 
-    public function mount(int $topicId, ?int $quote = null): void
+    public function mount(int $topicId, ?int $quote = null, ?int $canned = null): void
     {
         $this->topicId = $topicId;
         $this->ensureCanReply();
 
-        // A per-post Quote (?quote={id}) pre-fills the composer with a blockquote + attribution and links the
-        // reply to its source; it takes precedence over any autosaved draft for this load.
+        // A per-post Quote (?quote={id}, M1) pre-fills the composer with a blockquote + attribution and links the
+        // reply to its source; a canned reply (?canned={id}, T1, staff-only/bans.manage) pre-fills it with a stock
+        // body. Either takes precedence over an autosaved draft for this load; quote wins if both are present.
         if ($quote !== null && $this->applyQuote($quote)) {
+            return;
+        }
+        if ($canned !== null && $this->applyCanned($canned)) {
             return;
         }
 
@@ -67,6 +74,28 @@ new class extends Component
         return true;
     }
 
+    /** Canned replies are a moderator tool — only a bans.manage holder may insert/see them. */
+    private function canUseCanned(): bool
+    {
+        $u = auth()->user();
+
+        return $u instanceof User && $u->canDo('bans.manage', Scope::global());
+    }
+
+    private function applyCanned(int $id): bool
+    {
+        if (! $this->canUseCanned()) {
+            return false;
+        }
+        $reply = CannedReply::where('id', $id)->where('is_active', true)->first();
+        if ($reply === null) {
+            return false;
+        }
+        $this->canonicalJson = (array) $reply->body_canonical;
+
+        return true;
+    }
+
     /** A canonical-JSON doc: an attribution line linking to the source post, a blockquote of the excerpt (the
      *  plain-text projection — never re-embedding another post's nodes/attachments), then an empty paragraph. */
     private function buildQuotedDoc(Post $quoted): array
@@ -89,6 +118,14 @@ new class extends Component
                 ['type' => 'paragraph', 'content' => []],
             ],
         ];
+    }
+
+    /** @return Collection<int, CannedReply> active canned replies for the staff picker (empty for non-staff). */
+    public function cannedReplyOptions(): Collection
+    {
+        return $this->canUseCanned()
+            ? CannedReply::where('is_active', true)->orderBy('title')->get(['id', 'title'])
+            : collect();
     }
 
     /** @return array{0:string,1:int} */
@@ -185,13 +222,31 @@ new class extends Component
 };
 ?>
 
-<form wire:submit="save" class="mt-6 space-y-3">
+<form wire:submit="save" id="reply-composer" class="mt-6 space-y-3">
     <div class="flex items-center justify-between gap-2">
         <h2 class="text-base font-semibold text-ink">Reply</h2>
         <x-ui.button type="button" variant="ghost" size="sm" wire:click="toggleFormat">
             {{ $format === 'markdown' ? 'Switch to rich text' : 'Switch to Markdown' }}
         </x-ui.button>
     </div>
+
+    {{-- T1: staff canned-reply picker — each link reloads the composer pre-filled with that reply's body. --}}
+    @php($cannedOptions = $this->cannedReplyOptions())
+    @if ($cannedOptions->isNotEmpty())
+        <details class="text-sm">
+            <summary class="inline-flex cursor-pointer items-center gap-1 text-ink-muted hover:text-ink">
+                <x-ui.icon name="message" class="h-4 w-4" /> Insert a canned reply
+            </summary>
+            <ul class="mt-2 space-y-0.5 rounded-md border border-line bg-surface-raised p-2">
+                @foreach ($cannedOptions as $opt)
+                    <li>
+                        <a href="{{ route('topics.show', $this->topicId).'?canned='.$opt->id.'#reply-composer' }}"
+                           class="block rounded px-2 py-1 text-accent hover:bg-surface-sunken" dusk="canned-insert-{{ $opt->id }}">{{ $opt->title }}</a>
+                    </li>
+                @endforeach
+            </ul>
+        </details>
+    @endif
 
     @if ($format === 'markdown')
         <textarea wire:model="markdownSource" rows="6" placeholder="Write Markdown…"

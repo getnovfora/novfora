@@ -252,10 +252,12 @@
 
         @auth
             @if ($canReply)
+                {{-- ?quote={id} (M1) pre-fills a quote-reply; ?canned={id} (T1, staff picker) pre-fills a canned reply. --}}
                 <div id="reply-composer">
                     <livewire:forum.reply-composer :topic-id="$topic->id"
                         :quote="(int) request('quote') ?: null"
-                        :key="'reply-composer-'.((int) request('quote'))" />
+                        :canned="(int) request('canned') ?: null"
+                        :key="'reply-composer-'.((int) request('quote')).'-'.((int) request('canned'))" />
                 </div>
             @elseif ($topic->status === 'locked')
                 <x-ui.card class="flex items-center gap-3 text-ink-muted">

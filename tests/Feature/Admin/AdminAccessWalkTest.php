@@ -127,6 +127,7 @@ it('renders every admin page (ACP + system) for a 2FA co-owner with no exception
     expect($pages)->toContain('/admin/security/co-owners');     // the v3-a Security pages must be walked too
     expect($pages)->toContain('/admin/members/all');            // the ACP v4 member directory table (A1)
     expect($pages)->toContain('/admin/moderation/warning-types'); // ACP v4 A3 — warning-type CRUD
+    expect($pages)->toContain('/admin/moderation/canned-replies'); // T1 — canned-reply CRUD
 
     foreach ($pages as $uri) {
         $this->actingAs($admin)->get($uri)
