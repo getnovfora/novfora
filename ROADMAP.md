@@ -107,6 +107,19 @@ directory (gated by `members.staff_flair_show_badge`) + a public `/staff` roster
 shipped. Branches are **local-only** (owner pushes); v3-a/v3-b/v3-f/v3-g are off `main` (the
 v3-c/d/e stack is unmerged — they reuse the engine + the v3-d role model but are independent of it).
 
+**Design-Polish Program (proposed, 2026-06-22 — awaiting approval):** makes look-and-feel a **first-class, tracked
+deliverable on equal footing with function**, across the ACP and the member experience, with a curated-rich **rich-text
+editor** (drag-drop multi-file attachments + Insert / Text-style menus + H1–H3 / tables / emoji picker — independently
+designed, **strict clean-room**) as the flagship. Four pillars: (1) **design-system foundation** — mature the existing
+semantic-token set into a documented, gap-filled `<x-ui.*>` library (polished data-table + empty/loading/skeleton/error
+states + motion tokens); (2) **ACP navigability + feel** — persistent sidebar shell (kills the section-switch reflow),
+the reusable table, one form-layout system, quick-links/recents; (3) **member-experience polish**; (4) the **editor**.
+Threads through the post-1.0 functional milestones (**1.1** member UX · **1.2** ACP v4 member-management · **1.3** admin
+tooling — see `docs/product/audit-ips-gap-analysis-2026-06-22.md`); the editor upload path is **apex (untrusted input)**.
+**Ship-now polish hotfix (1.0.x):** the `.novfora-prose` height-cap leak (`app.css:404`) clips long posts into an inner
+scrollbar — the audit's worst-rated defect — fixed by scoping the cap to `.novfora-editor`. Full spec:
+`docs/product/design-polish-program-2026-06-22.md`.
+
 **Carried-in refinements:** Laravel 13 + Livewire 4; **PHP 8.3 floor** *(revises brief's 11/3 and the 8.2
 floor — flagged at the Phase 0 gate)*; no-SSH installer; coarse-cron-tolerant queue; WYSIWYG↔Livewire spike as
 the #1 risk; anti-spam first-class from Phase 1; a11y/i18n baked in throughout.
