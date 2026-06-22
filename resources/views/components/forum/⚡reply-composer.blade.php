@@ -5,9 +5,11 @@ use App\AntiSpam\PostRateLimiter;
 use App\Forum\Concerns\ManagesDrafts;
 use App\Forum\PostScheduler;
 use App\Forum\PostService;
+use App\Models\Post;
 use App\Models\Topic;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 
@@ -27,11 +29,66 @@ new class extends Component
     /** Optional "publish at" (datetime-local string) — when set + future, the reply is scheduled (2.4). */
     public ?string $publishAt = null;
 
-    public function mount(int $topicId): void
+    /** Quote-reply linkage (M1) — set server-side from the ?quote param; #[Locked] so the client can't forge it. */
+    #[Locked]
+    public ?int $replyToPostId = null;
+
+    public function mount(int $topicId, ?int $quote = null): void
     {
         $this->topicId = $topicId;
         $this->ensureCanReply();
+
+        // A per-post Quote (?quote={id}) pre-fills the composer with a blockquote + attribution and links the
+        // reply to its source; it takes precedence over any autosaved draft for this load.
+        if ($quote !== null && $this->applyQuote($quote)) {
+            return;
+        }
+
         $this->restoreDraft(); // restore any autosaved reply draft for this topic (own-only)
+    }
+
+    /** Build the quoted-content doc + record the parent linkage. Returns false (→ fall back to the draft) if the
+     *  quoted post isn't an APPROVED post in THIS topic — so a forged/cross-topic id can never pull in content. */
+    private function applyQuote(int $quote): bool
+    {
+        $quoted = Post::query()
+            ->where('id', $quote)
+            ->where('topic_id', $this->topicId)
+            ->where('approved_state', 'approved')
+            ->first();
+
+        if ($quoted === null) {
+            return false;
+        }
+
+        $this->canonicalJson = $this->buildQuotedDoc($quoted);
+        $this->replyToPostId = $quoted->id;
+
+        return true;
+    }
+
+    /** A canonical-JSON doc: an attribution line linking to the source post, a blockquote of the excerpt (the
+     *  plain-text projection — never re-embedding another post's nodes/attachments), then an empty paragraph. */
+    private function buildQuotedDoc(Post $quoted): array
+    {
+        $author = $quoted->author;
+        $name = $author?->display_name ?? $author?->username ?? 'A member';
+        $excerpt = trim(Str::limit((string) $quoted->body_text, 600));
+
+        return [
+            'type' => 'doc',
+            'content' => [
+                ['type' => 'paragraph', 'content' => [[
+                    'type' => 'text',
+                    'text' => $name.' wrote:',
+                    'marks' => [['type' => 'link', 'attrs' => ['href' => '#post-'.$quoted->id]]],
+                ]]],
+                ['type' => 'blockquote', 'content' => [
+                    ['type' => 'paragraph', 'content' => $excerpt !== '' ? [['type' => 'text', 'text' => $excerpt]] : []],
+                ]],
+                ['type' => 'paragraph', 'content' => []],
+            ],
+        ];
     }
 
     /** @return array{0:string,1:int} */
@@ -69,7 +126,7 @@ new class extends Component
         if ($this->publishAt !== null && trim($this->publishAt) !== '') {
             try {
                 $when = Carbon::parse($this->publishAt);
-            } catch (\Throwable) {
+            } catch (Throwable) {
                 $this->addError('publishAt', 'That date and time is invalid.');
 
                 return null;
@@ -88,7 +145,7 @@ new class extends Component
         }
 
         try {
-            $service->reply(auth()->user(), $this->topic(), $format, $canonical);
+            $service->reply(auth()->user(), $this->topic(), $format, $canonical, $this->replyToPostId);
         } catch (ContentRejectedException $e) {
             $this->addError('body', $e->getMessage());
 
