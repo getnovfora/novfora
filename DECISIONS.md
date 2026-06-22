@@ -863,11 +863,10 @@ rest is scaffolding. New dependencies: none. Reversible migrations only (one new
   batch-rehydrated (`User`/`Topic`/`Post`, `withTrashed`) — no per-row lazy loads. A cache-HIT test proves the
   second load re-queries **zero** `activities` rows. The forum-index budget rises **15 → 20** (amendment #6) for
   the feed's permission-filter + rehydration; the cache keeps it from being an N+1.
-  - **Known limitation (cache-then-filter window).** Because the window is global-then-filtered, a heavily
-    restricted viewer whose only visible forum is low-traffic can see an **empty feed** if every one of the
-    latest 100 activities is from forums they cannot see. Acceptable for M3 (most activity is in forums most
-    viewers can see). The fix — paginate past the window, or cache per visible-scope set — is an M4-era
-    optimisation.
+  - **Known limitation (cache-then-filter window). — SUPERSEDED by ADR-0091.** Because the window is
+    global-then-filtered, a heavily restricted viewer whose only visible forum is low-traffic can see an **empty
+    feed** if every one of the latest 100 activities is from forums they cannot see. ADR-0091 closes this by
+    pushing the visible-forum constraint INTO the restricted viewer's window query.
 - **Verbs logged post-commit; held content and PMs are excluded.** `topic.created` / `post.created` /
   `react.given` are recorded by **auto-discovered listeners** (handle-typed, like `SendReactionNotification`).
   `Reacted` already fires post-commit; new `TopicCreated` / `PostCreated` events are dispatched from
@@ -878,7 +877,8 @@ rest is scaffolding. New dependencies: none. Reversible migrations only (one new
 - **`activities.actor_id` has no FK; `scope_forum_id` is `nullOnDelete`.** `actor_id` mirrors `posts.user_id` so
   the ADR-0025 cascade pseudonymises it (a one-line addendum in step (b), same transaction, before the users row
   drops → the actor renders `[Deleted]`, verb/subject intact). **Edge case:** a **hard** forum delete nulls
-  `scope_forum_id` (`nullOnDelete`), so those activities then read as unscoped (visible to all). Acceptable for
+  `scope_forum_id` (`nullOnDelete`), so those activities then read as unscoped — a LEAK now **CLOSED by ADR-0091** (a null scope no longer means
+"visible to everyone"; non-staff orphans are excluded). Historical note: this was originally accepted for
   M3; a future `ForumObserver` can delete-cascade them. The feed renders a **tombstone** (no link) for any
   null/soft-deleted subject, and `[Deleted]` + the guest avatar for a null actor.
 - **Community-feel pack.** `users.last_active_at` is stamped by `ThrottledLastActive` (web group) as a **raw DB
@@ -3637,3 +3637,20 @@ Each bundle groups keys that an operator thinks of as ONE capability and that sh
 **Verification.** `SimpleModePermissionsTest`: each capability ON writes EXACTLY its keys as ALLOW at the right scope and OFF deletes them (→ inherit), proven through the PermissionInspector oracle (G4); simple mode never writes a `never` row; `CapabilityMap` contains no Administration/Moderation/`club.manage` key (the exclusion invariant); `for(scope)` omits global-only capabilities at forum/club scope (no inert write — a crafted out-of-scope `setCapability` → 422); a trust-NEVER capability (tl0 `post_media`) is locked + noted and `setCapability` refuses it (403, the NEVER survives); a soft-gate capability toggles normally; the rank guard + escalation fence still bite; the Simple/Advanced switch renders on all three homes and the advanced editor still works. Gate: `pest` · `pint` · `phpstan` L max · `migrate` (no-op; schema unchanged).
 
 **Alternatives considered.** (a) A `never` toggle in simple mode — rejected (locked constraint; OFF = inherit, NEVER never). (b) Show a restricted capability as a still-interactive green toggle with only a note — rejected for the apex-adjacent surface; locking prevents a layman lifting a hard NEVER (Advanced is the escape hatch). (c) Split mixed-scope bundles so `tag.create`/`poll.create` show at forum scope — rejected (fidelity to the proposed 7-bundle model + the recommended skip rule; Advanced covers forum-scope tag/poll nuance). (d) A "Moderate" simple toggle bundling the moderation cluster — rejected (the exact silent mis-grant simple mode avoids; moderation is per-forum in Advanced/v3-b). (e) New `Role`/preset objects for capabilities — rejected (simple mode is a UI write layer over a group's own `acl_entries`, not role machinery).
+
+### ADR-0091 — Activity feed: close the null-scope visibility leak + the restricted-viewer underflow (2026-06-21)
+**Status: Accepted — apex-adjacent (gates what a guest can see). Built on `claude/activity-feed-fixes` (Batch 2026-06-21, Branch 3); FLAGGED for adversarial review on the Cowork side. Supersedes the two P2-M3 "accepted edge case" notes.**
+
+**Context.** Every activity is forum-scoped (the only verbs are `topic.created`, `post.created`, `react.given`), so `activities.scope_forum_id` is null ONLY when its forum was hard-deleted (`nullOnDelete`) — never a legitimate "global" activity. Two defects in `ActivityFeed::page()`: (1) the row filter passed any `scope_forum_id === null` row, AND the whole filter was skipped when `VisibleForumIds::for() === null` — a sentinel that means "sees every CURRENT forum" and so is ALSO true for a guest on an all-public board. Net: a once-private forum's now-orphaned activity (actor + verb) leaked to guests. (2) The 100-row window was global-then-filtered, so a restricted viewer whose only visible forum is low-traffic got an EMPTY feed.
+
+**Decision — the leak close (4.1).** A null `scope_forum_id` no longer means "visible to everyone." Only a **genuine see-everything actor** — `$viewer->isStaff()` AND `VisibleForumIds::for() === null` (sees every current forum) — bypasses the filter (and may see orphaned rows, as before). Every other viewer (guest / regular member, even one who sees all current forums) runs the per-viewer filter. The current-state pass authorises each rehydrated row on its **LIVE** subject forum (so a topic MOVED into a restricted forum is hidden), falling back to the **FROZEN** `scope_forum_id` only when the subject is gone (a tombstone in a still-known, visible forum keeps showing). A row with **no forum on either** — an orphan from a hard-deleted forum — is **EXCLUDED for non-staff**. Rule chosen over the schema alternative (see below) because it is non-destructive.
+
+**Decision — the underflow fix (4.2).** For a **restricted** viewer the visible-forum constraint is pushed **into the window query** (`whereIn('scope_forum_id', $visibleIds)`), so the window is up to 100 rows the viewer CAN see instead of a global window filtered to nothing. That query is **uncached** (the shared version-keyed cache stays the see-everything global window only — no per-viewer cache-key explosion); the global/following/per-actor windows all thread the same constraint. As a bonus this also drops null-scoped orphans at the source for restricted viewers (a second leak guard). A see-everything viewer keeps the cached shared window.
+
+**Decision — the profile-tab limit (4.3).** `ProfileController::show()` reads `general.activity_feed_limit` (clamped [1,50], the SAME clamp as the homepage feed) instead of a hardcoded 20. `forActor()` already runs through `page()`, so it inherits the leak + underflow fixes (a subject's activity in a forum the viewer can't see stays hidden).
+
+**Consequences.** No migration; `activities.scope_forum_id` stays `nullOnDelete` (non-destructive). The `RecentActivityWidget` keeps its own independent count but inherits the leak fix (it shares `ActivityFeed`). One permission path, never bypassed except for see-everything staff.
+
+**Verification.** `ActivityFeedVisibilityTest`: a hard-deleted forum's orphaned (null-scope, subject-gone) row is hidden from a guest AND a regular member but visible to a see-all admin; a topic moved into a restricted forum is excluded for a non-member; a restricted viewer whose visible forum is buried under 110 newer invisible-forum rows still gets a NON-empty feed of only their visible rows; the profile Activity tab returns `general.activity_feed_limit` items, not 20. Gate: `pest` · `pint` · `phpstan`.
+
+**Alternatives considered.** (a) Schema fix — make the `scope_forum_id` FK `cascadeOnDelete` so a hard forum delete removes its activity rows. Cleaner long-term but DESTRUCTIVE (loses audit/history) and a migration; the non-destructive filter fix is preferred for this branch (noted here as the future option). (b) Keep the `visibleIds === null` bypass and only fix the row filter — rejected: that sentinel is true for guests on all-public boards, so the bypass itself is the leak. (c) Cache per visible-forum signature for restricted viewers — rejected (cache-key explosion); running the restricted window uncached is simpler and the query is indexed.
