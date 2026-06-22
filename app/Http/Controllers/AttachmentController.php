@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Forum\AttachmentRejected;
 use App\Forum\AttachmentService;
 use App\Models\Attachment;
 use App\Models\Forum;
@@ -16,25 +17,40 @@ use App\Permissions\Scope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AttachmentController extends Controller
 {
-    /** Editor upload endpoint (drag-drop / paste / picker all POST here). Gated on attachment.create. */
+    /** Editor upload endpoint (drag-drop / paste / picker all POST here). Gated on attachment.create + rate
+     *  limited at the route. Caps + the extension allowlist come from config; the finfo MIME sniff Laravel's
+     *  `mimes` rule performs is the authoritative type gate. AttachmentRejected (a bad image caught while
+     *  hardening) maps to a 422 — a rejected upload never 500s. */
     public function store(Request $request, AttachmentService $service): JsonResponse
     {
         $user = $request->user();
         abort_unless($user instanceof User && $user->canDo('attachment.create', Scope::global()), 403);
 
+        $maxKb = (int) max(1, intdiv((int) config('novfora.attachments.max_bytes', 5_242_880), 1024));
+        $exts = implode(',', (array) config('novfora.attachments.allowed_extensions', ['png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'txt']));
+
         $request->validate([
-            'file' => ['required', 'file', 'max:5120', 'mimes:png,jpg,jpeg,gif,webp,pdf,txt'],
+            'file' => ['required', 'file', 'max:'.$maxKb, 'mimes:'.$exts],
         ]);
 
-        $attachment = $service->store($user, $request->file('file'));
+        try {
+            $attachment = $service->store($user, $request->file('file'));
+        } catch (AttachmentRejected $e) {
+            throw ValidationException::withMessages(['file' => $e->getMessage()]);
+        }
 
         return response()->json([
             'id' => $attachment->id,
             'url' => route('attachments.show', $attachment),
+            'name' => $attachment->original_name,
+            'mime' => $attachment->mime,
+            'is_image' => $attachment->width !== null,
+            'size' => (int) $attachment->size,
         ]);
     }
 

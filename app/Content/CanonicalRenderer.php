@@ -85,6 +85,7 @@ final class CanonicalRenderer
             'text' => $this->text($node),
             'mention' => $this->mention($node),
             'image' => $this->image($node),
+            'file' => $this->file($node),
             'embed' => $this->embed($node),
             // Unknown node types: recurse into children so content is never silently lost, but never emit
             // an unknown tag. The sanitizer is the backstop regardless.
@@ -200,6 +201,26 @@ final class CanonicalRenderer
         $alt = $this->esc((string) ($node['attrs']['alt'] ?? ''));
 
         return '<img src="'.$this->esc($src).'" alt="'.$alt.'">';
+    }
+
+    /**
+     * Non-image attachment card (ADR-0094): a plain link to the attachment's serve route. The serve endpoint
+     * forces `Content-Disposition: attachment` + `nosniff`, so following it ALWAYS downloads inert, never
+     * executes — there is no active content here. Rendered as span[class] > a[href] so it survives the
+     * sanitizer's allowlist (span[class] for the card chrome, a[href] for the link), and the filename is
+     * escaped. An unsafe href is dropped.
+     *
+     * @param  array<string,mixed>  $node
+     */
+    private function file(array $node): string
+    {
+        $src = trim((string) ($node['attrs']['src'] ?? $node['attrs']['href'] ?? ''));
+        if (! $this->safeHref($src)) {
+            return '';
+        }
+        $name = $this->esc((string) ($node['attrs']['name'] ?? 'attachment'));
+
+        return '<span class="novfora-file"><a href="'.$this->esc($src).'">'.$name.'</a></span>';
     }
 
     /** Defense-in-depth scheme check; the sanitizer's allowLinkSchemes is the backstop. */

@@ -120,6 +120,14 @@ Schedule::command('novfora:acl:prune-expired')
     ->withoutOverlapping(5)
     ->skip($duringRestore);
 
+// Orphan-attachment hygiene (ADR-0094): hard-delete never-published draft uploads past the configured
+// window. A SHORT overlap mutex (RH-10) so a hard-killed tick can't strand it; skipped during a restore (it
+// deletes files + rows). Hygiene only — a missed run just defers cleanup; nothing is load-bearing.
+Schedule::command('novfora:attachments:prune')
+    ->hourly()
+    ->withoutOverlapping(10)
+    ->skip($duringRestore);
+
 // Reputation denorm self-heal (P2-M5 ⚙): reconcile users.reputation_points to the reputation_events
 // ledger — belt-and-braces under any missed/reordered queue event. Idempotent + bounded, with a SHORT
 // overlap mutex (not Laravel's 24h default) so a hard-killed run can't strand the heal (RH-10 lesson).

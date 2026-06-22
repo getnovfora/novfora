@@ -211,7 +211,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/posts/{post}/edit', fn (Post $post) => view('forum.edit-post', ['post' => $post]))->name('posts.edit');
     Route::get('/recycle-bin', [ModerationController::class, 'recycleBin'])->name('moderation.recycle-bin');
 
-    Route::post('/attachments', [AttachmentController::class, 'store'])->name('attachments.store');
+    // Rate-limited: the upload endpoint is an untrusted-file boundary (ADR-0094) — bound flooding on top of
+    // the per-file size cap, the MIME allowlist, and the attachment.create gate.
+    Route::post('/attachments', [AttachmentController::class, 'store'])->middleware('throttle:40,1')->name('attachments.store');
     Route::get('/mentions', MentionController::class)->name('mentions');
 
     Route::post('/topics/{topic}/lock', [ModerationController::class, 'lock'])->name('topics.lock');

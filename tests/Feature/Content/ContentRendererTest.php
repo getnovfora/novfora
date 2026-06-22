@@ -66,3 +66,29 @@ it('treats an unknown format as tiptap canonical', function () {
 
     expect($out)->toHaveKeys(['html', 'text']);
 });
+
+it('renders a non-image attachment as a safe file card (ADR-0094)', function () {
+    $out = app(ContentRenderer::class)->render('tiptap_json', [
+        'type' => 'doc',
+        'content' => [
+            ['type' => 'file', 'attrs' => ['src' => '/attachments/42', 'name' => 'report.pdf']],
+        ],
+    ]);
+
+    // A span[class] card wrapping a plain link — survives the sanitizer; the serve route forces download.
+    expect($out['html'])
+        ->toContain('novfora-file')
+        ->toContain('href="/attachments/42"')
+        ->toContain('report.pdf');
+});
+
+it('drops a file card with an unsafe (javascript:) src', function () {
+    $out = app(ContentRenderer::class)->render('tiptap_json', [
+        'type' => 'doc',
+        'content' => [
+            ['type' => 'file', 'attrs' => ['src' => 'javascript:alert(1)', 'name' => 'evil']],
+        ],
+    ]);
+
+    expect(strtolower($out['html']))->not->toContain('javascript:');
+});
