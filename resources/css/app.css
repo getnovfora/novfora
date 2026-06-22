@@ -377,16 +377,21 @@ body {
 .novfora-editor {
     border: 1px solid var(--line-strong);
     border-radius: var(--radius-md);
-    overflow: hidden;
+    /* visible (not hidden) so the toolbar menu/emoji/link popovers can overflow the box; the toolbar's own
+       top corners are rounded below to keep the chrome clean without clipping the popovers. */
+    overflow: visible;
     background: var(--surface-raised);
 }
 .novfora-toolbar {
+    position: relative; /* positioning context for the absolutely-placed menu popovers */
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.15rem;
     padding: 0.35rem 0.45rem;
     border-bottom: 1px solid var(--line);
+    border-top-left-radius: var(--radius-md);
+    border-top-right-radius: var(--radius-md);
     background: var(--surface-sunken);
 }
 .novfora-toolbar button {
@@ -426,6 +431,91 @@ body {
     border-radius: 3px;
     padding: 0 0.25rem;
     font-size: 0.7rem;
+}
+
+/* ── Toolbar menu / emoji / link popovers (Pillar 4 editor) ─────────────────────────────────────────────
+ | Absolutely placed below the toolbar; one open at a time (Alpine `menu` state). Tokens-only → dark-mode
+ | correct; the x-transition fade is neutralised by the global prefers-reduced-motion block. */
+.novfora-pop {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0.5rem;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 12rem;
+    max-width: min(90vw, 22rem);
+    padding: 0.3rem;
+    background: var(--surface-raised);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+}
+/* Reset the compact icon-button sizing for the full-width menu items inside a popover. */
+.novfora-pop button {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.45rem;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    padding: 0.4rem 0.55rem;
+    border-radius: var(--radius-sm);
+    text-align: left;
+    font-size: 0.85rem;
+    color: var(--ink);
+}
+.novfora-pop button:hover {
+    background: var(--surface-sunken);
+    color: var(--ink);
+}
+.novfora-emoji-pop {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.1rem;
+    min-width: 0;
+    width: max-content;
+}
+.novfora-emoji-pop button {
+    width: 2rem;
+    min-width: 2rem;
+    height: 2rem;
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+    text-align: center;
+    font-size: 1.05rem;
+}
+.novfora-link-pop {
+    gap: 0.4rem;
+    padding: 0.55rem;
+}
+.novfora-link-pop input {
+    width: 100%;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.85rem;
+}
+.novfora-link-pop input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.novfora-link-actions {
+    display: flex;
+    gap: 0.3rem;
+}
+.novfora-link-actions button {
+    flex: 1;
+    width: auto;
+    justify-content: center;
+    border: 1px solid var(--line);
+    text-align: center;
 }
 
 /* Typography only — shared by the editor's editable box AND rendered posts/signatures.

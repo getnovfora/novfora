@@ -52,6 +52,31 @@ it('composes a topic in the WYSIWYG editor and posts it (end-to-end, in the real
     });
 });
 
+it('drives the new Text-style + Insert menus (Slice 3 toolbar: H1 + table round-trip)', function () {
+    $this->browse(function (Browser $browser) {
+        $browser->loginAs($this->member)
+            ->visit(route('topics.create', $this->forum))
+            ->waitFor('.novfora-prose', 15)
+            ->assertAttribute('.novfora-toolbar', 'role', 'toolbar')
+
+            // Type a line, then promote it to Heading 1 via the Text-style menu.
+            ->click('.novfora-prose')
+            ->keys('.novfora-prose', 'A real heading')
+            ->click('[aria-label="Text style"]')
+            ->waitForText('Heading 1')
+            ->press('Heading 1')
+            ->pause(200)
+            ->assertPresent('.novfora-prose h1')      // H1 now exposed in the toolbar (was H2-only)
+
+            // Insert a table from the Insert menu (schema the renderer always supported, now surfaced).
+            ->click('[aria-label="Insert"]')
+            ->waitForText('Table')
+            ->press('Table')
+            ->pause(200)
+            ->assertPresent('.novfora-prose table');
+    });
+});
+
 it('survives a Livewire validation morph with zero content loss (criterion #1a, the GO-blocker)', function () {
     $this->browse(function (Browser $browser) {
         $browser->loginAs($this->member)
