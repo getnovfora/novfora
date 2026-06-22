@@ -3,9 +3,12 @@
 use App\Admin\GroupException;
 use App\Admin\GroupManager;
 use App\Groups\GroupAutoPromoter;
+use App\Models\AclEntry;
 use App\Models\Group;
+use App\Models\Permission;
 use App\Models\Role;
 use App\Models\RoleAssignment;
+use App\Models\RolePermission;
 use App\Models\User;
 use App\Permissions\Scope;
 use App\Support\GroupColor;
@@ -54,6 +57,10 @@ new class extends Component
     public ?int $membersId = null;
 
     public string $memberSearch = '';
+
+    public bool $showAllMembers = false; // false = cap the member list at 50; true = list every member
+
+    public string $groupSearch = ''; // filter the group list by name
 
     public ?string $message = null;
 
@@ -188,11 +195,25 @@ new class extends Component
         }
     }
 
+    public function clone(int $id, GroupManager $manager): void
+    {
+        $source = Group::findOrFail($id);
+        $this->ensureCanClone($source);
+
+        try {
+            $clone = $manager->clone($source);
+            $this->flash("Cloned “{$source->name}” → “{$clone->name}”. The copy has no members yet.", 'success');
+        } catch (GroupException $e) {
+            $this->flash($e->getMessage(), 'danger');
+        }
+    }
+
     public function manageMembers(int $id): void
     {
         $this->ensureAdmin();
         $this->membersId = $id;
         $this->memberSearch = '';
+        $this->showAllMembers = false;
         $this->showForm = false;
         $this->deleteId = null;
         $this->message = null;
@@ -202,6 +223,14 @@ new class extends Component
     {
         $this->membersId = null;
         $this->memberSearch = '';
+        $this->showAllMembers = false;
+    }
+
+    /** Lift the 50-row cap on the member list (the panel paginates to "show all" on demand). */
+    public function revealAllMembers(): void
+    {
+        $this->ensureAdmin();
+        $this->showAllMembers = true;
     }
 
     // Arg-first, service-second — the proven Livewire action-injection order (cf. structure's moveUp()).
@@ -242,8 +271,11 @@ new class extends Component
         $roleMap = RoleAssignment::query()->where('holder_type', 'group')->with('role')->get()
             ->groupBy('holder_id')->map(fn ($set) => $set->first()->role?->name)->all();
         $manager = app(GroupManager::class);
+        $q = trim($this->groupSearch);
 
-        return Group::query()->withCount('users')->orderByDesc('priority')->orderBy('name')->get()
+        return Group::query()
+            ->when($q !== '', fn ($query) => $query->where('name', 'like', '%'.$q.'%'))
+            ->withCount('users')->orderByDesc('priority')->orderBy('name')->get()
             ->map(fn (Group $g): array => [
                 'group' => $g,
                 'members' => (int) $g->users_count,
@@ -272,15 +304,31 @@ new class extends Component
             ->map(fn (Group $g): array => ['id' => (int) $g->id, 'name' => (string) $g->name])->values()->all();
     }
 
-    /** Current members of the group being managed (bounded; groups eager-loaded for the colour render). @return list<User> */
+    /** Current members of the group being managed (capped at 50 unless "show all" is on). @return list<User> */
     public function memberRows(): array
     {
         if ($this->membersId === null) {
             return [];
         }
         $group = Group::find($this->membersId);
+        if (! $group instanceof Group) {
+            return [];
+        }
 
-        return $group ? $group->users()->with('groups')->orderBy('username')->limit(50)->get()->all() : [];
+        $query = $group->users()->with('groups')->orderBy('username');
+
+        return ($this->showAllMembers ? $query : $query->limit(50))->get()->all();
+    }
+
+    /** Total member count of the managed group (so the panel knows when to offer "show all"). */
+    public function memberCount(): int
+    {
+        if ($this->membersId === null) {
+            return 0;
+        }
+        $group = Group::find($this->membersId);
+
+        return $group instanceof Group ? $group->users()->count() : 0;
     }
 
     public function managedGroup(): ?Group
@@ -398,6 +446,54 @@ new class extends Component
         abort_unless($user instanceof User && $user->canDo('admin.access', Scope::global()), 403);
         abort_if($user->isStaff() && $user->two_factor_confirmed_at === null, 403);
     }
+
+    /**
+     * Cloning WRITES acl_entries, so it is a permission operation: reuse the card editor's full guard set — the
+     * manage-permissions capability, the rank guard (you can't clone a group you couldn't edit), and the
+     * admin-tier fence (a non-admin must not mint an Administration-tier grant onto a new group). Only custom
+     * groups are cloneable. Pre-checks for a clean 403; GroupManager::clone() is the actor-independent backstop.
+     */
+    private function ensureCanClone(Group $source): void
+    {
+        $this->ensureAdmin(); // admin.access + staff-2FA
+        $user = auth()->user();
+        abort_unless($user instanceof User && $user->canDo('permissions.manage', Scope::global()), 403);
+        abort_unless($source->type === 'custom' && ! $source->is_system, 403);          // only custom groups
+        abort_unless($user->isAdmin() || $user->rankPriority() > (int) $source->priority, 403); // rank guard
+        if (! $user->isAdmin() && $this->sourceHoldsAdminTierKey($source)) {
+            abort(403); // admin-tier fence
+        }
+    }
+
+    /**
+     * Whether the source carries any Administration-tier key the clone would reproduce — full-admin-only to
+     * clone. Checks BOTH (a) a direct admin-tier acl_entries grant on the group AND (b) an admin-tier key in a
+     * role the group is ASSIGNED (the clone copies the assignment, and a role re-expansion would propagate the
+     * grant onto the clone). Mirrors the role SFC's fence, which checks the role's permission keys — without (b)
+     * a non-admin could clone a group assigned an admin-tier role whose acl_entry was merely card-edited away.
+     */
+    private function sourceHoldsAdminTierKey(Group $source): bool
+    {
+        $adminTier = Permission::query()->where('group', 'Administration')->pluck('key')->all();
+        if ($adminTier === []) {
+            return false;
+        }
+
+        $direct = AclEntry::query()
+            ->where('holder_type', 'group')->where('holder_id', $source->getKey())
+            ->whereIn('permission_key', $adminTier)
+            ->exists();
+        if ($direct) {
+            return true;
+        }
+
+        $roleIds = RoleAssignment::query()
+            ->where('holder_type', 'group')->where('holder_id', $source->getKey())
+            ->pluck('role_id');
+
+        return $roleIds->isNotEmpty()
+            && RolePermission::query()->whereIn('role_id', $roleIds)->whereIn('permission_key', $adminTier)->exists();
+    }
 };
 ?>
 
@@ -450,13 +546,18 @@ new class extends Component
 
                 @unless ($editingSystem)
                     <div class="grid gap-4 sm:grid-cols-2">
-                        <x-ui.select label="Permission preset (role)" name="roleId" wire:model="roleId"
-                                     hint="Grants this group a role's permissions through the engine. Leave blank for none.">
-                            <option value="">— None —</option>
-                            @foreach ($this->roleOptions() as $opt)
-                                <option value="{{ $opt['id'] }}">{{ $opt['name'] }}</option>
-                            @endforeach
-                        </x-ui.select>
+                        <div>
+                            <x-ui.select label="Permission preset (role)" name="roleId" wire:model.live="roleId"
+                                         hint="Grants this group a role's permissions through the engine. Leave blank for none.">
+                                <option value="">— None —</option>
+                                @foreach ($this->roleOptions() as $opt)
+                                    <option value="{{ $opt['id'] }}">{{ $opt['name'] }}</option>
+                                @endforeach
+                            </x-ui.select>
+                            @if ($roleId)
+                                <a href="{{ route('admin.groups.roles') }}" class="mt-1 inline-block text-xs text-accent hover:underline" dusk="acp-edit-role-link">Edit roles →</a>
+                            @endif
+                        </div>
                         <x-ui.input label="Rank priority" name="priority" type="number" min="1" max="99" wire:model="priority"
                                     hint="1–99. Higher wins when a member is in several coloured groups." />
                     </div>
@@ -534,6 +635,10 @@ new class extends Component
     @endif
 
     {{-- Group list. --}}
+    <div class="max-w-sm">
+        <x-ui.input name="groupSearch" wire:model.live.debounce.300ms="groupSearch"
+                    placeholder="Filter groups by name…" dusk="acp-group-search" />
+    </div>
     <x-ui.card flush>
         <div class="hidden sm:grid grid-cols-[1fr_8rem_7rem_5rem_9rem] gap-3 px-4 py-2.5 sm:px-5 border-b border-line bg-surface-sunken text-xs font-semibold uppercase tracking-wide text-ink-subtle">
             <span>Group</span>
@@ -566,13 +671,25 @@ new class extends Component
                         <div class="text-ink-muted sm:text-right nums">{{ number_format($row['members']) }}</div>
                         <div class="flex flex-wrap items-center gap-1 sm:justify-end">
                             @if ($row['membership'])
-                                <x-ui.button type="button" variant="ghost" size="sm" icon wire:click="manageMembers({{ $g->id }})" title="Members">
-                                    <x-ui.icon name="users" class="h-4 w-4" />
-                                </x-ui.button>
+                                @if ($g->slug === 'admins')
+                                    {{-- Discoverability: adding a FULL admin is "join the Administrators group", so the
+                                         admins row gets a clear labelled affordance rather than a bare icon. --}}
+                                    <x-ui.button type="button" variant="subtle" size="sm" wire:click="manageMembers({{ $g->id }})" dusk="acp-admins-members" title="Add or remove administrators">
+                                        <x-ui.icon name="users" class="h-4 w-4" /> Add / manage members
+                                    </x-ui.button>
+                                @else
+                                    <x-ui.button type="button" variant="ghost" size="sm" icon wire:click="manageMembers({{ $g->id }})" title="Members">
+                                        <x-ui.icon name="users" class="h-4 w-4" />
+                                    </x-ui.button>
+                                @endif
                             @endif
                             <x-ui.button type="button" variant="ghost" size="sm" icon wire:click="edit({{ $g->id }})" title="Edit" dusk="acp-group-edit-{{ $g->id }}">
                                 <x-ui.icon name="pencil" class="h-4 w-4" />
                             </x-ui.button>
+                            @if ($g->type === 'custom')
+                                {{-- Clone duplicates this group's permissions into a new, member-less group (custom groups only). --}}
+                                <x-ui.button type="button" variant="ghost" size="sm" wire:click="clone({{ $g->id }})" title="Clone this group's permissions into a new group" dusk="acp-group-clone-{{ $g->id }}">Clone</x-ui.button>
+                            @endif
                             @unless ($row['system'])
                                 <x-ui.button type="button" variant="danger-ghost" size="sm" icon wire:click="askDelete({{ $g->id }})" title="Delete">
                                     <x-ui.icon name="trash" class="h-4 w-4" />
@@ -663,7 +780,15 @@ new class extends Component
                                         </li>
                                     @endforeach
                                 </ul>
-                                <p class="text-xs text-ink-subtle">Showing up to 50 members.</p>
+                                @php($total = $this->memberCount())
+                                @if (! $showAllMembers && $total > count($members))
+                                    <div class="flex flex-wrap items-center justify-between gap-2">
+                                        <p class="text-xs text-ink-subtle">Showing {{ number_format(count($members)) }} of {{ number_format($total) }} members.</p>
+                                        <x-ui.button type="button" variant="subtle" size="sm" wire:click="revealAllMembers" dusk="acp-show-all-members">Show all {{ number_format($total) }}</x-ui.button>
+                                    </div>
+                                @else
+                                    <p class="text-xs text-ink-subtle">{{ number_format($total) }} member{{ $total === 1 ? '' : 's' }}.</p>
+                                @endif
                             @endif
                         </div>
                     @endif

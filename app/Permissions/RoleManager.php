@@ -240,6 +240,46 @@ final class RoleManager
         });
     }
 
+    /**
+     * Clone a role into a NEW custom role (always editable — even when the source is a read-only preset) that
+     * carries a copy of the source's permission rows and is UNASSIGNED. It grants nothing until an operator
+     * assigns it, and assignment runs the escalation fence (assertWithinCeiling), so cloning is not an
+     * escalation path. Deliberately NOT auto-assigned to the source's groups: that would silently add a second
+     * permission baseline to live groups (the operator assigns it when ready).
+     */
+    public function clone(Role $source): Role
+    {
+        return DB::transaction(function () use ($source): Role {
+            $name = $source->name.' (copy)';
+            $clone = Role::create([
+                'slug' => $this->uniqueSlug($name),
+                'name' => $name,
+                'is_preset' => false, // a clone is editable, even when cloned from a read-only preset
+                'description' => $source->description,
+            ]);
+
+            foreach (RolePermission::where('role_id', $source->getKey())->get() as $permission) {
+                $clone->permissions()->create([
+                    'permission_key' => $permission->permission_key,
+                    'value' => (int) $permission->value,
+                ]);
+            }
+
+            // Each RolePermission::create bumps AclVersion via its model event; bump once more unconditionally so
+            // the guarantee holds even for a zero-permission source (consistent with save()/delete()/assign()).
+            $this->version->bump();
+
+            Audit::log('role.cloned', $clone, [
+                'source_id' => (int) $source->getKey(),
+                'source' => $source->name,
+                'name' => $clone->name,
+                'keys' => $clone->permissions()->count(),
+            ]);
+
+            return $clone;
+        });
+    }
+
     // ── guards / helpers ──────────────────────────────────────────────────────────────────────────────────
 
     /**

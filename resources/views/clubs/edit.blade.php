@@ -17,7 +17,7 @@
         {{-- ACP v3 · v3-c — club-scope card-per-group permission editor (the third home). Gated by club.manage
              inside the component; scoped to this club so its grants never escalate global privilege. Simple-mode
              (ADR-0089) capability toggles by default; Advanced is the full Yes/No/Never card editor. --}}
-        @php($mode = request()->query('mode') === 'advanced' ? 'advanced' : 'simple')
+        @php($mode = \App\Support\PermMode::resolve())
         <section class="space-y-3" aria-labelledby="club-perms-heading">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <h2 id="club-perms-heading" class="text-lg font-semibold tracking-tight text-ink">{{ __('admin.perms.title') }}</h2>
