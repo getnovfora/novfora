@@ -49,10 +49,10 @@ it('merges one topic into another and redirects the source to the target', funct
             ->waitForText('Target thread', 12)
             ->assertSee('movealong reply text');
 
-        // The source URL now 301-redirects to the target.
+        // The source URL now 301-redirects to the target (M3: the canonical path is /topics/{id}-{slug}).
         $browser->visit(route('topics.show', $source))
             ->waitForText('Target thread', 12)
-            ->assertPathIs('/topics/'.$target->id);
+            ->assertPathBeginsWith('/topics/'.$target->id);
     });
 });
 

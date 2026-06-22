@@ -59,6 +59,16 @@ class TopicController extends Controller
         abort_if($topicForum instanceof Forum && ! $topicForum->clubContentVisibleTo($request->user()), 404);
         abort_unless($viewer->canDo('forum.view', $topic->permissionScope()), 403);
 
+        // Canonical slug URL (M3): a bare /topics/{id} or a wrong-slug URL 301s to /topics/{id}-{slug}. Placed
+        // AFTER the visibility gate so the redirect never leaks a title to a forbidden viewer; the numeric id
+        // still resolved above, and the query string is preserved.
+        $canonical = route('topics.show', $topic);
+        if (rtrim($request->url(), '/') !== rtrim($canonical, '/')) {
+            $qs = $request->getQueryString();
+
+            return redirect()->to($canonical.($qs !== null && $qs !== '' ? '?'.$qs : ''), 301);
+        }
+
         // View count (P2-M3) — throttled per viewer (or guest session) to one count per topic per hour, so a
         // refresh/F5 storm can't inflate it. A raw increment, no model hydration → no events fire.
         $viewKey = $viewer->exists

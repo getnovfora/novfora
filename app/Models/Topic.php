@@ -27,6 +27,31 @@ class Topic extends Model
         'last_posted_at' => 'datetime',
     ];
 
+    /**
+     * Canonical URL key (M3): /topics/{id}-{slug} (e.g. /topics/19-php-vs-node) for SEO + readability, while
+     * the numeric id stays the RESOLUTION key. route('topics.show', $topic) yields the slugged form; a bare
+     * /topics/19 still resolves (the resolver reads the leading integer) and the controller 301s it to the
+     * slugged canonical. topics.slug is non-unique, so it is decorative only — never the lookup key.
+     */
+    public function getRouteKey(): string
+    {
+        return $this->slug ? $this->getKey().'-'.$this->slug : (string) $this->getKey();
+    }
+
+    public function resolveRouteBinding($value, $field = null): ?Model
+    {
+        return $this->where($field ?? $this->getKeyName(), (int) $value)->first();
+    }
+
+    /**
+     * The topics.show route uses ->withTrashed() (the merged-topic 301 shell + recycle-bin semantics), so the
+     * trashed-inclusive resolver must ALSO parse the leading integer id of the id-slug key.
+     */
+    public function resolveSoftDeletableRouteBinding($value, $field = null): ?Model
+    {
+        return $this->withTrashed()->where($field ?? $this->getKeyName(), (int) $value)->first();
+    }
+
     protected static function booted(): void
     {
         // A thread is a scope: deleting it or moving it to another forum changes resolution at that scope,
@@ -70,6 +95,17 @@ class Topic extends Model
     public function posts(): HasMany
     {
         return $this->hasMany(Post::class);
+    }
+
+    /**
+     * The opening post (the OP) via the maintained topics.first_post_id seam — backs the board-list first-post
+     * excerpt (M3). Eager-loadable so the listing reads it in one bounded query, no N+1.
+     *
+     * @return BelongsTo<Post, $this>
+     */
+    public function firstPost(): BelongsTo
+    {
+        return $this->belongsTo(Post::class, 'first_post_id');
     }
 
     /** @return BelongsTo<Poll, $this> the topic's poll via the topics.poll_id seam (null when none) */
