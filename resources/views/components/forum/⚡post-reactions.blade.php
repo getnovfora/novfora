@@ -79,7 +79,7 @@ new class extends Component
             <button type="button"
                 @if ($canReact) wire:click="react('{{ $key }}')" wire:loading.attr="disabled" @else disabled @endif
                 @class([
-                    'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition',
+                    'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition active:scale-95 motion-reduce:active:scale-100',
                     'border-accent bg-accent-soft text-accent' => $viewerType === $key,
                     'border-line text-ink-muted hover:border-accent' => $viewerType !== $key && $canReact,
                     'border-line text-ink-subtle cursor-default' => ! $canReact,

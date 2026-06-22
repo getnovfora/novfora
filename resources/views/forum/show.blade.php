@@ -135,7 +135,12 @@
                                                     @endif
                                                 </div>
                                             @endif
-                                            <a href="{{ route('topics.show', $topic) }}" class="block font-semibold text-ink hover:text-accent">{{ $topic->title }}</a>
+                                            <a href="{{ route('topics.show', $topic) }}" class="block font-semibold text-ink hover:text-accent">
+                                                @if ($unread[$topic->id] ?? false)
+                                                    <span class="mr-1.5 inline-block h-2 w-2 rounded-full bg-accent align-middle" aria-hidden="true"></span><span class="sr-only">{{ __('forum.unread') }} </span>
+                                                @endif
+                                                {{ $topic->title }}
+                                            </a>
                                             <p class="text-xs text-ink-subtle">{{ __('forum.by') }} <x-ui.user-name :user="$topic->author" /></p>
                                         </div>
                                     </div>
@@ -191,7 +196,12 @@
                                     @endif
                                 </div>
                             @endif
-                            <a href="{{ route('topics.show', $topic) }}" class="block font-semibold text-ink hover:text-accent">{{ $topic->title }}</a>
+                            <a href="{{ route('topics.show', $topic) }}" class="block font-semibold text-ink hover:text-accent">
+                                @if ($unread[$topic->id] ?? false)
+                                    <span class="mr-1.5 inline-block h-2 w-2 rounded-full bg-accent align-middle" aria-hidden="true"></span><span class="sr-only">{{ __('forum.unread') }} </span>
+                                @endif
+                                {{ $topic->title }}
+                            </a>
                             <p class="mt-0.5 text-sm text-ink-muted">{{ __('forum.by') }} <x-ui.user-name :user="$topic->author" /></p>
                             <dl class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-subtle">
                                 <div class="flex items-center gap-1">

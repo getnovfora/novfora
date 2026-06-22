@@ -134,6 +134,27 @@ new class extends Component
 
     @php($members = $this->members())
 
+    {{-- Loading state (Pillar 3): shape-matched skeleton cards while a live search/filter request is in
+         flight. Hidden at rest + SSR; Livewire reveals it (and hides the live results) during the request.
+         Inline pulse markup (motion-safe → static under reduced motion); degrades to nothing without JS. --}}
+    <div wire:loading.delay.class.remove="hidden" class="hidden" aria-hidden="true">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            @for ($i = 0; $i < 6; $i++)
+                <x-ui.card>
+                    <div class="flex items-start gap-3">
+                        <div class="h-12 w-12 shrink-0 rounded-full bg-surface-sunken motion-safe:animate-pulse"></div>
+                        <div class="min-w-0 flex-1 space-y-2.5 pt-1">
+                            <div class="h-3.5 w-2/3 rounded bg-surface-sunken motion-safe:animate-pulse"></div>
+                            <div class="h-3 w-1/2 rounded bg-surface-sunken motion-safe:animate-pulse"></div>
+                            <div class="h-3 w-full rounded bg-surface-sunken motion-safe:animate-pulse"></div>
+                        </div>
+                    </div>
+                </x-ui.card>
+            @endfor
+        </div>
+    </div>
+
+    <div wire:loading.delay.class="hidden">
     @if ($members->isEmpty())
         <x-ui.card>
             <p class="text-sm text-ink-subtle">No members match your filters.</p>
@@ -174,4 +195,5 @@ new class extends Component
 
         <div>{{ $members->links() }}</div>
     @endif
+    </div>
 </div>

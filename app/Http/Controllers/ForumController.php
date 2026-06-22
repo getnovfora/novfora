@@ -9,6 +9,7 @@ namespace App\Http\Controllers;
 use App\Forum\ForumNode;
 use App\Models\Forum;
 use App\Models\Prefix;
+use App\Models\TopicRead;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -74,6 +75,24 @@ class ForumController extends Controller
             ->orderByDesc('id')
             ->paginate(20);
 
+        // M2 (Pillar 3 polish): per-row unread state from the viewer's read watermark, for SIGNED-IN viewers
+        // only. ONE batched query over the page's topics (no N+1 — query-budget discipline), mirroring the
+        // What's-new unread rule: a topic is unread when it has activity the viewer hasn't seen.
+        $unread = [];
+        if ($user) {
+            $reads = TopicRead::query()
+                ->where('user_id', $user->getKey())
+                ->whereIn('topic_id', $topics->getCollection()->pluck('id')->all())
+                ->get()
+                ->keyBy('topic_id');
+
+            foreach ($topics as $topic) {
+                $lastRead = $reads->get($topic->id)?->last_read_at;
+                $unread[$topic->id] = $topic->last_posted_at !== null
+                    && ($lastRead === null || $topic->last_posted_at->gt($lastRead));
+            }
+        }
+
         // Posting in a club forum requires active membership (or staff), even where reading is public.
         $canPost = ($user?->canDo('topic.create', $forum->permissionScope()) ?? false)
             && $forum->clubParticipationAllowed($user);
@@ -94,6 +113,6 @@ class ForumController extends Controller
             ->orderBy('position')->orderBy('label')
             ->get();
 
-        return view('forum.show', compact('forum', 'topics', 'viewer', 'canPost', 'canModerate', 'children', 'prefixes'));
+        return view('forum.show', compact('forum', 'topics', 'viewer', 'canPost', 'canModerate', 'children', 'prefixes', 'unread'));
     }
 }
