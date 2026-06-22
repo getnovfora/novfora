@@ -8,8 +8,11 @@ namespace App\Forum;
 
 use App\Models\Attachment;
 use App\Models\Post;
+use App\Models\PostDraft;
+use App\Models\ScheduledPost;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -43,7 +46,20 @@ final class AttachmentService
         $ext = strtolower($file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'bin');
         $dir = 'attachments/'.date('Y/m');
         $name = Str::uuid()->toString().'.'.$ext; // random stored name — the client name is data, never a path
-        $path = $file->storeAs($dir, $name, ['disk' => self::DISK]);
+
+        // Graceful-degrade on a storage outage: storeAs() (and the S3/Flysystem adapter behind it on the
+        // enhanced tier) can THROW inline on a transient disk/bucket failure. Convert any write failure into
+        // the domain AttachmentRejected so the controller surfaces a clean validation error ("try again")
+        // instead of an uncaught 500 — the upload boundary fails closed, never crashes the request.
+        try {
+            $path = $file->storeAs($dir, $name, ['disk' => self::DISK]);
+        } catch (\Throwable $e) {
+            Log::warning('attachment upload failed to store', [
+                'disk' => self::DISK,
+                'error' => $e::class.': '.$e->getMessage(),
+            ]);
+            throw new AttachmentRejected('the upload could not be stored');
+        }
 
         if ($path === false || $path === '') {
             throw new AttachmentRejected('the upload could not be stored');
@@ -191,11 +207,16 @@ final class AttachmentService
     public function pruneOrphans(int $hours): int
     {
         $cutoff = now()->subHours(max(1, $hours));
+        // Reserve attachments still referenced by an unpublished scheduled post or an autosaved draft — those
+        // never carry a post_id yet (so they read as orphans), but deleting them would strand a post scheduled
+        // or drafted beyond the prune window at publish time (ADR-0094 LOW follow-up). Exclude them.
+        $reserved = $this->reservedAttachmentIds();
         $pruned = 0;
 
         Attachment::query()
             ->whereNull('post_id')
             ->where('created_at', '<', $cutoff)
+            ->when($reserved !== [], fn ($q) => $q->whereNotIn('id', $reserved))
             ->orderBy('id')
             ->chunkById(100, function ($batch) use (&$pruned): void {
                 foreach ($batch as $attachment) {
@@ -212,6 +233,43 @@ final class AttachmentService
             });
 
         return $pruned;
+    }
+
+    /**
+     * Attachment ids still referenced by an UNPUBLISHED scheduled post (published_at IS NULL) or an autosaved
+     * editor draft. These rows have no post_id yet — they look like orphans — but they will be associated when
+     * the scheduled post publishes or the draft is posted, so the orphan-prune must NOT delete them. Both
+     * sources are chunked so a large backlog never loads at once.
+     *
+     * @return list<int>
+     */
+    private function reservedAttachmentIds(): array
+    {
+        $ids = [];
+        $collect = function (array $canonical) use (&$ids): void {
+            foreach ($this->referencedAttachmentIds($canonical) as $id) {
+                $ids[$id] = true; // dedupe across sources by using the id as the key
+            }
+        };
+
+        ScheduledPost::query()
+            ->whereNull('published_at')
+            ->orderBy('id')
+            ->chunkById(200, function ($batch) use ($collect): void {
+                foreach ($batch as $scheduled) {
+                    $collect((array) $scheduled->body_canonical);
+                }
+            });
+
+        PostDraft::query()
+            ->orderBy('id')
+            ->chunkById(200, function ($batch) use ($collect): void {
+                foreach ($batch as $draft) {
+                    $collect((array) $draft->body_canonical);
+                }
+            });
+
+        return array_map('intval', array_keys($ids));
     }
 
     /**

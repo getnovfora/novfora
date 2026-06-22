@@ -4,10 +4,13 @@
 
 declare(strict_types=1);
 
+use App\Forum\AttachmentRejected;
 use App\Forum\AttachmentService;
 use App\Forum\PostService;
 use App\Models\Attachment;
 use App\Models\Forum;
+use App\Models\PostDraft;
+use App\Models\ScheduledPost;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Route;
@@ -167,4 +170,65 @@ it('prunes never-published orphans past the window but keeps recent + published 
         ->and(Storage::disk('local')->exists($old->path))->toBeFalse()
         ->and(Attachment::find($fresh->id))->not->toBeNull()          // recent orphan kept
         ->and($published->fresh()->post_id)->not->toBeNull();         // published attachment untouched
+});
+
+it('does not prune an old orphan reserved by an unpublished scheduled post or a draft (ADR-0094 LOW)', function () {
+    Storage::fake('local');
+    $author = Users::inGroups(['members', 'tl4']);
+    $forum = Forum::create(['slug' => 'general', 'title' => 'General', 'type' => 'forum']);
+    $topic = app(PostService::class)->createTopic($author, $forum, 'Host', 'tiptap_json', ['type' => 'doc', 'content' => []]);
+
+    // Three orphans, ALL older than the prune window — one referenced by a pending scheduled reply, one by an
+    // autosaved draft, one referenced by nothing.
+    $bySchedule = app(AttachmentService::class)->store($author, fakePng(20, 20));
+    $byDraft = app(AttachmentService::class)->store($author, fakePng(20, 20));
+    $plain = app(AttachmentService::class)->store($author, fakePng(20, 20));
+    foreach ([$bySchedule, $byDraft, $plain] as $a) {
+        $a->forceFill(['created_at' => now()->subDays(2)])->save();
+    }
+
+    ScheduledPost::create([
+        'user_id' => $author->id,
+        'topic_id' => $topic->id,
+        'body_format' => 'tiptap_json',
+        'body_canonical' => ['type' => 'doc', 'content' => [
+            ['type' => 'image', 'attrs' => ['src' => route('attachments.show', $bySchedule)]],
+        ]],
+        'publish_at' => now()->addDays(3), // scheduled WELL beyond the 24h prune window
+        'published_at' => null,            // still pending
+    ]);
+
+    PostDraft::create([
+        'user_id' => $author->id,
+        'context_type' => 'reply',
+        'context_id' => $topic->id,
+        'body_format' => 'tiptap_json',
+        'body_canonical' => ['type' => 'doc', 'content' => [
+            ['type' => 'image', 'attrs' => ['src' => route('attachments.show', $byDraft)]],
+        ]],
+    ]);
+
+    $pruned = app(AttachmentService::class)->pruneOrphans(24);
+
+    // Only the unreferenced orphan is pruned; the scheduled + draft references survive to be associated later.
+    expect($pruned)->toBe(1)
+        ->and(Attachment::find($bySchedule->id))->not->toBeNull()
+        ->and(Attachment::find($byDraft->id))->not->toBeNull()
+        ->and(Attachment::find($plain->id))->toBeNull()
+        ->and(Storage::disk('local')->exists($plain->path))->toBeFalse();
+});
+
+it('degrades gracefully when the storage write fails — AttachmentRejected, not an uncaught 500', function () {
+    $author = Users::inGroups(['members']);
+
+    // Point the local disk root at a regular FILE so any write (mkdir/put) fails at the Flysystem layer,
+    // simulating a storage outage. The service must convert that into the domain AttachmentRejected.
+    $blocker = tempnam(sys_get_temp_dir(), 'novfora-block');
+    config(['filesystems.disks.local.root' => $blocker]);
+    app('filesystem')->forgetDisk('local'); // drop any cached disk so the new (broken) root takes effect
+
+    expect(fn () => app(AttachmentService::class)->store($author, fakePng(20, 20)))
+        ->toThrow(AttachmentRejected::class);
+
+    @unlink($blocker);
 });
