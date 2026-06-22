@@ -13,6 +13,65 @@
 
 ---
 
+## 🟢 v1.x batch + S5 owner-strand guard — MERGED to local `main`, gated GREEN, awaiting owner push (2026-06-22)
+
+Ran [`docs/product/v1x-merge-and-owner-guard-kickoff.md`](docs/product/v1x-merge-and-owner-guard-kickoff.md): built the
+apex **S5 owner-strand guard**, then merged the **full v1.x batch + S5** into `main` and re-gated the union. **Local
+only — nothing pushed to `origin` yet.** Backup of pre-merge `main` at **`backup/pre-v1x` (`6862775`)**.
+
+**Merged `main` HEAD: `4b4e64b`** (this report sits on top). 15 `--no-ff` merges in the kickoff's dependency order
+(`R1→S3→R2 ; A1→A2→A3→S5 ; S1 ; S2 ; M1→M2→M3 ; T1→T3→T2`) + asset rebuild (`2413152`) + ADR lift (`4b4e64b`).
+Whole batch vs pre-merge `main` (`8677b4b`): **120 files, +5828 / −1344**.
+
+**Union gate (merged `main`, all GREEN):**
+- `php artisan test --parallel` → **2111 passed / 1 skipped** (the Dusk CI-only spec) · **14 880 assertions**
+- `pint --test` clean · `phpstan` **L max → 0** (app/) · migrate **apply + rollback(all) + re-apply** clean (2 new
+  reversible migrations: `content_subscriptions`, `canned_replies`)
+- `npm run build` OK → **assets committed** (`2413152`); ViteManifest / asset-budget gate green
+- a11y page gate + Accessibility + PWA + SubdirInstall gates green (67) — `route:clear` first (the stale
+  `routes-v7.php` subdir/PWA false-fail per MEMORY)
+- **Dusk = CI-only** (no Chrome on the VPS) — specs present, CI-pending (unchanged from prior batches)
+
+**Conflict resolutions (all additive — kept both sides unless noted):**
+1. **R2** `design-polish-adrs-DRAFT.md` modify/delete → **deleted** (honoured R2's prune; the draft's ADRs are now
+   lifted as 0093/0094). DECISIONS.md auto-merged with **no duplicate** 0093/0094.
+2. **A3** `AdminAccessWalkTest` sentinel → kept A1 `/admin/members/all` **+** A3 `/admin/moderation/warning-types`.
+3. **S5 × A2** `BanController` → routed user bans through A2's shared **`UserBanService`** **and** moved S5's locking
+   owner-strand guard **into `UserBanService::ban()`** (the chokepoint both the bans page and the ACP member view
+   share); BanController catches `OwnerStrandException`; S5's `spamClean` catch kept.
+4. **T1 × M1/A3** reply-composer SFC (merged M1 quote + T1 canned: imports, `mount(?quote,?canned)`, both method
+   sets); `topic.blade` (one `<livewire:forum.reply-composer>` with both `?quote` + `?canned`); AdminNavigation /
+   `lang/en/admin` / `routes/web` (kept A3 warning-types **+** T1 canned-replies); sentinel got T1's line (all three).
+
+**S5 apex review (mandatory verify-then-refute) — outcome:** the first pass confirmed **3 HIGH** the green suite
+missed; **all fixed before commit and re-verified GO (0 open HIGH):**
+- **H1** the predicate counted `group_user` rows, blind to a ban (which touches only `users`/`bans`) → counted
+  already-banned owners as live (sequential *and* concurrent strand). **Fix:** count REACHABLE owners (exclude
+  `status='banned'` OR a live global user-ban row).
+- **H2** the sibling DELETE (`AccountDeletionService`) / DEMOTE (`AdminCoOwnerService`) guards shared the blind count
+  (ban a co-owner, then remove the healthy peer). **Fix:** those guards now **delegate** to the shared ban-aware
+  authority.
+- **H3** `(int) is_co_owner === 1` mis-read PostgreSQL's `"t"`/`"f"` → co-owner protection silently off on a
+  supported tier. **Fix:** SQL-side `where is_co_owner = true`, like the siblings.
+Re-verification (4 lenses + adjudicator): **GO**, no new HIGH/MED; uniform `group_user → users → bans` lock order,
+no deadlock.
+
+**ADRs lifted into DECISIONS.md (0095–0100):** 0095 v1.x Feature Program (parent); 0096 ACP v4 member management
+(apex); 0097 subscriptions — bounded/queued fan-out (apex); 0098 canned replies; 0099 admin email templates —
+render-sandbox (apex); 0100 owner-strand ban/warn guard (apex).
+
+**Flagged (pre-existing, NOT fixed — owner follow-ups, out of S5's ban scope):** `GroupManager::removeMember` guards
+the co-owner tier but **not** the last PLAIN admin (an ADR-0086 removal-door gap); the now-unused
+`AccountDeletionService::coOwnerIds(locked: true)` branch (LOW cosmetic).
+
+**→ What the owner does next:** (1) `git push origin main` (fast-forwards `origin/main` from `6862775` → `4b4e64b`+).
+(2) **Go live:** build the portable release per [`docs/product/live-deploy-kickoff.md`](docs/product/live-deploy-kickoff.md)
+(`scripts/build-release.sh` → `scripts/verify-release.sh`) and upgrade **demo.novfora.com backup-first** — this bundle
+carries **new migrations** (subscriptions, canned replies + the S5 guard), so it's the **cron auto-upgrade** path, not
+assets-only.
+
+---
+
 ## 🌅 Morning report — v1.x Feature Program EXECUTED (2026-06-22) — 14 branches off `main`, none pushed/merged
 
 Ran [`docs/product/v1x-feature-program-kickoff.md`](docs/product/v1x-feature-program-kickoff.md) cold, unattended,
