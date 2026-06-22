@@ -121,16 +121,20 @@ final class ActivityFeed
         // the shared cached global window.
         $restrict = (! $seesEverything && $visibleIds !== null) ? $visibleIds : null;
 
-        $rows = array_slice($window($restrict), 0, $limit);
+        $rows = $window($restrict);
         if ($rows === []) {
             return [];
         }
 
-        $items = $this->rehydrate($rows);
-
+        // See-everything: no per-row filter, so slice to the page size BEFORE rehydrating (cheaper).
         if ($seesEverything) {
-            return $items; // staff/admin who see all forums: no per-row filtering, orphans included
+            return $this->rehydrate(array_slice($rows, 0, $limit)); // staff/admin: orphans included
         }
+
+        // Non-staff: rehydrate the FULL window and run the current-state pass, THEN slice to $limit — the
+        // WINDOW > LIMIT headroom exists precisely to BACKFILL rows the current-state pass drops (a recent move
+        // or a stray orphan near the head can't starve the page below $limit).
+        $items = $this->rehydrate($rows);
 
         // CURRENT-STATE permission pass: authorize each row on its LIVE subject forum (catches a topic MOVED
         // into a restricted forum after the activity was logged), falling back to the FROZEN scope_forum_id when
@@ -143,7 +147,7 @@ final class ActivityFeed
             $frozenById[$r['id']] = $r['scope_forum_id'];
         }
 
-        return array_values(array_filter($items, function (ActivityFeedItem $item) use ($allowed, $frozenById): bool {
+        $items = array_values(array_filter($items, function (ActivityFeedItem $item) use ($allowed, $frozenById): bool {
             // Prefer the LIVE subject forum (catches a move); fall back to the FROZEN scope only when the subject
             // is gone (a tombstone in a still-known forum keeps showing). No forum on either → orphan → exclude.
             $topic = $item->topic();
@@ -154,6 +158,8 @@ final class ActivityFeed
 
             return $allowed === null || isset($allowed[(int) $forumId]);
         }));
+
+        return array_slice($items, 0, $limit);
     }
 
     /**
