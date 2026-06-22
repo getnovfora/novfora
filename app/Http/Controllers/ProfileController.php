@@ -14,6 +14,7 @@ use App\Models\Post;
 use App\Models\User;
 use App\Permissions\Scope;
 use App\Permissions\VisibleForumIds;
+use App\Settings\Settings;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -38,7 +39,9 @@ class ProfileController extends Controller
 
         $viewer = $request->user() ?? User::guest();
         $posts = $tab === 'posts' ? $this->visiblePosts($viewer, $user) : collect();
-        $activity = $tab === 'activity' ? app(ActivityFeed::class)->forActor($viewer, $user, 20) : [];
+        // Honour the admin's configured feed limit (same clamp as the homepage feed), not a hardcoded 20.
+        $activityLimit = max(1, min(50, app(Settings::class)->int('general.activity_feed_limit')));
+        $activity = $tab === 'activity' ? app(ActivityFeed::class)->forActor($viewer, $user, $activityLimit) : [];
 
         return view('profiles.show', compact('user', 'fields', 'values', 'tab', 'posts', 'activity'));
     }

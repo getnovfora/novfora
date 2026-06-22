@@ -22,10 +22,11 @@ use Illuminate\Support\Facades\Cache;
  *   - the per-viewer permission filter (VisibleForumIds) and the subject/actor rehydration run AFTER the
  *     cache boundary — never a model, related object, or filter result in the cache.
  *
- * Known limitation (DECISIONS): the window is global (latest N), filtered to the page size per viewer. A
- * heavily-restricted viewer whose only visible forum is low-traffic can see an empty feed if every row in
- * the window is from forums they can't see. The fix (paginate past the window, or cache per-scope) is an
- * M4-era optimisation; for M3 most activity is in forums most viewers can see.
+ * Visibility (ADR-0091): a non-staff viewer NEVER sees activity from a forum they can't see — including an
+ * orphaned row from a hard-deleted (nullOnDelete'd) forum. A RESTRICTED viewer's window pushes the visible-
+ * forum constraint into the query (so a low-traffic restricted viewer gets a full window of rows they CAN see,
+ * not an empty feed filtered down from a global window), and a current-state pass re-authorises each row on its
+ * LIVE subject forum. Only staff who currently see EVERY forum bypass the filter (and may see orphaned rows).
  */
 final class ActivityFeed
 {
@@ -46,7 +47,7 @@ final class ActivityFeed
      */
     public function for(User $viewer, int $limit = self::LIMIT): array
     {
-        return $this->page($viewer, fn (): array => $this->window(), $limit);
+        return $this->page($viewer, fn (?array $vis): array => $this->window($vis), $limit);
     }
 
     /**
@@ -66,7 +67,7 @@ final class ActivityFeed
             return [];
         }
 
-        return $this->page($viewer, fn (): array => $this->followingWindow($followedIds), $limit);
+        return $this->page($viewer, fn (?array $vis): array => $this->followingWindow($followedIds, $vis), $limit);
     }
 
     /**
@@ -84,14 +85,15 @@ final class ActivityFeed
             return [];
         }
 
-        return $this->page($viewer, fn (): array => $this->loadWindow([$actorId]), $limit);
+        return $this->page($viewer, fn (?array $vis): array => $this->loadWindow([$actorId], $vis), $limit);
     }
 
     /**
      * Shared read path: short-circuit a sees-no-forum viewer BEFORE touching the window, then apply the
      * per-viewer permission filter and rehydrate — both strictly AFTER the cache boundary (RH-9).
      *
-     * @param  \Closure(): list<array<string, mixed>>  $window
+     * @param  \Closure(list<int>|null): list<array<string, mixed>>  $window  receives the restricted-viewer
+     *                                                                        visible-forum ids (null = no restriction)
      * @param  int  $limit  final page size, clamped to [1, WINDOW]
      * @return list<ActivityFeedItem>
      */
@@ -100,44 +102,64 @@ final class ActivityFeed
         // Clamp to [1, WINDOW]: the limit can never ask for more rows than the cached window holds, nor for none.
         $limit = max(1, min(self::WINDOW, $limit));
 
-        // Per-viewer permission filter (NOT cached). [] = sees no forum → no forum-scoped activity at all.
+        // Per-viewer permission filter (NOT cached). null = sees every CURRENT forum; [] = sees none.
         $visibleIds = VisibleForumIds::for($viewer);
-        if ($visibleIds === []) {
-            return [];
+
+        // ONLY a genuine see-everything actor — staff who currently see EVERY forum — bypasses the filter and
+        // may see orphaned (deleted-forum) rows. A guest or regular member who merely sees every CURRENT forum
+        // (visibleIds === null) must NOT bypass: that sentinel ignores DELETED forums, whose now-null-scoped
+        // activity (incl. from a once-private forum) would otherwise leak to everyone. This is the leak close.
+        $seesEverything = $viewer->exists && $viewer->isStaff() && $visibleIds === null;
+
+        if (! $seesEverything && $visibleIds === []) {
+            return []; // a non-staff viewer who sees no forum at all
         }
 
-        $rows = $window();
+        // Underflow fix (4.2): for a RESTRICTED viewer push the visible-forum constraint INTO the query so the
+        // window is up to WINDOW rows the viewer CAN see — instead of filtering a global window down to nothing.
+        // It also drops null-scoped orphans at the source (an extra leak guard). The see-everything path keeps
+        // the shared cached global window.
+        $restrict = (! $seesEverything && $visibleIds !== null) ? $visibleIds : null;
 
-        if ($visibleIds !== null) {
-            $allowed = array_flip($visibleIds);
-            $rows = array_values(array_filter(
-                $rows,
-                fn (array $r): bool => $r['scope_forum_id'] === null || isset($allowed[$r['scope_forum_id']]),
-            ));
-        }
-
-        $rows = array_slice($rows, 0, $limit);
+        $rows = $window($restrict);
         if ($rows === []) {
             return [];
         }
 
-        $items = $this->rehydrate($rows);
-
-        // SECOND, CURRENT-STATE permission pass (adversarial-review HIGH): activities.scope_forum_id is
-        // frozen at creation, so a topic later MOVED into a restricted forum would leak its title/link
-        // through the row-level filter above. The rehydrated subjects carry their LIVE forum — re-check it
-        // against the same visible set, at zero extra queries. A tombstone (gone subject) has no forum and
-        // renders title-less, so it stays.
-        if ($visibleIds !== null) {
-            $allowed = array_flip($visibleIds);
-            $items = array_values(array_filter($items, function (ActivityFeedItem $item) use ($allowed): bool {
-                $forumId = $item->topic()?->forum_id;
-
-                return $forumId === null || isset($allowed[(int) $forumId]);
-            }));
+        // See-everything: no per-row filter, so slice to the page size BEFORE rehydrating (cheaper).
+        if ($seesEverything) {
+            return $this->rehydrate(array_slice($rows, 0, $limit)); // staff/admin: orphans included
         }
 
-        return $items;
+        // Non-staff: rehydrate the FULL window and run the current-state pass, THEN slice to $limit — the
+        // WINDOW > LIMIT headroom exists precisely to BACKFILL rows the current-state pass drops (a recent move
+        // or a stray orphan near the head can't starve the page below $limit).
+        $items = $this->rehydrate($rows);
+
+        // CURRENT-STATE permission pass: authorize each row on its LIVE subject forum (catches a topic MOVED
+        // into a restricted forum after the activity was logged), falling back to the FROZEN scope_forum_id when
+        // the subject is gone (a tombstone in a still-known forum keeps showing). A row with NO forum on either —
+        // an orphan from a HARD-deleted forum — is EXCLUDED for non-staff: a guest must never see a deleted
+        // (possibly private) forum's activity. $allowed === null means the viewer sees every current forum.
+        $allowed = $visibleIds !== null ? array_flip($visibleIds) : null;
+        $frozenById = [];
+        foreach ($rows as $r) {
+            $frozenById[$r['id']] = $r['scope_forum_id'];
+        }
+
+        $items = array_values(array_filter($items, function (ActivityFeedItem $item) use ($allowed, $frozenById): bool {
+            // Prefer the LIVE subject forum (catches a move); fall back to the FROZEN scope only when the subject
+            // is gone (a tombstone in a still-known forum keeps showing). No forum on either → orphan → exclude.
+            $topic = $item->topic();
+            $forumId = $topic !== null ? $topic->forum_id : ($frozenById[$item->id] ?? null);
+            if ($forumId === null) {
+                return false;
+            }
+
+            return $allowed === null || isset($allowed[(int) $forumId]);
+        }));
+
+        return array_slice($items, 0, $limit);
     }
 
     /**
@@ -145,8 +167,14 @@ final class ActivityFeed
      *
      * @return list<array<string, mixed>>
      */
-    private function window(): array
+    private function window(?array $visibleForumIds = null): array
     {
+        // A RESTRICTED viewer gets a filtered, UNcached window (indexed `scope_forum_id IN (...)`) so the page is
+        // full of rows they can see; the shared cache stays the see-everything global window only.
+        if ($visibleForumIds !== null) {
+            return $this->loadWindow(null, $visibleForumIds);
+        }
+
         $key = 'novfora.activities.feed.v'.$this->version->current();
 
         try {
@@ -166,8 +194,13 @@ final class ActivityFeed
      * @param  list<int>  $followedIds
      * @return list<array<string, mixed>>
      */
-    private function followingWindow(array $followedIds): array
+    private function followingWindow(array $followedIds, ?array $visibleForumIds = null): array
     {
+        // A RESTRICTED viewer gets a filtered, UNcached following window (same rationale as window()).
+        if ($visibleForumIds !== null) {
+            return $this->loadWindow($followedIds, $visibleForumIds);
+        }
+
         sort($followedIds);
         $setHash = md5(implode(',', $followedIds));
         $key = "novfora.activities.feed.following.{$setHash}.v".$this->version->current();
@@ -179,11 +212,17 @@ final class ActivityFeed
         }
     }
 
-    /** @param list<int>|null $actorIds null = the global window @return list<array<string, mixed>> */
-    private function loadWindow(?array $actorIds = null): array
+    /**
+     * @param  list<int>|null  $actorIds  null = every actor (the global window)
+     * @param  list<int>|null  $visibleForumIds  null = no scope restriction; else only these forums' activity
+     *                                           (drops null-scoped / deleted-forum orphans by construction)
+     * @return list<array<string, mixed>>
+     */
+    private function loadWindow(?array $actorIds = null, ?array $visibleForumIds = null): array
     {
         return Activity::query()
             ->when($actorIds !== null, fn ($q) => $q->whereIn('actor_id', $actorIds))
+            ->when($visibleForumIds !== null, fn ($q) => $q->whereIn('scope_forum_id', $visibleForumIds))
             ->orderByDesc('id')
             ->limit(self::WINDOW)
             ->get(['id', 'actor_id', 'verb', 'subject_type', 'subject_id', 'object_type', 'object_id', 'scope_forum_id', 'created_at'])
