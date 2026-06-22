@@ -32,6 +32,10 @@
                 @endif
             </div>
             <div class="flex items-center gap-2">
+                @auth
+                    {{-- M2: follow this forum → notified of new topics. --}}
+                    <livewire:forum.subscribe-button :key="'sub-forum-'.$forum->id" kind="forum" :target-id="$forum->id" />
+                @endauth
                 @if ($canModerate)
                     {{-- Bulk-select toggle (P2-M4): turns on per-topic checkboxes wired to the Alpine bulkSelect store. --}}
                     <x-ui.button type="button" variant="ghost" size="sm" dusk="bulk-select-toggle"

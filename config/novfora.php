@@ -119,6 +119,12 @@ return [
     // (setting key general.activity_feed_limit); env is the fallback. Clamped to the cached window at read.
     'activity_feed_limit' => (int) env('NOVFORA_ACTIVITY_FEED_LIMIT', 15),
 
+    // Topic/forum follow-subscribe (M2, ADR-0097). The reply/new-topic notification fan-out is queued + chunked;
+    // this hard cap bounds the worst case (a pathological follower count) and is logged when hit (no silent drop).
+    'subscriptions' => [
+        'fanout_cap' => (int) env('NOVFORA_SUBSCRIPTION_FANOUT_CAP', 2000),
+    ],
+
     // oEmbed / rich embeds (P2-M1). SECURITY: the canonical post stores ONLY the URL (a client never supplies
     // embed HTML). An ALLOWLISTED provider renders a SINGLE sandboxed <iframe> built by
     // App\Content\Oembed\EmbedPolicy from a VALIDATED player URL on an allowlisted embed host — NOT through the
