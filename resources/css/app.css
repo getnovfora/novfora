@@ -306,6 +306,33 @@ body {
     }
 }
 
+/* ── Motion tokens (design-system foundation) ──────────────────────────────────────────────────────────
+ | Standard durations + easings so transitions read as one product instead of per-surface guesses. Consume
+ | via the convenience utilities below (.transition-base / .transition-emphasis) or arbitrary values, e.g.
+ | `duration-[var(--dur-base)] ease-[var(--ease-standard)]`. The prefers-reduced-motion block ABOVE already
+ | forces near-zero durations globally, so these honour reduced motion with no per-call work. Mode-independent
+ | (motion doesn't change with colour mode), so defined once here rather than per [data-theme]. */
+:root {
+    --dur-fast: 100ms; /* micro state changes — hover/active */
+    --dur-base: 160ms; /* default UI transition */
+    --dur-slow: 240ms; /* entrances — dropdowns/popovers/menus */
+    --ease-standard: cubic-bezier(0.2, 0, 0, 1); /* general-purpose */
+    --ease-entrance: cubic-bezier(0, 0, 0.2, 1); /* decelerate-in */
+    --ease-exit: cubic-bezier(0.4, 0, 1, 1); /* accelerate-out */
+}
+.transition-base {
+    transition-property: color, background-color, border-color, fill, stroke, opacity, box-shadow, transform,
+        filter;
+    transition-duration: var(--dur-base);
+    transition-timing-function: var(--ease-standard);
+}
+.transition-emphasis {
+    transition-property: color, background-color, border-color, fill, stroke, opacity, box-shadow, transform,
+        filter;
+    transition-duration: var(--dur-slow);
+    transition-timing-function: var(--ease-entrance);
+}
+
 /* ── a11y floor (ADR-0009 §3.3 / ADR-0016): skip link, screen-reader-only text, visible focus ──────────
  | Restyle, don't remove (THEME-API contract). The literal strings :focus-visible / .skip-link / the
  | --novfora-accent token are asserted by tests/Feature/Theme/A11yTest.php. */
