@@ -238,7 +238,10 @@
 
         @auth
             @if ($canReply)
-                <livewire:forum.reply-composer :topic-id="$topic->id" />
+                {{-- T1: a ?canned={id} param (from the staff canned-reply picker) pre-fills the composer. --}}
+                <livewire:forum.reply-composer :topic-id="$topic->id"
+                    :canned="(int) request('canned') ?: null"
+                    :key="'reply-composer-c'.((int) request('canned'))" />
             @elseif ($topic->status === 'locked')
                 <x-ui.card class="flex items-center gap-3 text-ink-muted">
                     <x-ui.icon name="lock" class="h-5 w-5 shrink-0 text-ink-subtle" />

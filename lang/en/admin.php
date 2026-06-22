@@ -63,6 +63,7 @@ return [
         'reports' => 'Reports',
         'mod_panel' => 'Mod control panel',
         'spam_intelligence' => 'Spam intelligence',
+        'canned_replies' => 'Canned replies',
         'moderators' => 'Moderators',
         'moderation_settings' => 'Moderation settings',
         'appearance' => 'Appearance',

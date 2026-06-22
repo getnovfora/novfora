@@ -413,6 +413,8 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
 
         // Moderation section — spam intelligence + moderation policy (queues/reports are the MCP, linked out).
         Route::view('/moderation/spam-intelligence', 'admin.spam-intelligence')->name('spam-intelligence');
+        // T1 — canned / stock moderator replies CRUD. <livewire:admin.canned-replies />
+        Route::view('/moderation/canned-replies', 'admin.canned-replies')->name('moderation.canned-replies');
         Route::view('/moderation/settings', 'admin.settings.moderation')->name('settings.moderation');
         // ACP v3 · v3-b — the global single-pane: every per-forum moderator assignment, grouped by forum.
         Route::view('/moderation/moderators', 'admin.moderators')->name('moderators');

@@ -68,6 +68,7 @@ final class AdminNavigation
                 ['reports', 'moderation.reports', 'flag', true],
                 ['mod_panel', 'moderation.dashboard', 'shield', true],
                 ['spam_intelligence', 'admin.spam-intelligence', 'shield'],
+                ['canned_replies', 'admin.moderation.canned-replies', 'message'], // T1: stock moderator replies
                 ['moderators', 'admin.moderators', 'users'], // v3-b: per-forum moderator assignments overview
                 ['moderation_settings', 'admin.settings.moderation', 'cog'],
             ]],
