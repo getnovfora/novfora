@@ -4,25 +4,26 @@ Copyright 2026 The NovFora Authors
 -->
 # DRAFT ADRs — Design-Polish Program (lift into `DECISIONS.md` on acceptance)
 
-> **Status: DRAFT / Proposed — awaiting owner approval.** These are written in the `DECISIONS.md` house format
-> (one summary table row + one concise detail block each) so they can be pasted in verbatim once accepted.
-> **Confirm the numbers are next-free before lifting** — PROJECT-STATE last referenced **ADR-0091**, so 0092/0093
-> are expected free, but apply the RH-4 "don't collide" check against the live `DECISIONS.md` table first.
+> **Status: LIFTED into `DECISIONS.md` as ADR-0093 / ADR-0094 (2026-06-22, v1.x S3).** Confirmed next-free against
+> the live table — **ADR-0092 was already taken** by the trust-warning freeze, so the program lifted as **0093**
+> (program) / **0094** (attachment subsystem, apex). This draft is retained only until **v1.x R2** prunes it.
+> The numbers below are renumbered to match; they were lifted as **detail blocks** (the `DECISIONS.md` index table
+> has not been maintained past ADR-0035, so the recent ADRs are detail-block-only — no orphan index row was added).
 
 ---
 
 ## Table rows (paste into the `DECISIONS.md` index table)
 
 ```
-| 0092 | **Design-Polish Program (post-1.0)** — look-and-feel as a tracked deliverable on equal footing with function; four pillars (design-system foundation · ACP feel · member polish · editor flagship) threaded through 1.1/1.2/1.3; clean-room, tokens-only, gated incl. the a11y page gate; the editor upload path is apex (ADR-0093) | **Proposed** | [§ADR-0092](#adr-0092--design-polish-program-2026-06-22) · [program](design-polish-program-2026-06-22.md) · [kickoff](design-polish-kickoff.md) |
-| 0093 | **Editor attachment subsystem (apex)** — extend (not duplicate) the existing image-upload/attachment infra with a drag-drop multi-file attach zone + a hardened upload/serve path; untrusted-input boundary, mandated adversarial review | **Proposed** | [§ADR-0093](#adr-0093--editor-attachment-subsystem-2026-06-22) · [kickoff §Slice 2](design-polish-kickoff.md) |
+| 0093 | **Design-Polish Program (post-1.0)** — look-and-feel as a tracked deliverable on equal footing with function; four pillars (design-system foundation · ACP feel · member polish · editor flagship) threaded through 1.1/1.2/1.3; clean-room, tokens-only, gated incl. the a11y page gate; the editor upload path is apex (ADR-0094) | **Proposed** | [§ADR-0093](#adr-0093--design-polish-program-2026-06-22) · [program](design-polish-program-2026-06-22.md) · [kickoff](design-polish-kickoff.md) |
+| 0094 | **Editor attachment subsystem (apex)** — extend (not duplicate) the existing image-upload/attachment infra with a drag-drop multi-file attach zone + a hardened upload/serve path; untrusted-input boundary, mandated adversarial review | **Proposed** | [§ADR-0094](#adr-0094--editor-attachment-subsystem-2026-06-22) · [kickoff §Slice 2](design-polish-kickoff.md) |
 ```
 
 ---
 
 ## Detail blocks (paste into the `## ADR detail` section)
 
-### ADR-0092 — Design-Polish Program
+### ADR-0093 — Design-Polish Program
 **Context:** two external IPS audits found NovFora's design *foundation* is strong (semantic-token system, dual-mode
 dark, density scaling, AA floor, Theme-API contract, an `<x-ui.*>` set) but **uneven** — a CSS class leak shipped the
 audit's worst-rated defect (the `.novfora-prose` height cap on rendered posts, fixed as M0), editor richness is thin
@@ -35,10 +36,10 @@ editor as the flagship. It threads through the functional milestones 1.1 (member
 tooling); every change is **tokens-only** (auto dark + density) and passes the deterministic gates **including the a11y
 page gate**; "done" includes visual + a11y, not just green tests (`design-polish-program-2026-06-22.md` §5).
 **Consequences:** polish becomes reusable + regression-guarded rather than per-surface luck; ACP v4 + member-UX consume
-the same components; **no new product scope** beyond the editor **attachment subsystem (ADR-0093)**, which is apex. Model
+the same components; **no new product scope** beyond the editor **attachment subsystem (ADR-0094)**, which is apex. Model
 routing: mostly Sonnet (view/CSS/component sweeps via Explore sub-agents); the editor upload path is **Fable @ max**.
 
-### ADR-0093 — Editor attachment subsystem
+### ADR-0094 — Editor attachment subsystem
 **Context:** the composer (`content-editor.blade.php` + the TipTap island) supports only **single, image-only,
 click-to-pick** upload; the flagship needs the screenshot's **drag-and-drop, multi-file attach zone with a max-size
 readout**. File upload from the internet is an **untrusted-input boundary** — the apex rung per `CLAUDE.md`. P5.1 shows
