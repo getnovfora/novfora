@@ -51,6 +51,42 @@ final class TemplateContract
                     {% if topic.reply_count > 0 %}<p class="mt-4 text-center text-xs text-ink-subtle">{{ number(topic.reply_count) }} {{ plural(topic.reply_count, 'reply', 'replies') }} · thanks for reading on {{ site.name }}.</p>{% endif %}
                     TPL,
             ],
+            // T2 (ADR-0099) — admin-editable transactional email BODIES, rendered through this same sandbox
+            // (variables auto-escaped, no PHP/Blade, scripts lint-blocked). Disabled/absent → the shipped Blade
+            // default is used; the subject line is NEVER admin-rendered (it stays a code-controlled string).
+            'email.notification' => [
+                'label' => 'Email — notification',
+                'description' => 'Body of the per-event notification email (reply, mention, reaction, PM, follow, moderation). Falls back to the built-in default when disabled.',
+                'variables' => [
+                    'event' => 'The notification type (reply, mention, reaction, pm.received, follow, moderation)',
+                    'actor' => 'The member who triggered it',
+                    'topic_title' => 'The topic title, if any',
+                    'url' => 'A link to the content',
+                    'site.name' => 'The board name',
+                ],
+                'default' => <<<'TPL'
+                    <p>Hello,</p>
+                    <p>{{ actor }} has new activity for you{% if topic_title %} in “{{ topic_title }}”{% endif %}.</p>
+                    {% if url %}<p><a href="{{ url }}">View it on {{ site.name }}</a></p>{% endif %}
+                    TPL,
+            ],
+            'email.digest' => [
+                'label' => 'Email — digest',
+                'description' => 'Body of the coalesced digest email. Loop the updates with {% for item in items %}. Falls back to the built-in default when disabled.',
+                'variables' => [
+                    'recipient_name' => 'The member receiving the digest',
+                    'items' => 'The updates — loop with {% for item in items %}; each has item.actor, item.topic_title, item.url, item.event',
+                    'unsubscribe_url' => 'The one-click unsubscribe link',
+                    'site.name' => 'The board name',
+                ],
+                'default' => <<<'TPL'
+                    <p>Hello {{ recipient_name }},</p>
+                    <p>Here’s what you missed on {{ site.name }}:</p>
+                    <ul>
+                    {% for item in items %}<li>{{ item.actor }}{% if item.topic_title %} — {{ item.topic_title }}{% endif %}{% if item.url %} (<a href="{{ item.url }}">view</a>){% endif %}</li>{% endfor %}
+                    </ul>
+                    TPL,
+            ],
         ];
     }
 
