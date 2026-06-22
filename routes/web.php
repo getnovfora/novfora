@@ -418,6 +418,8 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
 
         // Moderation section — spam intelligence + moderation policy (queues/reports are the MCP, linked out).
         Route::view('/moderation/spam-intelligence', 'admin.spam-intelligence')->name('spam-intelligence');
+        // ACP v4 · A3 (ADR-0096) — warning-type CRUD + read-only consequence thresholds. <livewire:admin.warning-types />
+        Route::view('/moderation/warning-types', 'admin.warning-types')->name('moderation.warning-types');
         Route::view('/moderation/settings', 'admin.settings.moderation')->name('settings.moderation');
         // ACP v3 · v3-b — the global single-pane: every per-forum moderator assignment, grouped by forum.
         Route::view('/moderation/moderators', 'admin.moderators')->name('moderators');
