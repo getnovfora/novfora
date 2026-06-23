@@ -1,11 +1,10 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-{{-- The ACP section sidebar (ACP v3 · v3-h; Pillar 2 feel pass): the ACP quick-search, a Recent shelf, then
-     the sub-page clusters for the ACTIVE rail section. The search is a client-side filter over a built index
-     of pages + settings labels (instant jump — the SMF/Invision ergonomic); pressing Enter runs the full
-     server-side search, which also matches members. The "/" key focuses it (when not already typing). Recents
-     are localStorage-backed (no server state), so they degrade to empty without JS. All intra-ACP links use
-     wire:navigate so switching sections morphs the page without a full reload — the persistent-shell fix for
-     the audit's "feels unstable". Keyboard-operable and token-driven. --}}
+{{-- The ACP section sidebar (ACP v3 · v3-h; Pillar 2 feel pass): the ACP quick-search, then the sub-page
+     clusters for the ACTIVE rail section. The search is a client-side filter over a built index of pages +
+     settings labels (instant jump — the SMF/Invision ergonomic); pressing Enter runs the full server-side
+     search, which also matches members. The "/" key focuses it (when not already typing). All intra-ACP links
+     use wire:navigate so switching sections morphs the page without a full reload — the persistent-shell fix
+     for the audit's "feels unstable". Keyboard-operable and token-driven. --}}
 @props(['clusters' => [], 'searchIndex' => [], 'searchUrl' => null])
 
 <nav aria-label="{{ __('admin.section_nav_label') }}" class="space-y-1">
@@ -58,50 +57,6 @@
             <p x-show="results.length === 0" class="px-3 py-2 text-sm text-ink-subtle">{{ __('admin.search.no_matches') }}</p>
         </div>
     </form>
-
-    {{-- Recent shelf: the last few ACP pages this browser visited (localStorage; quick-links / recents gap).
-         Records the current page on load, shows up to five others. No server state → empty without JS. --}}
-    <div
-        x-data="{
-            items: [],
-            init() {
-                const key = 'novfora.acp.recents';
-                const label = (document.title || '').replace(/^.*?·\s*/, '').trim();
-                const here = { label: label || location.pathname, url: location.pathname + location.search };
-                let list = [];
-                try { list = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { list = []; }
-                list = list.filter(i => i && i.url && i.url !== here.url);
-                if (here.label) list.unshift(here);
-                list = list.slice(0, 6);
-                try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) {}
-                this.items = list.filter(i => i.url !== here.url).slice(0, 5);
-            },
-            clear() {
-                try { localStorage.removeItem('novfora.acp.recents'); } catch (e) {}
-                this.items = [];
-            },
-        }"
-        x-show="items.length > 0"
-        x-cloak
-        class="mb-2"
-        aria-label="{{ __('admin.recent_label') }}"
-    >
-        <div class="flex items-center justify-between px-3 pt-3 pb-1">
-            <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ __('admin.recent') }}</p>
-            <button type="button" x-on:click="clear()" class="text-xs text-ink-subtle hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded">{{ __('admin.recent_clear') }}</button>
-        </div>
-        <ul class="space-y-0.5">
-            <template x-for="i in items" :key="i.url">
-                <li>
-                    <a :href="i.url" wire:navigate
-                       class="flex items-center gap-2.5 min-h-9 px-3 rounded-md text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink">
-                        <x-ui.icon name="arrow-left" class="h-3.5 w-3.5 shrink-0 rotate-180 text-ink-subtle" />
-                        <span class="flex-1 truncate" x-text="i.label"></span>
-                    </a>
-                </li>
-            </template>
-        </ul>
-    </div>
 
     @foreach ($clusters as $cluster)
         <div>
