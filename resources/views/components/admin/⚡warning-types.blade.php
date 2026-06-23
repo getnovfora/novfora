@@ -243,13 +243,18 @@ new class extends Component
                 </td>
                 <td><x-ui.badge :variant="$t->is_active ? 'success' : 'neutral'">{{ $t->is_active ? 'Active' : 'Inactive' }}</x-ui.badge></td>
                 <td class="text-right whitespace-nowrap">
-                    <x-ui.button size="sm" variant="ghost" wire:click="toggleActive({{ $t->id }})">{{ $t->is_active ? 'Deactivate' : 'Activate' }}</x-ui.button>
+                    <x-ui.button size="sm" :variant="$t->is_active ? 'danger-soft' : 'ghost'" wire:click="toggleActive({{ $t->id }})">{{ $t->is_active ? 'Deactivate' : 'Activate' }}</x-ui.button>
                     <x-ui.button size="sm" variant="ghost" icon wire:click="edit({{ $t->id }})" title="Edit" dusk="wt-edit-{{ $t->id }}"><x-ui.icon name="pencil" class="h-4 w-4" /></x-ui.button>
                     <x-ui.button size="sm" variant="danger-ghost" icon wire:click="delete({{ $t->id }})" title="Delete" wire:confirm="Delete this warning type? Existing warnings keep their points." dusk="wt-delete-{{ $t->id }}"><x-ui.icon name="trash" class="h-4 w-4" /></x-ui.button>
                 </td>
             </tr>
         @empty
-            <tr><td colspan="6" class="px-3 py-8 text-center text-sm text-ink-subtle">No warning types yet.</td></tr>
+            <tr><td colspan="6">
+                <x-ui.empty title="No warning types yet.">
+                    <x-slot:icon><x-ui.icon name="shield" class="h-6 w-6" /></x-slot:icon>
+                    Create one to start issuing typed warnings.
+                </x-ui.empty>
+            </td></tr>
         @endforelse
     </x-ui.table>
 </div>

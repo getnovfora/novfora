@@ -166,7 +166,12 @@ new class extends Component
                 </td>
             </tr>
         @empty
-            <tr><td colspan="4" class="px-3 py-8 text-center text-sm text-ink-subtle">No canned replies yet.</td></tr>
+            <tr><td colspan="4">
+                <x-ui.empty title="No canned replies yet.">
+                    <x-slot:icon><x-ui.icon name="message" class="h-6 w-6" /></x-slot:icon>
+                    Create a reusable reply to speed up moderation.
+                </x-ui.empty>
+            </td></tr>
         @endforelse
     </x-ui.table>
 </div>

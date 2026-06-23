@@ -414,7 +414,8 @@ new class extends Component
                     This member is <strong class="text-danger">banned</strong>@if ($activeBan->reason) — “{{ $activeBan->reason }}”@endif.
                     @if ($activeBan->expires_at) Expires {{ \Illuminate\Support\Carbon::parse($activeBan->expires_at)->diffForHumans() }}.@else Permanent.@endif
                 </p>
-                <x-ui.button variant="danger-ghost" size="sm" wire:click="liftBan" dusk="lift-ban">Lift ban</x-ui.button>
+                {{-- Lifting a ban is RESTORATIVE — a neutral tone, not a destructive one (P1 action-weighting). --}}
+                <x-ui.button variant="ghost" size="sm" wire:click="liftBan" dusk="lift-ban">Lift ban</x-ui.button>
             @elseif ($isSelf || $isSoleOwner)
                 <p class="text-sm text-ink-subtle">{{ $isSelf ? 'You cannot ban your own account.' : 'The last administrator / co-owner cannot be banned.' }}</p>
             @else
@@ -462,7 +463,9 @@ new class extends Component
                                class="w-full min-h-11 px-3 rounded-md bg-surface border border-line text-ink focus:border-accent">
                     </div>
                     <div class="sm:col-span-2">
-                        <x-ui.button variant="subtle" size="sm" wire:click="warnMember" dusk="warn-member">Issue warning</x-ui.button>
+                        {{-- A warning is a moderation consequence (points can trigger an auto-ban) — it should read
+                             as a soft-destructive action, not a neutral one (P1 action-weighting). --}}
+                        <x-ui.button variant="danger-soft" size="sm" wire:click="warnMember" dusk="warn-member">Issue warning</x-ui.button>
                     </div>
                 </div>
             @endif
