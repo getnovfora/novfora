@@ -10,7 +10,7 @@ use Tests\Support\Users;
 
 /*
 | ACP feel pass (Pillar 2, Slice 4): the persistent-shell wire:navigate, section-landing breadcrumbs, a more
-| prominent search affordance ("/" focus), a Recent shelf, and the x-admin.form-section rhythm. Server-render
+| prominent search affordance ("/" focus), and the x-admin.form-section rhythm. Server-render
 | assertions; the live SPA-nav smoothness itself is browser-verified (Dusk/CI). The full AdminAccessWalkTest
 | separately proves every ACP page still renders (no regression from these shell edits).
 */
@@ -51,7 +51,7 @@ it('the ACP rail uses wire:navigate for the persistent-shell nav', function () {
         ->toContain('wire:navigate');
 });
 
-it('the section sidebar adds a "/" search shortcut, a Recent shelf, and wire:navigate links', function () {
+it('the section sidebar adds a "/" search shortcut and wire:navigate links', function () {
     $clusters = [['heading' => 'Manage', 'items' => [
         ['label' => 'Structure', 'icon' => 'folder', 'url' => '/admin/structure', 'active' => true, 'external' => false],
     ]]];
@@ -61,8 +61,7 @@ it('the section sidebar adds a "/" search shortcut, a Recent shelf, and wire:nav
     expect($html)
         ->toContain('wire:navigate')        // sidebar links morph the shell instead of full-reloading
         ->toContain('focusOnSlash')         // the "/" key focuses the search
-        ->toContain('novfora.acp.recents')  // localStorage-backed recents (no server state)
-        ->toContain(__('admin.recent'));    // the Recent shelf heading
+        ->not->toContain('novfora.acp.recents'); // the Recent shelf was removed (no localStorage recents)
 });
 
 it('section landings now carry a breadcrumb trail and wire:navigate cards', function () {
