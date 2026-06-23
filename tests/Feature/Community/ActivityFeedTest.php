@@ -108,6 +108,9 @@ it('shows the feed on the forum index, with [Deleted] for a removed actor', func
         ->assertOk()
         ->assertSee('Recent activity')
         ->assertSee('Indexed topic')
-        ->assertSee('[Deleted]')
-        ->assertDontSee('OrigPoster');
+        ->assertSee('[Deleted]'); // the FEED tombstones the pseudonymised actor (its no-leak is proven in
+    // isolation above). NOTE: 'OrigPoster' DOES appear on the page now — F6's
+    // latest-activity column shows the forum's LIVE last-post author, who was
+    // never deleted here (only the activity's actor_id was nulled), so that is
+    // correct and not a leak.
 });
