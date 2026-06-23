@@ -56,7 +56,7 @@ final class InfoCenter
             // within the 60s window, the cached id is stale — don't surface a now-hidden member (the members
             // directory + who's-online already exclude them). Falls back to "—" until the cache refreshes.
             'newestMember' => $stats['newestMemberId'] !== null
-                ? User::query()->where('status', 'active')->find($stats['newestMemberId'])
+                ? User::query()->where('status', 'active')->with('groups')->find($stats['newestMemberId'])
                 : null,
         ];
     }
@@ -69,8 +69,11 @@ final class InfoCenter
      */
     public function whosOnline(int $limit = 30): array
     {
+        // Eager-load each online member's groups in ONE query (no per-row N+1) so the panel can render them
+        // through <x-ui.user-name>, which colours the name by the member's display group (e.g. an admin shows
+        // in red). The presence query selects a narrow column set; ->load() bolts on the relation after it.
         return [
-            'members' => $this->online->recent($limit),
+            'members' => $this->online->recent($limit)->load('groups'),
             'count' => $this->online->count(),
             'windowMinutes' => $this->online->windowMinutes(),
         ];
