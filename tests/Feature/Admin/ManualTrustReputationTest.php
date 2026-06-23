@@ -55,7 +55,9 @@ it('lets a holder set a member trust level (audited, locked); 403s an admin with
 
     expect($target->fresh()->trust_level)->toBe(3)
         ->and($target->fresh()->trust_locked)->toBeTrue()
-        ->and($target->fresh()->trustLevel())->toBe(3); // the tl3 GROUP is now authoritative
+        ->and($target->fresh()->trustLevel())->toBe(3) // the tl3 GROUP is now authoritative
+        // The atomic locked swap leaves EXACTLY ONE trust group — never the two-group union (apex-review MEDIUM).
+        ->and($target->fresh()->groups()->where('type', 'trust')->count())->toBe(1);
 
     $audit = AuditLog::where('action', 'user.trust.manual_set')->where('auditable_id', $target->id)->latest('id')->first();
     expect($audit)->not->toBeNull()

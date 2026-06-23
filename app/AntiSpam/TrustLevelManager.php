@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\AntiSpam;
 
 use App\Jobs\RegenerateUserPostHtml;
+use App\Models\AuditLog;
 use App\Models\Group;
 use App\Models\Post;
 use App\Models\TopicRead;
@@ -14,6 +15,7 @@ use App\Models\User;
 use App\Models\Warning;
 use App\Permissions\MembershipCache;
 use App\Support\Audit;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Trust-level auto promotion / demotion (ADR-0007 §2.3 / data-model §4).
@@ -55,30 +57,21 @@ final class TrustLevelManager
     public function manualSet(User $user, int $level, User $actor, ?string $reason = null): void
     {
         $level = max(0, min(4, $level));
-        $group = Group::where('slug', 'tl'.$level)->first();
-        if (! $group instanceof Group) {
-            return; // a tenant install missing this level — leave membership untouched rather than break
+        $from = $this->swapTrustGroup($user, $level, lock: true);
+        if ($from === -1) {
+            return; // a tenant install missing this level — membership left untouched
         }
 
-        $from = (int) $user->trust_level;
-
-        // A user is in exactly one trust group (kept secondary). Swapping it changes the group-set signature, so
-        // the resolved-permission cache re-keys; on an actual CHANGE we ALSO bump the version (a manual move can
-        // return the user to a previously-cached signature, e.g. a demotion) so the inspector verdict flips for
-        // this user immediately. Mirrors setLevel()'s seam exactly — the engine guards are reused, not forked.
-        $user->groups()->detach(Group::where('type', 'trust')->pluck('id')->all());
-        $user->groups()->attach($group->getKey(), ['is_primary' => false]);
-        MembershipCache::flushFor($user, bumpVersion: $from !== $level);
-
-        // Persist the level AND set the sticky-override flag (always written, so re-affirming an unchanged level
-        // still locks it). forceFill: both columns are guarded.
-        $user->forceFill(['trust_level' => $level, 'trust_locked' => true])->save();
-
-        Audit::log('user.trust.manual_set', $user, [
-            'from' => $from,
-            'to' => $level,
-            'by' => (int) $actor->getKey(),
-            'reason' => $reason,
+        // Audit with the EXPLICIT actor (not ambient auth()), written directly so actor_id reflects $actor —
+        // robust for any future console/queued caller and consistent with ReputationService::adminAdjust().
+        AuditLog::create([
+            'actor_id' => $actor->getKey(),
+            'action' => 'user.trust.manual_set',
+            'auditable_type' => $user::class,
+            'auditable_id' => $user->getKey(),
+            'changes' => ['from' => $from, 'to' => $level, 'by' => (int) $actor->getKey(), 'reason' => $reason],
+            'ip_address' => request()->ip(),
+            'created_at' => now(),
         ]);
 
         // Re-render this user's posts so link/image suppression matches the NEW level (re-suppress on a manual
@@ -259,36 +252,60 @@ final class TrustLevelManager
     private function setLevel(User $user, int $target): void
     {
         $target = max(0, min(4, $target));
-        $group = Group::where('slug', 'tl'.$target)->first();
+        $from = $this->swapTrustGroup($user, $target, lock: false);
+
+        if ($from === -1 || $from === $target) {
+            return; // a missing level, or an unchanged recompute — no audit, no re-render (the swap is a no-op)
+        }
+
+        Audit::log($target > $from ? 'user.trust.promoted' : 'user.trust.demoted', $user, ['from' => $from, 'to' => $target]);
+
+        // Phase-1.5 F-E: re-render this user's posts so link/image suppression matches their NEW trust level —
+        // re-suppress on demotion (the security-relevant direction), reveal on promotion. Queued, so a spammer
+        // with many posts doesn't stall the recompute; drained by the cron line.
+        RegenerateUserPostHtml::dispatch((int) $user->getKey());
+    }
+
+    /**
+     * Atomically swap the user's single trust group to tl{level} under a USER-ROW LOCK, refresh the resolver
+     * caches, and persist the denorm column — returning the prior level (or -1 when the level's group is
+     * missing on this install, so the caller no-ops). The lock SERIALISES concurrent trust changes (a manual
+     * set racing the cron recompute, or two admins), so the member can never transiently hold two trust groups
+     * — which PermissionResolver would otherwise read as the most-permissive UNION of both levels. Mirrors the
+     * locking discipline proven in ReputationService::award(). $lock=true marks the level a sticky admin
+     * override (trust_locked) and writes even on an unchanged level (re-affirming the lock); the auto path
+     * (lock=false) writes the column only on an actual change.
+     */
+    private function swapTrustGroup(User $user, int $level, bool $lock): int
+    {
+        $group = Group::where('slug', 'tl'.$level)->first();
         if (! $group instanceof Group) {
-            return; // a tenant install missing this level — leave membership untouched rather than break
+            return -1;
         }
 
-        $from = (int) $user->trust_level;
+        return DB::transaction(function () use ($user, $level, $group, $lock): int {
+            // Authoritative prior level under the row lock — anything reading/writing this user's trust waits.
+            $from = (int) (User::whereKey($user->getKey())->lockForUpdate()->value('trust_level') ?? 0);
 
-        // A user is in exactly one trust group (kept secondary). Detaching/attaching changes the user's
-        // group-set signature, so the resolved-permission cache key changes and resolution stays correct
-        // without an explicit version bump.
-        $user->groups()->detach(Group::where('type', 'trust')->pluck('id')->all());
-        $user->groups()->attach($group->getKey(), ['is_primary' => false]);
+            // The pivot writes fire no model events, so invalidate the resolver caches explicitly (ACP v3 · v3-e
+            // seam, ADR-0083): refresh the in-memory groups relation + flush the per-request memo + VisibleForumIds,
+            // and on an actual CHANGE bump the version (a move can return the user to a previously-cached
+            // signature). An unchanged swap stays on the cheap signature path (no hourly-sweep thrash).
+            $user->groups()->detach(Group::where('type', 'trust')->pluck('id')->all());
+            $user->groups()->attach($group->getKey(), ['is_primary' => false]);
+            MembershipCache::flushFor($user, bumpVersion: $from !== $level);
 
-        // The pivot writes above fire no model events, so invalidate this user's resolver caches explicitly
-        // (ACP v3 · v3-e seam, ADR-0083 — G9's sibling): refresh the in-memory groups relation + flush the
-        // per-request memo and VisibleForumIds, so the re-render below and any later check this process
-        // (e.g. the cron recompute loop) re-resolve against the NEW trust group. On an actual level CHANGE
-        // (incl. a demotion, which can return the user to a previously-cached signature) also bump the version;
-        // an unchanged recompute is a no-op swap, so it stays on the cheap signature path (no hourly-sweep thrash).
-        MembershipCache::flushFor($user, bumpVersion: $from !== $target);
+            // Persist the denorm INSIDE the transaction so the trust GROUP and the column can never diverge.
+            // The auto path writes only on an actual change; a manual override ALSO sets the sticky flag and
+            // writes even on an unchanged level (re-affirming the lock).
+            if ($lock) {
+                $user->forceFill(['trust_level' => $level, 'trust_locked' => true])->save();
+            } elseif ($from !== $level) {
+                $user->forceFill(['trust_level' => $level])->save();
+            }
 
-        if ($from !== $target) {
-            $user->forceFill(['trust_level' => $target])->save();
-            Audit::log($target > $from ? 'user.trust.promoted' : 'user.trust.demoted', $user, ['from' => $from, 'to' => $target]);
-
-            // Phase-1.5 F-E: re-render this user's posts so link/image suppression matches their NEW trust
-            // level — re-suppress on demotion (the security-relevant direction), reveal on promotion. Queued,
-            // so a spammer with many posts doesn't stall the recompute; drained by the cron line.
-            RegenerateUserPostHtml::dispatch((int) $user->getKey());
-        }
+            return $from;
+        });
     }
 
     private function liveInfractionPoints(User $user): int

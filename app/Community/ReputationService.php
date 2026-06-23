@@ -138,19 +138,26 @@ final class ReputationService
             return;
         }
 
-        $before = (int) $recipient->reputation_points;
+        DB::transaction(function () use ($recipient, $delta, $actor, $reason): void {
+            // Read the prior total UNDER A LOCK so the audit's from→to is truthful even when two admin
+            // adjustments race the same member: the lock is held until this commits, so a second adjustment
+            // observes the first's increment. award()'s own transaction nests as a savepoint. (The denorm's
+            // atomic increment + the UNIQUE-keyed ledger row are exact regardless of this — this only keeps the
+            // from/to convenience field accurate under concurrency.)
+            $before = (int) (User::whereKey($recipient->getKey())->lockForUpdate()->value('reputation_points') ?? 0);
 
-        $source = AuditLog::create([
-            'actor_id' => $actor->getKey(),
-            'action' => 'user.reputation.admin_adjusted',
-            'auditable_type' => $recipient::class,
-            'auditable_id' => $recipient->getKey(),
-            'changes' => ['delta' => $delta, 'from' => $before, 'to' => $before + $delta, 'reason' => $reason],
-            'ip_address' => request()->ip(),
-            'created_at' => now(),
-        ]);
+            $source = AuditLog::create([
+                'actor_id' => $actor->getKey(),
+                'action' => 'user.reputation.admin_adjusted',
+                'auditable_type' => $recipient::class,
+                'auditable_id' => $recipient->getKey(),
+                'changes' => ['delta' => $delta, 'from' => $before, 'to' => $before + $delta, 'reason' => $reason],
+                'ip_address' => request()->ip(),
+                'created_at' => now(),
+            ]);
 
-        $this->award($recipient, $source, $delta);
+            $this->award($recipient, $source, $delta);
+        });
     }
 
     /**

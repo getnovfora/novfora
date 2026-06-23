@@ -136,7 +136,10 @@ new class extends Component
         $this->ensureCanManageTrust();
         $target = $this->target();
         abort_unless(ActorRank::canActOn($this->actor(), $target), 403);
-        $this->validate(['trustLevel' => ['required', 'integer', 'between:0,4']]);
+        $this->validate([
+            'trustLevel' => ['required', 'integer', 'between:0,4'],
+            'trustReason' => ['nullable', 'string', 'max:500'], // cap the free-text reason server-side (audit JSON)
+        ]);
 
         app(TrustLevelManager::class)->manualSet(
             $target,
