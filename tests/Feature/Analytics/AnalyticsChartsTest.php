@@ -46,7 +46,8 @@ it('keeps the data table as the accessible equivalent (charts are aria-hidden)',
 it('renders gracefully with no metrics (flat baseline, no error)', function () {
     Livewire::actingAs(analyticsAdmin())->test('admin.analytics')
         ->assertSeeHtml('analytics-chart-posts_new')      // the chart card still renders
-        ->assertSee('No analytics yet — they build up daily (or click Refresh).'); // table empty-state
+        ->assertSee('No analytics yet')                   // the table empty-state (x-ui.empty title)
+        ->assertSee('They build up daily — or click Refresh.'); // ... and its supporting copy
 });
 
 it('renders with a single day of data (short range)', function () {

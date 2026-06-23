@@ -236,11 +236,11 @@ new class extends Component
                 <div>
                     <label for="tpl-source" class="block text-xs font-medium text-ink-muted">Template source</label>
                     <textarea id="tpl-source" wire:model.live.debounce.400ms="source" rows="10" spellcheck="false"
-                              class="mt-1 w-full rounded-md border bg-surface px-2 py-1.5 font-mono text-xs text-ink {{ $validationError ? 'border-red-500' : 'border-line' }}"></textarea>
+                              class="mt-1 w-full rounded-md border bg-surface px-2 py-1.5 font-mono text-xs text-ink {{ $validationError ? 'border-danger' : 'border-line' }}"></textarea>
                     @if ($validationError)
-                        <p class="mt-1 text-xs text-red-600" dusk="acp-tpl-error">⚠ {{ $validationError }}</p>
+                        <p class="mt-1 text-xs text-danger" dusk="acp-tpl-error">⚠ {{ $validationError }}</p>
                     @else
-                        <p class="mt-1 text-xs text-emerald-600">✓ Valid template.</p>
+                        <p class="mt-1 text-xs text-success">✓ Valid template.</p>
                     @endif
                 </div>
 

@@ -172,7 +172,12 @@ new class extends Component
                             <td class="px-4 py-2 text-right nums text-ink">{{ number_format($row['active_users']) }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="px-4 py-4 text-sm text-ink-subtle">{{ __('No analytics yet — they build up daily (or click Refresh).') }}</td></tr>
+                        <tr><td colspan="5">
+                            <x-ui.empty title="{{ __('No analytics yet') }}">
+                                <x-slot:icon><x-ui.icon name="chart" class="h-6 w-6" /></x-slot:icon>
+                                {{ __('They build up daily — or click Refresh.') }}
+                            </x-ui.empty>
+                        </td></tr>
                     @endforelse
                 </tbody>
             </table>
