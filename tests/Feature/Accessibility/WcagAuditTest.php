@@ -8,6 +8,8 @@ use App\Accessibility\AccessibilityAuditor;
 use App\Clubs\ClubService;
 use App\Forum\PostService;
 use App\Models\Forum;
+use App\Models\Post;
+use App\Models\Report;
 use App\Models\Tag;
 use App\Search\SavedSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -186,4 +188,37 @@ it('a club page + its roster are accessible', function () {
 it('the membership/tiers page is accessible', function () {
     $member = Users::inGroups(['members']);
     auditResponse($this->actingAs($member)->get(route('membership.index')));
+});
+
+// ── v1.x batch + targeted fixes (Wave 8.3): the new/changed staff surfaces ────────────────────────────────
+// The board index (Info Center collapse + coloured who's-online + latest-activity author/topic — F5/F6) and
+// the board listing (sub-boards latest-activity — F6) are already covered above (forums.index / forums.show).
+
+it('the moderation control panel (dashboard, queue, reported-post review) is accessible', function () {
+    $mod = Users::inGroups(['moderators']);
+    auditResponse($this->actingAs($mod)->get(route('moderation.dashboard'))); // F3 width
+    auditResponse($this->actingAs($mod)->get(route('moderation.queue')));      // F3 width
+
+    // Seed an open report so the F4 review card (post excerpt + permalink + gated moderator actions) renders.
+    $forum = Forum::create(['slug' => 'moda11y', 'title' => 'Mod A11y', 'type' => 'forum']);
+    $topic = app(PostService::class)->createTopic($mod, $forum, 'Reported topic', 'tiptap_json', Content::doc('a reported post body'));
+    Report::create([
+        'reporter_id' => $mod->id,
+        'reportable_type' => Post::class,
+        'reportable_id' => $topic->posts()->firstOrFail()->id,
+        'reason' => 'spam',
+        'status' => 'open',
+    ]);
+    auditResponse($this->actingAs($mod)->get(route('moderation.reports'))); // F4 review UX
+});
+
+it('the per-member admin management screen (trust/reputation/ban/warn — F2) is accessible', function () {
+    $admin = Users::withTwoFactor(Users::inGroups(['admins'])); // holds the F2 capability keys + 2FA
+    $target = Users::inGroups(['members'], ['username' => 'a11ymember']);
+    auditResponse($this->actingAs($admin)->get(route('admin.members.show', $target)));
+});
+
+it('the ACP analytics dashboard (sparkline charts + the accessible data table) is accessible', function () {
+    $admin = Users::withTwoFactor(Users::inGroups(['admins']));
+    auditResponse($this->actingAs($admin)->get(route('admin.analytics')));
 });

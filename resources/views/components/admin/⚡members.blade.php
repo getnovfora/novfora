@@ -217,7 +217,7 @@ new class extends Component
                     <th @if ($sortable && $sort === $col) aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif>
                         @if ($sortable)
                             <button type="button" wire:click="sortBy('{{ $col }}')"
-                                    class="inline-flex items-center gap-1 uppercase tracking-wide hover:text-ink focus-visible:text-ink"
+                                    class="inline-flex items-center gap-1 rounded uppercase tracking-wide hover:text-ink focus-visible:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                                     dusk="sort-{{ $col }}">
                                 {{ $label }}
                                 @if ($sort === $col)
