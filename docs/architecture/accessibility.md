@@ -86,6 +86,47 @@ regions 4.1.3, the screen-reader journey pass, and the RTL visual pass) remains 
 **not** covered by CI. Re-check any **admin-set custom theme tokens** against the contrast floor, and re-run the
 screen-reader + keyboard passes on the newly-covered Phase 3/4 flows (clubs, PMs, memberships) before 1.0.
 
+### Wave 8.3 — v1.x batch + targeted-fixes a11y pass (P2)
+
+The automated gate grew from **27 to 30** surface cases, now covering the new/changed STAFF surfaces from the
+v1.x batch + the targeted fixes: the **moderation control panel** (dashboard / queue / the F4 reported-post
+review), the **per-member admin screen** (F2 trust / reputation / ban / warn), and the **ACP analytics
+dashboard**. (The board index + board listing already cover the F5/F6 Info-Center collapse, coloured
+who's-online, and latest-activity author/topic.)
+
+Extending the gate to the ACP exposed and fixed one machine-detectable failure:
+
+- **WCAG 1.3.1 (multiple `main` landmarks)** on EVERY ACP page: the `x-admin.shell` content column emitted its
+  own `<main>` while the app layout already provides the single `<main id="main">` (the skip-link target), so
+  every ACP page had two main landmarks. The shell's element is now a plain `<div>` — one main per page. (Latent
+  until now because the ACP pages were not previously in the auditor's surface list.)
+
+Manual pass on the new/changed controls (the items the static auditor cannot prove):
+
+- **Info-Center collapse (F5)** — a real `<button>` with `:aria-expanded` + `aria-controls="info-center-body"`;
+  the open/close animation is `x-collapse`, and the global `prefers-reduced-motion` block already neutralises
+  its (and the chevron's) motion. The no-flash hook sets a `<html>` attribute before paint — no focus or
+  reading-order impact.
+- **Reported-post review actions (F4)** — every moderator action is a real button/link with visible text; the
+  inline **Move** and **Warn** `<select>`s each carry an `sr-only <label for>` (id-matched, so no broken-ref);
+  the post excerpt is server-sanitised prose. Actions render only when permitted, so the tab order never
+  includes a control the viewer can't use.
+- **Per-member trust + reputation controls (F2)** — every `<select>`/`<input>` has an associated `<label for>`;
+  the reputation reason is required + length-capped server-side.
+- **Coloured names (F5/F6)** — who's-online + latest-activity authors render through `<x-ui.user-name>`, whose
+  group colours are the AA-safe `--group-*` token palette (verified in both modes by `GroupColorTest`), not a
+  raw hex.
+- **Analytics chart (T3)** — re-confirmed: the sparkline SVGs are `aria-hidden` / `role="presentation"` and the
+  **data table below is the accessible equivalent** (unchanged by this batch).
+- **Visible focus (2.4.7)** — added a focus ring to the ACP member-table **sort buttons** (were focus-colour
+  only) and the **subscribe/follow toggle** (was ring-less); both now show `focus-visible:ring-2 ring-accent`.
+
+**Residual MANUAL-only items for the new surfaces** (owner/QA, each release): a screen-reader pass on the
+reported-post review flow (does the excerpt + the action group read coherently per card?); keyboard operation
+of the Info-Center collapse + the report-card Move/Warn selects on a real device; and re-confirming the
+group-colour name contrast on the row-hover surfaces under any **admin-set custom theme** (the default palette
+is AA-verified, custom tokens are not).
+
 ## Scope
 
 The automated gate covers the surfaces listed above. Extending it to every view is mechanical (add a case to

@@ -48,8 +48,9 @@
             </div>
         </aside>
 
-        {{-- Content. --}}
-        <main class="min-w-0 space-y-5">
+        {{-- Content. A plain <div>, NOT a <main>: the app layout already provides the single <main id="main">
+             landmark (the skip-link target), so a nested <main> here would be a second main (WCAG 1.3.1). --}}
+        <div class="min-w-0 space-y-5">
             @if ($title)
                 <div class="space-y-1.5">
                     <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ $title }}</h1>
@@ -59,6 +60,6 @@
                 </div>
             @endif
             {{ $slot }}
-        </main>
+        </div>
     </div>
 </x-ui.container>

@@ -50,7 +50,7 @@ new class extends Component
     @auth
         <button type="button" wire:click="toggle" wire:loading.attr="disabled"
             @class([
-                'inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium transition',
+                'inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
                 'border-accent bg-accent-soft text-accent' => $subscribed,
                 'border-line text-ink-muted hover:border-accent hover:text-accent' => ! $subscribed,
             ])
