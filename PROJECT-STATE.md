@@ -13,6 +13,73 @@
 
 ---
 
+## 🌅 Morning report — v1.x Polish-2 + a11y + targeted fixes — EXECUTED, MERGED, PUSHED (2026-06-22)
+
+Ran [`docs/product/v1x-polish2-and-fixes-kickoff.md`](docs/product/v1x-polish2-and-fixes-kickoff.md) end-to-end,
+unattended: built **Track F** (F1·F3·F5·F6·F4·F2) then **Track P** (P1·P2) — each an independent branch off
+`main`, verified against `main` first, gated green at every boundary, committed as `Tommy Huynh` (DCO `-s`, no
+AI trailers) — then **merged in the kickoff order, re-gated the union, lifted the F2 ADR, and pushed `origin
+main`**. The release-zip **deploy is the owner's only remaining step** (below).
+
+**Merged `main` HEAD: `37c9cb8`** (this report sits on top). 8 `--no-ff` merges in dependency order
+(`F1·F3·F5·F6·F4·F2 → P1·P2`) + 3 integration commits (union test reconcile, asset rebuild, ADR-0101 lift).
+Whole batch vs pre-merge `main` (`backup/pre-polish2` = `6b8a011`): **42 files, +1181 / −175**.
+
+**Union gate (merged `main`, all GREEN):**
+- `php artisan test --parallel` → **2128 passed / 1 skipped** (the Dusk CI-only spec) · **14 971 assertions**
+- `pint --test` clean · `phpstan` **L5 → 0** (app/) · migrate **apply + rollback(all 91) + re-apply** clean
+  (1 new reversible migration: `users.trust_locked`)
+- `npm run build` OK → assets committed (`e2e470d`); ViteManifest / asset-budget gate green (app.css ≈ 61.5 KB,
+  gz ≈ 11.6 KB; JS unchanged)
+- **a11y page gate grown 27 → 30** surfaces (mod CP, per-member view, ACP analytics) — green; `route:clear` first
+- **Dusk = CI-only** (no Chrome on the VPS) — specs unchanged, CI-pending
+
+| Slice | Branch | Head | Gate | Notes |
+|---|---|---|---|---|
+| F1 remove ACP recents | `claude/fix-acp-recents` | `895d0f1` | Pint✓ AcpPolish 5✓ a11y 29✓ Admin 281✓ | view+lang+test only; no DB/route/JS backed it |
+| F3 mod-CP width | `claude/fix-mod-width` | `3c24430` | Pint✓ ModTools 8✓ a11y 29✓ | dashboard/queue/reports `md→lg`; confirm-delete stays narrow |
+| F5 Info Center | `claude/fix-infocenter` | `b4a599c` | Pint✓ PHPStan0 InfoCenter 15✓ perf✓ a11y✓ | collapsible (no-flash localStorage) + coloured who's-online; `recent()`→Eloquent coll + eager groups |
+| F6 latest-activity ⚠perf | `claude/fix-latest-activity` | `ae7db33` | Pint✓ PHPStan0 HotPath✓ BoardTable✓ | last topic+author, bounded +3 const queries; HotPathQueryTest holds <25 |
+| F4 report-review ⚠apex-adj | `claude/fix-report-review` | `634c4b1` | Pint✓ PHPStan0 ReportReview 4✓ leak✓ | post excerpt + permalink + gated mod actions; no private-club leak; Message reports stay bare |
+| F2 trust/rep ⚠APEX | `claude/fix-manual-trust-rep` | `424cc6d` | Pint✓ PHPStan0 apex 6✓ trust/rep/members 187✓ migrate✓ | **review GO, 0 HIGH** (see below) |
+| P1 design-critique | `claude/polish2-critique` | `a30f7d8` | Pint✓ ACP 281✓ Analytics+Mail 63✓ a11y✓ | email-editor dark-mode tokens; action-weighting; empty states |
+| P2 a11y to AA | `claude/polish2-a11y` | `3838acb` | Pint✓ a11y 30✓ Admin 281✓ | gate 27→30; fixed the ACP-shell double-`main` (1.3.1) + 2.4.7 focus rings |
+
+### F2 apex review (mandatory verify-then-refute, 15 agents) — **GO, 0 open HIGH**
+The review confirmed **1 MEDIUM + 3 LOW** (3 candidates refuted), all **fixed before the F2 merge and
+re-verified** (`424cc6d`):
+- **MEDIUM** — the trust-group swap was non-transactional → a manual set racing the cron (or a 2nd admin) could
+  transiently leave a member in TWO trust groups (resolver = permission UNION). Fixed with a shared
+  `swapTrustGroup()` wrapping detach+attach+flush+denorm in a `DB::transaction` + `lockForUpdate` (closes the
+  inherited `setLevel()` race too); a test asserts exactly one trust group after a set.
+- **LOW ×3** — reputation audit `from→to` now read under the lock (truthful under concurrency; denorm+ledger were
+  already exact); trust audit `actor_id` from the explicit `$actor`; `trustReason` server-side `max:500` cap.
+
+### Conflict resolutions
+**All merges auto-resolved — no manual hand-merge needed.** Git's `ort` strategy handled the one anticipated
+overlap (**F2 × P1** on the per-member view `⚡manage.blade.php`): F2's new trust/reputation cards + P1's
+action-weighting tweaks (lift-ban → neutral, warn → `danger-soft`) both landed (verified: 6 F2 markers + 2 P1
+markers present). F5/F6/F4/P2 touched disjoint files. **One union-integration test fix** (`5abe586`): F6's
+latest-activity column legitimately surfaces the LIVE last-post author on the index, so the activity-feed
+index test's over-broad `assertDontSee('OrigPoster')` was dropped — the feed's no-leak is proven in isolation
+by its sibling test ([Deleted] tombstone, `actor` null).
+
+### New ADR
+**ADR-0101** (F2 manual trust + reputation editing, apex) lifted into `DECISIONS.md` (`37c9cb8`); next-free was
+0101 as expected (0095–0100 taken).
+
+### ☀️ What the owner does next
+1. **Pushed:** `origin main` was fast-forwarded to `37c9cb8`+ (this report). Nothing held back — F2 had 0 open HIGH.
+2. **Go live (the only remaining step):** build the portable release per
+   [`docs/product/live-deploy-kickoff.md`](docs/product/live-deploy-kickoff.md) (`scripts/build-release.sh` →
+   `scripts/verify-release.sh`) and upgrade **demo.novfora.com backup-first**. This batch carries a **new
+   migration** (`users.trust_locked`) + the F2 trust/reputation capability keys + audit actions, so it's the
+   **cron auto-upgrade** path, not assets-only.
+3. **Run Dusk in CI** (no Chrome on the VPS) — the existing specs cover the editor/journey paths; the new F2/F4/F5
+   interactions are server-render + a11y-gated here.
+
+---
+
 ## 🟢 v1.x batch + S5 owner-strand guard — MERGED to local `main`, gated GREEN, awaiting owner push (2026-06-22)
 
 Ran [`docs/product/v1x-merge-and-owner-guard-kickoff.md`](docs/product/v1x-merge-and-owner-guard-kickoff.md): built the
