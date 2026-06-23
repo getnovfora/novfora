@@ -24,6 +24,7 @@ return [
     'posts' => 'post|posts',                     // count suffix (trans_choice — BUG-007)
     'updated_ago' => 'updated :ago',
     'latest_activity' => 'Latest activity',
+    'last_post_by' => 'by',                      // "{topic} by {author}" in the latest-activity column (F6)
     'no_posts_yet' => 'No posts yet',
     'topics_label' => 'Topics',                 // sr-only
     'posts_label' => 'Posts',                   // sr-only

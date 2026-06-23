@@ -9,10 +9,12 @@ namespace App\Http\Controllers;
 use App\Forum\ForumNode;
 use App\Models\Forum;
 use App\Models\Prefix;
+use App\Models\Topic;
 use App\Models\TopicRead;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
 class ForumController extends Controller
@@ -42,7 +44,20 @@ class ForumController extends Controller
 
         $tree = array_map(static fn (array $row): ForumNode => ForumNode::fromArray($row), $cached);
 
-        return view('forum.index', compact('tree', 'viewer'));
+        // F6 (member-audit gap): the "latest activity" column now shows the last post's TOPIC + AUTHOR, not just
+        // a bare timestamp. Resolve them for every forum's last_topic_id in ONE bounded pass (no per-forum N+1)
+        // OUTSIDE the cached tree — the tree stays viewer-independent scalars (RH-9). Rows for forums the viewer
+        // cannot see are never rendered, so building the map over the whole tree leaks nothing.
+        $lastTopicIds = [];
+        foreach ($tree as $node) {
+            $lastTopicIds[] = $node->last_topic_id;
+            foreach ($node->children as $child) {
+                $lastTopicIds[] = $child->last_topic_id;
+            }
+        }
+        $lastTopics = $this->lastActivityTopics($lastTopicIds);
+
+        return view('forum.index', compact('tree', 'viewer', 'lastTopics'));
     }
 
     public function show(Request $request, Forum $forum): View
@@ -106,6 +121,9 @@ class ForumController extends Controller
             ->filter(fn (Forum $child) => $viewer->canDo('forum.view', $child->permissionScope()))
             ->values();
 
+        // F6: the same bounded last-activity (topic + author) resolution the index uses, for the sub-boards rows.
+        $lastTopics = $this->lastActivityTopics($children->pluck('last_topic_id')->all());
+
         // Available prefixes for the filter bar: global + this forum's.
         $prefixes = Prefix::query()
             ->where(function ($q) use ($forum) {
@@ -114,6 +132,32 @@ class ForumController extends Controller
             ->orderBy('position')->orderBy('label')
             ->get();
 
-        return view('forum.show', compact('forum', 'topics', 'viewer', 'canPost', 'canModerate', 'children', 'prefixes', 'unread'));
+        return view('forum.show', compact('forum', 'topics', 'viewer', 'canPost', 'canModerate', 'children', 'prefixes', 'unread', 'lastTopics'));
+    }
+
+    /**
+     * Resolve the "latest activity" topic for a set of forum last_topic_id values in a BOUNDED number of
+     * queries — one IN over topics + one eager-load of the last poster and their groups — NEVER a per-forum
+     * lookup (the board-index hot path). Keyed by topic id for O(1) row lookup. Only APPROVED, non-deleted
+     * topics resolve: a pending or removed last topic returns nothing for that forum, so the row falls back to
+     * the plain timestamp and never leaks a held topic's title or author.
+     *
+     * @param  array<int, int|null>  $topicIds
+     * @return Collection<int, Topic>
+     */
+    private function lastActivityTopics(array $topicIds): Collection
+    {
+        $ids = array_values(array_unique(array_filter($topicIds)));
+
+        if ($ids === []) {
+            return collect();
+        }
+
+        return Topic::query()
+            ->where('approved_state', 'approved')
+            ->whereIn('id', $ids)
+            ->with('lastPostUser.groups')
+            ->get(['id', 'title', 'slug', 'last_post_id', 'last_post_user_id'])
+            ->keyBy('id');
     }
 }

@@ -4,9 +4,12 @@
 
 declare(strict_types=1);
 
+use App\Forum\ForumNode;
 use App\Forum\PostService;
 use App\Models\Forum;
+use App\Models\Topic;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Blade;
 use Tests\Support\Users;
 
 /*
@@ -52,7 +55,35 @@ it('shows a forum index row latest-activity once the forum has posts', function 
 
     $this->get(route('forums.index'))->assertOk()
         ->assertSee('Busy Forum')
-        ->assertSee('Latest activity');
+        ->assertSee('Latest activity')
+        ->assertSee('First topic')   // F6: the latest-activity column now names the last topic ...
+        ->assertSee('idxauthor');    // ... and its author
+});
+
+it('F6: the latest-activity column links the last topic + its author (no per-row query)', function () {
+    $author = Users::inGroups(['members', 'tl2'], ['username' => 'lastposterx', 'email' => 'lastx@board.test']);
+    $forum = Forum::create(['slug' => 'fa', 'title' => 'F A', 'type' => 'forum']);
+    $topic = app(PostService::class)->createTopic($author, $forum, 'The latest topic title', 'markdown', ['source' => 'Body.']);
+    $forum->refresh();
+
+    // Build the exact node + $lastTopics map the controller hands the partial, then render the partial in
+    // isolation (unambiguous: the board index also hosts an activity feed that names topics/authors).
+    $node = ForumNode::fromArray(ForumNode::toArray($forum));
+    $lastTopics = Topic::query()
+        ->whereIn('id', [$forum->last_topic_id])
+        ->with('lastPostUser.groups')
+        ->get(['id', 'title', 'slug', 'last_post_id', 'last_post_user_id'])
+        ->keyBy('id');
+
+    $html = Blade::render(
+        '@include("forum.partials.forum-row", ["forum" => $forum, "lastTopics" => $lastTopics])',
+        ['forum' => $node, 'lastTopics' => $lastTopics],
+    );
+
+    expect($html)
+        ->toContain('The latest topic title')          // the last topic title ...
+        ->toContain('lastposterx')                     // ... its author (via <x-ui.user-name>) ...
+        ->toContain('#post-'.$topic->last_post_id);    // ... linked to the latest post
 });
 
 it('renders the topic poster sidebar (name + post count)', function () {
