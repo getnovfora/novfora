@@ -10,6 +10,7 @@ use App\Models\Club;
 use App\Models\ClubMembership;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
@@ -32,14 +33,16 @@ final class OnlineMembers
 
     /**
      * @param  int|null  $minutes  override the recent window (the theme widget passes its configured value)
-     * @return Collection<int, User> opted-in, active, recently-active members (most-recent first).
+     * @return EloquentCollection<int, User> opted-in, active, recently-active members (most-recent first).
+     *                                       An Eloquent collection so callers can eager-load relations
+     *                                       (e.g. the Info Center ->load('groups') for name colours).
      */
-    public function recent(int $limit = 30, ?int $minutes = null): Collection
+    public function recent(int $limit = 30, ?int $minutes = null): EloquentCollection
     {
         return $this->baseQuery($minutes)
             ->orderByDesc('last_active_at')
             ->limit($limit)
-            ->get(['id', 'username', 'last_active_at']);
+            ->get(['id', 'username', 'display_name', 'last_active_at']);
     }
 
     /** The opted-in online count (for the widget header / badge). */

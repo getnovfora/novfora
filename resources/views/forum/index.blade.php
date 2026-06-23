@@ -3,6 +3,18 @@
 
 @push('head')
     <link rel="canonical" href="{{ route('forums.index') }}">
+    {{-- No-flash Info-Center collapse (mirrors the density/theme no-flash): set data-infocenter="collapsed" on
+         <html> BEFORE first paint from the persisted choice, so the CSS below hides the body with no
+         expand-then-collapse jump. Alpine reads + clears the attribute on hydrate and owns the animated toggle. --}}
+    @php
+        $icNonce = \Illuminate\Support\Facades\Vite::cspNonce();
+    @endphp
+    <script @if ($icNonce) nonce="{{ $icNonce }}" @endif>
+        (function () {
+            try { if (localStorage.getItem('novfora-infocenter-collapsed') === '1') document.documentElement.setAttribute('data-infocenter', 'collapsed'); } catch (e) {}
+        })();
+    </script>
+    <style @if ($icNonce) nonce="{{ $icNonce }}" @endif>html[data-infocenter="collapsed"] [data-infocenter-body]{display:none}</style>
 @endpush
 
 @section('content')

@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 use App\Forum\InfoCenter;
 use App\Models\Forum;
+use App\Models\Group;
 use App\Models\Post;
 use App\Models\Topic;
 use App\Models\User;
@@ -80,6 +81,29 @@ it('renders the Info Center block on the board index', function () {
         ->assertSee('Total posts')
         ->assertSee('Newest member')
         ->assertSee('indexonlineuser');
+});
+
+it('makes the Info Center collapsible: a real button + the no-flash localStorage hook', function () {
+    $this->get('/')
+        ->assertOk()
+        // A real, keyboard-operable disclosure button wired to the body it controls.
+        ->assertSee('aria-controls="info-center-body"', false)
+        ->assertSee(':aria-expanded="open.toString()"', false)
+        ->assertSee('id="info-center-body"', false)
+        // The no-flash head hook (mirrors the density/theme pattern): persisted key + pre-paint attribute + CSS.
+        ->assertSee('novfora-infocenter-collapsed', false)
+        ->assertSee('html[data-infocenter="collapsed"] [data-infocenter-body]{display:none}', false);
+});
+
+it("colours an online staff member's name through <x-ui.user-name> (group colour shows)", function () {
+    Group::where('slug', 'admins')->update(['color' => 'red']); // priority 100, AA-safe red token
+
+    Users::inGroups(['admins'], ['username' => 'onlineredadmin', 'show_online_status' => true, 'last_active_at' => now()]);
+
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('onlineredadmin')
+        ->assertSee('var(--group-red)', false); // the coloured name span, not a plain username link
 });
 
 it('computes board-wide posts / topics / members counts', function () {
