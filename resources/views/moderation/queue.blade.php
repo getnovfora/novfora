@@ -10,7 +10,7 @@
 @endsection
 
 @section('content')
-    <x-ui.container size="md" class="space-y-5">
+    <x-ui.container size="lg" class="space-y-5">
         <div class="space-y-1">
             <h1 class="text-2xl font-semibold tracking-tight text-ink">Moderation queue</h1>
             <p class="text-sm text-ink-muted">

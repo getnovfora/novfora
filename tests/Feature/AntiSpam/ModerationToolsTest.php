@@ -52,6 +52,16 @@ it('forbids a non-staff member from the reports dashboard', function () {
     $this->actingAs(Users::inGroups(['members']))->get(route('moderation.reports'))->assertForbidden();
 });
 
+it('renders the moderation CP tabs at the forum board width (size=lg), not the narrow md', function () {
+    $mod = Users::inGroups(['moderators']);
+
+    foreach (['moderation.dashboard', 'moderation.queue', 'moderation.reports'] as $tab) {
+        $this->actingAs($mod)->get(route($tab))->assertOk()
+            ->assertSee('max-w-[var(--layout-max-width,64rem)]', false) // the lg / board-width container
+            ->assertDontSee('<x-ui.container size="md"', false);
+    }
+});
+
 it('lets staff ban a user — blocking them through the engine — and lift it', function () {
     $forum = toolForum();
     $target = Users::inGroups(['members', 'tl1']);
