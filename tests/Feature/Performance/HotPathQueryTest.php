@@ -62,7 +62,10 @@ it('renders the board index with a bounded query count (no per-forum N+1)', func
     // the steady-state count must not scale with the number of forums.
     $this->get(route('forums.index'))->assertOk(); // warm the tree + ACL caches
     $q = countQueries(fn () => $this->get(route('forums.index'))->assertOk());
-    expect($q)->toBeLessThan(25); // observed ~13 warm; a per-forum N+1 would blow past this
+    // Still < 25 after F6: resolving every forum's last topic + author is a CONSTANT +3 (one IN over topics,
+    // one eager-load of the last poster, one of their groups), NOT a per-forum cost — an N+1 would blow past
+    // this. (Observed ~13 before, ~16 after; the ceiling proves the resolution didn't reintroduce linear growth.)
+    expect($q)->toBeLessThan(25);
 })->group('perf');
 
 it('renders a forum listing with a bounded query count regardless of topic count', function () {
