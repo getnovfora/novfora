@@ -10,8 +10,10 @@ Copyright 2026 The NovFora Authors
 > points all of them share: **spam, weak search, dated mobile UX, upgrade-breaking add-ons, theming that needs
 > core edits, SEO gaps, and fragile migration.**
 
-**License:** [Apache-2.0](LICENSE) · **Status:** pre-code — Stage A (discovery & architecture) complete,
-pending the Phase 0 gate. First code lands in **Phase 1** (see [ROADMAP.md](ROADMAP.md)).
+**License:** [Apache-2.0](LICENSE) · **Status:** **1.0.0 — generally available.** Self-hosted and Apache-2.0,
+running on the **baseline tier** (PHP 8.3 + MySQL/MariaDB + cron) with optional **enhanced-tier** services
+(Redis, Meilisearch, Reverb, S3) detected and used automatically. See [CHANGELOG.md](CHANGELOG.md) and
+[ROADMAP.md](ROADMAP.md).
 
 ## Why NovFora
 
@@ -45,6 +47,7 @@ is absent.
 
 ## Documentation
 
+- **User & admin guides:** **novfora.com/docs** — owner/administrator, moderator, and member documentation.
 - **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md) · `docs/architecture/`
 - **Decisions (ADRs):** [DECISIONS.md](DECISIONS.md)
 - **Product:** [mvp-scope](docs/product/mvp-scope.md) · [roadmap](docs/product/roadmap.md) ·
@@ -60,5 +63,8 @@ every feature; strict **clean-room** (no code/assets from any reference forum).
 
 ## Getting started
 
-A one-command baseline install (`composer create-project` + web installer) ships with **Phase 1**. Until then,
-this repository contains the **planning and architecture set** that defines what gets built.
+NovFora installs on a commodity shared host through a **no-SSH web installer** — upload the release, point your
+domain at `public/`, and complete the four-step wizard (system check + setup token → database → site & admin →
+install). Add one cron line and you're live. Owner/administrator, moderator, and member guides are published at
+**novfora.com/docs** (source in the NovFora docs repo); the shared-host + Hostinger walkthrough is in
+[docs/REAL-HOST-VALIDATION.md](docs/REAL-HOST-VALIDATION.md).

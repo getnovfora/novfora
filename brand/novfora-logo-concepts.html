@@ -1,0 +1,68 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 — NovFora logo concepts -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NovFora — Logo Concepts</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&family=Inter:wght@400;500;600&display=swap');
+*{box-sizing:border-box}
+body{margin:0;background:#0B0B10;font-family:'Inter',system-ui,sans-serif;color:#F3E8DD;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:30px 20px 80px}
+h1{font-family:'Newsreader',serif;font-weight:600;font-size:26px;margin:0 0 6px}
+.lede{font-size:14px;color:#CFC9BE;max-width:80ch;line-height:1.6;margin:0 0 26px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+.card{background:#14151D;border:1px solid #262430;border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:16px}
+.big{height:96px;display:flex;align-items:center;justify-content:center;background:#0B0B10;border:1px solid #20202b;border-radius:12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.wm{display:flex;align-items:center;gap:11px;font-family:'Newsreader',serif;font-weight:600;font-size:26px;letter-spacing:.3px}
+.wm .fora{color:#EBA94B}
+.fav{display:flex;align-items:center;gap:8px}
+.favtile{width:30px;height:30px;border-radius:7px;background:#1E1C26;border:1px solid #2c2a36;display:grid;place-items:center}
+.favtile.lt{background:#F4EEE2;border-color:#e2d8c6}
+.meta .nm{font-family:'Newsreader',serif;font-size:17px;font-weight:600;margin:0}
+.meta .why{font-size:12.5px;color:#CFC9BE;margin:4px 0 0;line-height:1.5}
+.tag{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6FAAF7;background:rgba(77,147,242,.12);border-radius:5px;padding:2px 7px}
+.note{font-size:12.5px;color:#938C7E;margin-top:24px;border-top:1px solid #262430;padding-top:14px;line-height:1.6}
+.lbl{font-size:10px;color:#938C7E;letter-spacing:.08em;text-transform:uppercase}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>NovFora — logo concepts</h1>
+  <p class="lede">Six directions for the mark, none of them the compass. Amber = the warm hearth/ember; Nova Blue = the celestial spark. Each shows the mark large, the wordmark lockup, and a favicon at 16/30px on dark and light. Tell me the one or two you like and I'll refine, then produce color + monochrome + favicon/OG variants.</p>
+  <div class="grid" id="grid"></div>
+  <p class="note"><b style="color:#F3E8DD">Also an option:</b> a <b>wordmark-only</b> identity (just "NovFora" in the editorial serif, with a colored ligature or the "o" as a tiny nova) — clean and very ownable, no icon at all. Say the word and I'll mock that up too. Wordmark color is flexible — shown here with an amber "Fora," but it can be all-cream with the mark carrying the color.</p>
+</div>
+<script>
+const MARKS=[
+ {id:'nova-n', nm:'1 · Nova N', tag:'monogram', why:'A confident serif-grade “N” with a Nova-Blue spark at its peak. Warm letter, cool spark — the whole brand in one glyph. Best favicon.',
+  svg:s=>`<path d="M13 37 V11 L35 37 V11" fill="none" stroke="#EBA94B" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round"/><path d="M36 5 l1.3 3.5 3.5 1.3 -3.5 1.3 -1.3 3.5 -1.3 -3.5 -3.5 -1.3 3.5 -1.3 Z" fill="#4D93F2"/>`},
+ {id:'hearth-home', nm:'2 · Hearth Home', tag:'home + forum', why:'A house that’s also a speech bubble, with a glowing ember window. “Build your home” + conversation + hearth, all in one.',
+  svg:s=>`<path d="M9 23 L24 9.5 L39 23 V34.5 a3 3 0 0 1 -3 3 H21.5 l-6 5 v-5 H12 a3 3 0 0 1 -3 -3 Z" fill="none" stroke="#F3E8DD" stroke-width="2.6" stroke-linejoin="round"/><circle cx="24" cy="26" r="10" fill="#EBA94B" opacity=".16"/><rect x="20" y="22" width="8" height="9.5" rx="1.5" fill="#EBA94B"/>`},
+ {id:'ember-spark', nm:'3 · Ember Nova', tag:'celestial', why:'A single luminous four-point nova (amber) with a small blue companion spark. Minimal, iconic, unmistakably “new.”',
+  svg:s=>`<path d="M22 5 C23.2 18 23.8 18.8 37 22 C23.8 25.2 23.2 26 22 39 C20.8 26 20.2 25.2 7 22 C20.2 18.8 20.8 18 22 5 Z" fill="#EBA94B"/><path d="M35 27 l.95 2.7 2.7 .95 -2.7 .95 -.95 2.7 -.95 -2.7 -2.7 -.95 2.7 -.95 Z" fill="#4D93F2"/>`},
+ {id:'gathering', nm:'4 · Gathering', tag:'community', why:'Members (dots) gathered on an orbit around a glowing ember core. “Gathering places” + the hearth at the center.',
+  svg:s=>`<circle cx="24" cy="24" r="15" fill="none" stroke="#4D93F2" stroke-width="2.2"/><circle cx="24" cy="24" r="10" fill="#EBA94B" opacity=".15"/><circle cx="24" cy="24" r="5.4" fill="#EBA94B"/><circle cx="24" cy="9" r="3" fill="#F3E8DD"/><circle cx="11" cy="31.5" r="3" fill="#8E76E6"/><circle cx="37" cy="31.5" r="3" fill="#6FAAF7"/>`},
+ {id:'rising-nova', nm:'5 · Rising Nova', tag:'horizon', why:'A nova cresting a horizon line, with a star above — the cabin-on-the-hill dawn, abstracted. Warm, optimistic, “new day.”',
+  svg:s=>`<path d="M7 29 A17 17 0 0 1 41 29 Z" fill="#EBA94B" opacity=".15"/><path d="M13.5 29 A10.5 10.5 0 0 1 34.5 29 Z" fill="#EBA94B"/><line x1="7" y1="29" x2="41" y2="29" stroke="#F3E8DD" stroke-width="2.4" stroke-linecap="round"/><path d="M33 8 l1 2.8 2.8 1 -2.8 1 -1 2.8 -1 -2.8 -2.8 -1 2.8 -1 Z" fill="#4D93F2"/>`},
+ {id:'speech-spark', nm:'6 · Speech Nova', tag:'forum + new', why:'A chat bubble holding a nova spark — literally “new forum.” Reads instantly as conversation; the spark keeps it from being generic.',
+  svg:s=>`<path d="M10 10 H38 a4 4 0 0 1 4 4 V30 a4 4 0 0 1 -4 4 H22 l-7 6 v-6 H10 a4 4 0 0 1 -4 -4 V14 a4 4 0 0 1 4 -4 Z" fill="none" stroke="#F3E8DD" stroke-width="2.4" stroke-linejoin="round"/><path d="M24 14 C24.8 21 25.3 21.5 32.5 24 C25.3 26.5 24.8 27 24 34 C23.2 27 22.7 26.5 15.5 24 C22.7 21.5 23.2 21 24 14 Z" fill="#EBA94B"/>`}
+];
+function wrap(inner,size){return `<svg width="${size}" height="${size}" viewBox="0 0 48 48" aria-hidden="true">${inner}</svg>`}
+document.getElementById('grid').innerHTML=MARKS.map(m=>`
+ <div class="card">
+   <div class="big">${wrap(m.svg(),64)}</div>
+   <div class="row">
+     <div class="wm">${wrap(m.svg(),30)} Nov<span class="fora">Fora</span></div>
+     <span class="tag">${m.tag}</span>
+   </div>
+   <div class="row" style="justify-content:flex-start;gap:20px">
+     <div class="fav"><span class="lbl">favicon</span><span class="favtile">${wrap(m.svg(),20)}</span><span class="favtile">${wrap(m.svg(),16)}</span><span class="favtile lt">${wrap(m.svg(),20)}</span></div>
+   </div>
+   <div class="meta"><p class="nm">${m.nm}</p><p class="why">${m.why}</p></div>
+ </div>`).join('');
+</script>
+</body>
+</html>

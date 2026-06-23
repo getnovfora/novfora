@@ -1,0 +1,309 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 — NovFora concept v2: 50/50 Hearth (C4) × Glow (C2), mint→Nova Blue -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NovFora — Hearth × Glow (v2)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap');
+:root{
+ --ob:#0B0A0F; --wink:#15131B; --slate:#1E1C28; --raise:#262430;
+ --cream:#F3E8DD; --sec:#CFC9BE; --sub:#948D7F;
+ --line:#272530; --lins:#393744;
+ --amber:#EBA94B; --aink:#1A1206; --copper:#C77D33;
+ --blue:#4D93F2; --bink:#08111F; --blue2:#6FAAF7;
+ --cyan:#37D6FF; --emerald:#35B07A; --violet:#8E76E6; --gold:#D9A12A; --coral:#E5705B; --gray:#6E6B66;
+ --r:12px; --r2:16px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#070609;font-family:'Inter',system-ui,sans-serif;color:var(--cream);-webkit-font-smoothing:antialiased}
+.canvas{max-width:1180px;margin:0 auto;padding:24px 18px 70px}
+.btitle{font-family:'Space Grotesk';font-weight:700;letter-spacing:-.02em;font-size:22px;margin:0}
+.bsub{font-size:13px;color:var(--sec);margin:5px 0 16px;max-width:78ch;line-height:1.55}
+.pal{display:grid;grid-template-columns:repeat(auto-fit,minmax(82px,1fr));gap:8px;margin:0 0 24px}
+.pc{border-radius:10px;overflow:hidden;background:var(--wink);border:1px solid var(--line)}
+.pc .c{height:42px}.pc .m{padding:5px 7px;font-size:9.5px;color:var(--sec)}.pc .m b{display:block;color:var(--cream);font-size:10px}
+.panel{background:var(--wink);border:1px solid var(--line);border-radius:var(--r2);overflow:hidden;margin-bottom:18px}
+.pnum{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-family:'Space Grotesk';font-size:12px;font-weight:600;color:var(--sec)}
+.pnum .n{background:var(--slate);color:var(--blue);border-radius:6px;font-size:11px;padding:2px 7px}
+.pad{padding:20px}
+.logo{display:flex;align-items:center;gap:9px;font-family:'Space Grotesk';font-weight:700;font-size:18px;letter-spacing:-.02em}
+.logo .fora{color:var(--amber)}
+.nav{display:flex;align-items:center;gap:17px;font-size:13px;color:var(--sec)}
+.nav a{color:var(--sec);text-decoration:none}.nav a.on{color:var(--cream)}
+.btn{font:600 13px Inter;border-radius:10px;padding:9px 15px;border:1px solid transparent;display:inline-flex;gap:7px;align-items:center;cursor:default}
+.b-blue{background:var(--blue);color:var(--bink);box-shadow:0 6px 24px -6px rgba(77,147,242,.6),0 0 0 1px rgba(77,147,242,.3)}
+.b-amber{background:var(--amber);color:var(--aink);box-shadow:0 6px 24px -6px rgba(235,169,75,.55)}
+.b-ghost{background:transparent;color:var(--cream);border-color:var(--lins)}
+.pill{display:inline-flex;gap:7px;align-items:center;font-size:12px;color:var(--blue2);background:rgba(77,147,242,.1);border:1px solid rgba(77,147,242,.3);border-radius:999px;padding:5px 12px}
+.chip{display:inline-flex;gap:6px;align-items:center;font-size:11.5px;color:var(--sec);background:var(--slate);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+.search{background:var(--ob);border:1px solid var(--line);border-radius:9px;padding:7px 12px;color:var(--sub);font-size:12.5px;min-width:160px}
+.card{background:var(--slate);border:1px solid var(--line);border-radius:var(--r)}
+.ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:16px;flex:none}
+.av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:700 11px 'Space Grotesk';color:#fff;flex:none}
+.dot{width:9px;height:9px;border-radius:3px;display:inline-block}
+.muted{color:var(--sec)}.sub{color:var(--sub)}
+.h1{font-family:'Space Grotesk';font-weight:700;letter-spacing:-.03em;font-size:38px;line-height:1.03;margin:0}
+.h1 .a{color:var(--amber)}.h1 .b{color:var(--blue)}
+/* hero orbit */
+.orbit{position:relative;height:330px}
+.orbit .ring{position:absolute;inset:0;margin:auto;border-radius:50%;border:1px solid rgba(77,147,242,.18)}
+.center{position:absolute;left:50%;top:50%;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:20px;background:linear-gradient(160deg,#1a2740,#10131d);display:grid;place-items:center;box-shadow:0 0 40px -4px rgba(77,147,242,.6),0 0 0 1px rgba(77,147,242,.4)}
+.nd{position:absolute;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font:700 14px 'Space Grotesk';color:#fff}
+.bub{position:absolute;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-size:15px;background:var(--slate);border:1px solid var(--line)}
+/* forum */
+.qlink{display:flex;gap:9px;flex-wrap:wrap;margin:14px 0 6px}
+.ql{display:flex;align-items:center;gap:8px;background:var(--slate);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:12.5px;min-width:0}
+.ql .qd{font-size:10.5px;color:var(--sub)}
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--line);margin:14px 0 4px;font-size:13px}
+.tabs span{padding:8px 2px;color:var(--sec)}
+.tabs span.on{color:var(--cream);border-bottom:2px solid var(--blue)}
+.seclabel{font-family:'Space Grotesk';font-size:10.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--sub);padding:14px 2px 6px}
+.brow{display:grid;grid-template-columns:40px 1fr 64px 64px 1.4fr;gap:12px;align-items:center;padding:13px 12px;border-top:1px solid var(--line)}
+.brow .t{font:600 14px Inter;margin:0}
+.brow .d{font-size:12px;color:var(--sec);margin:2px 0 0;line-height:1.4}
+.brow .cnt{text-align:center}.brow .cnt b{font:600 14px 'Space Grotesk';display:block}.brow .cnt span{font-size:10px;color:var(--sub)}
+.brow .last{display:flex;align-items:center;gap:9px;font-size:11.5px}
+.brow .last .lt{color:var(--blue2)}.brow .last .lm{color:var(--sub)}
+.colh{display:grid;grid-template-columns:40px 1fr 64px 64px 1.4fr;gap:12px;padding:0 12px 2px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--sub)}
+.colh .c{text-align:center}
+/* acp */
+.acp-side .grp{font-family:'Space Grotesk';font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:12px 0 5px}
+.acp-side .item{padding:6px 9px;border-radius:7px;color:var(--sec);font-size:12.5px}
+.acp-side .item.on{background:rgba(77,147,242,.13);color:var(--blue2)}
+.metric{background:var(--slate);border:1px solid var(--line);border-radius:var(--r);padding:12px 13px}
+.metric .lab{font-size:11px;color:var(--sub)}
+.metric .val{font-family:'Space Grotesk';font-weight:700;font-size:22px;margin-top:5px}
+.metric .delta{font-size:10.5px;color:var(--emerald);margin-top:2px}
+.health{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;color:var(--sec)}
+.ok{color:var(--emerald);font-weight:600}
+.fcard{background:var(--slate);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.fcard .ti{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;margin-bottom:9px}
+.fcard h5{font:600 13px Inter;margin:0 0 4px}.fcard p{font-size:11.5px;color:var(--sec);margin:0;line-height:1.5}
+.code{background:var(--ob);border:1px solid var(--line);border-radius:var(--r);padding:12px 13px;font:500 12px ui-monospace,monospace;color:var(--sec)}
+.code .pr{color:var(--blue2)}.code .cm{color:var(--sub)}
+.legend{display:flex;flex-wrap:wrap;gap:22px}
+.leg{display:flex;gap:9px}.leg .lt{font:600 12.5px Inter}.leg .ld{font-size:11px;color:var(--sub)}
+.banner{display:flex;align-items:center;gap:10px;background:rgba(77,147,242,.09);border:1px solid rgba(77,147,242,.26);border-radius:10px;padding:9px 13px;font-size:12.5px;color:var(--blue2);margin-bottom:6px}
+.trust{display:flex;gap:22px;flex-wrap:wrap;align-items:center;justify-content:center;color:var(--sub);font-size:13px;font-weight:600}
+.light{--ob:#FBF7EF;--wink:#F4EEE2;--slate:#FCFAF4;--raise:#fff;--cream:#221C13;--sec:#5C5346;--sub:#766A5B;--line:#E6DCCB;--lins:#D3C6AF;--amber:#EBA94B;--copper:#9E561F;--blue:#4D93F2;--bink:#08111F;--blue2:#2660C2;--emerald:#1F7A5E;--violet:#6B52C9;--coral:#B23F2C;}
+.light .brow .last .lt{color:#2660C2}.light .h1 .a{color:#9E561F}
+</style>
+</head>
+<body>
+<div class="canvas">
+  <p class="btitle"><span style="color:var(--amber)">Nov</span>Fora — Hearth <span class="sub">×</span> <span style="color:var(--blue)">Glow</span> <span style="font-size:13px;color:var(--sub)">· v2 · 50% Concept 4 + 50% Concept 2</span></p>
+  <p class="bsub">Concept 4's warmth + Concept 2's glow &amp; layouts, mint→<b style="color:var(--blue2)">Nova Blue</b>. Hero &amp; board structure from Concept 2; real NovFora content (Topics + Posts + Latest activity). Amber = warm hearth signature; Nova Blue = the cool "nova" action/interactive. AA verified.</p>
+
+  <div class="pal">
+    <div class="pc"><div class="c" style="background:#0B0A0F"></div><div class="m"><b>Obsidian</b>#0B0A0F</div></div>
+    <div class="pc"><div class="c" style="background:#15131B"></div><div class="m"><b>Warm Ink</b>#15131B</div></div>
+    <div class="pc"><div class="c" style="background:#1E1C28"></div><div class="m"><b>Coffee Slate</b>#1E1C28</div></div>
+    <div class="pc"><div class="c" style="background:#EBA94B"></div><div class="m"><b>Ember Amber</b>#EBA94B</div></div>
+    <div class="pc"><div class="c" style="background:#4D93F2"></div><div class="m"><b>Nova Blue</b>#4D93F2</div></div>
+    <div class="pc"><div class="c" style="background:#37D6FF"></div><div class="m"><b>Cyan Glow</b>#37D6FF</div></div>
+    <div class="pc"><div class="c" style="background:#F3E8DD"></div><div class="m"><b>Hearth Cream</b>#F3E8DD</div></div>
+    <div class="pc"><div class="c" style="background:#8E76E6"></div><div class="m"><b>Dusk Violet</b>#8E76E6</div></div>
+    <div class="pc"><div class="c" style="background:#35B07A"></div><div class="m"><b>Emerald</b>#35B07A</div></div>
+    <div class="pc"><div class="c" style="background:#E5705B"></div><div class="m"><b>Coral</b>#E5705B</div></div>
+    <div class="pc"><div class="c" style="background:#CFC9BE"></div><div class="m"><b>Secondary</b>#CFC9BE</div></div>
+  </div>
+
+  <!-- 01 HERO (Concept 2 layout) -->
+  <div class="panel">
+    <div class="pnum"><span class="n">01</span> Homepage Hero — Concept 2 layout, Hearth warmth + glow</div>
+    <div class="pad">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px">
+        <div class="logo"><span id="m1"></span> Nov<span class="fora">Fora</span></div>
+        <div class="nav"><a class="on">Home</a><a>Forum</a><a>Members</a><a>Activity</a><a>Download</a><a>Docs</a><span class="search" style="min-width:120px">Search…</span><a>Log in</a><span class="btn b-blue" style="padding:7px 14px">Sign up</span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1.05fr .95fr;gap:24px;align-items:center">
+        <div>
+          <span class="pill">◆ Self-hosted. Private. Powerful.</span>
+          <h1 class="h1" style="margin:14px 0 0">Own your forum.<br>Build your <span class="a">home.</span></h1>
+          <p class="muted" style="font-size:14px;line-height:1.6;margin:14px 0 18px;max-width:44ch">NovFora is the modern, self-hosted forum platform built for meaningful conversations and long-term communities. Your community, your data, your rules.</p>
+          <div style="display:flex;gap:10px;margin-bottom:18px"><span class="btn b-blue">Try the Demo</span><span class="btn b-ghost">Get Started</span></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <span class="chip"><span class="dot" style="background:var(--blue)"></span>100% Self-hosted</span>
+            <span class="chip"><span class="dot" style="background:var(--amber)"></span>Modern &amp; fast</span>
+            <span class="chip"><span class="dot" style="background:var(--violet)"></span>Extensible</span>
+            <span class="chip"><span class="dot" style="background:var(--emerald)"></span>Community first</span>
+          </div>
+        </div>
+        <div class="orbit" id="orbit"></div>
+      </div>
+      <div class="card" style="display:grid;grid-template-columns:repeat(4,1fr);margin-top:22px">
+        <div style="padding:15px;border-right:1px solid var(--line)"><div style="font-family:'Space Grotesk';font-weight:700;font-size:20px">12.4K</div><div class="sub" style="font-size:11px">Active communities</div></div>
+        <div style="padding:15px;border-right:1px solid var(--line)"><div style="font-family:'Space Grotesk';font-weight:700;font-size:20px">98.7K</div><div class="sub" style="font-size:11px">Members</div></div>
+        <div style="padding:15px;border-right:1px solid var(--line)"><div style="font-family:'Space Grotesk';font-weight:700;font-size:20px">2.1M</div><div class="sub" style="font-size:11px">Posts</div></div>
+        <div style="padding:15px"><div style="font-family:'Space Grotesk';font-weight:700;font-size:20px">24/7</div><div class="sub" style="font-size:11px">Self-hosted freedom</div></div>
+      </div>
+      <p style="text-align:center;color:var(--sub);font-size:12px;margin:18px 0 10px">Loved by developers, creators, and teams around the world.</p>
+      <div class="trust">docker · linode · NGINX · CloudLinux · ubuntu · DigitalOcean</div>
+    </div>
+  </div>
+
+  <!-- 02 FORUM (Concept 2 layout + NovFora content) -->
+  <div class="panel">
+    <div class="pnum"><span class="n">02</span> Forum / Community UI — Concept 2 layout · NovFora content (Topics + Posts)</div>
+    <div class="pad">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
+        <div class="logo" style="font-size:16px"><span id="m2"></span> Nov<span class="fora">Fora</span></div>
+        <div class="nav" style="font-size:12.5px"><a class="on">Forums</a><a>Activity</a><a>Members</a><a>Store</a><a>More ▾</a></div>
+        <div style="display:flex;gap:8px;align-items:center"><span class="search">Search forums…</span><span class="av" style="background:var(--slate);color:var(--sec)">⚙</span><span class="av" style="background:var(--amber);color:var(--aink)">T</span></div>
+      </div>
+      <h2 style="font-family:'Space Grotesk';font-weight:700;font-size:22px;margin:0">Welcome back, Tommy 👋</h2>
+      <p class="muted" style="font-size:13px;margin:4px 0 0">Jump into the conversations that matter. <span class="sub">9 members · 26 topics · 59 posts</span></p>
+      <div class="qlink">
+        <div class="ql"><span class="ic" style="width:30px;height:30px;background:rgba(235,169,75,.16);color:var(--amber)">📣</span><div>Announcements<div class="qd">Official updates</div></div></div>
+        <div class="ql"><span class="ic" style="width:30px;height:30px;background:rgba(77,147,242,.16);color:var(--blue)">💬</span><div>General<div class="qd">Talk about anything</div></div></div>
+        <div class="ql"><span class="ic" style="width:30px;height:30px;background:rgba(53,176,122,.16);color:var(--emerald)">🛟</span><div>Help &amp; Support<div class="qd">Get help, give help</div></div></div>
+        <div class="ql"><span class="ic" style="width:30px;height:30px;background:rgba(142,118,230,.16);color:var(--violet)">🧩</span><div>Plugins &amp; Themes<div class="qd">Share &amp; discover</div></div></div>
+      </div>
+      <div class="tabs"><span class="on">Categories</span><span>Latest</span><span>Trending</span><span>Unanswered</span><span style="margin-left:auto;color:var(--sub)">✓ Mark all read</span></div>
+      <div class="card" style="margin-top:10px">
+        <div class="colh" style="padding-top:10px"><span></span><span></span><span class="c">Topics</span><span class="c">Posts</span><span>Latest activity</span></div>
+        <div class="seclabel">NovFora</div>
+        <div class="brow"><span class="ic" style="background:rgba(235,169,75,.16);color:var(--amber);box-shadow:0 0 16px -5px var(--amber)">📣</span><div><p class="t">Announcements</p><p class="d">Release notes, roadmap updates, and project news.</p></div><div class="cnt"><b>2</b><span>topics</span></div><div class="cnt"><b>4</b><span>posts</span></div><div class="last"><span class="av" style="background:var(--amber);color:var(--aink)">T</span><div><div class="lt">NovFora v1.0 is here!</div><div class="lm">by Tommy · 1d</div></div></div></div>
+        <div class="brow"><span class="ic" style="background:rgba(142,118,230,.16);color:var(--violet);box-shadow:0 0 16px -5px var(--violet)">👋</span><div><p class="t">Introductions</p><p class="d">Say hi and tell us what brought you to NovFora.</p></div><div class="cnt"><b>4</b><span>topics</span></div><div class="cnt"><b>7</b><span>posts</span></div><div class="last"><span class="av" style="background:var(--violet)">d</span><div><div class="lt">Hey, I'm Tommy — I built…</div><div class="lm">by dan · 1d</div></div></div></div>
+        <div class="brow"><span class="ic" style="background:rgba(77,147,242,.16);color:var(--blue);box-shadow:0 0 16px -5px var(--blue)">🐞</span><div><p class="t">Beta Feedback</p><p class="d">Found a bug or have a UI suggestion? Drop it here.</p></div><div class="cnt"><b>10</b><span>topics</span></div><div class="cnt"><b>21</b><span>posts</span></div><div class="last"><span class="av" style="background:var(--amber);color:var(--aink)">T</span><div><div class="lt">Bug — lock thread permission…</div><div class="lm">by Tommy · 6h</div></div></div></div>
+        <div class="seclabel">Discourse</div>
+        <div class="brow"><span class="ic" style="background:rgba(77,147,242,.16);color:var(--blue);box-shadow:0 0 16px -5px var(--blue)">💬</span><div><p class="t">General Discussion</p><p class="d">Forums, self-hosting, community building, the software landscape.</p></div><div class="cnt"><b>5</b><span>topics</span></div><div class="cnt"><b>17</b><span>posts</span></div><div class="last"><span class="av" style="background:var(--amber);color:var(--aink)">T</span><div><div class="lt">PHP vs node JS vs others</div><div class="lm">by Tommy · 1d</div></div></div></div>
+        <div class="brow"><span class="ic" style="background:rgba(53,176,122,.16);color:var(--emerald);box-shadow:0 0 16px -5px var(--emerald)">🛟</span><div><p class="t">Help &amp; Support</p><p class="d">Installation, configuration, features, migrations.</p></div><div class="cnt"><b>1</b><span>topic</span></div><div class="cnt"><b>2</b><span>posts</span></div><div class="last"><span class="av" style="background:var(--emerald);color:#06231b">A</span><div><div class="lt">How do I enable email…</div><div class="lm">by Avery · 4d</div></div></div></div>
+        <div class="seclabel">Off-topic</div>
+        <div class="brow" style="border-bottom:0"><span class="ic" style="background:rgba(55,214,255,.14);color:var(--cyan);box-shadow:0 0 16px -5px var(--cyan)">🛋️</span><div><p class="t">The Lounge</p><p class="d">Off-topic and anything goes, within reason.</p></div><div class="cnt"><b>4</b><span>topics</span></div><div class="cnt"><b>8</b><span>posts</span></div><div class="last"><span class="av" style="background:var(--amber);color:var(--aink)">T</span><div><div class="lt">Split topic</div><div class="lm">by Tommy · 1h</div></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 03 ACP -->
+  <div class="panel">
+    <div class="pnum"><span class="n">03</span> ACP / Admin Dashboard</div>
+    <div class="pad">
+      <div style="display:grid;grid-template-columns:184px 1fr;gap:16px">
+        <div class="card acp-side" style="padding:12px">
+          <div class="logo" style="font-size:13px;margin:2px 4px 8px"><span id="m3"></span> <span style="font-size:12px">NovFora ACP</span></div>
+          <div class="item on">▦ Overview</div>
+          <div class="grp">Community</div><div class="item">Forums</div><div class="item">Members</div><div class="item">Groups</div><div class="item">Roles</div>
+          <div class="grp">Customization</div><div class="item">Themes</div><div class="item">Plugins</div><div class="item">Languages</div>
+          <div class="grp">System</div><div class="item">Settings</div><div class="item">Security</div><div class="item">Backups</div>
+        </div>
+        <div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px">
+            <div class="metric"><div class="lab">Members</div><div class="val">1,842</div><div class="delta">+28 this week</div></div>
+            <div class="metric"><div class="lab">Topics</div><div class="val">3,271</div><div class="delta">+76 this week</div></div>
+            <div class="metric"><div class="lab">Posts</div><div class="val">18,942</div><div class="delta">+342 this week</div></div>
+            <div class="metric"><div class="lab">Online now</div><div class="val">56</div><div class="delta sub" style="color:var(--sub)">Peak 142</div></div>
+          </div>
+          <div class="card" style="padding:14px;margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px"><b style="font-size:13px">Community Activity</b><span class="sub" style="font-size:11px">Last 30 days</span></div>
+            <div id="chart"></div>
+            <div style="display:flex;gap:16px;margin-top:8px;font-size:11px"><span class="muted"><span class="dot" style="background:var(--amber);margin-right:5px"></span>Posts</span><span class="muted"><span class="dot" style="background:var(--blue);margin-right:5px"></span>Topics</span><span class="muted"><span class="dot" style="background:var(--violet);margin-right:5px"></span>Members</span></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="card" style="padding:14px"><b style="font-size:13px">System Health</b>
+              <div class="health" style="margin-top:6px"><span>PHP 8.3.7</span><span class="ok">✓ OK</span></div>
+              <div class="health"><span>Database · MySQL 8</span><span class="ok">✓ OK</span></div>
+              <div class="health"><span>Queue · cron</span><span class="ok">✓ OK</span></div>
+              <div class="health"><span>File System</span><span class="ok">✓ OK</span></div>
+            </div>
+            <div class="card" style="padding:14px"><b style="font-size:13px">Storage &amp; Backups</b>
+              <div class="health" style="margin-top:6px"><span>Storage</span><span class="muted">24.6 / 100 GB</span></div>
+              <div style="height:6px;background:var(--ob);border-radius:99px;margin:6px 0 10px;overflow:hidden"><div style="width:25%;height:100%;background:var(--blue);box-shadow:0 0 12px var(--blue)"></div></div>
+              <div class="health"><span>Last backup</span><span class="ok">2h ago</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 04 DOCS -->
+  <div class="panel">
+    <div class="pnum"><span class="n">04</span> Docs / Documentation</div>
+    <div class="pad">
+      <div style="display:grid;grid-template-columns:168px 1fr;gap:16px">
+        <div class="card acp-side" style="padding:12px">
+          <div class="logo" style="font-size:13px;margin:2px 4px 8px"><span id="m4"></span> <span style="font-size:12px">NovFora Docs</span></div>
+          <div class="grp">Get Started</div><div class="item on">Welcome</div><div class="item">Requirements</div><div class="item">Installation</div><div class="item">First Steps</div>
+          <div class="grp">Guides</div><div class="item">Configuration</div><div class="item">Users &amp; Permissions</div><div class="item">Posting &amp; Moderation</div>
+          <div class="grp">Developers</div><div class="item">Plugin Development</div><div class="item">API Reference</div><div class="item">Webhooks</div>
+        </div>
+        <div>
+          <h2 style="font-family:'Space Grotesk';font-weight:700;font-size:22px;margin:2px 0 6px">Welcome to NovFora</h2>
+          <p class="muted" style="font-size:13px;line-height:1.6;margin:0 0 14px;max-width:60ch">A modern, self-hosted forum platform for independent communities. Yours to own, extend, and evolve.</p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px">
+            <div class="fcard"><div class="ti" style="background:rgba(235,169,75,.16);color:var(--amber);box-shadow:0 0 18px -6px var(--amber)">🏠</div><h5>Self-Hosted</h5><p>Your data, your servers, your rules.</p></div>
+            <div class="fcard"><div class="ti" style="background:rgba(142,118,230,.16);color:var(--violet);box-shadow:0 0 18px -6px var(--violet)">🧩</div><h5>Extensible</h5><p>Plugins, hooks, and a real API.</p></div>
+            <div class="fcard"><div class="ti" style="background:rgba(77,147,242,.16);color:var(--blue);box-shadow:0 0 18px -6px var(--blue)">🤝</div><h5>Community First</h5><p>Built with and for indie communities.</p></div>
+          </div>
+          <div class="code"><span class="cm"># Install in minutes</span><br>curl -fsSL <span class="pr">https://get.novfora.org/installer.sh</span> | bash</div>
+          <div style="margin-top:12px;display:flex;gap:8px"><span class="chip">Linux (bash)</span><span class="chip">Docker</span><span class="chip">Manual</span><span class="chip">Windows</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 05 LEGEND -->
+  <div class="panel">
+    <div class="pnum"><span class="n">05</span> Status Legend</div>
+    <div class="pad legend">
+      <div class="leg"><span class="dot" style="background:var(--emerald);margin-top:3px;box-shadow:0 0 10px var(--emerald)"></span><div><div class="lt" style="color:var(--emerald)">Success</div><div class="ld">All good. Keep going.</div></div></div>
+      <div class="leg"><span class="dot" style="background:var(--blue);margin-top:3px;box-shadow:0 0 10px var(--blue)"></span><div><div class="lt" style="color:var(--blue2)">Current</div><div class="ld">In progress / active.</div></div></div>
+      <div class="leg"><span class="dot" style="background:var(--violet);margin-top:3px;box-shadow:0 0 10px var(--violet)"></span><div><div class="lt" style="color:var(--violet)">Planned</div><div class="ld">On the roadmap.</div></div></div>
+      <div class="leg"><span class="dot" style="background:var(--gold);margin-top:3px;box-shadow:0 0 10px var(--gold)"></span><div><div class="lt" style="color:var(--gold)">Attention</div><div class="ld">Needs review.</div></div></div>
+      <div class="leg"><span class="dot" style="background:var(--coral);margin-top:3px;box-shadow:0 0 10px var(--coral)"></span><div><div class="lt" style="color:var(--coral)">Issue</div><div class="ld">Action required.</div></div></div>
+      <div class="leg"><span class="dot" style="background:var(--gray);margin-top:3px"></span><div><div class="lt" style="color:var(--sec)">Later</div><div class="ld">Deferred / someday.</div></div></div>
+    </div>
+  </div>
+
+  <!-- LIGHT SYNC -->
+  <div class="panel light">
+    <div class="pnum"><span class="n">✦</span> Same system — light mode ("dim the room")</div>
+    <div class="pad">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="logo" style="font-size:16px"><span id="m5"></span> Nov<span class="fora">Fora</span></div>
+        <span class="btn b-blue">New Topic</span>
+      </div>
+      <div class="card">
+        <div class="colh" style="padding-top:10px"><span></span><span></span><span class="c">Topics</span><span class="c">Posts</span><span>Latest activity</span></div>
+        <div class="brow"><span class="ic" style="background:rgba(235,169,75,.2);color:var(--copper)">📣</span><div><p class="t">Announcements</p><p class="d">Release notes & roadmap.</p></div><div class="cnt"><b>2</b><span>topics</span></div><div class="cnt"><b>4</b><span>posts</span></div><div class="last"><span class="av" style="background:var(--amber);color:var(--aink)">T</span><div><div class="lt">NovFora v1.0 is here!</div><div class="lm">by Tommy · 1d</div></div></div></div>
+        <div class="brow" style="border-bottom:0"><span class="ic" style="background:rgba(77,147,242,.16);color:var(--blue)">💬</span><div><p class="t">General Discussion</p><p class="d">Talk about anything.</p></div><div class="cnt"><b>5</b><span>topics</span></div><div class="cnt"><b>17</b><span>posts</span></div><div class="last"><span class="av" style="background:var(--amber);color:var(--aink)">T</span><div><div class="lt">PHP vs node JS vs others</div><div class="lm">by Tommy · 1d</div></div></div></div>
+      </div>
+      <p class="sub" style="font-size:11.5px;margin:10px 0 0">Same amber + Nova Blue, same layout — background dims from hearth-cream to obsidian, the glow softens to ink-on-paper.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+function mark(s){return `<svg width="${s}" height="${s}" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="18" r="7.2" fill="#EBA94B"/><circle cx="16" cy="18" r="10.5" fill="none" stroke="#4D93F2" stroke-opacity=".55" stroke-width="1.3"/><path d="M16 3.5 l1.5 4 4 1.5 -4 1.5 -1.5 4 -1.5 -4 -4 -1.5 4 -1.5 Z" fill="#6FAAF7"/></svg>`}
+['m1','m2','m3','m4','m5'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML=mark(id==='m1'?26:22)});
+
+document.getElementById('orbit').innerHTML=`
+ <svg viewBox="0 0 380 330" width="100%" height="330" style="position:absolute;inset:0" aria-hidden="true">
+  <circle cx="190" cy="165" r="120" fill="none" stroke="rgba(77,147,242,.16)"/>
+  <circle cx="190" cy="165" r="78" fill="none" stroke="rgba(235,169,75,.14)"/>
+  <line x1="190" y1="165" x2="78" y2="92" stroke="rgba(77,147,242,.25)"/>
+  <line x1="190" y1="165" x2="300" y2="96" stroke="rgba(77,147,242,.25)"/>
+  <line x1="190" y1="165" x2="92" y2="250" stroke="rgba(235,169,75,.22)"/>
+  <line x1="190" y1="165" x2="298" y2="246" stroke="rgba(142,118,230,.25)"/>
+ </svg>
+ <div class="center"><span>${mark(34)}</span></div>
+ <div class="nd" style="left:55px;top:69px;background:var(--blue);box-shadow:0 0 22px -2px var(--blue)">A</div>
+ <div class="nd" style="left:277px;top:73px;background:var(--amber);color:var(--aink);box-shadow:0 0 22px -2px var(--amber)">M</div>
+ <div class="nd" style="left:69px;top:227px;background:var(--emerald);color:#06231b;box-shadow:0 0 22px -2px var(--emerald)">R</div>
+ <div class="nd" style="left:275px;top:223px;background:var(--violet);box-shadow:0 0 22px -2px var(--violet)">J</div>
+ <div class="bub" style="left:150px;top:40px;color:var(--blue)">💬</div>
+ <div class="bub" style="left:300px;top:160px;color:var(--coral)">♥</div>
+ <div class="bub" style="left:60px;top:160px;color:var(--amber)">👍</div>`;
+
+(function(){const W=620,H=150,pad=6;
+ function p(seed,amp,base){let d='';for(let i=0;i<=30;i++){const x=pad+i*(W-2*pad)/30;const y=base-amp*(0.5+0.5*Math.sin(i*0.5+seed))-(i*amp*0.04);d+=(i?'L':'M')+x.toFixed(1)+' '+Math.max(8,y).toFixed(1)+' '}return d}
+ document.getElementById('chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="150" preserveAspectRatio="none" role="img" aria-label="Community activity, last 30 days">
+   <path d="${p(0,70,135)}" fill="none" stroke="#EBA94B" stroke-width="2.2"/>
+   <path d="${p(1.4,46,135)}" fill="none" stroke="#4D93F2" stroke-width="2.2"/>
+   <path d="${p(2.6,30,135)}" fill="none" stroke="#8E76E6" stroke-width="2.2"/></svg>`;})();
+</script>
+</body>
+</html>

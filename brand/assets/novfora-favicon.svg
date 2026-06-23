@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="NovFora">
+  <title>NovFora</title>
+  <path d="M24 4 A19 19 0 1 1 6.5 30.5 L3 40 L12 35.6 A19 19 0 0 1 24 4 Z" fill="#0B0B10"/>
+  <path d="M24 14 C24.96 21.84 25.16 22.04 33 23 C25.16 23.96 24.96 24.16 24 32 C23.04 24.16 22.84 23.96 15 23 C22.84 22.04 23.04 21.84 24 14 Z" fill="#EBA94B"/>
+</svg>

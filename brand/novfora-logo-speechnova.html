@@ -1,0 +1,68 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 — NovFora "Speech Nova" logo iterations (concept 6) -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NovFora — Speech Nova iterations</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Inter:wght@400;500&display=swap');
+*{box-sizing:border-box}
+body{margin:0;background:#0B0B10;font-family:'Inter',system-ui,sans-serif;color:#F3E8DD}
+.wrap{max-width:1120px;margin:0 auto;padding:30px 20px 80px}
+h1{font-family:'Newsreader',serif;font-weight:600;font-size:25px;margin:0 0 6px}
+.lede{font-size:14px;color:#CFC9BE;max-width:80ch;line-height:1.6;margin:0 0 24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
+.card{background:#14151D;border:1px solid #262430;border-radius:15px;padding:18px;display:flex;flex-direction:column;gap:13px}
+.big{height:88px;display:flex;align-items:center;justify-content:center;background:#0B0B10;border:1px solid #20202b;border-radius:11px}
+.wm{display:flex;align-items:center;gap:9px;font-family:'Newsreader',serif;font-weight:600;font-size:22px}
+.wm .fora{color:#EBA94B}
+.fav{display:flex;align-items:center;gap:7px;margin-top:2px}
+.favtile{width:28px;height:28px;border-radius:6px;background:#1E1C26;border:1px solid #2c2a36;display:grid;place-items:center}
+.favtile.lt{background:#F4EEE2}
+.nm{font-family:'Newsreader',serif;font-size:15px;font-weight:600;margin:0}
+.why{font-size:11.5px;color:#CFC9BE;margin:3px 0 0;line-height:1.45}
+.lbl{font-size:9.5px;color:#938C7E;letter-spacing:.08em;text-transform:uppercase}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>NovFora — “Speech Nova” iterations</h1>
+  <p class="lede">Eight takes on concept 6: a speech/chat bubble holding a nova spark. Variations explore bubble shape, where the spark sits, solid vs outline, duotone, and an app‑icon tile. Each shown big, as a lockup, and at favicon size (dark + light). Pick the one(s) closest and I’ll perfect the geometry + build the full asset kit.</p>
+  <div class="grid" id="grid"></div>
+</div>
+<script>
+function nova(cx,cy,r,fill){const k=(0.12*r).toFixed(2);
+ return `<path d="M${cx} ${cy-r} C${cx+k} ${cy-k} ${cx+k} ${cy-k} ${cx+r} ${cy} C${cx+k} ${cy+k} ${cx+k} ${cy+k} ${cx} ${cy+r} C${cx-k} ${cy+k} ${cx-k} ${cy+k} ${cx-r} ${cy} C${cx-k} ${cy-k} ${cx-k} ${cy-k} ${cx} ${cy-r} Z" fill="${fill}"/>`}
+function novaD(cx,cy,r){const k=(0.12*r).toFixed(2);
+ return `M${cx} ${cy-r} C${cx+k} ${cy-k} ${cx+k} ${cy-k} ${cx+r} ${cy} C${cx+k} ${cy+k} ${cx+k} ${cy+k} ${cx} ${cy+r} C${cx-k} ${cy+k} ${cx-k} ${cy+k} ${cx-r} ${cy} C${cx-k} ${cy-k} ${cx-k} ${cy-k} ${cx} ${cy-r} Z`}
+const BUB='M12 9 H36 a5 5 0 0 1 5 5 V27 a5 5 0 0 1 -5 5 H21 l-6 6 v-6 H12 a5 5 0 0 1 -5 -5 V14 a5 5 0 0 1 5 -5 Z';
+const V=[
+ {nm:'A · Classic',why:'Outline bubble, amber nova centered. The clean baseline.',
+  svg:`<path d="${BUB}" fill="none" stroke="#F3E8DD" stroke-width="2.4" stroke-linejoin="round"/>${nova(23,20.5,7,'#EBA94B')}`},
+ {nm:'B · Solid knockout',why:'Filled amber bubble, nova punched out as negative space — adapts to any background. Strongest favicon.',
+  svg:`<path fill-rule="evenodd" fill="#EBA94B" d="${BUB} ${novaD(23,20.5,7)}"/>`},
+ {nm:'C · Round',why:'Circular bubble, softer and friendlier. Nova centered.',
+  svg:`<circle cx="23" cy="21" r="14.5" fill="none" stroke="#F3E8DD" stroke-width="2.4"/><path d="M13 32 l-2.5 8 9 -4.5 Z" fill="#F3E8DD"/>${nova(23,21,7,'#EBA94B')}`},
+ {nm:'D · Breaking the edge',why:'Nova straddles the top-right corner — dynamic, “bursting out,” a touch more energy.',
+  svg:`<path d="${BUB}" fill="none" stroke="#F3E8DD" stroke-width="2.4" stroke-linejoin="round"/>${nova(23,21,5.5,'#F3E8DD')}${nova(38,11,7.5,'#EBA94B')}`},
+ {nm:'E · Voices (typing → stars)',why:'The three “typing dots” become a little constellation — live conversation. Most narrative.',
+  svg:`<path d="${BUB}" fill="none" stroke="#F3E8DD" stroke-width="2.4" stroke-linejoin="round"/>${nova(15,22,3,'#EBA94B')}${nova(23,20,5.5,'#EBA94B')}${nova(31,22,3,'#6FAAF7')}`},
+ {nm:'F · Duotone',why:'Cream bubble, amber nova, small Nova-Blue companion spark. Shows the warm+cool pairing.',
+  svg:`<path d="${BUB}" fill="none" stroke="#F3E8DD" stroke-width="2.4" stroke-linejoin="round"/>${nova(22,21,6.8,'#EBA94B')}${nova(34,13,3,'#4D93F2')}`},
+ {nm:'G · N inside',why:'Bubble holds a serif “N” whose apex is the nova — fuses the monogram with the speech mark.',
+  svg:`<path d="${BUB}" fill="none" stroke="#F3E8DD" stroke-width="2.4" stroke-linejoin="round"/><path d="M17 28 V15 L29 28 V15" fill="none" stroke="#F3E8DD" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>${nova(30.5,11.5,3.4,'#EBA94B')}`},
+ {nm:'H · App tile',why:'A rounded-square app icon: filled tile, amber bubble outline + nova. For favicons/PWA/social avatar.',
+  svg:`<rect x="5" y="5" width="38" height="38" rx="11" fill="#1E1C26" stroke="#2c2a36"/><path d="M15 15 H33 a3.5 3.5 0 0 1 3.5 3.5 V27 a3.5 3.5 0 0 1 -3.5 3.5 H23 l-5 4.5 v-4.5 H15 a3.5 3.5 0 0 1 -3.5 -3.5 V18.5 a3.5 3.5 0 0 1 3.5 -3.5 Z" fill="none" stroke="#EBA94B" stroke-width="1.8" stroke-linejoin="round"/>${nova(24,22.5,5.4,'#EBA94B')}`}
+];
+function wrap(inner,size){return `<svg width="${size}" height="${size}" viewBox="0 0 48 48" aria-hidden="true">${inner}</svg>`}
+document.getElementById('grid').innerHTML=V.map(v=>`
+ <div class="card">
+   <div class="big">${wrap(v.svg,60)}</div>
+   <div class="wm">${wrap(v.svg,28)} Nov<span class="fora">Fora</span></div>
+   <div class="fav"><span class="lbl">fav</span><span class="favtile">${wrap(v.svg,20)}</span><span class="favtile">${wrap(v.svg,16)}</span><span class="favtile lt">${wrap(v.svg,20)}</span></div>
+   <div><p class="nm">${v.nm}</p><p class="why">${v.why}</p></div>
+ </div>`).join('');
+</script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 — NovFora color tuning sheet -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NovFora — Color Tuning</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
+*{box-sizing:border-box}
+body{margin:0;background:#EFE9DC;font-family:'Inter',system-ui,sans-serif;color:#2a241d}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 80px}
+h1{font-family:'Space Grotesk';font-weight:700;letter-spacing:-.02em;font-size:24px;margin:0 0 6px}
+.lede{font-size:14px;color:#6a6052;max-width:74ch;line-height:1.6;margin:0 0 8px}
+.sl{font-family:'Space Grotesk';font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#a98a55;margin:38px 0 6px}
+.sub{font-size:13px;color:#7a6f60;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.vcard{border:1px solid #d9cdb7;border-radius:14px;overflow:hidden;background:#fff}
+.vhead{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;font-family:'Space Grotesk';font-weight:700;font-size:13px;border-bottom:1px solid #eadfca}
+.code{font:600 11px ui-monospace,monospace;color:#8a7a5c}
+.pick{font:700 10px 'Space Grotesk';letter-spacing:.08em;color:#fff;background:#AD611C;border-radius:6px;padding:2px 7px}
+.demo{padding:14px}
+.btn{font:600 13px 'Inter';border-radius:9px;padding:9px 14px;border:0;color:#fff;display:inline-flex;gap:7px;align-items:center;cursor:default}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.mini{border-radius:10px;padding:12px;margin-top:10px}
+.mini .t{font:600 13px 'Inter';margin:0}
+.mini .d{font-size:11.5px;margin:3px 0 0;opacity:.8}
+.mini .lnk{font-size:11.5px;text-decoration:underline}
+.aa{font-size:10.5px;margin-top:8px;font-family:ui-monospace,monospace}
+.ok{color:#1f6b43}.warn{color:#9a6a07}.bad{color:#a12b1f}
+.sw{height:40px;border-radius:8px;margin-bottom:8px;border:1px solid rgba(0,0,0,.12)}
+.note{font-size:12px;color:#7a6f60;line-height:1.55;margin-top:8px}
+.legend{font-size:12px;color:#7a6f60;margin-top:18px;border-top:1px solid #ddd0b8;padding-top:12px}
+.legend b{color:#3a3127}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>NovFora — Color Tuning Sheet</h1>
+  <p class="lede">Variants rendered on the real surfaces so you can pick precisely. Tell me e.g. “Ember → Film Amber, Dark → Warmer, Paper → keep.” The current brand‑board values are tagged <span class="pick">CURRENT</span>. AA notes are computed live.</p>
+
+  <div class="sl">1 · The Ember anchor (same hex in both modes)</div>
+  <p class="sub">Shown as a button (white label) on light parchment and on dark charcoal. “Btn AA” = white label on the fill (needs ≥4.5 for normal-size labels; ≥3.0 if labels are bold/large).</p>
+  <div class="grid" id="embers"></div>
+
+  <div class="sl">2 · Dark mode — “shadow on a photograph”</div>
+  <p class="sub">The warm-charcoal page surface. Ink + ember stay constant; only the background shifts.</p>
+  <div class="grid" id="darks"></div>
+
+  <div class="sl">3 · Light mode — “editorial print”</div>
+  <p class="sub">The matte-paper page surface. Pick how warm / how light the paper reads.</p>
+  <div class="grid" id="lights"></div>
+
+  <p class="legend"><b>Reading the AA notes:</b> green = passes WCAG AA, amber = passes only as bold/large or UI, red = fails as text.
+  Borders are intentionally low-contrast (your “low-opacity warm” request) so they’re not scored here.
+  Ink stays warm soft-black in light / film-grain off-white in dark across all options.</p>
+</div>
+
+<script>
+function lin(c){c/=255;return c<=.03928?c/12.92:Math.pow((c+.055)/1.055,2.4)}
+function lum(h){h=h.replace('#','');return .2126*lin(parseInt(h.substr(0,2),16))+.7152*lin(parseInt(h.substr(2,2),16))+.0722*lin(parseInt(h.substr(4,2),16))}
+function R(a,b){const L1=lum(a),L2=lum(b);return (Math.max(L1,L2)+.05)/(Math.min(L1,L2)+.05)}
+function cls(r){return r>=4.5?'ok':(r>=3?'warn':'bad')}
+const PAPER='#F6F1E7', CHAR='#15110D', INKL='#241E17', INKD='#ECE3D4';
+
+const embers=[
+ ['Muted Copper','#AD611C','CURRENT — balanced; white labels pass'],
+ ['Film Amber','#C2772E','Glowier/brighter; white labels need bold/large'],
+ ['Red Copper','#A85A24','Warmer, more terracotta'],
+ ['Burnt Ember','#98531C','Deeper, more grounded']
+];
+document.getElementById('embers').innerHTML=embers.map(([n,hex,note])=>{
+ const btnAA=R('#FFFFFF',hex), onL=R(hex,PAPER), onD=R(hex,CHAR);
+ return `<div class="vcard"><div class="vhead"><span>${n}</span><span class="code">${hex}</span></div>
+ <div class="demo">
+   <div class="sw" style="background:${hex}"></div>
+   <div class="row">
+     <span style="background:${PAPER};border:1px solid #e3d9c9;border-radius:9px;padding:8px"><button class="btn" style="background:${hex}">Reply</button></span>
+     <span style="background:${CHAR};border-radius:9px;padding:8px"><button class="btn" style="background:${hex}">Reply</button></span>
+   </div>
+   <div class="aa"><span class="${cls(btnAA)}">Btn AA ${btnAA.toFixed(2)}</span> · <span class="${cls(onL)}">on light ${onL.toFixed(2)}</span> · <span class="${cls(onD)}">on dark ${onD.toFixed(2)}</span></div>
+   <div class="note">${note}</div>
+ </div></div>`;
+}).join('');
+
+const darks=[
+ ['Warm Charcoal','#15110D','CURRENT'],
+ ['Near-Black','#100C09','Deeper, higher contrast'],
+ ['Warmer Brown-Black','#1A140E','Cozier, more sepia'],
+ ['Lifted Charcoal','#1F1812','Softer, less inky']
+];
+document.getElementById('darks').innerHTML=darks.map(([n,bg,note])=>{
+ const raised= bg==='#15110D'?'#1E1810': bg==='#100C09'?'#191309': bg==='#1A140E'?'#241B12':'#291F16';
+ return `<div class="vcard" style="background:#1b1610;border-color:#2a221a"><div class="vhead" style="color:#ECE3D4;border-color:#2a221a"><span>${n}</span><span class="code" style="color:#b3a793">${bg}</span></div>
+ <div class="demo" style="background:${bg}">
+   <div class="mini" style="background:${raised};border:1px solid #322a20;color:${INKD}">
+     <p class="t">Announcements</p>
+     <p class="d" style="color:#b3a793">Release notes & roadmap.</p>
+     <a class="lnk" style="color:#E3A463">NovFora v1.0 is here →</a>
+   </div>
+   <div class="row" style="margin-top:10px"><button class="btn" style="background:#AD611C">Start a topic</button><span style="width:26px;height:26px;border-radius:50%;background:#AD611C"></span></div>
+   <div class="note" style="color:#8e8472">${note}</div>
+ </div></div>`;
+}).join('');
+
+const lights=[
+ ['Matte Parchment','#F6F1E7','CURRENT'],
+ ['Creamier','#F7F0DE','Warmer, more analog'],
+ ['Closer to White','#FAF7F0','Crisper, more editorial'],
+ ['Deeper Kraft','#F0E8D6','Stronger paper tone']
+];
+document.getElementById('lights').innerHTML=lights.map(([n,bg,note])=>{
+ const raised= bg==='#FAF7F0'?'#FFFFFF':'#FCFAF4';
+ return `<div class="vcard"><div class="vhead"><span>${n}</span><span class="code">${bg}</span></div>
+ <div class="demo" style="background:${bg}">
+   <div class="mini" style="background:${raised};border:1px solid #e5dbc9;color:${INKL}">
+     <p class="t">Announcements</p>
+     <p class="d" style="color:#5b5145">Release notes & roadmap.</p>
+     <a class="lnk" style="color:#9E561F">NovFora v1.0 is here →</a>
+   </div>
+   <div class="row" style="margin-top:10px"><button class="btn" style="background:#AD611C">Start a topic</button><span style="width:26px;height:26px;border-radius:50%;background:#AD611C"></span></div>
+   <div class="note">${note}</div>
+ </div></div>`;
+}).join('');
+</script>
+</body>
+</html>

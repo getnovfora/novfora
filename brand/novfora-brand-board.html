@@ -1,0 +1,331 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 — NovFora brand board (design proof, not product code) -->
+<html lang="en" data-page="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NovFora — Brand Board (Ember & Horizon)</title>
+<style>
+/* Preview fonts only. The PRODUCT app self-hosts these (no CDN) or uses a tuned system stack. */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=Newsreader:ital,opsz@0,6..72;1,6..72&display=swap');
+
+/* ============================================================================
+   NovFora design tokens — ONE system, two modes ("dim the room, don't switch buildings")
+   Light = Editorial Print · Dark = Shadow on a Photograph · Ember = constant anchor
+   ============================================================================ */
+.scope-light{
+  --surface:#F6F1E7; --surface-raised:#FCFAF4; --surface-sunken:#EDE5D6;
+  --ink:#241E17; --ink-muted:#5B5145; --ink-subtle:#6E6354;
+  --line:#E5DBC9; --line-strong:#D4C6AF;
+  --ember:#AD611C;                 /* brand constant — SAME hex in dark */
+  --accent:#AD611C; --accent-ink:#FFFFFF; --accent-hover:#95531A;
+  --accent-soft:#F6E7D2; --accent-soft-ink:#8A4D1B;
+  --link:#9E561F;                  /* text/link tint, AA on parchment */
+  --focus:#BC6F2A;
+  --success:#2B774D; --success-soft:#DCEFE2; --success-ink:#1F6B43;
+  --warn:#8F6207; --warn-soft:#FAEFC9; --warn-ink:#785205;
+  --danger:#BE3A2B; --danger-soft:#FAE3DE; --danger-ink:#A12B1F;
+  --shadow-sm:0 1px 2px rgb(40 28 14 / .08);
+  --shadow-md:0 12px 28px -10px rgb(40 28 14 / .18), 0 3px 8px -4px rgb(40 28 14 / .12);
+  color-scheme:light;
+}
+.scope-dark{
+  --surface:#15110D; --surface-raised:#1E1810; --surface-sunken:#100C09;
+  --ink:#ECE3D4; --ink-muted:#B3A793; --ink-subtle:#8E8472;
+  --line:#322A20; --line-strong:#483C2E;
+  --ember:#AD611C;                 /* brand constant — SAME hex as light */
+  --accent:#AD611C; --accent-ink:#FFFFFF; --accent-hover:#C57A33;
+  --accent-soft:#392917; --accent-soft-ink:#E7B379;
+  --link:#E3A463;                  /* glow tint, AA on charcoal */
+  --focus:#E3A463;
+  --success:#5FB985; --success-soft:#16271D; --success-ink:#8FD3A8;
+  --warn:#E0AE3F; --warn-soft:#2A2206; --warn-ink:#F0C766;
+  --danger:#E8705C; --danger-soft:#2E1411; --danger-ink:#F2A293;
+  --shadow-sm:0 1px 2px rgb(0 0 0 / .5);
+  --shadow-md:0 16px 36px -12px rgb(0 0 0 / .7), 0 3px 10px -4px rgb(0 0 0 / .55);
+  color-scheme:dark;
+}
+
+/* ---- page chrome (neutral, mode-agnostic) ---- */
+*{box-sizing:border-box}
+html[data-page="light"]{background:#EFE9DC}
+html[data-page="dark"]{background:#0E0B08}
+body{margin:0;font-family:'Inter',system-ui,sans-serif;color:#3a3a3a;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding:28px 20px 80px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+.topbar h1{font-family:'Space Grotesk',sans-serif;font-weight:700;letter-spacing:-.02em;font-size:22px;margin:0;color:var(--page-ink,#2a241d)}
+html[data-page="dark"] .topbar h1{color:#ece3d4}
+html[data-page="dark"] body{color:#cfc7ba}
+.pill-toggle{display:inline-flex;border:1px solid #b9a; border-radius:999px;overflow:hidden;font-size:13px;font-weight:600}
+.pill-toggle button{border:0;background:transparent;padding:8px 16px;cursor:pointer;font:inherit;color:inherit}
+.pill-toggle button[aria-pressed="true"]{background:#BC6F2A;color:#fff}
+.lede{font-size:14.5px;line-height:1.6;max-width:70ch;margin:6px 0 26px;color:var(--page-ink-muted,#6a6052)}
+html[data-page="dark"] .lede{color:#a89e90}
+.section-label{font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#a98a55;margin:40px 0 12px}
+
+/* two-up panels */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:880px){.duo{grid-template-columns:1fr}}
+.panel{border-radius:16px;padding:22px;background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadow-md)}
+.panel .mode-tag{font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-subtle);display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+
+/* generic UI atoms rendered with tokens */
+.card{background:var(--surface-raised);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-sm)}
+.btn{font:600 14px/1 'Inter',sans-serif;border-radius:10px;padding:11px 16px;border:1px solid transparent;cursor:pointer;display:inline-flex;gap:8px;align-items:center}
+.btn-primary{background:var(--accent);color:var(--accent-ink)}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-soft{background:var(--accent-soft);color:var(--accent-soft-ink)}
+.btn-ghost{background:transparent;color:var(--ink);border-color:var(--line-strong)}
+.input{width:100%;background:var(--surface-sunken);border:1px solid var(--line-strong);border-radius:10px;padding:10px 12px;color:var(--ink);font:400 14px 'Inter',sans-serif}
+.input:focus{outline:2px solid var(--focus);outline-offset:1px}
+.swatch-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+.sw{width:104px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:var(--surface-raised)}
+.sw .chip{height:54px}
+.sw .meta{padding:6px 8px;font-size:10.5px;line-height:1.35;color:var(--ink-muted)}
+.sw .meta b{display:block;color:var(--ink);font-size:11px;font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:5px;font:600 11px 'Inter';padding:3px 9px;border-radius:999px}
+.flair{display:inline-flex;align-items:center;gap:5px;font:700 10.5px 'Space Grotesk';letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent-soft-ink)}
+.alert{display:flex;gap:10px;padding:12px 14px;border-radius:12px;font-size:13.5px;line-height:1.5}
+.alert-warn{background:var(--warn-soft);color:var(--warn-ink);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
+.alert-ok{background:var(--success-soft);color:var(--success-ink);border:1px solid color-mix(in srgb,var(--success) 40%,transparent)}
+.alert-danger{background:var(--danger-soft);color:var(--danger-ink);border:1px solid color-mix(in srgb,var(--danger) 40%,transparent)}
+
+/* mini forum row (looks like NovFora) */
+.forum-row{display:grid;grid-template-columns:38px 1fr auto;gap:14px;padding:14px;border-bottom:1px solid var(--line)}
+.forum-row:last-child{border-bottom:0}
+.f-ico{width:38px;height:38px;border-radius:10px;background:var(--accent-soft);color:var(--accent-soft-ink);display:grid;place-items:center}
+.f-title{font:600 15px 'Inter';color:var(--ink);margin:0}
+.f-desc{font-size:12.5px;color:var(--ink-muted);margin:3px 0 0;line-height:1.45}
+.f-stat{font-size:11.5px;color:var(--ink-subtle);text-align:right;white-space:nowrap}
+.f-stat b{color:var(--link)}
+.avatar{width:30px;height:30px;border-radius:999px;display:grid;place-items:center;font:700 12px 'Space Grotesk';color:#fff}
+
+/* type specimen */
+.spec h2{font-family:'Space Grotesk',sans-serif;letter-spacing:-.02em}
+.display{font-family:'Space Grotesk',sans-serif;font-weight:700;letter-spacing:-.025em;font-size:40px;line-height:1.05;color:var(--ink);margin:0}
+.display .em{color:var(--ember)}
+.body-ex{font-size:15px;line-height:1.65;color:var(--ink);max-width:60ch}
+.body-ex .lnk{color:var(--link);text-decoration:underline;text-underline-offset:2px}
+.editorial{font-family:'Newsreader',Georgia,serif;font-size:19px;line-height:1.55;color:var(--ink-muted);max-width:60ch}
+
+/* audit table */
+table.audit{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgb(0 0 0/.08)}
+html[data-page="dark"] table.audit{background:#1b1610;color:#cfc7ba}
+table.audit th,table.audit td{padding:8px 12px;text-align:left;border-bottom:1px solid rgba(150,130,100,.18)}
+table.audit th{font:700 11px 'Space Grotesk';letter-spacing:.06em;text-transform:uppercase;color:#a98a55}
+.tag{font:700 10px 'Space Grotesk';padding:2px 7px;border-radius:5px}
+.pass{background:#dcefe2;color:#1f6b43}.fail{background:#fae3de;color:#a12b1f}
+html[data-page="dark"] .pass{background:#16271d;color:#8fd3a8}html[data-page="dark"] .fail{background:#2e1411;color:#f2a293}
+.dot{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;margin-right:6px;border:1px solid rgba(0,0,0,.15)}
+
+/* logo lab */
+.logos{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media (max-width:880px){.logos{grid-template-columns:1fr}}
+.logo-cell{border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;min-height:170px;border:1px solid var(--line)}
+.logo-cell .name{font:700 11px 'Space Grotesk';letter-spacing:.1em;text-transform:uppercase;color:var(--ink-subtle)}
+.wordmark{font-family:'Space Grotesk',sans-serif;font-weight:700;letter-spacing:-.03em;font-size:30px;color:var(--ink);display:flex;align-items:center;gap:10px}
+.wordmark .fora{color:var(--ember)}
+.note{font-size:12px;color:var(--ink-muted);line-height:1.5}
+.legend{font-size:12px;color:#7a6f60;margin-top:8px}
+html[data-page="dark"] .legend{color:#a89e90}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <h1>NovFora — Brand Board</h1>
+    <div class="pill-toggle" role="group" aria-label="Page theme">
+      <button id="pl" aria-pressed="true">Light page</button>
+      <button id="pd" aria-pressed="false">Dark page</button>
+    </div>
+  </div>
+  <p class="lede"><b>Ember &amp; Horizon.</b> One warm, editorial, analog-film system. The signature copper
+  <b>NovFora Ember (#AD611C)</b> is the constant anchor — identical hex in both modes. Light is <i>editorial
+  matte print</i>; dark is <i>a shadow on a photograph</i>. Switching modes should feel like dimming the
+  lights in the same room. Every pair below is checked against WCAG AA live (see the audit at the bottom).</p>
+
+  <!-- ============ MODES SIDE BY SIDE ============ -->
+  <div class="section-label">The same room, dimmed — light &amp; dark together</div>
+  <div class="duo">
+    <!-- LIGHT PANEL -->
+    <div class="panel scope-light">
+      <div class="mode-tag"><span>Light · Editorial Print</span><span>#F6F1E7</span></div>
+      <!-- header strip -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="wordmark" style="font-size:22px"><span id="mk-l"></span> Nov<span class="fora">Fora</span></div>
+        <button class="btn btn-primary">Start a topic</button>
+      </div>
+      <div class="card">
+        <div class="forum-row">
+          <div class="f-ico">◆</div>
+          <div><p class="f-title">Announcements</p><p class="f-desc">Release notes, roadmap updates, and project news.</p></div>
+          <div class="f-stat">2 topics · 4 posts<br><b>NovFora v1.0 is here</b></div>
+        </div>
+        <div class="forum-row">
+          <div class="f-ico">◆</div>
+          <div><p class="f-title">Beta Feedback <span class="flair">Mod</span></p><p class="f-desc">Found a bug or have a UI suggestion? Drop it here.</p></div>
+          <div class="f-stat">10 topics · 21 posts<br><b>Lock-thread permissions</b></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn btn-primary">Reply</button>
+        <button class="btn btn-soft">Follow</button>
+        <button class="btn btn-ghost">Select</button>
+        <span class="avatar" style="background:var(--ember)">T</span>
+        <span class="avatar" style="background:#2E7D52">A</span>
+      </div>
+      <div style="margin-top:14px"><input class="input" placeholder="Search the community…"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <span class="alert alert-ok">Saved</span>
+        <span class="alert alert-warn">2FA required for staff</span>
+        <span class="alert alert-danger">Couldn’t post</span>
+      </div>
+    </div>
+
+    <!-- DARK PANEL -->
+    <div class="panel scope-dark">
+      <div class="mode-tag"><span>Dark · Shadow on a Photograph</span><span>#15110D</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="wordmark" style="font-size:22px"><span id="mk-d"></span> Nov<span class="fora">Fora</span></div>
+        <button class="btn btn-primary">Start a topic</button>
+      </div>
+      <div class="card">
+        <div class="forum-row">
+          <div class="f-ico">◆</div>
+          <div><p class="f-title">Announcements</p><p class="f-desc">Release notes, roadmap updates, and project news.</p></div>
+          <div class="f-stat">2 topics · 4 posts<br><b>NovFora v1.0 is here</b></div>
+        </div>
+        <div class="forum-row">
+          <div class="f-ico">◆</div>
+          <div><p class="f-title">Beta Feedback <span class="flair">Mod</span></p><p class="f-desc">Found a bug or have a UI suggestion? Drop it here.</p></div>
+          <div class="f-stat">10 topics · 21 posts<br><b>Lock-thread permissions</b></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn btn-primary">Reply</button>
+        <button class="btn btn-soft">Follow</button>
+        <button class="btn btn-ghost">Select</button>
+        <span class="avatar" style="background:var(--ember)">T</span>
+        <span class="avatar" style="background:#5FB985;color:#0c1f15">A</span>
+      </div>
+      <div style="margin-top:14px"><input class="input" placeholder="Search the community…"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <span class="alert alert-ok">Saved</span>
+        <span class="alert alert-warn">2FA required for staff</span>
+        <span class="alert alert-danger">Couldn’t post</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PALETTE ============ -->
+  <div class="section-label">Palette — semantic tokens (names are the THEME-API contract; values change)</div>
+  <div class="duo">
+    <div class="panel scope-light"><div class="mode-tag"><span>Light tokens</span></div><div class="swatch-row" id="sw-light"></div></div>
+    <div class="panel scope-dark"><div class="mode-tag"><span>Dark tokens</span></div><div class="swatch-row" id="sw-dark"></div></div>
+  </div>
+  <p class="legend">The <b>Ember</b> chip is the one value that is byte-identical across both columns — the brand anchor.
+  <b>Link</b> shifts (deep copper ↔ ember glow) only so running text stays AA-readable; fills/branding stay constant.</p>
+
+  <!-- ============ TYPE ============ -->
+  <div class="section-label">Typography — geometric display + readable body (+ optional editorial serif)</div>
+  <div class="duo">
+    <div class="panel scope-light spec">
+      <div class="mode-tag"><span>Type · light</span></div>
+      <p class="display">Your community.<br>Your server. <span class="em">Forever.</span></p>
+      <p class="body-ex" style="margin-top:14px">Body copy in <b>Inter</b> — quiet, highly legible at forum density. Inline <a class="lnk">links use the copper tint</a>, and counts use tabular figures: 1,204 posts · 59 today.</p>
+      <p class="editorial" style="margin-top:10px">An optional <b>Newsreader</b> serif lends the “editorial print” voice to pull-quotes and long-form announcements.</p>
+    </div>
+    <div class="panel scope-dark spec">
+      <div class="mode-tag"><span>Type · dark</span></div>
+      <p class="display">Your community.<br>Your server. <span class="em">Forever.</span></p>
+      <p class="body-ex" style="margin-top:14px">Body copy in <b>Inter</b> — quiet, highly legible at forum density. Inline <a class="lnk">links use the ember glow</a>, and counts use tabular figures: 1,204 posts · 59 today.</p>
+      <p class="editorial" style="margin-top:10px">An optional <b>Newsreader</b> serif lends the “editorial print” voice to pull-quotes and long-form announcements.</p>
+    </div>
+  </div>
+  <p class="legend"><b>Heads-up / decision:</b> the forum app is currently <b>system-fonts-only, no CDN</b> (a privacy/offline-build value).
+  Using Space Grotesk + Inter in the app means <i>self-hosting</i> the font files (bundled, no third-party request) — allowed, but it changes the build. The marketing site can use them freely. Flagged for your call.</p>
+
+  <!-- ============ LOGO LAB ============ -->
+  <div class="section-label">Logo directions — pick one (or mix); the “nova-glow / hearth-on-horizon” mark</div>
+  <div class="panel scope-light" style="background:var(--surface-raised)">
+    <div class="logos" id="logo-light"></div>
+    <p class="legend" style="margin-top:14px">Three takes on the mark: <b>A · Horizon Ember</b> (a nova cresting a horizon),
+    <b>B · Hearth Aperture</b> (concentric glow / campfire rings), <b>C · Forum Spark</b> (a speech bubble holding the rising ember — “new gathering place”). Each works as a favicon at 16px.</p>
+  </div>
+  <div class="panel scope-dark" style="margin-top:14px">
+    <div class="logos" id="logo-dark"></div>
+    <p class="legend" style="margin-top:14px;color:var(--ink-muted)">Same marks on the dark horizon — the ember glow carries.</p>
+  </div>
+
+  <!-- ============ ELEVATION ============ -->
+  <div class="section-label">Elevation — one unified, warm-tinted system (shadows tint warm, not neutral)</div>
+  <div class="duo">
+    <div class="panel scope-light">
+      <div class="mode-tag"><span>Light elevation</span></div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        <div class="card" style="padding:16px;width:150px">Flat · border only</div>
+        <div class="card" style="padding:16px;width:150px;box-shadow:var(--shadow-sm)">Raised · sm</div>
+        <div class="card" style="padding:16px;width:150px;box-shadow:var(--shadow-md)">Float · md</div>
+      </div>
+    </div>
+    <div class="panel scope-dark">
+      <div class="mode-tag"><span>Dark elevation</span></div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        <div class="card" style="padding:16px;width:150px">Flat · border only</div>
+        <div class="card" style="padding:16px;width:150px;box-shadow:var(--shadow-sm)">Raised · sm</div>
+        <div class="card" style="padding:16px;width:150px;box-shadow:var(--shadow-md)">Float · md</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ AUDIT ============ -->
+  <div class="section-label">WCAG AA contrast audit (computed live in your browser)</div>
+  <table class="audit"><thead><tr><th>Mode</th><th>Pair</th><th>Ratio</th><th>AA normal (4.5)</th><th>AA large/UI (3.0)</th></tr></thead><tbody id="audit"></tbody></table>
+  <p class="legend">Generated on load from the exact hex values above. If anything reads FAIL, tell me and I’ll retune before we touch code.</p>
+</div>
+
+<script>
+/* ---------- mode + content injection ---------- */
+const TOK = {
+  light:{surface:'#F6F1E7','surface-raised':'#FCFAF4','surface-sunken':'#EDE5D6',ink:'#241E17','ink-muted':'#5B5145','ink-subtle':'#6E6354',line:'#E5DBC9','line-strong':'#D4C6AF',ember:'#AD611C',accent:'#AD611C','accent-ink':'#FFFFFF','accent-soft':'#F6E7D2','accent-soft-ink':'#8A4D1B',link:'#9E561F',success:'#2B774D',warn:'#8F6207',danger:'#BE3A2B'},
+  dark:{surface:'#15110D','surface-raised':'#1E1810','surface-sunken':'#100C09',ink:'#ECE3D4','ink-muted':'#B3A793','ink-subtle':'#8E8472',line:'#322A20','line-strong':'#483C2E',ember:'#AD611C',accent:'#AD611C','accent-ink':'#FFFFFF','accent-soft':'#392917','accent-soft-ink':'#E7B379',link:'#E3A463',success:'#5FB985',warn:'#E0AE3F',danger:'#E8705C'}
+};
+const ORDER=['surface','surface-raised','surface-sunken','ink','ink-muted','ink-subtle','line','line-strong','ember','accent','accent-ink','accent-soft','accent-soft-ink','link','success','warn','danger'];
+document.getElementById('pl').onclick=()=>setPage('light');
+document.getElementById('pd').onclick=()=>setPage('dark');
+function setPage(m){document.documentElement.dataset.page=m;document.getElementById('pl').setAttribute('aria-pressed',m==='light');document.getElementById('pd').setAttribute('aria-pressed',m==='dark');}
+
+/* swatches */
+function swatches(id,mode){const el=document.getElementById(id);el.innerHTML=ORDER.map(k=>{const v=TOK[mode][k];return `<div class="sw"><div class="chip" style="background:${v}"></div><div class="meta"><b>--${k}</b>${v}</div></div>`}).join('')}
+swatches('sw-light','light');swatches('sw-dark','dark');
+
+/* ---------- logo marks (inline SVG) ---------- */
+function marks(ember,ink,glow){
+ const A=`<svg width="56" height="56" viewBox="0 0 56 56" aria-label="Horizon Ember"><defs><radialGradient id="gA" cx="50%" cy="78%" r="65%"><stop offset="0%" stop-color="${ember}" stop-opacity=".55"/><stop offset="100%" stop-color="${ember}" stop-opacity="0"/></radialGradient></defs><rect x="2" y="2" width="52" height="52" rx="14" fill="none" stroke="${ink}" stroke-opacity=".18"/><rect x="2" y="2" width="52" height="52" rx="14" fill="url(#gA)"/><circle cx="28" cy="34" r="11" fill="${ember}"/><line x1="9" y1="38" x2="47" y2="38" stroke="${ink}" stroke-width="2.4" stroke-linecap="round" opacity=".8"/></svg>`;
+ const B=`<svg width="56" height="56" viewBox="0 0 56 56" aria-label="Hearth Aperture"><rect x="2" y="2" width="52" height="52" rx="14" fill="none" stroke="${ink}" stroke-opacity=".18"/><circle cx="28" cy="28" r="5" fill="${ember}"/><path d="M28 13 A15 15 0 0 1 43 28" fill="none" stroke="${ember}" stroke-width="3" stroke-linecap="round" opacity=".85"/><path d="M28 8 A20 20 0 0 1 48 28" fill="none" stroke="${ember}" stroke-width="3" stroke-linecap="round" opacity=".5"/><path d="M28 18 A10 10 0 0 0 18 28" fill="none" stroke="${ink}" stroke-width="3" stroke-linecap="round" opacity=".55"/></svg>`;
+ const C=`<svg width="56" height="56" viewBox="0 0 56 56" aria-label="Forum Spark"><path d="M10 11 H46 A4 4 0 0 1 50 15 V36 A4 4 0 0 1 46 40 H24 L15 48 V40 H10 A4 4 0 0 1 6 36 V15 A4 4 0 0 1 10 11 Z" fill="none" stroke="${ink}" stroke-width="2.4" stroke-opacity=".55"/><circle cx="28" cy="26" r="7.5" fill="${ember}"/><line x1="15" y1="31" x2="41" y2="31" stroke="${ember}" stroke-width="2.2" stroke-linecap="round" opacity=".5"/></svg>`;
+ return {A,B,C};
+}
+function fillLogos(id,mode){
+  const t=TOK[mode];const m=marks(t.ember,t.ink,t.ember);
+  const cells=[['A · Horizon Ember',m.A],['B · Hearth Aperture',m.B],['C · Forum Spark',m.C]];
+  document.getElementById(id).innerHTML=cells.map(([n,svg])=>`<div class="logo-cell scope-${mode}"><div class="name">${n}</div>${svg}<div class="wordmark" style="font-size:24px">${svg.replace('56','26').replace('56','26')} Nov<span class="fora">Fora</span></div></div>`).join('');
+}
+fillLogos('logo-light','light');fillLogos('logo-dark','dark');
+// little mark beside the panel wordmarks
+document.getElementById('mk-l').innerHTML=marks(TOK.light.ember,TOK.light.ink).A.replace(/width="56" height="56"/,'width="26" height="26"');
+document.getElementById('mk-d').innerHTML=marks(TOK.dark.ember,TOK.dark.ink).A.replace(/width="56" height="56"/,'width="26" height="26"');
+
+/* ---------- WCAG contrast ---------- */
+function lin(c){c/=255;return c<=.03928?c/12.92:Math.pow((c+.055)/1.055,2.4)}
+function lum(hex){const n=hex.replace('#','');const r=parseInt(n.substr(0,2),16),g=parseInt(n.substr(2,2),16),b=parseInt(n.substr(4,2),16);return .2126*lin(r)+.7152*lin(g)+.0722*lin(b)}
+function ratio(a,b){const L1=lum(a),L2=lum(b);return ((Math.max(L1,L2)+.05)/(Math.min(L1,L2)+.05))}
+const PAIRS=[['ink','surface','Body text / page','text'],['ink','surface-raised','Text / card','text'],['ink-muted','surface','Muted text / page','text'],['ink-subtle','surface','Subtle text / page','text'],['link','surface','Link / page','text'],['accent-ink','accent','Button label / fill','text'],['accent-soft-ink','accent-soft','Soft-accent text','text'],['ember','surface','Ember graphic / page','ui'],['success','surface','Success / page','text'],['warn','surface','Warn / page','text'],['danger','surface','Danger / page','text'],['line-strong','surface','Divider (intentionally subtle)','divider']];
+let rows='';
+const tag=(ok)=>ok?'<span class="tag pass">PASS</span>':'<span class="tag fail">FAIL</span>';
+const info=(t)=>`<span class="tag" style="background:rgba(150,130,100,.2)">${t}</span>`;
+for(const mode of ['light','dark']){for(const [a,b,label,kind] of PAIRS){const r=ratio(TOK[mode][a],TOK[mode][b]);let n,l;if(kind==='divider'){n=info('DIVIDER');l=info('by design');}else if(kind==='ui'){n=info('UI only');l=tag(r>=3);}else{n=tag(r>=4.5);l=tag(r>=3);}rows+=`<tr><td>${mode}</td><td><span class="dot" style="background:${TOK[mode][a]}"></span>${label} <code style="opacity:.6">--${a}</code></td><td><b>${r.toFixed(2)}</b></td><td>${n}</td><td>${l}</td></tr>`}}
+document.getElementById('audit').innerHTML=rows;
+</script>
+</body>
+</html>
