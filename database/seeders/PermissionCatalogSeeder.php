@@ -29,6 +29,11 @@ class PermissionCatalogSeeder extends Seeder
             'prefix.manage' => ['Manage topic prefixes', 'global', 'Administration', 'Create, edit, reorder and delete topic prefixes.'],
             'badge.manage' => ['Manage badges', 'global', 'Administration', 'Create, edit, deactivate and delete badges and their award criteria.'],
             'permissions.manage' => ['Manage roles & permissions', 'global', 'Administration', 'Edit ACL entries and role presets.'],
+            // v1.x F2 (ADR-0101): manual staff overrides on the per-member admin view. Administration-tier global
+            // keys (only a FULL admin can mint them into a role — RoleManager::assertWithinCeiling); the
+            // `administrator` preset grants them additively so existing admins keep the capability after sync.
+            'members.trust.manage' => ['Set member trust level', 'global', 'Administration', 'Manually set a member’s trust level (a sticky admin override the auto-engine will not silently demote). Not anti-spam-gated.'],
+            'members.reputation.manage' => ['Adjust member reputation', 'global', 'Administration', 'Apply a signed reputation adjustment to a member, with a required reason. Writes through the reputation ledger.'],
 
             // Per-section ACP access (ACP v3 · v3-a, ADR-0080). Each key gates ONE rail SECTION of the Invision
             // information architecture (App\Admin\AdminNavigation::SECTIONS). They are Administration-tier, so the
