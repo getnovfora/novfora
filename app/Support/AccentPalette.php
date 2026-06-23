@@ -12,7 +12,7 @@ namespace App\Support;
  * picks a colour the layout emits an override for BOTH colour modes that keeps text-on-accent readable —
  * the ink is chosen as white or near-black by whichever has the higher WCAG contrast, the hover shifts a
  * shade, and the soft chip tints toward each mode's surface. Returns null for an empty/invalid value, so
- * the built-in indigo simply stays.
+ * the built-in Nova Blue accent simply stays.
  */
 final class AccentPalette
 {

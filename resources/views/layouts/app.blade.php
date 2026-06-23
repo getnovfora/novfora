@@ -60,6 +60,12 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @auth <meta name="novfora-auth" content="1"> @endauth
     <title>{{ $title ?? config('app.name', 'NovFora') }}</title>
+
+    {{-- Brand favicon / app icons (NovFora constellation mark): SVG for modern browsers, PNG fallbacks for
+         the rest. A site theme's custom favicon (below) overrides these on equal terms by coming later. --}}
+    <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+    <link rel="icon" href="{{ asset('icons/icon-32.png') }}" sizes="32x32" type="image/png">
+    <link rel="icon" href="{{ asset('icons/icon-16.png') }}" sizes="16x16" type="image/png">
     @if (($themeAssets['favicon'] ?? null))
         {{-- Theme Studio 1.5: the active theme's favicon. --}}
         <link rel="icon" href="{{ $themeAssets['favicon'] }}">
@@ -71,8 +77,10 @@
          this is byte-identical to before. --}}
     @php $swScope = rtrim(parse_url(url('/'), PHP_URL_PATH) ?: '/', '/').'/'; @endphp
     <link rel="manifest" href="{{ route('pwa.manifest') }}">
-    <meta name="theme-color" content="#2563eb">
-    <link rel="apple-touch-icon" href="{{ asset('icons/novfora.svg') }}">
+    {{-- Browser chrome tint follows the page surface: hearth-cream in light, obsidian in dark. --}}
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4eee2">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0b10">
+    <link rel="apple-touch-icon" href="{{ asset('icons/icon-180.png') }}">
     <script @if ($nonce) nonce="{{ $nonce }}" @endif>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function () {
@@ -174,7 +182,7 @@
                 @else
                     {{-- Cap + truncate only the TEXT wordmark so it never wraps/overflows at small widths (the
                          guard belongs on the text, not the whole link, so the logo branch above isn't clipped). --}}
-                    <span class="block max-w-[55vw] truncate sm:max-w-none">{{ $wordmark }}</span>
+                    <span class="block max-w-[55vw] truncate sm:max-w-none font-display">{{ $wordmark }}</span>
                 @endif
             </a>
 

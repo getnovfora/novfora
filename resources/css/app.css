@@ -1,5 +1,15 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
+/* ── Self-hosted brand fonts (NovFora — Indie Web Hearth + Nova) ────────────────────────────────────
+ | Inter (body/UI) + Newsreader (editorial serif for headings/wordmark) bundled LOCALLY via @fontsource.
+ | These @imports pull woff2 into the Vite build → served from our own origin, NO third-party/CDN request
+ | at runtime (the privacy + offline-build product value is preserved; see DECISIONS.md — the byte-repro
+ | build now includes the font binaries by design). @import rules must precede the Tailwind import below. */
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource-variable/newsreader';
+
 /* ──────────────────────────────────────────────────────────────────────────────────────────────────
  |  — design tokens + base styles.
  |
@@ -25,9 +35,12 @@
  | `bg-surface` / `text-ink` resolve to the right value per colour-mode with no `dark:` variants. A child
  | theme overrides the semantic custom properties without touching templates (the THEME-API contract). */
 @theme {
-    /* Typography — system-ui only; no external fonts/CDN (self-hosted privacy is a product value). */
-    --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
+    /* Typography — self-hosted Inter (body/UI) + Newsreader (editorial serif headings/wordmark), bundled
+       locally via @fontsource at the top of this file (no CDN). System fallbacks keep text rendering if a
+       woff2 is ever unavailable. Inter is the body face everywhere; the serif carries h1–h3 + .font-display. */
+    --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
         sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-serif: 'Newsreader Variable', 'Newsreader', Georgia, 'Times New Roman', serif;
     --font-mono: ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 
     /* Type scale (≈13/14/16/18/22/28 + a hero step), with comfortable default line-heights. */
@@ -98,6 +111,10 @@
     --color-accent-hover: var(--accent-hover);
     --color-accent-soft: var(--accent-soft);
     --color-accent-soft-ink: var(--accent-soft-ink);
+    /* Ember Amber — the warm brand SIGNATURE (logo region, the hero "home", sparing warm highlights). NOT
+       a status colour and NOT the primary action — Nova Blue (--accent) leads the UI. (bg/text/border-ember) */
+    --color-ember: var(--ember);
+    --color-ember-ink: var(--ember-ink);
     --color-success: var(--success);
     --color-success-soft: var(--success-soft);
     --color-success-ink: var(--success-ink);
@@ -116,30 +133,32 @@
  | the inline boot snippet for guests) which overrides the media query → no flash-of-wrong-theme.
  | Unlayered, so they win over Tailwind's @theme :root block; AA-contrast verified in both modes. */
 :root {
-    --surface: #f6f8fc;
-    --surface-raised: #ffffff;
-    --surface-sunken: #eef1f7;
-    --ink: #141a2b;
-    --ink-muted: #555d72;
-    --ink-subtle: #5d6577;
-    --line: #e3e7f0;
-    --line-strong: #cdd3e1;
-    --accent: #4f46e5;
+    --surface: #f4eee2;
+    --surface-raised: #fcfaf4;
+    --surface-sunken: #ebe3d3;
+    --ink: #221c13;
+    --ink-muted: #5c5346;
+    --ink-subtle: #6f6354;
+    --line: #e6dccb;
+    --line-strong: #d3c6af;
+    --accent: #245fbb;
     --accent-ink: #ffffff;
-    --accent-hover: #4338ca;
-    --accent-soft: #eef2ff;
-    --accent-soft-ink: #3730a3;
-    --success: #166534;
-    --success-soft: #dcfce7;
-    --success-ink: #166534;
-    --warn: #b45309;
-    --warn-soft: #fef3c7;
-    --warn-ink: #92400e;
-    --danger: #b91c1c;
-    --danger-soft: #fee2e2;
-    --danger-ink: #b91c1c;
-    --danger-strong: #dc2626;
-    --focus: #4f46e5;
+    --accent-hover: #1e4f9e;
+    --accent-soft: #e5edfb;
+    --accent-soft-ink: #1c4a95;
+    --ember: #b5731f; /* warm signature — deepened for AA on the cream surface */
+    --ember-ink: #ffffff;
+    --success: #2b774d;
+    --success-soft: #dcefe2;
+    --success-ink: #1f6b43;
+    --warn: #8f6207;
+    --warn-soft: #faefc9;
+    --warn-ink: #785205;
+    --danger: #be3a2b;
+    --danger-soft: #fae3de;
+    --danger-ink: #a12b1f;
+    --danger-strong: #d2402e;
+    --focus: #245fbb;
 
     /* ACP v2 — staff/group name colours. A group stores a palette KEY (App\Support\GroupColor); these
        per-mode tokens keep every choice AA on the surface. Keep in sync with GroupColor::PALETTE. */
@@ -147,10 +166,10 @@
     --group-red: #b91c1c;
     --group-amber: #92400e;
     --group-green: #166534;
-    --group-teal: #0f766e;
-    --group-blue: #2563eb;
+    --group-teal: #0e7069;
+    --group-blue: #245fbb;
     --group-indigo: #4f46e5;
-    --group-violet: #7c3aed;
+    --group-violet: #7a39e8;
     --group-pink: #be185d;
 
     /* Forum content width (ACP v1 appearance setting). Default = the "standard" lg width; the site-level
@@ -174,30 +193,32 @@
 /* Dark tokens, defined once and applied to BOTH the explicit choice and OS-dark-while-on-auto. */
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme='light']) {
-        --surface: #0d111a;
-        --surface-raised: #161c28;
-        --surface-sunken: #090c13;
-        --ink: #e8eaf2;
-        --ink-muted: #9aa3b8;
-        --ink-subtle: #8c95ab;
-        --line: #28303f;
-        --line-strong: #3a4456;
-        --accent: #818cf8;
-        --accent-ink: #131826;
-        --accent-hover: #a5b4fc;
-        --accent-soft: #20233f;
-        --accent-soft-ink: #c7d2fe;
-        --success: #4ade80;
-        --success-soft: #07301c;
-        --success-ink: #86efac;
-        --warn: #fbbf24;
-        --warn-soft: #2f2206;
-        --warn-ink: #fcd34d;
-        --danger: #f87171;
-        --danger-soft: #340f0f;
-        --danger-ink: #fca5a5;
-        --danger-strong: #dc2626;
-        --focus: #a5b4fc;
+        --surface: #0b0b10;
+        --surface-raised: #14151d;
+        --surface-sunken: #08080c;
+        --ink: #f3e8dd;
+        --ink-muted: #cfc9be;
+        --ink-subtle: #938c7e;
+        --line: #242230;
+        --line-strong: #36333f;
+        --accent: #4d93f2;
+        --accent-ink: #08121f;
+        --accent-hover: #6faaf7;
+        --accent-soft: #16223a;
+        --accent-soft-ink: #9fc2f6;
+        --ember: #eba94b; /* the constant brand amber on obsidian */
+        --ember-ink: #1a1206;
+        --success: #35b07a;
+        --success-soft: #11271c;
+        --success-ink: #7fd3a8;
+        --warn: #e0ae3f;
+        --warn-soft: #2a2206;
+        --warn-ink: #f0c766;
+        --danger: #e5705b;
+        --danger-soft: #2e1411;
+        --danger-ink: #f2a293;
+        --danger-strong: #cf3c28; /* darkened from the #e8573f brand value so white text on the danger button + count badges stays AA (4.85:1) */
+        --focus: #6faaf7;
         --group-slate: #94a3b8;
         --group-red: #f87171;
         --group-amber: #fbbf24;
@@ -212,30 +233,32 @@
 }
 
 :root[data-theme='dark'] {
-    --surface: #0d111a;
-    --surface-raised: #161c28;
-    --surface-sunken: #090c13;
-    --ink: #e8eaf2;
-    --ink-muted: #9aa3b8;
-    --ink-subtle: #8c95ab;
-    --line: #28303f;
-    --line-strong: #3a4456;
-    --accent: #818cf8;
-    --accent-ink: #131826;
-    --accent-hover: #a5b4fc;
-    --accent-soft: #20233f;
-    --accent-soft-ink: #c7d2fe;
-    --success: #4ade80;
-    --success-soft: #07301c;
-    --success-ink: #86efac;
-    --warn: #fbbf24;
-    --warn-soft: #2f2206;
-    --warn-ink: #fcd34d;
-    --danger: #f87171;
-    --danger-soft: #340f0f;
-    --danger-ink: #fca5a5;
-    --danger-strong: #dc2626;
-    --focus: #a5b4fc;
+    --surface: #0b0b10;
+    --surface-raised: #14151d;
+    --surface-sunken: #08080c;
+    --ink: #f3e8dd;
+    --ink-muted: #cfc9be;
+    --ink-subtle: #938c7e;
+    --line: #242230;
+    --line-strong: #36333f;
+    --accent: #4d93f2;
+    --accent-ink: #08121f;
+    --accent-hover: #6faaf7;
+    --accent-soft: #16223a;
+    --accent-soft-ink: #9fc2f6;
+    --ember: #eba94b; /* the constant brand amber on obsidian */
+    --ember-ink: #1a1206;
+    --success: #35b07a;
+    --success-soft: #11271c;
+    --success-ink: #7fd3a8;
+    --warn: #e0ae3f;
+    --warn-soft: #2a2206;
+    --warn-ink: #f0c766;
+    --danger: #e5705b;
+    --danger-soft: #2e1411;
+    --danger-ink: #f2a293;
+    --danger-strong: #cf3c28; /* darkened from the #e8573f brand value so white text on the danger button + count badges stays AA (4.85:1) */
+    --focus: #6faaf7;
     --group-slate: #94a3b8;
     --group-red: #f87171;
     --group-amber: #fbbf24;
@@ -251,13 +274,13 @@
 /* Dark elevation: lighter, with a hairline ring instead of a heavy drop shadow. */
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme='light']) {
-        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.35);
-        --shadow-md: 0 12px 32px -10px rgb(0 0 0 / 0.55), 0 2px 8px -3px rgb(0 0 0 / 0.4);
+        --shadow-sm: 0 1px 2px 0 rgb(10 6 2 / 0.35);
+        --shadow-md: 0 12px 32px -10px rgb(10 6 2 / 0.55), 0 2px 8px -3px rgb(10 6 2 / 0.4);
     }
 }
 :root[data-theme='dark'] {
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.35);
-    --shadow-md: 0 12px 32px -10px rgb(0 0 0 / 0.55), 0 2px 8px -3px rgb(0 0 0 / 0.4);
+    --shadow-sm: 0 1px 2px 0 rgb(10 6 2 / 0.35);
+    --shadow-md: 0 12px 32px -10px rgb(10 6 2 / 0.55), 0 2px 8px -3px rgb(10 6 2 / 0.4);
 }
 
 /* ── Density: a root modifier scaling the spacing UNIT (not parallel templates) ────────────────────────
@@ -282,6 +305,21 @@ body {
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+}
+
+/* Editorial serif (Newsreader) on headings + the wordmark/brand component (.font-display): the warm,
+   slightly nostalgic brand voice. Body copy stays Inter. Scoped to @layer base so a `font-sans` utility
+   can opt a heading OUT — used on the uppercase micro-label "eyebrows" (e.g. forum category headers)
+   where a letter-spaced serif reads poorly. Add `.font-display` for the serif on a non-heading. */
+@layer base {
+    h1,
+    h2,
+    h3,
+    .font-display {
+        font-family: var(--font-serif);
+        font-weight: 600;
+        letter-spacing: 0.2px;
+    }
 }
 
 /* Tabular numerals for counts/stats (forum rows, post/reply/view counts). */

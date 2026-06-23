@@ -34,8 +34,8 @@ class PwaController extends Controller
             'scope' => $root,
             'display' => 'standalone',
             'orientation' => 'portrait-primary',
-            'theme_color' => '#2563eb',
-            'background_color' => '#0f172a',
+            'theme_color' => '#245fbb',      // Nova Blue — the brand primary (installed-app chrome)
+            'background_color' => '#0b0b10',  // obsidian — the splash matches the dark app icon
             // Icon srcs go through asset() so they inherit ASSET_URL / the subdirectory prefix. The SVG is the
             // crisp any-size maskable icon; the rasters give Android/Chrome the 192 + 512 it wants for the
             // richest install prompt, plus a dedicated full-bleed maskable-512 (no transparent corners).

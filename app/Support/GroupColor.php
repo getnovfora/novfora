@@ -22,16 +22,18 @@ final class GroupColor
      * @var array<string, array{0:string,1:string,2:string}>
      */
     public const PALETTE = [
-        // Light hex is AA (≥4.5:1) on the WORST light surface a name lands on (--surface-sunken #eef1f7, used
-        // by row hover + the ACP panels); dark hex is AA on the dark surfaces. Verified by GroupColorTest.
+        // Light hex is AA (≥4.5:1) on the WORST light surface a name lands on (--surface-sunken #ebe3d3 in the
+        // NovFora brand, used by row hover + the ACP panels); dark hex is AA on the dark surfaces. teal/blue/
+        // violet were nudged darker when the brand surfaces warmed to cream (less headroom). Verified by
+        // GroupColorTest.
         'slate' => ['Slate', '#475569', '#94a3b8'],
         'red' => ['Red', '#b91c1c', '#f87171'],
         'amber' => ['Amber', '#92400e', '#fbbf24'],
         'green' => ['Green', '#166534', '#4ade80'],
-        'teal' => ['Teal', '#0f766e', '#2dd4bf'],
-        'blue' => ['Blue', '#2563eb', '#60a5fa'],
+        'teal' => ['Teal', '#0e7069', '#2dd4bf'],
+        'blue' => ['Blue', '#245fbb', '#60a5fa'],
         'indigo' => ['Indigo', '#4f46e5', '#818cf8'],
-        'violet' => ['Violet', '#7c3aed', '#a78bfa'],
+        'violet' => ['Violet', '#7a39e8', '#a78bfa'],
         'pink' => ['Pink', '#be185d', '#f472b6'],
     ];
 

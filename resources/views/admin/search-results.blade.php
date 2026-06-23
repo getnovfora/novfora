@@ -21,7 +21,7 @@
 
             @if (count($pages))
                 <section aria-labelledby="acp-search-pages" class="space-y-2">
-                    <h2 id="acp-search-pages" class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ __('admin.search.group_pages') }}</h2>
+                    <h2 id="acp-search-pages" class="text-xs font-semibold uppercase tracking-wide text-ink-subtle font-sans">{{ __('admin.search.group_pages') }}</h2>
                     <ul class="divide-y divide-line rounded-lg border border-line bg-surface-raised">
                         @foreach ($pages as $page)
                             <li>
@@ -37,7 +37,7 @@
 
             @if (count($settings))
                 <section aria-labelledby="acp-search-settings" class="space-y-2">
-                    <h2 id="acp-search-settings" class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ __('admin.search.group_settings') }}</h2>
+                    <h2 id="acp-search-settings" class="text-xs font-semibold uppercase tracking-wide text-ink-subtle font-sans">{{ __('admin.search.group_settings') }}</h2>
                     <ul class="divide-y divide-line rounded-lg border border-line bg-surface-raised">
                         @foreach ($settings as $setting)
                             <li>
@@ -53,7 +53,7 @@
 
             @if ($members->count())
                 <section aria-labelledby="acp-search-members" class="space-y-2">
-                    <h2 id="acp-search-members" class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ __('admin.search.group_members') }}</h2>
+                    <h2 id="acp-search-members" class="text-xs font-semibold uppercase tracking-wide text-ink-subtle font-sans">{{ __('admin.search.group_members') }}</h2>
                     <ul class="divide-y divide-line rounded-lg border border-line bg-surface-raised">
                         @foreach ($members as $member)
                             <li>

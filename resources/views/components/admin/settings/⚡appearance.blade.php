@@ -119,8 +119,8 @@ new class extends Component
                         hint="Header brand text. Blank = the site name." />
         </div>
         <div id="setting-appearance-accent-color">
-            <x-ui.input label="Accent colour" name="accentColor" wire:model="accentColor" placeholder="#4f46e5"
-                        hint="Hex, e.g. #4f46e5. Blank = the built-in indigo. Text colour stays AA-contrast in both modes." />
+            <x-ui.input label="Accent colour" name="accentColor" wire:model="accentColor" placeholder="#245fbb"
+                        hint="Hex, e.g. #245fbb. Blank = the built-in Nova Blue. Text colour stays AA-contrast in both modes." />
         </div>
     </div>
 
