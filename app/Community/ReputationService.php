@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Community;
 
 use App\Events\ReputationAwarded;
+use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -120,6 +121,36 @@ final class ReputationService
 
             return $deleted;
         });
+    }
+
+    /**
+     * v1.x F2 (ADR-0101): an ADMIN MANUAL reputation adjustment (signed delta + a required reason), gated by
+     * members.reputation.manage + the rank guard at the call site. It does NOT bypass the ledger — the
+     * AUDIT-LOG ROW for the change IS the ledger source, so the unique (AuditLog, id) slot routes the manual
+     * delta through {@see award()} exactly like a reaction award: idempotent insertOrIgnore + the atomic
+     * in-place denorm increment, no side write to users.reputation_points. A negative delta lands a negative
+     * ledger row and decrements the denorm; a zero delta is a no-op (award() returns false). The single audit
+     * row records actor + target + from→to + reason (auditable_type/id = the recipient).
+     */
+    public function adminAdjust(User $recipient, int $delta, User $actor, ?string $reason = null): void
+    {
+        if ($delta === 0 || ! $recipient->getKey()) {
+            return;
+        }
+
+        $before = (int) $recipient->reputation_points;
+
+        $source = AuditLog::create([
+            'actor_id' => $actor->getKey(),
+            'action' => 'user.reputation.admin_adjusted',
+            'auditable_type' => $recipient::class,
+            'auditable_id' => $recipient->getKey(),
+            'changes' => ['delta' => $delta, 'from' => $before, 'to' => $before + $delta, 'reason' => $reason],
+            'ip_address' => request()->ip(),
+            'created_at' => now(),
+        ]);
+
+        $this->award($recipient, $source, $delta);
     }
 
     /**

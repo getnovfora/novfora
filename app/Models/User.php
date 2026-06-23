@@ -83,6 +83,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'last_active_at' => 'datetime',
             'password' => 'hashed',
             'trust_level' => 'integer',
+            'trust_locked' => 'boolean',
             'reputation_points' => 'integer',
             'signature_doc' => 'array',
             'posts_per_page' => 'integer',

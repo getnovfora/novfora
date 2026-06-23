@@ -43,6 +43,51 @@ final class TrustLevelManager
         return $target;
     }
 
+    /**
+     * v1.x F2 (ADR-0101): an ADMIN MANUAL trust-level override. A deliberate staff action (gated by
+     * members.trust.manage + the rank guard at the call site), so — unlike the cron recompute — it is NOT
+     * anti-spam-gated and may move the level in EITHER direction. It reuses the SAME trust-group swap +
+     * MembershipCache seam as the auto path, then marks `trust_locked` so {@see evaluate()} treats the level
+     * as a sticky floor (the auto-engine may still promote above it, a hard-infraction total still hard-demotes
+     * to TL0, but structural auto-demotion can no longer silently undo the admin's choice). Audited with the
+     * actor + reason. Idempotent re-affirm when the level is unchanged (re-asserts the lock).
+     */
+    public function manualSet(User $user, int $level, User $actor, ?string $reason = null): void
+    {
+        $level = max(0, min(4, $level));
+        $group = Group::where('slug', 'tl'.$level)->first();
+        if (! $group instanceof Group) {
+            return; // a tenant install missing this level — leave membership untouched rather than break
+        }
+
+        $from = (int) $user->trust_level;
+
+        // A user is in exactly one trust group (kept secondary). Swapping it changes the group-set signature, so
+        // the resolved-permission cache re-keys; on an actual CHANGE we ALSO bump the version (a manual move can
+        // return the user to a previously-cached signature, e.g. a demotion) so the inspector verdict flips for
+        // this user immediately. Mirrors setLevel()'s seam exactly — the engine guards are reused, not forked.
+        $user->groups()->detach(Group::where('type', 'trust')->pluck('id')->all());
+        $user->groups()->attach($group->getKey(), ['is_primary' => false]);
+        MembershipCache::flushFor($user, bumpVersion: $from !== $level);
+
+        // Persist the level AND set the sticky-override flag (always written, so re-affirming an unchanged level
+        // still locks it). forceFill: both columns are guarded.
+        $user->forceFill(['trust_level' => $level, 'trust_locked' => true])->save();
+
+        Audit::log('user.trust.manual_set', $user, [
+            'from' => $from,
+            'to' => $level,
+            'by' => (int) $actor->getKey(),
+            'reason' => $reason,
+        ]);
+
+        // Re-render this user's posts so link/image suppression matches the NEW level (re-suppress on a manual
+        // demotion, reveal on a promotion). Queued; drained by the cron line on the baseline tier.
+        if ($from !== $level) {
+            RegenerateUserPostHtml::dispatch((int) $user->getKey());
+        }
+    }
+
     /** The trust level the user should be at right now (pure; no writes). */
     public function evaluate(User $user): int
     {
@@ -72,6 +117,14 @@ final class TrustLevelManager
         // TL1 (no climb to TL2+ while a warning is live) and never demotes — the target is max(current, min(earned, 1)).
         if ($points > 0) {
             return max($current, min($earned, 1)); // 1 = TL1
+        }
+
+        // v1.x F2 (ADR-0101): a MANUAL admin override (trust_locked) is a sticky FLOOR — structural
+        // auto-(de)motion never pulls the member below where an admin deliberately set them. The engine may
+        // still auto-PROMOTE above the floor when earned (max keeps the higher of the two), and the hard
+        // infraction demotion + status freeze above still apply (this branch is only reached past them).
+        if ($user->trust_locked ?? false) {
+            return max($current, $earned);
         }
 
         return $earned;

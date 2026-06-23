@@ -1,7 +1,9 @@
 <?php
 // SPDX-License-Identifier: Apache-2.0
 use App\Account\AccountDeletionService;
+use App\AntiSpam\TrustLevelManager;
 use App\AntiSpam\WarningService;
+use App\Community\ReputationService;
 use App\Models\User;
 use App\Models\Warning;
 use App\Models\WarningType;
@@ -39,6 +41,15 @@ new class extends Component
     public ?int $warningTypeId = null;
 
     public string $warnReason = '';
+
+    // F2: manual trust override + signed reputation adjustment (each gated by its own new capability key).
+    public ?int $trustLevel = null;
+
+    public string $trustReason = '';
+
+    public string $repDelta = '';
+
+    public string $repReason = '';
 
     public ?string $flash = null;
 
@@ -115,6 +126,50 @@ new class extends Component
         $this->flash = 'A password-reset email has been sent to the member.';
     }
 
+    /**
+     * F2 (ADR-0101): manually set the member's trust level (admin override). Gated by members.trust.manage +
+     * the rank guard; a staff action, so it is NOT anti-spam-gated. Reuses TrustLevelManager (the trust-group
+     * swap + MembershipCache flush + audit), which marks the level sticky so the auto-recompute won't demote it.
+     */
+    public function setTrustLevel(): void
+    {
+        $this->ensureCanManageTrust();
+        $target = $this->target();
+        abort_unless(ActorRank::canActOn($this->actor(), $target), 403);
+        $this->validate(['trustLevel' => ['required', 'integer', 'between:0,4']]);
+
+        app(TrustLevelManager::class)->manualSet(
+            $target,
+            (int) $this->trustLevel,
+            $this->actor(),
+            $this->trustReason !== '' ? $this->trustReason : null,
+        );
+        $this->reset('trustReason');
+        $this->targetCache = null; // re-read with the new trust group (and trust_locked)
+        $this->flash = 'Trust level set to TL'.(int) $this->trustLevel.'.';
+    }
+
+    /**
+     * F2 (ADR-0101): apply a signed reputation adjustment with a required reason. Gated by
+     * members.reputation.manage + the rank guard. Routes the delta through the existing reputation ledger
+     * (ReputationService::adminAdjust — the audit row is the ledger source), never a side write to the denorm.
+     */
+    public function adjustReputation(): void
+    {
+        $this->ensureCanManageReputation();
+        $target = $this->target();
+        abort_unless(ActorRank::canActOn($this->actor(), $target), 403);
+        $this->validate([
+            'repDelta' => ['required', 'integer', 'not_in:0', 'between:-100000,100000'],
+            'repReason' => ['required', 'string', 'max:500'],
+        ]);
+
+        app(ReputationService::class)->adminAdjust($target, (int) $this->repDelta, $this->actor(), $this->repReason);
+        $this->reset('repDelta', 'repReason');
+        $this->targetCache = null; // re-read the new reputation_points denorm
+        $this->flash = 'Reputation adjusted.';
+    }
+
     public function target(): User
     {
         return $this->targetCache ??= User::with('groups')->findOrFail($this->userId);
@@ -136,6 +191,16 @@ new class extends Component
     public function canBan(): bool
     {
         return $this->actor()->canDo('bans.manage', Scope::global());
+    }
+
+    public function canManageTrust(): bool
+    {
+        return $this->actor()->canDo('members.trust.manage', Scope::global());
+    }
+
+    public function canManageReputation(): bool
+    {
+        return $this->actor()->canDo('members.reputation.manage', Scope::global());
     }
 
     public function activeBan()
@@ -204,6 +269,18 @@ new class extends Component
         $this->ensureCanView();
         abort_unless($this->actor()->canDo('users.manage', Scope::global()), 403);
     }
+
+    private function ensureCanManageTrust(): void
+    {
+        $this->ensureCanView();
+        abort_unless($this->actor()->canDo('members.trust.manage', Scope::global()), 403);
+    }
+
+    private function ensureCanManageReputation(): void
+    {
+        $this->ensureCanView();
+        abort_unless($this->actor()->canDo('members.reputation.manage', Scope::global()), 403);
+    }
 };
 ?>
 
@@ -215,6 +292,8 @@ new class extends Component
     @php($isSelf = $member->getKey() === auth()->id())
     @php($soleOwnerSvc = app(\App\Account\AccountDeletionService::class))
     @php($isSoleOwner = $soleOwnerSvc->isSoleAdmin($member) || $soleOwnerSvc->isSoleCoOwner($member))
+    @php($actor = auth()->user())
+    @php($canActOnTarget = $actor instanceof \App\Models\User && \App\Support\ActorRank::canActOn($actor, $member))
 
     <a href="{{ route('admin.members.index') }}" class="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink" dusk="back-to-members">
         <x-ui.icon name="arrow-left" class="h-4 w-4" /> All members
@@ -253,6 +332,75 @@ new class extends Component
         <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle mb-3">Group membership</h3>
         <livewire:admin.members.edit-primary-group :user-id="$member->id" :key="'epg-'.$member->id" />
     </x-ui.card>
+
+    @if ($this->canManageTrust())
+        {{-- Trust level (manual admin override — F2) --}}
+        <x-ui.card>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle mb-3">Trust level</h3>
+            <p class="text-sm text-ink-muted mb-3">
+                Current: <strong class="text-ink">TL{{ $member->trustLevel() }}</strong>
+                @if ($member->trust_locked)<span class="text-ink-subtle"> · admin-locked (auto-recompute will not demote below this)</span>@endif
+            </p>
+            @if (! $canActOnTarget)
+                <p class="text-sm text-ink-subtle">This member outranks you — you cannot change their trust level.</p>
+            @else
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                        <label for="trust-level" class="block text-sm font-medium text-ink mb-1.5">Set trust level</label>
+                        <select id="trust-level" wire:model="trustLevel"
+                                class="w-full min-h-11 px-3 rounded-md bg-surface border border-line text-ink focus:border-accent">
+                            <option value="">Select a level…</option>
+                            @for ($i = 0; $i <= 4; $i++)
+                                <option value="{{ $i }}">TL{{ $i }}</option>
+                            @endfor
+                        </select>
+                        @error('trustLevel') <p class="mt-1 text-xs text-danger">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="trust-reason" class="block text-sm font-medium text-ink mb-1.5">Reason (optional)</label>
+                        <input id="trust-reason" wire:model="trustReason" maxlength="500"
+                               class="w-full min-h-11 px-3 rounded-md bg-surface border border-line text-ink focus:border-accent">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <x-ui.button variant="subtle" size="sm" wire:click="setTrustLevel" dusk="set-trust">Set trust level</x-ui.button>
+                    </div>
+                </div>
+                <p class="mt-2 text-xs text-ink-subtle">
+                    A manual set is a sticky override: the auto-recompute won’t demote below it (it may still promote above, and serious infractions still hard-demote to TL0).
+                </p>
+            @endif
+        </x-ui.card>
+    @endif
+
+    @if ($this->canManageReputation())
+        {{-- Reputation (signed manual adjustment — F2) --}}
+        <x-ui.card>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle mb-3">Reputation</h3>
+            <p class="text-sm text-ink-muted mb-3">Current: <strong class="text-ink nums">{{ (int) $member->reputation_points }}</strong></p>
+            @if (! $canActOnTarget)
+                <p class="text-sm text-ink-subtle">This member outranks you — you cannot adjust their reputation.</p>
+            @else
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                        <label for="rep-delta" class="block text-sm font-medium text-ink mb-1.5">Adjust by (signed, e.g. 5 or −3)</label>
+                        <input id="rep-delta" type="number" inputmode="numeric" wire:model="repDelta"
+                               class="w-full min-h-11 px-3 rounded-md bg-surface border border-line text-ink focus:border-accent">
+                        @error('repDelta') <p class="mt-1 text-xs text-danger">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="rep-reason" class="block text-sm font-medium text-ink mb-1.5">Reason (required)</label>
+                        <input id="rep-reason" wire:model="repReason" maxlength="500"
+                               class="w-full min-h-11 px-3 rounded-md bg-surface border border-line text-ink focus:border-accent">
+                        @error('repReason') <p class="mt-1 text-xs text-danger">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="sm:col-span-2">
+                        <x-ui.button variant="subtle" size="sm" wire:click="adjustReputation" dusk="adjust-rep">Apply adjustment</x-ui.button>
+                    </div>
+                </div>
+                <p class="mt-2 text-xs text-ink-subtle">Writes through the reputation ledger and is audited (actor, reason, old → new).</p>
+            @endif
+        </x-ui.card>
+    @endif
 
     @if ($canBan)
         {{-- Ban --}}

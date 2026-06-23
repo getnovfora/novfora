@@ -73,6 +73,11 @@ class RoleSeeder extends Seeder
             'prefix.manage' => $allow,
             'badge.manage' => $allow,
             'permissions.manage' => $allow,
+            // v1.x F2 (ADR-0101): manual trust + reputation editing on the per-member admin view. Granted to the
+            // administrator preset only (a delegated holder is then a full admin's deliberate, ceiling-bounded
+            // choice); PermissionSync propagates them additively onto the admins group on upgrade.
+            'members.trust.manage' => $allow,
+            'members.reputation.manage' => $allow,
             // Clubs (Phase 4 · M1.2): a global admin manages ANY club. Held at global scope so it inherits into
             // every club scope; club OWNERS get it per-club via ClubRoleProjector (scope_type='club').
             'club.manage' => $allow,
