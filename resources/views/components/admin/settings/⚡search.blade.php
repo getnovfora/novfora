@@ -161,10 +161,10 @@ new class extends Component
                 <h2 class="text-sm font-semibold text-ink">Engine status</h2>
                 <p class="mt-1 text-sm text-ink-muted">
                     @if ($status['enhanced'] && $status['reachable'])
-                        <span class="font-medium text-emerald-600">Enhanced — Meilisearch reachable</span>
+                        <span class="font-medium text-success">Enhanced — Meilisearch reachable</span>
                         @if ($status['latency'] !== null) <span class="text-ink-subtle">({{ $status['latency'] }} ms)</span> @endif
                     @elseif ($status['enhanced'])
-                        <span class="font-medium text-amber-600">Meilisearch configured but unreachable</span> — search is degrading to the database engine.
+                        <span class="font-medium text-warn">Meilisearch configured but unreachable</span> — search is degrading to the database engine.
                     @else
                         <span class="font-medium text-ink">Baseline — database engine.</span> Works everywhere; no external service required.
                     @endif

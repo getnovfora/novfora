@@ -279,7 +279,7 @@
         {{-- Discovery 3.3: related topics (share-a-tag, same-forum fallback; permission-safe). --}}
         @if (($related ?? collect())->isNotEmpty())
             <section class="mt-8 space-y-2" aria-label="{{ __('forum.related_topics') }}">
-                <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ __('forum.related_topics') }}</h2>
+                <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle font-sans">{{ __('forum.related_topics') }}</h2>
                 <x-ui.card flush>
                     <ul class="divide-y divide-line">
                         @foreach ($related as $rel)

@@ -13,8 +13,8 @@
     <meta name="robots" content="noindex">
     <title>Offline · {{ $name }}</title>
     <style>
-        :root { --bg:#f6f8fc; --raised:#fff; --ink:#141a2b; --muted:#555d72; --line:#e3e7f0; --accent:#4f46e5; }
-        @media (prefers-color-scheme: dark) { :root { --bg:#0d111a; --raised:#161c28; --ink:#e8eaf2; --muted:#9aa3b8; --line:#28303f; --accent:#818cf8; } }
+        :root { --bg:#f4eee2; --raised:#fcfaf4; --ink:#221c13; --muted:#5c5346; --line:#e6dccb; --accent:#245fbb; }
+        @media (prefers-color-scheme: dark) { :root { --bg:#0b0b10; --raised:#14151d; --ink:#f3e8dd; --muted:#cfc9be; --line:#242230; --accent:#4d93f2; } }
         * { box-sizing: border-box; }
         body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:1.5rem;
             background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;

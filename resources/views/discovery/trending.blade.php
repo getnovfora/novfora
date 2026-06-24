@@ -14,7 +14,7 @@
         <h1 class="text-2xl font-semibold tracking-tight text-ink">Trending</h1>
 
         <section class="space-y-2">
-            <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle">Trending this week</h2>
+            <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle font-sans">Trending this week</h2>
             <x-ui.card flush>
                 <ul class="divide-y divide-line">
                     @forelse ($trending as $topic)
@@ -27,7 +27,7 @@
         </section>
 
         <section class="space-y-2">
-            <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle">Best of all time</h2>
+            <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle font-sans">Best of all time</h2>
             <x-ui.card flush>
                 <ul class="divide-y divide-line">
                     @forelse ($bestOf as $topic)

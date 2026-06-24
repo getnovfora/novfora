@@ -115,8 +115,8 @@ it('registers the service worker with the subpath scope in the page head under a
     $html = (string) app(Kernel::class)->handle($request)->getContent();
     $clean = str_replace('\\/', '/', $html); // undo @js slash-escaping for assertion clarity
 
-    expect($clean)->toContain('/community/manifest.webmanifest'); // manifest link carries the prefix
-    expect($clean)->toContain('/community/icons/novfora.svg');    // apple-touch-icon via asset() carries it
+    expect($clean)->toContain('/community/manifest.webmanifest');  // manifest link carries the prefix
+    expect($clean)->toContain('/community/icons/icon-180.png');    // apple-touch-icon PNG via asset() carries it
     expect($clean)->toContain('/community/sw.js');                // SW registered at the subpath URL …
     expect($clean)->toContain("scope: '/community/'");            // … with an explicit subpath scope (@js → single-quoted)
 });

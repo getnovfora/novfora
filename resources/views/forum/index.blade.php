@@ -37,7 +37,7 @@
         @forelse ($tree as $node)
             @if ($node->isCategory())
                 <section class="space-y-2">
-                    <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ $node->title }}</h2>
+                    <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle font-sans">{{ $node->title }}</h2>
                     @php
                         $visibleForums = collect($node->children)
                             ->filter(fn ($forum) => $viewer->canDo('forum.view', $forum->permissionScope()));

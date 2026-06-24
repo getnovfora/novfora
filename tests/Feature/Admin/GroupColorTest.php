@@ -107,9 +107,9 @@ it('keeps every palette colour AA (>= 4.5:1) on every surface it can render on, 
         return $la > $lb ? ($la + 0.05) / ($lb + 0.05) : ($lb + 0.05) / ($la + 0.05);
     };
 
-    // The surfaces a coloured name can land on (body / raised / sunken), per mode (app.css).
-    $lightSurfaces = ['#f6f8fc', '#ffffff', '#eef1f7'];
-    $darkSurfaces = ['#0d111a', '#161c28', '#090c13'];
+    // The surfaces a coloured name can land on (body / raised / sunken), per mode (app.css — NovFora brand).
+    $lightSurfaces = ['#f4eee2', '#fcfaf4', '#ebe3d3'];
+    $darkSurfaces = ['#0b0b10', '#14151d', '#08080c'];
 
     foreach (GroupColor::PALETTE as $key => [$label, $light, $dark]) {
         foreach ($lightSurfaces as $surface) {

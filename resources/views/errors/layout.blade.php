@@ -9,14 +9,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('code') · {{ config('app.name', 'NovFora') }}</title>
     <style>
-        :root { --bg:#f6f8fc; --raised:#fff; --ink:#141a2b; --muted:#555d72; --line:#e3e7f0; --accent:#4f46e5; --accent-ink:#fff; }
-        @media (prefers-color-scheme: dark) { :root { --bg:#0d111a; --raised:#161c28; --ink:#e8eaf2; --muted:#9aa3b8; --line:#28303f; --accent:#818cf8; --accent-ink:#131826; } }
+        :root { --bg:#f4eee2; --raised:#fcfaf4; --ink:#221c13; --muted:#5c5346; --line:#e6dccb; --accent:#245fbb; --accent-ink:#fff; }
+        @media (prefers-color-scheme: dark) { :root { --bg:#0b0b10; --raised:#14151d; --ink:#f3e8dd; --muted:#cfc9be; --line:#242230; --accent:#4d93f2; --accent-ink:#08121f; } }
         * { box-sizing: border-box; }
         body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:1.5rem;
             background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
             -webkit-font-smoothing:antialiased; }
         .card { width:100%; max-width:28rem; background:var(--raised); border:1px solid var(--line); border-radius:16px;
-            padding:2rem; text-align:center; box-shadow:0 10px 28px -8px rgba(15,23,42,.14); }
+            padding:2rem; text-align:center; box-shadow:0 10px 28px -8px rgba(10,6,2,.18); }
         .code { font-size:3rem; font-weight:800; letter-spacing:-.02em; color:var(--accent); margin:0; font-variant-numeric:tabular-nums; }
         h1 { font-size:1.25rem; margin:.5rem 0 .35rem; }
         p.msg { color:var(--muted); margin:0 0 1.25rem; line-height:1.6; }

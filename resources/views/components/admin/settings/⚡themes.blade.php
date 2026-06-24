@@ -266,8 +266,8 @@ new class extends Component
 
                 <div class="grid gap-4 sm:grid-cols-2">
                     <x-ui.input label="Name" name="name" wire:model="name" required maxlength="60" dusk="acp-theme-name" />
-                    <x-ui.input label="Accent colour" name="accentColor" wire:model.live="accentColor" placeholder="#4f46e5"
-                                hint="Hex, e.g. #4f46e5. Blank = inherit the built-in indigo." />
+                    <x-ui.input label="Accent colour" name="accentColor" wire:model.live="accentColor" placeholder="#245fbb"
+                                hint="Hex, e.g. #245fbb. Blank = inherit the built-in Nova Blue." />
                 </div>
 
                 @php($previewAccent = \App\Support\AccentPalette::for($accentColor))

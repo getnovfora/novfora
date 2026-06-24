@@ -332,14 +332,14 @@ new class extends Component
 
     {{-- Group membership (reuses the v3-e primary-group editor) --}}
     <x-ui.card>
-        <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle mb-3">Group membership</h3>
+        <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle font-sans mb-3">Group membership</h3>
         <livewire:admin.members.edit-primary-group :user-id="$member->id" :key="'epg-'.$member->id" />
     </x-ui.card>
 
     @if ($this->canManageTrust())
         {{-- Trust level (manual admin override — F2) --}}
         <x-ui.card>
-            <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle mb-3">Trust level</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle font-sans mb-3">Trust level</h3>
             <p class="text-sm text-ink-muted mb-3">
                 Current: <strong class="text-ink">TL{{ $member->trustLevel() }}</strong>
                 @if ($member->trust_locked)<span class="text-ink-subtle"> · admin-locked (auto-recompute will not demote below this)</span>@endif
@@ -378,7 +378,7 @@ new class extends Component
     @if ($this->canManageReputation())
         {{-- Reputation (signed manual adjustment — F2) --}}
         <x-ui.card>
-            <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle mb-3">Reputation</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle font-sans mb-3">Reputation</h3>
             <p class="text-sm text-ink-muted mb-3">Current: <strong class="text-ink nums">{{ (int) $member->reputation_points }}</strong></p>
             @if (! $canActOnTarget)
                 <p class="text-sm text-ink-subtle">This member outranks you — you cannot adjust their reputation.</p>
@@ -408,7 +408,7 @@ new class extends Component
     @if ($canBan)
         {{-- Ban --}}
         <x-ui.card>
-            <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle mb-3">Ban</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle font-sans mb-3">Ban</h3>
             @if ($activeBan)
                 <p class="text-sm text-ink-muted mb-3">
                     This member is <strong class="text-danger">banned</strong>@if ($activeBan->reason) — “{{ $activeBan->reason }}”@endif.
@@ -441,7 +441,7 @@ new class extends Component
 
         {{-- Warnings --}}
         <x-ui.card>
-            <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle mb-3">Warnings</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle font-sans mb-3">Warnings</h3>
             @if ($isSelf || $isSoleOwner)
                 <p class="text-sm text-ink-subtle mb-3">{{ $isSelf ? 'You cannot warn your own account.' : 'The last administrator / co-owner cannot be warned.' }}</p>
             @else
@@ -492,12 +492,12 @@ new class extends Component
     @if ($canSeeEmail)
         {{-- Account security: force a password reset + read-only session/IP list (PII → users.manage only) --}}
         <x-ui.card>
-            <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle mb-3">Account security</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle font-sans mb-3">Account security</h3>
             <x-ui.button variant="ghost" size="sm" wire:click="forcePasswordReset" dusk="force-reset">Send password-reset email</x-ui.button>
 
             @php($sessions = $this->sessions())
             <div class="mt-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle mb-2">Recent sessions (IP / device)</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle font-sans mb-2">Recent sessions (IP / device)</p>
                 @if ($sessions->isEmpty())
                     <p class="text-sm text-ink-subtle">No active sessions.</p>
                 @else

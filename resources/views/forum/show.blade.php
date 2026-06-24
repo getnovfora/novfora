@@ -63,7 +63,7 @@
         {{-- Sub-boards (ProBoards-style) — child forums above the topic table, reusing the shared forum row. --}}
         @if ($children->isNotEmpty())
             <section class="space-y-2">
-                <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ __('forum.sub_boards') }}</h2>
+                <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle font-sans">{{ __('forum.sub_boards') }}</h2>
                 <x-ui.card flush>
                     <div class="divide-y divide-line">
                         @foreach ($children as $child)
@@ -102,7 +102,7 @@
             <x-ui.card flush class="hidden overflow-hidden md:block">
                 <table class="w-full border-collapse text-sm">
                     <thead>
-                        <tr class="border-b border-line text-left text-xs font-semibold uppercase tracking-wide text-ink-subtle">
+                        <tr class="border-b border-line text-left text-xs font-semibold uppercase tracking-wide text-ink-subtle font-sans">
                             <th scope="col" class="px-4 py-2.5">{{ __('forum.col_subject') }}</th>
                             <th scope="col" class="w-24 px-4 py-2.5 text-right">{{ __('forum.col_replies') }}</th>
                             <th scope="col" class="w-24 px-4 py-2.5 text-right">{{ __('forum.col_views') }}</th>

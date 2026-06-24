@@ -162,7 +162,7 @@ new class extends Component
 
     {{-- Consequence thresholds (read-only — these live in config/env, consumed by WarningService) --}}
     <x-ui.card>
-        <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle mb-2">Consequence thresholds</h3>
+        <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle font-sans mb-2">Consequence thresholds</h3>
         <p class="text-sm text-ink-muted mb-3">When a member’s cumulative <em>live</em> warning points cross these totals, the consequence applies automatically. (Set via config / environment.)</p>
         <div class="grid gap-3 sm:grid-cols-3 text-sm">
             <div class="rounded-md border border-line p-3"><dt class="text-ink-subtle">Moderate (posts held)</dt><dd class="text-ink text-lg font-semibold">≥ {{ (int) ($this->thresholds()['moderate'] ?? 0) }} pts</dd></div>

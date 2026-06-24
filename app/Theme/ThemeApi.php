@@ -54,12 +54,12 @@ final class ThemeApi
     public static function editableTokens(): array
     {
         return [
-            'surface' => ['var' => '--surface', 'label' => 'Page background', 'group' => 'Surfaces', 'type' => 'color', 'default' => '#f6f8fc'],
-            'surface_raised' => ['var' => '--surface-raised', 'label' => 'Raised / cards', 'group' => 'Surfaces', 'type' => 'color', 'default' => '#ffffff'],
-            'surface_sunken' => ['var' => '--surface-sunken', 'label' => 'Sunken / insets', 'group' => 'Surfaces', 'type' => 'color', 'default' => '#eef1f7'],
-            'ink' => ['var' => '--ink', 'label' => 'Text', 'group' => 'Ink', 'type' => 'color', 'default' => '#141a2b'],
-            'ink_muted' => ['var' => '--ink-muted', 'label' => 'Muted text', 'group' => 'Ink', 'type' => 'color', 'default' => '#555d72'],
-            'line' => ['var' => '--line', 'label' => 'Borders', 'group' => 'Lines', 'type' => 'color', 'default' => '#e3e7f0'],
+            'surface' => ['var' => '--surface', 'label' => 'Page background', 'group' => 'Surfaces', 'type' => 'color', 'default' => '#f4eee2'],
+            'surface_raised' => ['var' => '--surface-raised', 'label' => 'Raised / cards', 'group' => 'Surfaces', 'type' => 'color', 'default' => '#fcfaf4'],
+            'surface_sunken' => ['var' => '--surface-sunken', 'label' => 'Sunken / insets', 'group' => 'Surfaces', 'type' => 'color', 'default' => '#ebe3d3'],
+            'ink' => ['var' => '--ink', 'label' => 'Text', 'group' => 'Ink', 'type' => 'color', 'default' => '#221c13'],
+            'ink_muted' => ['var' => '--ink-muted', 'label' => 'Muted text', 'group' => 'Ink', 'type' => 'color', 'default' => '#5c5346'],
+            'line' => ['var' => '--line', 'label' => 'Borders', 'group' => 'Lines', 'type' => 'color', 'default' => '#e6dccb'],
             'radius' => ['var' => '--radius-md', 'label' => 'Corner radius', 'group' => 'Shape', 'type' => 'length', 'default' => '10px'],
         ];
     }
