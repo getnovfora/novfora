@@ -11,6 +11,15 @@ contracts** — a breaking change to either is a major-version event.
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-06
+
+### Added
+
+- **Admin members directory: gated row actions + PII tightening.** Bulk/row actions in the ACP
+  members tab are now gated by the operator's actual permissions (ban, warn, delete — only shown when
+  the acting admin holds the corresponding grant). PII columns (email, IP) are hidden from
+  sub-admins who lack the `view_pii` grant.
+
 ### Fixed
 
 - **Editor scroll-trap on rendered posts (M0).** The `.novfora-prose` box constraints
@@ -20,6 +29,12 @@ contracts** — a breaking change to either is a major-version event.
   `.novfora-editor .novfora-prose`, so rendered posts grow with their content and the *page* scrolls;
   the composer's editing box still caps at 28rem. CSS-only; the `.novfora-prose` Dusk contract is
   preserved.
+
+- **v1.x Polish-2 + a11y batch (F1–F6, P1–P2).** ACP recents removed; mod-CP widened to `lg`;
+  Info Center collapsible + coloured who's-online; latest-activity bounded (+3 const queries, holds
+  HotPath <25 gate); report-review post excerpts + gated mod actions (no private-club leak); manual
+  trust/rep editing with transactional group-swap + audit log; email-editor dark-mode tokens;
+  a11y gate grown 27→30 surfaces (WCAG 2.1 AA).
 
 ## [1.0.0] — 2026-06 (Public 1.0)
 
@@ -72,4 +87,5 @@ StopForumSpam submission API are **scaffolded and unit-tested but NOT validated 
 `PROJECT-STATE.md → VALIDATE-BEFORE-GO-LIVE` and each ADR's enable steps. Enhanced-tier load numbers were not
 captured against a real host.
 
+[1.1.0]: https://github.com/getnovfora/novfora/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/getnovfora/novfora/releases/tag/v1.0.0
