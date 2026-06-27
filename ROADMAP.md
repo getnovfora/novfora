@@ -10,6 +10,14 @@ are in [docs/product/roadmap.md](docs/product/roadmap.md); the MoSCoW feature sp
 tested on the baseline tier** (PHP 8.3 + MySQL + cron). **Plan-before-code, with approval at each phase gate.**
 Phases are scoped by deliverable and dependency, not calendar.
 
+> **▶ Post-1.0 status (2026-06-27).** Phases 0–5 + the ACP v3 program + the **v1.x Feature Program** and **v1.x
+> Polish-2 + a11y** are **merged & pushed** (`main` `9c5586d` ≡ `origin/main`); the **"Indie Web Hearth + Nova"
+> brand is applied** (PR #48). The **active program** is **UI/UX Audit + Beta Fixes + Polish** (`UI-AUDIT-FIX-SPEC.md`
+> — 21 diagnosed bugs; **BUG-001 is a P0** that blocks admin nav) run on the multi-agent model (Claude Code · Cursor ·
+> Codex · Antigravity · Manus). The **strategic backlog** is **Phase 6 / the "U-series"** (21 features in 4 tiers).
+> Single aggregated plan: [`docs/product/DEFINITIVE-ROADMAP-2026-06-27.md`](docs/product/DEFINITIVE-ROADMAP-2026-06-27.md).
+> Mirrored to Linear (team **NovFora**). Open PR: **#49** (Codex — member-directory gated actions + PII).
+
 | Phase | Theme | Headline deliverables |
 |---|---|---|
 | **0** | **Discovery** *(this Stage A)* | Research + architecture + product docs; ADR log; governance/living files; MVP definition. **→ Phase 0 gate.** |
