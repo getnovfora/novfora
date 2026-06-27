@@ -3,6 +3,7 @@
 use App\Models\Group;
 use App\Models\User;
 use App\Permissions\Scope;
+use App\Support\ActorRank;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -17,11 +18,11 @@ use Livewire\WithPagination;
  *  - Every entry point — mount(), each action, and the row query (called every render) — re-asserts
  *    admin.access + admin.members.access + staff-2FA. Livewire actions bypass route middleware, so the
  *    component is the authoritative gate, not the route.
- *  - The email column is PII: it is queried + rendered ONLY when the actor holds users.manage, so a restricted
- *    admin never sees an address beyond their ceiling (and search never probes email they can't see).
+ *  - Email and hidden group names are PII/permission-bound: they are queried + rendered ONLY when the actor
+ *    holds users.manage, so a restricted admin never sees fields beyond their ceiling (and search never probes email they can't see).
  *  - The sort column is allow-listed: a forged sort key is ignored, never concatenated into orderBy().
- *  - READ-ONLY by design. All mutations (ban / warn / groups / reset) live in the per-member view (A2); keeping
- *    the listing read-only minimises the mutation surface on the PII boundary.
+ *  - Row actions are links into the per-member view only; mutation buttons remain in A2, while this table still
+ *    applies the same capability + rank guard before advertising edit / ban / warn affordances.
  */
 new class extends Component
 {
@@ -89,7 +90,11 @@ new class extends Component
         $canSeeEmail = $this->canSeeEmail();
 
         return User::query()
-            ->with('groups') // primary-group + display + trust read from the loaded collection (no N+1)
+            ->with(['groups' => function (Builder $g) use ($canSeeEmail) {
+                if (! $canSeeEmail) {
+                    $g->where('is_public', true); // do not leak hidden group names through the primary-group cell
+                }
+            }]) // primary-group + display + trust read from the loaded collection (no N+1)
             ->when($this->search !== '', function (Builder $q) use ($canSeeEmail) {
                 $term = '%'.trim($this->search).'%';
                 $q->where(function (Builder $w) use ($term, $canSeeEmail) {
@@ -132,6 +137,26 @@ new class extends Component
         $u = auth()->user();
 
         return $u instanceof User && $u->canDo('users.manage', Scope::global());
+    }
+
+    public function canEdit(User $target): bool
+    {
+        $u = auth()->user();
+
+        return $u instanceof User
+            && $u->canDo('users.manage', Scope::global())
+            && $u->id !== $target->id
+            && ActorRank::canActOn($u, $target);
+    }
+
+    public function canModerate(User $target): bool
+    {
+        $u = auth()->user();
+
+        return $u instanceof User
+            && $u->canDo('bans.manage', Scope::global())
+            && $u->id !== $target->id
+            && ActorRank::canActOn($u, $target);
     }
 
     private function ensureCanView(): void
@@ -263,8 +288,16 @@ new class extends Component
                 </td>
                 <td class="text-right">
                     @if ($canManage)
-                        <x-ui.button :href="route('admin.members.show', $member)" variant="ghost" size="sm"
-                                     dusk="member-manage-{{ $member->id }}">Manage</x-ui.button>
+                        <div class="inline-flex flex-wrap justify-end gap-1" aria-label="Member actions for {{ $member->username ?? $member->id }}">
+                            <x-ui.button :href="route('admin.members.show', $member)" variant="ghost" size="sm" dusk="member-view-{{ $member->id }}">View</x-ui.button>
+                            @if ($this->canEdit($member))
+                                <x-ui.button :href="route('admin.members.show', $member).'#group-membership'" variant="ghost" size="sm" dusk="member-edit-{{ $member->id }}">Edit</x-ui.button>
+                            @endif
+                            @if ($this->canModerate($member))
+                                <x-ui.button :href="route('admin.members.show', $member).'#ban-member'" variant="ghost" size="sm" dusk="member-ban-{{ $member->id }}">Ban</x-ui.button>
+                                <x-ui.button :href="route('admin.members.show', $member).'#warn-member'" variant="ghost" size="sm" dusk="member-warn-{{ $member->id }}">Warn</x-ui.button>
+                            @endif
+                        </div>
                     @endif
                 </td>
             </tr>

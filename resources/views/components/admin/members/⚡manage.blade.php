@@ -331,7 +331,7 @@ new class extends Component
     </x-ui.card>
 
     {{-- Group membership (reuses the v3-e primary-group editor) --}}
-    <x-ui.card>
+    <x-ui.card id="group-membership">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle font-sans mb-3">Group membership</h3>
         <livewire:admin.members.edit-primary-group :user-id="$member->id" :key="'epg-'.$member->id" />
     </x-ui.card>
@@ -407,7 +407,7 @@ new class extends Component
 
     @if ($canBan)
         {{-- Ban --}}
-        <x-ui.card>
+        <x-ui.card id="ban-member">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle font-sans mb-3">Ban</h3>
             @if ($activeBan)
                 <p class="text-sm text-ink-muted mb-3">
@@ -440,7 +440,7 @@ new class extends Component
         </x-ui.card>
 
         {{-- Warnings --}}
-        <x-ui.card>
+        <x-ui.card id="warn-member">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle font-sans mb-3">Warnings</h3>
             @if ($isSelf || $isSoleOwner)
                 <p class="text-sm text-ink-subtle mb-3">{{ $isSelf ? 'You cannot warn your own account.' : 'The last administrator / co-owner cannot be warned.' }}</p>
