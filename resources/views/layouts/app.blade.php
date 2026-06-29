@@ -153,17 +153,35 @@
                         <input id="m-q" type="search" name="q" placeholder="Search…"
                                class="w-full min-h-11 px-3 rounded-md bg-surface border border-line text-ink placeholder:text-ink-subtle">
                     </form>
+                    @php($mobileNavItems = app(\App\Navigation\NavigationManager::class)->tree(auth()->user(), \App\Navigation\NavigationManager::SURFACE_MOBILE))
                     <nav class="flex flex-col" aria-label="Mobile">
-                        <a href="{{ route('forums.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Forums</a>
-                        <a href="{{ route('clubs.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Clubs</a>
-                        @if (\App\Groups\GroupDirectory::isEnabled())
-                            <a href="{{ route('groups.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Groups</a>
-                        @endif
-                        @if (\App\Community\MembersDirectory::visibleTo(auth()->user()))
-                            <a href="{{ route('members.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Members</a>
-                        @endif
+                        @foreach ($mobileNavItems as $item)
+                            @if ($item['url'])
+                                <a href="{{ $item['url'] }}" @if ($item['opens_new_tab']) target="_blank" rel="noopener noreferrer" @endif
+                                   class="flex items-center gap-2 min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">
+                                    @if ($item['icon'])
+                                        <x-ui.icon :name="$item['icon']" class="h-4 w-4 text-ink-subtle" />
+                                    @endif
+                                    <span>{{ $item['title'] }}</span>
+                                </a>
+                            @else
+                                <span class="flex items-center gap-2 min-h-11 px-3 text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ $item['title'] }}</span>
+                            @endif
+                            @if ($item['children'] !== [])
+                                <div class="ml-3 border-l border-line pl-2">
+                                    @foreach ($item['children'] as $child)
+                                        <a href="{{ $child['url'] }}" @if ($child['opens_new_tab']) target="_blank" rel="noopener noreferrer" @endif
+                                           class="flex items-center gap-2 min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">
+                                            @if ($child['icon'])
+                                                <x-ui.icon :name="$child['icon']" class="h-4 w-4 text-ink-subtle" />
+                                            @endif
+                                            <span>{{ $child['title'] }}</span>
+                                        </a>
+                                    @endforeach
+                                </div>
+                            @endif
+                        @endforeach
                         @auth
-                            <a href="{{ route('whats-new') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">What's new</a>
                             <a href="{{ route('notifications.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Notifications</a>
                             <a href="{{ route('pm.inbox') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Messages</a>
                             <a href="{{ route('saved.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Saved</a>
@@ -187,19 +205,48 @@
             </a>
 
             {{-- Desktop primary nav --}}
+            @php($desktopNavItems = app(\App\Navigation\NavigationManager::class)->tree(auth()->user(), \App\Navigation\NavigationManager::SURFACE_DESKTOP))
             <nav class="hidden sm:flex items-center gap-0.5 md:gap-1" aria-label="Primary">
-                <a href="{{ route('forums.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Forums</a>
-                <a href="{{ route('clubs.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Clubs</a>
-                <a href="{{ route('trending.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Trending</a>
-                @if (\App\Groups\GroupDirectory::isEnabled())
-                    <a href="{{ route('groups.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Groups</a>
-                @endif
-                @if (\App\Community\MembersDirectory::visibleTo(auth()->user()))
-                    <a href="{{ route('members.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">Members</a>
-                @endif
-                @auth
-                    <a href="{{ route('whats-new') }}" class="flex items-center min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">What's new</a>
-                @endauth
+                @foreach ($desktopNavItems as $item)
+                    @if ($item['children'] !== [])
+                        <x-ui.dropdown align="left" width="w-56">
+                            <x-slot:trigger>
+                                <button type="button" class="flex items-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">
+                                    @if ($item['icon'])
+                                        <x-ui.icon :name="$item['icon']" class="h-4 w-4" />
+                                    @endif
+                                    <span>{{ $item['title'] }}</span>
+                                    <x-ui.icon name="chevron-down" class="h-4 w-4 text-ink-subtle" />
+                                </button>
+                            </x-slot:trigger>
+                            @if ($item['url'])
+                                <x-ui.dropdown-item :href="$item['url']" @if ($item['opens_new_tab']) target="_blank" rel="noopener noreferrer" @endif>
+                                    @if ($item['icon'])
+                                        <x-ui.icon :name="$item['icon']" class="h-4 w-4 text-ink-subtle" />
+                                    @endif
+                                    {{ $item['title'] }}
+                                </x-ui.dropdown-item>
+                                <div class="my-1 border-t border-line"></div>
+                            @endif
+                            @foreach ($item['children'] as $child)
+                                <x-ui.dropdown-item :href="$child['url']" @if ($child['opens_new_tab']) target="_blank" rel="noopener noreferrer" @endif>
+                                    @if ($child['icon'])
+                                        <x-ui.icon :name="$child['icon']" class="h-4 w-4 text-ink-subtle" />
+                                    @endif
+                                    {{ $child['title'] }}
+                                </x-ui.dropdown-item>
+                            @endforeach
+                        </x-ui.dropdown>
+                    @elseif ($item['url'])
+                        <a href="{{ $item['url'] }}" @if ($item['opens_new_tab']) target="_blank" rel="noopener noreferrer" @endif
+                           class="flex items-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">
+                            @if ($item['icon'])
+                                <x-ui.icon :name="$item['icon']" class="h-4 w-4" />
+                            @endif
+                            <span>{{ $item['title'] }}</span>
+                        </a>
+                    @endif
+                @endforeach
             </nav>
 
             {{-- Desktop search --}}

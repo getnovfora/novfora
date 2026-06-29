@@ -45,7 +45,7 @@ class PermissionCatalogSeeder extends Seeder
             'admin.members.access' => ['Access the Members admin section', 'global', 'Administration', 'Open the Members section of the ACP (directory, profile fields, badges, tiers, memberships).'],
             'admin.groups.access' => ['Access the Groups admin section', 'global', 'Administration', 'Open the Groups section of the ACP (groups, group permissions, roles, join requests).'],
             'admin.moderation.access' => ['Access the Moderation admin section', 'global', 'Administration', 'Open the Moderation section of the ACP (spam intelligence, moderators, moderation settings).'],
-            'admin.appearance.access' => ['Access the Appearance admin section', 'global', 'Administration', 'Open the Appearance section of the ACP (appearance, themes, templates, layout).'],
+            'admin.appearance.access' => ['Access the Appearance admin section', 'global', 'Administration', 'Open the Appearance section of the ACP (appearance, themes, templates, layout, navigation).'],
             'admin.plugins.access' => ['Access the Plugins admin section', 'global', 'Administration', 'Open the Plugins section of the ACP (modules, webhooks).'],
             'admin.analytics.access' => ['Access the Analytics admin section', 'global', 'Administration', 'Open the Analytics section of the ACP.'],
             'admin.settings.access' => ['Access the Settings admin section', 'global', 'Administration', 'Open the Settings section of the ACP (general, registration, email, anti-spam, SSO, search, payments).'],
