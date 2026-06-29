@@ -4,10 +4,12 @@
 
 declare(strict_types=1);
 
+use App\Forum\PostService;
 use App\Models\Forum;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Laravel\Dusk\Browser;
+use Tests\Support\Content;
 use Tests\Support\Users;
 
 /*
@@ -92,5 +94,37 @@ it('survives a Livewire validation morph with zero content loss (criterion #1a, 
 
             // The wire:ignore'd editor island + its synced canonical content survive the morph untouched.
             ->assertSeeIn('.novfora-prose', 'Editor content that must survive the morph');
+    });
+});
+
+it('schedules a reply from the real editor flow without creating it immediately', function () {
+    $topic = app(PostService::class)->createTopic(
+        $this->member,
+        $this->forum,
+        'Scheduled reply host',
+        'tiptap_json',
+        Content::doc('Opening post for the scheduled reply browser path.'),
+    );
+    $publishAt = now()->addHour()->format('Y-m-d\TH:i');
+
+    $this->browse(function (Browser $browser) use ($topic, $publishAt) {
+        $browser->loginAs($this->member)
+            ->visit(route('topics.show', $topic))
+            ->waitFor('#reply-composer .novfora-prose', 15)
+            ->click('#reply-composer .novfora-prose')
+            ->keys('#reply-composer .novfora-prose', 'This reply should be scheduled from Dusk.')
+            ->pause(400)
+            ->script(<<<JS
+                const input = document.querySelector('[dusk="reply-schedule-at"]');
+                input.value = '{$publishAt}';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            JS);
+
+        $browser->waitForText('Schedule reply', 15)
+            ->press('Schedule reply')
+            ->waitForText('Your reply is scheduled.', 20)
+            ->assertPathIs('/scheduled')
+            ->assertSee('Scheduled reply host')
+            ->assertDontSee('This reply should be scheduled from Dusk.');
     });
 });
