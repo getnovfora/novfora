@@ -220,7 +220,7 @@
                                 </button>
                             </x-slot:trigger>
                             @if ($item['url'])
-                                <x-ui.dropdown-item :href="$item['url']" @if ($item['opens_new_tab']) target="_blank" rel="noopener noreferrer" @endif>
+                                <x-ui.dropdown-item :href="$item['url']" :target="$item['opens_new_tab'] ? '_blank' : null" :rel="$item['opens_new_tab'] ? 'noopener noreferrer' : null">
                                     @if ($item['icon'])
                                         <x-ui.icon :name="$item['icon']" class="h-4 w-4 text-ink-subtle" />
                                     @endif
@@ -229,7 +229,7 @@
                                 <div class="my-1 border-t border-line"></div>
                             @endif
                             @foreach ($item['children'] as $child)
-                                <x-ui.dropdown-item :href="$child['url']" @if ($child['opens_new_tab']) target="_blank" rel="noopener noreferrer" @endif>
+                                <x-ui.dropdown-item :href="$child['url']" :target="$child['opens_new_tab'] ? '_blank' : null" :rel="$child['opens_new_tab'] ? 'noopener noreferrer' : null">
                                     @if ($child['icon'])
                                         <x-ui.icon :name="$child['icon']" class="h-4 w-4 text-ink-subtle" />
                                     @endif

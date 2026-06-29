@@ -5,6 +5,7 @@
 declare(strict_types=1);
 
 use App\Admin\AdminBundleService;
+use App\Models\Group;
 use App\Models\NavigationItem;
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,11 +25,11 @@ it('seeds and renders the shipped public navigation defaults by audience', funct
         ->toContain('Clubs')
         ->toContain('Trending')
         ->toContain('Members')
-        ->not->toContain("What's new");
+        ->not->toContain('href="'.route('whats-new').'"');
 
     $member = Users::inGroups(['members']);
     $memberHtml = $this->actingAs($member)->get(route('forums.index'))->assertOk()->getContent();
-    expect($memberHtml)->toContain("What's new");
+    expect($memberHtml)->toContain('href="'.route('whats-new').'"');
 });
 
 it('honors selected-group visibility for custom navigation items', function () {
@@ -38,7 +39,7 @@ it('honors selected-group visibility for custom navigation items', function () {
         'url' => '/staff-docs',
         'position' => 99,
         'visibility' => 'groups',
-        'group_ids' => [(int) \App\Models\Group::query()->where('slug', 'admins')->value('id')],
+        'group_ids' => [(int) Group::query()->where('slug', 'admins')->value('id')],
         'is_enabled' => true,
         'show_on_desktop' => true,
         'show_on_mobile' => true,
@@ -53,6 +54,8 @@ it('honors selected-group visibility for custom navigation items', function () {
 it('lets an appearance admin add, edit, reorder, and disable navigation items', function () {
     $admin = Users::withTwoFactor(Users::inGroups(['admins']));
     $this->actingAs($admin);
+
+    $this->get(route('admin.navigation'))->assertOk()->assertSee('Navigation');
 
     Livewire::test('admin.navigation')
         ->set('form.title', 'Docs')
