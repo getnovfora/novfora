@@ -435,9 +435,10 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/appearance/layout', 'admin.layout')->name('layout');           // <livewire:admin.layout />
         Route::view('/appearance/navigation', 'admin.navigation')->name('navigation'); // <livewire:admin.navigation />
 
-        // Plugins section — the module/plugin lifecycle + outbound webhooks.
+        // Plugins section — the module/plugin lifecycle + outbound webhooks + embed sites.
         Route::view('/plugins/modules', 'admin.modules')->name('modules');           // ADR-0031
         Route::view('/plugins/webhooks', 'admin.webhooks')->name('webhooks');        // ADR-0033
+        Route::view('/plugins/embeds', 'admin.embeds')->name('embeds');              // ADR-0103 (U7)
 
         // Analytics section — the aggregate dashboard is both the section landing and its only page.
         Route::view('/analytics', 'admin.analytics')->name('analytics');             // ADR-0035

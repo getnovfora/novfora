@@ -72,6 +72,7 @@ return [
         'navigation' => 'Navigation',
         'modules' => 'Modules & plugins',
         'webhooks' => 'Webhooks',
+        'embeds' => 'Embeds',
         'general' => 'General',
         'registration' => 'Registration',
         'email' => 'Email',

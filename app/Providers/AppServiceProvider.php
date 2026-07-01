@@ -79,6 +79,13 @@ class AppServiceProvider extends ServiceProvider
             $request->user()?->getAuthIdentifier() ?? $request->ip() ?? 'api'
         ));
 
+        // Embed surface rate limit (U7, ADR-0103): the endpoints are anonymous by design, so the key is the
+        // client IP. Config-read per request so tests/operators can tune it without a cache clear; the
+        // fragment cache + public Cache-Control absorb legitimate hot embeds long before this trips.
+        RateLimiter::for('embed', fn (Request $request) => Limit::perMinute(
+            max(1, (int) config('novfora.embeds.rate_limit', 120))
+        )->by('embed:'.($request->ip() ?? 'unknown')));
+
         // Audit-log authentication events (phase-1.5 F-I): login / logout / failed / lockout / reset / 2FA.
         // (A subscriber — needs explicit registration; plain handle()-listeners in app/Listeners, e.g.
         // SendReactionNotification for the P2-M2 reaction notification, are AUTO-DISCOVERED — do not re-list.)

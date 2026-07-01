@@ -12,6 +12,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -19,6 +20,16 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__.'/../routes/api.php',   // versioned REST API (ADR-0033) — token-auth, engine-authorized
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        // Embed surface (U7, ADR-0103): deliberately OUTSIDE the web group — stateless (no session/cookies,
+        // no CSRF surface), GET-only, rate-limited; each response owns its security headers (EmbedController).
+        then: function (): void {
+            Route::middleware([
+                RedirectIfNotInstalled::class,
+                PreventRequestsDuringUpgrade::class,
+                EnsureBoardOnline::class,
+                'throttle:embed',
+            ])->prefix('embed/v1')->name('embed.')->group(__DIR__.'/../routes/embed.php');
+        },
     )
     // Realtime broadcast channel authorization (Phase 4 · M4.2). Registers the session-authenticated
     // /broadcasting/auth endpoint and the private-channel callbacks (routes/channels.php → ChannelAuthorizer).

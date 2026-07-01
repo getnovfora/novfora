@@ -88,6 +88,7 @@ final class AdminNavigation
             [null, [
                 ['modules', 'admin.modules', 'plug'],
                 ['webhooks', 'admin.webhooks', 'mail'],
+                ['embeds', 'admin.embeds', 'globe'],
             ]],
         ]],
         'analytics' => ['chart', 'admin.analytics', [

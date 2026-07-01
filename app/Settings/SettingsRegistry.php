@@ -138,6 +138,11 @@ final class SettingsRegistry
             new SettingDefinition('appearance.board_list_style', 'string', default: 'info-rich', group: 'appearance', label: 'Board-list style', options: ['info-rich', 'minimal']),
             new SettingDefinition('appearance.wordmark', 'string', default: '', group: 'appearance', label: 'Wordmark text'),
 
+            // ── Embeds (U7, ADR-0103) ───────────────────────────────────────────────────────────────
+            // The master switch for the external-site embed widgets. Config-backed so NOVFORA_EMBEDS env
+            // governs until an admin flips it in ACP → Plugins → Embeds (the panel value then persists).
+            new SettingDefinition('embeds.enabled', 'bool', config: 'novfora.embeds.enabled', default: false, group: 'embeds', label: 'Enable embed widgets'),
+
             // ── Members directory (public listing) ──────────────────────────────────────────────────
             // Gates the public /members directory. 'everyone' (incl. guests) → 'members' (signed-in) →
             // 'staff' → 'disabled' (off). Read by App\Community\MembersDirectory::visibleTo().

@@ -367,6 +367,16 @@ return [
         'allow_private' => (bool) env('NOVFORA_WEBHOOKS_ALLOW_PRIVATE', false),
     ],
 
+    // ── Embed widgets (U7, ADR-0103) ────────────────────────────────────────────────────────────────
+    // External-site widgets (iframe/SSI + <novfora-*> web components) serving GUEST-visible content only,
+    // gated per registered origin (ACP → Plugins → Embeds). OFF by default — enabling is a deliberate act
+    // (the settings key `embeds.enabled` overrides this env from the panel). The endpoints are stateless
+    // and rate-limited per IP.
+    'embeds' => [
+        'enabled' => (bool) env('NOVFORA_EMBEDS', false),
+        'rate_limit' => (int) env('NOVFORA_EMBEDS_RATE_LIMIT', 120), // requests/min/IP across all embed endpoints
+    ],
+
     // ── Operability — the no-SSH web installer (M5, phase-1-plan §5) ──────────────────────────────
     // The installer is an UNAUTHENTICATED pre-install surface that writes .env, runs migrations, and
     // creates the first admin. It MUST lock after install: the marker file below is written LAST and,

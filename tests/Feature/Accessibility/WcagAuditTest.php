@@ -6,11 +6,13 @@ declare(strict_types=1);
 
 use App\Accessibility\AccessibilityAuditor;
 use App\Clubs\ClubService;
+use App\Embeds\EmbedManager;
 use App\Forum\PostService;
 use App\Models\Forum;
 use App\Models\Post;
 use App\Models\Report;
 use App\Models\Tag;
+use App\Models\Topic;
 use App\Search\SavedSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
@@ -221,4 +223,23 @@ it('the per-member admin management screen (trust/reputation/ban/warn — F2) is
 it('the ACP analytics dashboard (sparkline charts + the accessible data table) is accessible', function () {
     $admin = Users::withTwoFactor(Users::inGroups(['admins']));
     auditResponse($this->actingAs($admin)->get(route('admin.analytics')));
+});
+
+it('the embed widgets (topics + stats, U7) are accessible', function () {
+    config(['novfora.embeds.enabled' => true]);
+    $site = app(EmbedManager::class)->create('A11y partner', 'https://partner.example');
+    $forum = Forum::create(['slug' => 'a11y-embed', 'title' => 'Embed forum', 'type' => 'forum']);
+    Topic::create([
+        'slug' => 'a11y-topic', 'title' => 'An embedded topic', 'forum_id' => $forum->id,
+        'approved_state' => 'approved', 'last_posted_at' => now(),
+    ]);
+
+    auditResponse($this->get(route('embed.widget', ['widget' => 'topics', 'site' => $site->key, 'forum' => $forum->id])));
+    auditResponse($this->get(route('embed.widget', ['widget' => 'stats', 'site' => $site->key, 'theme' => 'dark'])));
+});
+
+it('the ACP embeds page (U7) is accessible', function () {
+    $admin = Users::withTwoFactor(Users::inGroups(['admins']));
+    app(EmbedManager::class)->create('A11y partner', 'https://partner.example');
+    auditResponse($this->actingAs($admin)->get(route('admin.embeds')));
 });
