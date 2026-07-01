@@ -38,7 +38,9 @@ function a1RestrictedViewer(Acl $acl): User
 it('gates the route and livewire component with admin members access plus staff 2fa', function () {
     $this->get(route('admin.members.index'))->assertRedirect(route('login'));
     $this->actingAs(Users::inGroups(['members']))->get(route('admin.members.index'))->assertForbidden();
-    $this->actingAs(Users::inGroups(['admins']))->get(route('admin.members.index'))->assertForbidden();
+    // Route level, staff without a confirmed second factor are BOUNCED to 2FA setup (RequireTwoFactorForStaff),
+    // not 403'd — the hard 403 for a non-2FA admin is the Livewire-internal guard asserted below.
+    $this->actingAs(Users::inGroups(['admins']))->get(route('admin.members.index'))->assertRedirect(route('settings.two-factor'));
 
     Livewire::actingAs(Users::inGroups(['members']))->test('admin.members')->assertForbidden();
     Livewire::actingAs(Users::inGroups(['admins']))->test('admin.members')->assertForbidden();
