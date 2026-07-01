@@ -6,7 +6,9 @@ FROM php:8.3-cli-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git unzip ca-certificates default-mysql-client \
         libzip-dev libonig-dev libsqlite3-dev \
-    && docker-php-ext-install pdo_mysql pdo_sqlite mbstring zip \
+        libpng-dev libjpeg62-turbo-dev libfreetype6-dev libwebp-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
+    && docker-php-ext-install pdo_mysql pdo_sqlite mbstring zip gd \
     && rm -rf /var/lib/apt/lists/*
 
 # Composer from the official image
