@@ -433,6 +433,7 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/appearance/themes', 'admin.settings.themes')->name('settings.themes');
         Route::view('/appearance/templates', 'admin.settings.templates')->name('settings.templates'); // ADR-0038
         Route::view('/appearance/layout', 'admin.layout')->name('layout');           // <livewire:admin.layout />
+        Route::view('/appearance/navigation', 'admin.navigation')->name('navigation'); // <livewire:admin.navigation />
 
         // Plugins section — the module/plugin lifecycle + outbound webhooks.
         Route::view('/plugins/modules', 'admin.modules')->name('modules');           // ADR-0031

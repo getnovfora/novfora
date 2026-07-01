@@ -81,6 +81,7 @@ final class AdminNavigation
                 ['themes', 'admin.settings.themes', 'palette'],
                 ['templates', 'admin.settings.templates', 'pencil'],
                 ['layout', 'admin.layout', 'sliders'],
+                ['navigation', 'admin.navigation', 'list'],
             ]],
         ]],
         'plugins' => ['plug', 'admin.plugins', [

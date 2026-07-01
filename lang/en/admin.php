@@ -69,6 +69,7 @@ return [
         'themes' => 'Themes',
         'templates' => 'Templates',
         'layout' => 'Layout & widgets',
+        'navigation' => 'Navigation',
         'modules' => 'Modules & plugins',
         'webhooks' => 'Webhooks',
         'general' => 'General',
