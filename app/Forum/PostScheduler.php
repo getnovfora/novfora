@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Forum;
 
 use App\AntiSpam\ContentRejectedException;
+use App\Models\Forum;
 use App\Models\ScheduledPost;
 use App\Models\Topic;
 use App\Models\User;
@@ -98,11 +99,15 @@ final class PostScheduler
 
             $topic = Topic::find($scheduled->topic_id);
             $user = User::find($scheduled->user_id);
+            $forum = $topic?->forum;
 
             // No longer publishable → mark done with a null post (skip, never retry). post.create resolves the
             // same at the topic's (thread) scope as at its forum's — the thread inherits the forum's grants.
+            // Club forums add a roster gate outside ACLs, so re-check it here just like the live composer/API.
             if (! $topic instanceof Topic || ! $user instanceof User || $topic->status === 'locked'
-                || ! $user->canDo('post.create', $topic->permissionScope())) {
+                || ! $forum instanceof Forum
+                || ! $user->canDo('post.create', $topic->permissionScope())
+                || ! $forum->clubParticipationAllowed($user)) {
                 $scheduled->update(['published_at' => now(), 'post_id' => null]);
 
                 return false;
