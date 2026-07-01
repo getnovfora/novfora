@@ -6,6 +6,7 @@ use App\Permissions\Scope;
 use App\Support\ActorRank;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -90,7 +91,7 @@ new class extends Component
         $canSeeEmail = $this->canSeeEmail();
 
         return User::query()
-            ->with(['groups' => function (Builder $g) use ($canSeeEmail) {
+            ->with(['groups' => function (BelongsToMany $g) use ($canSeeEmail) {
                 if (! $canSeeEmail) {
                     $g->where('is_public', true); // do not leak hidden group names through the primary-group cell
                 }
