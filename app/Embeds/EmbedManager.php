@@ -126,6 +126,14 @@ final class EmbedManager
             throw new InvalidArgumentException(__('Enter the embedding site as scheme://host, e.g. https://example.com — no path, query, or credentials.'));
         }
 
+        // Re-validate the parsed host against a strict hostname / bracketed-IPv6 charset. parse_url is lenient
+        // and keeps `;`, `,`, and other non-host bytes inside the host component; those would otherwise reach
+        // the frame-ancestors CSP / CORS header verbatim. This closes that at the source (a real host can carry
+        // none of them). IDN must be pre-punycoded (xn--…); raw-UTF-8 hosts are rejected. (U7 review hardening.)
+        if (preg_match('/^(\[[0-9a-f:]+\]|[a-z0-9](?:[a-z0-9.\-]*[a-z0-9])?)$/', $host) !== 1) {
+            throw new InvalidArgumentException(__('Enter the embedding site as scheme://host, e.g. https://example.com.'));
+        }
+
         $port = isset($parts['port']) ? ':'.((int) $parts['port']) : '';
 
         return $scheme.'://'.$host.$port;

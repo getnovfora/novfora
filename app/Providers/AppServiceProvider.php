@@ -81,10 +81,20 @@ class AppServiceProvider extends ServiceProvider
 
         // Embed surface rate limit (U7, ADR-0103): the endpoints are anonymous by design, so the key is the
         // client IP. Config-read per request so tests/operators can tune it without a cache clear; the
-        // fragment cache + public Cache-Control absorb legitimate hot embeds long before this trips.
-        RateLimiter::for('embed', fn (Request $request) => Limit::perMinute(
-            max(1, (int) config('novfora.embeds.rate_limit', 120))
-        )->by('embed:'.($request->ip() ?? 'unknown')));
+        // fragment cache + public Cache-Control absorb legitimate hot embeds long before this trips. IPv6
+        // sources are bucketed by their /64 prefix so a single host's address allocation can't rotate past
+        // the ceiling one /128 at a time (U7 review hardening).
+        RateLimiter::for('embed', function (Request $request) {
+            $ip = $request->ip() ?? 'unknown';
+            if (str_contains($ip, ':')) {
+                $packed = @inet_pton($ip);
+                if ($packed !== false && strlen($packed) === 16) {
+                    $ip = bin2hex(substr($packed, 0, 8)); // the /64 network prefix
+                }
+            }
+
+            return Limit::perMinute(max(1, (int) config('novfora.embeds.rate_limit', 120)))->by('embed:'.$ip);
+        });
 
         // Audit-log authentication events (phase-1.5 F-I): login / logout / failed / lockout / reset / 2FA.
         // (A subscriber — needs explicit registration; plain handle()-listeners in app/Listeners, e.g.

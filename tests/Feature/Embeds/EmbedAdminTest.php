@@ -64,6 +64,10 @@ it('refuses origins that could widen the grant', function () {
         'https://*',
         'not a url',
         'ftp://partner.example',
+        // U7 review: a host carrying a CSP/CORS-structural byte must never reach the emitted headers.
+        'https://partner.example;object-src',
+        'https://partner.example,evil.com',
+        'https://éxample.com',
         '',
     ] as $bad) {
         $component->set('name', 'Bad')->set('origin', $bad)->call('create');

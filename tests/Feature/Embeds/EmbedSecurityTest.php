@@ -11,6 +11,7 @@ use App\Models\EmbedSite;
 use App\Models\Forum;
 use App\Models\Group;
 use App\Models\Topic;
+use App\Permissions\PermissionResolver;
 use App\Permissions\PermissionValue;
 use App\Permissions\VisibleForumIds;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -203,6 +204,33 @@ it('is stateless: no session cookie is ever set on embed responses', function ()
 
     expect($html->headers->allPreserveCase()['Set-Cookie'] ?? [])->toBe([]);
     expect($json->headers->allPreserveCase()['Set-Cookie'] ?? [])->toBe([]);
+});
+
+it('stops serving a forum board-wide once it is restricted, even within the cache TTL (live fence)', function () {
+    // U7 review regression: the board-wide topics widget must resolve guest visibility LIVE and key its cache
+    // on the visible set, so restricting a forum drops it from the widget on the very next request — not after
+    // the 60s TTL. This test never flushes the embed cache; it proves the KEY changes, not that the cache clears.
+    $site = secSite();
+    $forum = secPublicTopic('ZZBOARDWIDE');
+
+    $this->get(route('embed.data', ['widget' => 'topics', 'site' => $site->key]))
+        ->assertOk()->assertSee('ZZBOARDWIDE');
+
+    // Restrict the forum from guests (bumps AclVersion via the AclEntry model event).
+    $guests = Group::where('slug', 'guests')->firstOrFail();
+    AclEntry::create([
+        'permission_key' => 'forum.view', 'holder_type' => 'group', 'holder_id' => $guests->id,
+        'scope_type' => 'forum', 'scope_id' => $forum->id, 'value' => PermissionValue::Never->value,
+    ]);
+
+    // Simulate the production per-request boundary (each HTTP request is a fresh PHP process with fresh static
+    // memos) by clearing the resolver + visible-set memos — WITHOUT flushing the embed fragment cache, so the
+    // test proves the cache KEY changes with the visible set, not that the cache was cleared.
+    app(PermissionResolver::class)->flushMemo();
+    VisibleForumIds::flush();
+
+    $this->get(route('embed.data', ['widget' => 'topics', 'site' => $site->key]))
+        ->assertOk()->assertDontSee('ZZBOARDWIDE');
 });
 
 it('rate limits the embed endpoints per IP', function () {

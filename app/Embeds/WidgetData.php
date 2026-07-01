@@ -50,9 +50,18 @@ final class WidgetData
             }
         }
 
-        $cacheKey = 'novfora.embed.topics.'.($forum?->getKey() ?? 'all').'.'.$limit;
+        // Resolve the guest-visible forum set LIVE (outside the cache) for the board-wide path, and fold a
+        // signature of it into the cache key — so the instant an admin restricts a forum/club the visible set
+        // changes, the key changes, and the next request runs a fresh, correctly-fenced query instead of
+        // serving a stale payload for the rest of the TTL. This keeps the board-wide path consistent with the
+        // live-fenced scoped path above (U7 review, ADR-0104-adjacent hardening).
+        $visible = $forum instanceof Forum ? null : VisibleForumIds::for(User::guest());
+        $scopeKey = $forum instanceof Forum
+            ? (string) $forum->getKey()
+            : 'all-'.($visible === null ? 'x' : substr(hash('sha256', implode(',', $visible)), 0, 16));
+        $cacheKey = 'novfora.embed.topics.'.$scopeKey.'.'.$limit;
 
-        return Cache::remember($cacheKey, self::TOPICS_TTL_SECONDS, function () use ($forum, $limit): array {
+        return Cache::remember($cacheKey, self::TOPICS_TTL_SECONDS, function () use ($forum, $visible, $limit): array {
             $query = Topic::query()
                 ->where('approved_state', 'approved')
                 ->whereNull('moved_to_topic_id')
@@ -62,14 +71,11 @@ final class WidgetData
 
             if ($forum instanceof Forum) {
                 $query->where('forum_id', $forum->getKey());
-            } else {
+            } elseif ($visible === []) {
+                $query->whereRaw('1 = 0');
+            } elseif (is_array($visible)) {
                 // Board-wide: VisibleForumIds already layers club privacy over guest forum.view.
-                $visible = VisibleForumIds::for(User::guest());
-                if ($visible === []) {
-                    $query->whereRaw('1 = 0');
-                } elseif (is_array($visible)) {
-                    $query->whereIn('forum_id', $visible);
-                }
+                $query->whereIn('forum_id', $visible);
             }
 
             return [
