@@ -12,6 +12,7 @@ use App\Models\NavigationItem;
 use App\Models\User;
 use App\Support\Audit;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -22,6 +23,16 @@ use Illuminate\Support\Str;
  */
 final class NavigationManager
 {
+    /**
+     * Viewer-INDEPENDENT enabled rows, cached as plain arrays (never Eloquent objects — RH-9 /
+     * config('cache.serializable_classes')). Visibility is always filtered live per viewer AFTER the
+     * cached read, like the forum index tree. Busted by NavigationItem model events on every write,
+     * with the short TTL bounding staleness across servers that don't share a cache store.
+     */
+    public const CACHE_KEY = 'novfora.nav.items';
+
+    private const CACHE_TTL_SECONDS = 60;
+
     public const SURFACE_DESKTOP = 'desktop';
 
     public const SURFACE_MOBILE = 'mobile';
@@ -83,37 +94,33 @@ final class NavigationManager
     /**
      * Public render tree for the requested surface.
      *
-     * @return list<array{title:string,url:?string,icon:?string,opens_new_tab:bool,children:list<array{title:string,url:?string,icon:?string,opens_new_tab:bool,children:list<array{}>}>}>
+     * @return list<array{title:string,url:?string,icon:?string,opens_new_tab:bool,children:list<array<string,mixed>>}>
      */
     public function tree(?User $user, string $surface): array
     {
         $surface = $surface === self::SURFACE_MOBILE ? self::SURFACE_MOBILE : self::SURFACE_DESKTOP;
 
         try {
-            $items = NavigationItem::query()
-                ->where('is_enabled', true)
-                ->where($surface === self::SURFACE_MOBILE ? 'show_on_mobile' : 'show_on_desktop', true)
-                ->orderBy('parent_id')
-                ->orderBy('position')
-                ->orderBy('id')
-                ->get();
+            $items = $this->cachedEnabledRows();
         } catch (\Throwable) {
             return $this->defaultTree($user, $surface);
         }
 
-        /** @var array<int,list<NavigationItem>> $byParent */
+        $surfaceFlag = $surface === self::SURFACE_MOBILE ? 'show_on_mobile' : 'show_on_desktop';
+
+        /** @var array<int,list<array<string,mixed>>> $byParent */
         $byParent = [];
         foreach ($items as $item) {
-            if (! $this->visibleTo($item, $user)) {
+            if (! $item[$surfaceFlag] || ! $this->visibleTo($item, $user)) {
                 continue;
             }
-            $byParent[(int) ($item->parent_id ?? 0)][] = $item;
+            $byParent[(int) ($item['parent_id'] ?? 0)][] = $item;
         }
 
         $tree = [];
         foreach ($byParent[0] ?? [] as $item) {
             $children = [];
-            foreach ($byParent[(int) $item->id] ?? [] as $child) {
+            foreach ($byParent[(int) $item['id']] ?? [] as $child) {
                 $childNode = $this->nodeFromItem($child, []);
                 if ($childNode['url'] !== null) {
                     $children[] = $childNode;
@@ -127,6 +134,40 @@ final class NavigationManager
         }
 
         return $tree;
+    }
+
+    /**
+     * Enabled rows for BOTH surfaces as plain attribute arrays, one short-lived cache entry. A failure
+     * inside the closure (e.g. the table missing mid-upgrade) is never cached — it propagates to the
+     * caller's defaultTree() fallback.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function cachedEnabledRows(): array
+    {
+        return Cache::remember(self::CACHE_KEY, self::CACHE_TTL_SECONDS, function (): array {
+            return NavigationItem::query()
+                ->where('is_enabled', true)
+                ->orderBy('parent_id')
+                ->orderBy('position')
+                ->orderBy('id')
+                ->get()
+                ->map(fn (NavigationItem $item): array => [
+                    'id' => (int) $item->id,
+                    'parent_id' => $item->parent_id === null ? null : (int) $item->parent_id,
+                    'title' => (string) $item->title,
+                    'link_type' => (string) $item->link_type,
+                    'route_name' => $item->route_name,
+                    'url' => $item->url,
+                    'icon' => (string) ($item->icon ?? ''),
+                    'show_on_desktop' => (bool) $item->show_on_desktop,
+                    'show_on_mobile' => (bool) $item->show_on_mobile,
+                    'opens_new_tab' => (bool) $item->opens_new_tab,
+                    'visibility' => (string) $item->visibility,
+                    'group_ids' => $item->group_ids,
+                ])
+                ->all();
+        });
     }
 
     /** @return EloquentCollection<int, NavigationItem> */
@@ -203,26 +244,36 @@ final class NavigationManager
     }
 
     /**
+     * @param  array<string,mixed>  $item
      * @param  list<array<string,mixed>>  $children
      * @return array{title:string,url:?string,icon:?string,opens_new_tab:bool,children:list<array<string,mixed>>}
      */
-    private function nodeFromItem(NavigationItem $item, array $children): array
+    private function nodeFromItem(array $item, array $children): array
     {
+        $icon = (string) $item['icon'];
+
         return [
-            'title' => $item->title,
-            'url' => $this->urlFor($item->link_type, $item->route_name, $item->url),
-            'icon' => $item->icon !== '' ? $item->icon : null,
-            'opens_new_tab' => $item->opens_new_tab,
+            'title' => (string) $item['title'],
+            'url' => $this->urlFor(
+                (string) $item['link_type'],
+                is_string($item['route_name']) ? $item['route_name'] : null,
+                is_string($item['url']) ? $item['url'] : null,
+            ),
+            'icon' => $icon !== '' ? $icon : null,
+            'opens_new_tab' => (bool) $item['opens_new_tab'],
             'children' => $children,
         ];
     }
 
-    private function visibleTo(NavigationItem $item, ?User $user): bool
+    /**
+     * @param  array<string,mixed>  $item
+     */
+    private function visibleTo(array $item, ?User $user): bool
     {
-        return match ($item->visibility) {
+        return match ($item['visibility']) {
             self::VISIBILITY_AUTHENTICATED => $user instanceof User,
             self::VISIBILITY_GUESTS => ! $user instanceof User,
-            self::VISIBILITY_GROUPS => $this->userHasAnyGroup($user, $item->group_ids ?? []),
+            self::VISIBILITY_GROUPS => $this->userHasAnyGroup($user, is_array($item['group_ids']) ? $item['group_ids'] : []),
             self::VISIBILITY_PUBLIC_GROUPS_DIRECTORY => GroupDirectory::isEnabled(),
             self::VISIBILITY_MEMBERS_DIRECTORY => MembersDirectory::visibleTo($user),
             default => true,

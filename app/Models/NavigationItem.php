@@ -6,9 +6,11 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Navigation\NavigationManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * One admin-managed public navigation link. Written through App\Navigation\NavigationManager; rendered in the
@@ -31,6 +33,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class NavigationItem extends Model
 {
     protected $guarded = [];
+
+    protected static function booted(): void
+    {
+        // Bust the layout's cached nav rows on EVERY write path, including direct model writes that
+        // bypass NavigationManager (seeders, tests) — staleness here is a public-facing wrong menu.
+        $bust = fn () => Cache::forget(NavigationManager::CACHE_KEY);
+        static::saved($bust);
+        static::deleted($bust);
+    }
 
     /** @return array<string,string> */
     protected function casts(): array
