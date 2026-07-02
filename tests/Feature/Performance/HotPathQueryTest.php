@@ -23,7 +23,15 @@ use Tests\Support\Users;
 
 uses(RefreshDatabase::class);
 
-beforeEach(fn () => $this->seed());
+beforeEach(function () {
+    $this->seed();
+    // Pin the SchemaState bootstrap OUT of the measured path. On a host whose working tree carries the
+    // storage/installed marker (a live dev box), the first request runs the one-time pending-migrations
+    // probe (+2 queries) that a markerless host (forum-dev) never pays — making these cold-render budgets
+    // host-dependent. Priming the cached flag here measures the same steady state on every host: the
+    // probe is a once-per-deploy cost, never a per-request one.
+    app(\App\Upgrade\SchemaState::class)->refresh();
+});
 
 /** Run $fn with a fresh query log and return how many queries it issued. */
 function countQueries(Closure $fn): int
