@@ -52,6 +52,10 @@ class FeedController extends Controller
     {
         abort_if($topic->trashed() || $topic->moved_to_topic_id !== null, 404);
         abort_unless(User::guest()->canDo('forum.view', $topic->permissionScope()), 404);
+        // Moderation fence (ADR-0108): a pending topic's feed 404s outright — its title would otherwise leak
+        // through the Atom <title> even though the posts list below is already approved-only. AFTER the
+        // forum.view gate (no new oracle), BEFORE the cache (a pending feed is never cached).
+        abort_unless($topic->approved_state === 'approved', 404);
 
         $xml = Cache::remember("novfora.feed.topic.{$topic->id}", now()->addMinutes(15), function () use ($topic): string {
             $posts = Post::query()->where('topic_id', $topic->getKey())->where('approved_state', 'approved')->with('author')

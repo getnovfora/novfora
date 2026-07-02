@@ -59,6 +59,21 @@ class TopicController extends Controller
         abort_if($topicForum instanceof Forum && ! $topicForum->clubContentVisibleTo($request->user()), 404);
         abort_unless($viewer->canDo('forum.view', $topic->permissionScope()), 403);
 
+        // Moderation fence (ADR-0108): a topic whose opening post is pending moderation (ADR-0007 §2.4 —
+        // the topic inherits its OP's state) is visible ONLY to its author and to staff who can moderate
+        // here. Everyone else 404s — not 403 — so a forbidden viewer can't distinguish "held" from "gone"
+        // (the FeedController/sitemap no-disclosure idiom). Runs AFTER the club/forum.view gates (no new
+        // oracle) and BEFORE the canonical-slug redirect below, so the title-derived slug never leaks
+        // through a 301 either. 'rejected' topics are soft-deleted on reject → already 404 via trashed().
+        // $scope/$canModerate are computed once here and reused below (query-neutral on the approved path).
+        $user = $request->user();
+        $scope = $topic->permissionScope();
+        $canModerate = $user?->canDo('topic.moderate', $scope) ?? false;
+        if ($topic->approved_state !== 'approved') {
+            $isAuthor = $user instanceof User && (int) $topic->user_id === (int) $user->getKey();
+            abort_unless($isAuthor || $canModerate, 404);
+        }
+
         // Canonical slug URL (M3): a bare /topics/{id} or a wrong-slug URL 301s to /topics/{id}-{slug}. Placed
         // AFTER the visibility gate so the redirect never leaks a title to a forbidden viewer; the numeric id
         // still resolved above, and the query string is preserved.
@@ -82,8 +97,6 @@ class TopicController extends Controller
         // load them once here so none lazy-loads at render time.
         $topic->loadMissing(['forum', 'author', 'prefix', 'tags']);
 
-        $user = $request->user();
-
         // Mark this topic read for the viewer (the unread / "what's new" watermark, data-model §9).
         if ($user instanceof User) {
             TopicRead::updateOrCreate(
@@ -91,9 +104,7 @@ class TopicController extends Controller
                 ['last_read_at' => now()],
             );
         }
-        $scope = $topic->permissionScope();
         $canReply = $topic->isReplyable() && ($user?->canDo('post.create', $scope) ?? false);
-        $canModerate = $user?->canDo('topic.moderate', $scope) ?? false;
 
         // Moderation-queue visibility (ADR-0007 §2.4): pending posts are hidden from everyone except their
         // author and staff who can moderate here. Approved posts are visible to all.
@@ -150,8 +161,13 @@ class TopicController extends Controller
         $related = $recommendations->related($topic, $viewer, 5);
 
         // SEO description = an excerpt of the opening post's text projection (security-safe; no HTML).
-        $description = Str::limit((string) Post::where('topic_id', $topic->getKey())
-            ->orderBy('position')->orderBy('id')->value('body_text'), 160);
+        // Computed ONLY for an approved topic (ADR-0108): the view suppresses the whole SEO head block for a
+        // non-approved topic (even for its author/a moderator), so skip the query outright — and never source
+        // the excerpt from a non-approved post (defence in depth on the approved path).
+        $description = $topic->approved_state === 'approved'
+            ? Str::limit((string) Post::where('topic_id', $topic->getKey())->where('approved_state', 'approved')
+                ->orderBy('position')->orderBy('id')->value('body_text'), 160)
+            : '';
 
         return view('forum.topic', compact(
             'topic', 'posts', 'viewer', 'user', 'canReply', 'canModerate', 'description',
