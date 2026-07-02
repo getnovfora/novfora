@@ -57,11 +57,13 @@ it('serves every public route with no 5xx, on first render and on the cache hit'
     }
 });
 
-it('renders the brand wordmark as a non-wrapping, shrink-proof link (responsive-header guard)', function () {
-    // Fix 1 (responsive header): the brand <a> must keep `whitespace-nowrap` + `shrink-0` so the wordmark
-    // never wraps to two lines when the header row gets tight at mid widths (640–1024px). A regression here
-    // is purely visual, so this cheap markup assertion is the right guard.
+it('renders the brand wordmark as a non-wrapping, shrinkable link (responsive-header guard)', function () {
+    // Fix 1 kept the wordmark from wrapping (`whitespace-nowrap`); BETA-2/NOV-86 revised the shrink rule:
+    // `shrink-0` let the brand + the shrink-0 right cluster jointly exceed 390px portrait and push the
+    // bell/avatar off-viewport, so the brand is now the ONE yielding child (`min-w-0`) with `truncate` as
+    // the no-wrap guard. The full contract lives in tests/Feature/Ui/HeaderResponsiveMarkupTest.php.
     $this->get('/')
         ->assertOk()
-        ->assertSee('shrink-0 whitespace-nowrap', false);
+        ->assertSee('min-w-0 whitespace-nowrap', false)
+        ->assertDontSee('shrink-0 whitespace-nowrap', false);
 });

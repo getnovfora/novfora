@@ -191,12 +191,16 @@
                 </div>
             </div>
 
-            {{-- Wordmark (text, per the brief; overridable via the Appearance setting). --}}
-            <a href="{{ route('forums.index') }}" class="flex items-center font-bold text-base sm:text-lg tracking-tight text-ink hover:text-accent shrink-0 whitespace-nowrap">
+            {{-- Wordmark (text, per the brief; overridable via the Appearance setting).
+                 min-w-0 (not shrink-0): the brand is the ONE flex child allowed to yield when the row is
+                 over-full — with the signed-in right cluster (bell + PM + avatar, shrink-0) the old shrink-0
+                 let a wide wordmark/logo push the cluster past the viewport at 390px portrait (NOV-86). --}}
+            <a href="{{ route('forums.index') }}" class="flex items-center font-bold text-base sm:text-lg tracking-tight text-ink hover:text-accent min-w-0 whitespace-nowrap">
                 @if (($themeAssets['logo'] ?? null))
-                    {{-- Theme Studio 1.5: the active theme's logo (alt = the wordmark for a11y). The small-screen
-                         width cap scales the logo (object-contain) rather than clipping it via an overflow cap. --}}
-                    <img src="{{ $themeAssets['logo'] }}" alt="{{ $wordmark }}" class="h-7 w-auto sm:h-8 max-w-[55vw] object-contain sm:max-w-none">
+                    {{-- Theme Studio 1.5: the active theme's logo (alt = the wordmark for a11y). max-w-full
+                         scales the logo down (object-contain) with the now-shrinkable link instead of a fixed
+                         viewport cap, so it can never exceed the row's remaining budget. --}}
+                    <img src="{{ $themeAssets['logo'] }}" alt="{{ $wordmark }}" class="h-7 w-auto sm:h-8 max-w-full object-contain">
                 @else
                     {{-- Cap + truncate only the TEXT wordmark so it never wraps/overflows at small widths (the
                          guard belongs on the text, not the whole link, so the logo branch above isn't clipped). --}}
@@ -211,7 +215,7 @@
                     @if ($item['children'] !== [])
                         <x-ui.dropdown align="left" width="w-56">
                             <x-slot:trigger>
-                                <button type="button" class="flex items-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">
+                                <button type="button" class="flex items-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-medium whitespace-nowrap text-ink-muted hover:text-ink hover:bg-surface-sunken">
                                     @if ($item['icon'])
                                         <x-ui.icon :name="$item['icon']" class="h-4 w-4" />
                                     @endif
@@ -238,8 +242,10 @@
                             @endforeach
                         </x-ui.dropdown>
                     @elseif ($item['url'])
+                        {{-- whitespace-nowrap: admin-added multi-word nav titles (NavigationManager) must never
+                             wrap to a second text line inside the h-14 bar. --}}
                         <a href="{{ $item['url'] }}" @if ($item['opens_new_tab']) target="_blank" rel="noopener noreferrer" @endif
-                           class="flex items-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-sunken">
+                           class="flex items-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-medium whitespace-nowrap text-ink-muted hover:text-ink hover:bg-surface-sunken">
                             @if ($item['icon'])
                                 <x-ui.icon :name="$item['icon']" class="h-4 w-4" />
                             @endif
