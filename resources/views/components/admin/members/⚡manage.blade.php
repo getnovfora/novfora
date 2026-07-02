@@ -4,7 +4,9 @@ use App\Account\AccountDeletionService;
 use App\AntiSpam\TrustLevelManager;
 use App\AntiSpam\WarningService;
 use App\Community\ReputationService;
+use App\Members\UsernameService;
 use App\Models\User;
+use App\Models\UsernameHistory;
 use App\Models\Warning;
 use App\Models\WarningType;
 use App\Moderation\UserBanService;
@@ -14,6 +16,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 /**
@@ -50,6 +53,11 @@ new class extends Component
     public string $repDelta = '';
 
     public string $repReason = '';
+
+    // U8 (ADR-0106): admin username change + history/revert (gated by users.manage).
+    public string $newUsername = '';
+
+    public string $usernameReason = '';
 
     public ?string $flash = null;
 
@@ -173,6 +181,66 @@ new class extends Component
         $this->flash = 'Reputation adjusted.';
     }
 
+    /**
+     * U8 (ADR-0106): change the member's username through the UsernameService chokepoint (history row +
+     * audit inside one locked transaction). Gated by users.manage (the existing per-member account/PII key)
+     * + the no-self/rank guard. Usernames are route keys, so the member's OLD profile URL 404s until a
+     * revert — an accepted consequence (ADR-0106); no redirect layer is wired this pass.
+     */
+    public function setUsername(): void
+    {
+        $this->ensureCanManageUsers();
+        $target = $this->target();
+        $this->assertActionable($target);
+        $this->validate([
+            'newUsername' => ['required', 'string', 'max:30'],
+            'usernameReason' => ['nullable', 'string', 'max:500'], // cap the free-text reason server-side (audit JSON)
+        ]);
+
+        try {
+            app(UsernameService::class)->change(
+                $target,
+                trim($this->newUsername),
+                $this->actor(),
+                $this->usernameReason !== '' ? $this->usernameReason : null,
+            );
+        } catch (ValidationException $e) {
+            $this->addError('newUsername', (string) (collect($e->errors())->flatten()->first() ?? 'That username cannot be used.'));
+
+            return;
+        }
+
+        $this->reset('newUsername', 'usernameReason');
+        $this->targetCache = null; // re-read with the new username
+        $this->flash = 'Username changed.';
+    }
+
+    /**
+     * U8 (ADR-0106): restore a previous username from this member's OWN history (scoped lookup → a foreign
+     * entry id 404s). RESTORATIVE, not destructive — but a name someone else now holds FAILS LOUD (the
+     * service never auto-suffixes a revert).
+     */
+    public function revertUsername(int $entryId): void
+    {
+        $this->ensureCanManageUsers();
+        $target = $this->target();
+        $this->assertActionable($target);
+
+        $entry = UsernameHistory::where('user_id', $target->getKey())->find($entryId);
+        abort_if($entry === null, 404); // a foreign or bogus entry id is indistinguishable from "not found"
+
+        try {
+            app(UsernameService::class)->revertTo($target, $entry, $this->actor());
+        } catch (ValidationException $e) {
+            $this->addError('usernameRevert', (string) (collect($e->errors())->flatten()->first() ?? 'That username can no longer be restored.'));
+
+            return;
+        }
+
+        $this->targetCache = null; // re-read with the restored username
+        $this->flash = 'Username reverted.';
+    }
+
     public function target(): User
     {
         return $this->targetCache ??= User::with('groups')->findOrFail($this->userId);
@@ -204,6 +272,19 @@ new class extends Component
     public function canManageReputation(): bool
     {
         return $this->actor()->canDo('members.reputation.manage', Scope::global());
+    }
+
+    public function canManageUsers(): bool
+    {
+        return $this->actor()->canDo('users.manage', Scope::global());
+    }
+
+    /** @return Collection<int, UsernameHistory> username changes, newest first (users.manage-gated like sessions()). */
+    public function usernameHistory(): Collection
+    {
+        $this->ensureCanManageUsers();
+
+        return UsernameHistory::where('user_id', $this->userId)->with('changedBy')->orderByDesc('id')->get();
     }
 
     public function activeBan()
@@ -329,6 +410,64 @@ new class extends Component
             <div class="flex justify-between gap-3 sm:col-span-2"><dt class="text-ink-subtle">Groups</dt><dd class="text-ink text-right">{{ $member->groups->pluck('name')->join(', ') ?: '—' }}</dd></div>
         </dl>
     </x-ui.card>
+
+    @if ($this->canManageUsers())
+        {{-- Username (admin change + history/revert — U8, ADR-0106) --}}
+        <x-ui.card id="username">
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle font-sans mb-3">Username</h3>
+            <p class="text-sm text-ink-muted mb-3">Current: <strong class="text-ink">{{ '@'.($member->username ?? '—') }}</strong></p>
+            @if ($isSelf || ! $canActOnTarget)
+                <p class="text-sm text-ink-subtle">{{ $isSelf ? 'You cannot change your own username here.' : 'This member outranks you — you cannot change their username.' }}</p>
+            @else
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                        <label for="new-username" class="block text-sm font-medium text-ink mb-1.5">New username</label>
+                        <input id="new-username" wire:model="newUsername" maxlength="30"
+                               class="w-full min-h-11 px-3 rounded-md bg-surface border border-line text-ink focus:border-accent">
+                        @error('newUsername') <p class="mt-1 text-xs text-danger">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="username-reason" class="block text-sm font-medium text-ink mb-1.5">Reason (optional)</label>
+                        <input id="username-reason" wire:model="usernameReason" maxlength="500"
+                               class="w-full min-h-11 px-3 rounded-md bg-surface border border-line text-ink focus:border-accent">
+                        @error('usernameReason') <p class="mt-1 text-xs text-danger">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="sm:col-span-2">
+                        <x-ui.button variant="subtle" size="sm" wire:click="setUsername" dusk="set-username">Change username</x-ui.button>
+                    </div>
+                </div>
+                <p class="mt-2 text-xs text-ink-subtle">
+                    Usernames are profile URLs — links to the old name stop resolving until it is reverted. Every change is recorded below and audited.
+                </p>
+            @endif
+
+            <div class="mt-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle font-sans mb-2">Username history</p>
+                @error('usernameRevert') <p class="mb-2 text-xs text-danger">{{ $message }}</p> @enderror
+                @php($usernameHistory = $this->usernameHistory())
+                @if ($usernameHistory->isEmpty())
+                    <p class="text-sm text-ink-subtle">No username changes on record.</p>
+                @else
+                    <ul class="divide-y divide-line text-sm">
+                        @foreach ($usernameHistory as $h)
+                            <li class="py-2 flex items-center justify-between gap-3">
+                                <span class="text-ink">{{ '@'.$h->old_username }} <span class="text-ink-subtle">→</span> {{ '@'.$h->new_username }}@if ($h->reason) <span class="text-ink-subtle">— {{ $h->reason }}</span>@endif</span>
+                                <span class="flex items-center gap-3 whitespace-nowrap">
+                                    <span class="text-ink-subtle">{{ $h->changedBy?->username ? '@'.$h->changedBy->username : '—' }} · {{ optional($h->created_at)->format('M j, Y') }}</span>
+                                    @if (! $isSelf && $canActOnTarget)
+                                        {{-- Reverting is RESTORATIVE — a neutral tone, not a destructive one (the liftBan precedent). --}}
+                                        <x-ui.button variant="ghost" size="sm" wire:click="revertUsername({{ $h->id }})"
+                                                     wire:confirm="Revert this member's username to {{ '@'.$h->old_username }}?"
+                                                     dusk="revert-username-{{ $h->id }}">Revert to this</x-ui.button>
+                                    @endif
+                                </span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </div>
+        </x-ui.card>
+    @endif
 
     {{-- Group membership (reuses the v3-e primary-group editor) --}}
     <x-ui.card id="group-membership">
