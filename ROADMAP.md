@@ -10,13 +10,16 @@ are in [docs/product/roadmap.md](docs/product/roadmap.md); the MoSCoW feature sp
 tested on the baseline tier** (PHP 8.3 + MySQL + cron). **Plan-before-code, with approval at each phase gate.**
 Phases are scoped by deliverable and dependency, not calendar.
 
-> **▶ Post-1.0 status (2026-06-27).** Phases 0–5 + the ACP v3 program + the **v1.x Feature Program** and **v1.x
-> Polish-2 + a11y** are **merged & pushed** (`main` `9c5586d` ≡ `origin/main`); the **"Indie Web Hearth + Nova"
-> brand is applied** (PR #48). The **active program** is **UI/UX Audit + Beta Fixes + Polish** (`UI-AUDIT-FIX-SPEC.md`
-> — 21 diagnosed bugs; **BUG-001 is a P0** that blocks admin nav) run on the multi-agent model (Claude Code · Cursor ·
-> Codex · Antigravity · Manus). The **strategic backlog** is **Phase 6 / the "U-series"** (21 features in 4 tiers).
-> Single aggregated plan: [`docs/product/DEFINITIVE-ROADMAP-2026-06-27.md`](docs/product/DEFINITIVE-ROADMAP-2026-06-27.md).
-> Mirrored to Linear (team **NovFora**). Open PR: **#49** (Codex — member-directory gated actions + PII).
+> **▶ Post-1.0 status (updated 2026-07-02).** Phases 0–5 + the ACP v3 program + the **v1.x Feature Program** / **v1.x
+> Polish-2 + a11y** + the **"Indie Web Hearth + Nova"** brand are shipped. **v1.2.0 is built, gated green, and tagged
+> locally** (`main` `4ef4d24`, tag `v1.2.0`; awaiting the owner's `git push` — the harness blocked the protected-branch
+> push): it folds in **U7 embeds (ADR-0103)** + **U17 plugin install-from-zip (ADR-0104)** (already in `main`), the
+> **UI-AUDIT-FIX-SPEC (all 21 findings verified shipped via PR #41, intact at HEAD)**, the **four live BETA fixes**
+> (NOV-85/86/87/88), and the **U8/U18/U20 quick wins** (ADR-0105–0108). Apex verify-then-refute review over all six
+> seam diffs: **GO, 0 confirmed HIGH/MEDIUM**. The **remaining active program** is the rest of **UI/UX Audit + Polish**
+> (Track UX redesign) and the **Phase 6 "U-series"** backlog (18 of 21 remain: U1–U7, U9–U17, U19, U21). Single
+> aggregated plan: [`docs/product/DEFINITIVE-ROADMAP-2026-06-27.md`](docs/product/DEFINITIVE-ROADMAP-2026-06-27.md).
+> Mirrored to Linear (team **NovFora**). No open PRs.
 
 | Phase | Theme | Headline deliverables |
 |---|---|---|

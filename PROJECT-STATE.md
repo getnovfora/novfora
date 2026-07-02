@@ -13,6 +13,122 @@
 
 ---
 
+## 🌅 Morning report — FABLE session: v1.2.0 (UI-audit reconcile + 4 BETA fixes + U8/U18/U20) — MERGED to local `main`, gated GREEN, TAGGED; owner pushes (2026-07-02)
+
+Ran [`docs/product/FABLE-V1.2-KICKOFF.md`](docs/product/FABLE-V1.2-KICKOFF.md) end-to-end, unattended. Built the four
+live-beta fixes + the three Phase-6 quick wins as independent branches off `main`, verified each against `main` first,
+gated green at every boundary, ran the apex verify-then-refute review over all six seam-touching diffs, merged the
+seven green slices into `main`, re-gated the union green, bumped to **1.2.0**, cut + verified the release artifact, and
+**tagged `v1.2.0`**. Committed as `Tommy Huynh` (DCO `-s`, no AI trailers). **Everything is local — the `git push
+origin main` + `git push origin v1.2.0` was BLOCKED by the harness protected-branch guard and is the owner's one
+remaining git step** (see ☀️ below). Pre-merge backup: tag **`backup/pre-v12` (`0fa01a6`)**.
+
+**`v1.2.0` annotated tag on `4ef4d24`** (the release commit — fast-forward-safe over `origin/main` `ab013c8`); this
+morning-report doc commit sits on top. The owner pushes both `main` and the tag (see ☀️).
+
+### Step 0 — baseline reconcile (before any feature work)
+The consolidated `main` (`ab013c8`) was NOT green as-received: **two leftover `=======` merge-conflict markers** from
+the owner's U7/U17 consolidation (in `.env.example` and `DECISIONS.md`) — the `.env.example` one broke
+`EnvWriterSecurityTest` and would corrupt any real install's generated `.env` (dotenv parse error). Fixed (`a8eabb7`).
+Also re-baselined **`HotPathQueryTest`**: on this VPS the tree carries `storage/installed`, so the first request pays
+`SchemaState`'s one-time pending-migrations probe (+2 queries) that the markerless `forum-dev` never pays — the
+topic-page budget read 42 here vs 40 in the container. Primed the cached flag in `beforeEach` so every host measures
+the same steady state (`8a6d230`). Rebuilt assets for the U7+U17 views (`0fa01a6`). Baseline then **2189/0** green.
+
+### Branch topology (7 independent slices off `main` `0fa01a6`)
+```
+main 0fa01a6 (baseline-green)
+├─ nov-86 BETA-2  4a936b8   mobile nav spillover (header brand min-w-0)
+├─ nov-85 BETA-1  63e8033   notification read-state (open-route + un-latch) [+harden]
+├─ nov-87 BETA-3  b1695b5   DM 403 → friendly explainer (◆ apex, no widening)
+├─ nov-88 BETA-4  11816b1   ghost-UI mod controls + bulk-lock semantics (◆ apex, ADR-0105) [+harden]
+├─ nov-97 U8      7b18646   username history + admin revert (ADR-0106) [+harden]
+├─ nov-98 U18     98d7555   hCaptcha/reCAPTCHA fail-closed + Gravatar (◆ apex, ADR-0107)
+└─ nov-99 U20     3de26c3   SEO polish + pending-topic leak fence (◆-lite apex, ADR-0108)
+```
+Merged in order BETA-2 → BETA-1 → BETA-3 → BETA-4 → U8 → U18 → U20 (7 `--no-ff` merges + version bump + asset
+rebuild). Conflicts were **DECISIONS.md tail** (append-only ADR stacking — kept 0105→0106→0107→0108 in order) and a
+clean **auto-merge** of `TopicController`/`layouts`/`topic.blade` where BETA-4 and U20 both edit the topic-show path
+(verified coherent by hand: U20's fence hoists `$user/$scope/$canModerate`, BETA-4's `$canMergeTopic` + `author.groups`
+land after — no duplicate, no lost change). The `build-release.sh` allowlist was reconciled to drop the now-deleted
+static `public/robots.txt` (U20 serves it dynamically).
+
+### Union gate (merged `main`, all GREEN)
+- `php artisan test --parallel` → **2251 passed / 1 skipped** (the Dusk CI-only spec) · **15 532 assertions**
+- `pint --test` clean · `phpstan` **0** (app/) · migrate **apply + rollback(all) + re-apply** clean on a throwaway
+  SQLite (2 new reversible migrations land this release: `module_trust_keys` from U17, `username_history` from U8)
+- `npm run build` OK → assets committed (`6d8932d`); ViteManifest / asset-budget gate green
+- **Release artifact:** `scripts/build-release.sh` → `novfora-release.zip` (16 MB), `scripts/verify-release.sh` →
+  **RELEASE_VERIFY=PASS** (cold-boot 302→/install, i18n resolves, `packages.php` ships, no env caches)
+- **Dusk = CI-only** (no Chrome on the VPS) — 3 new specs added CI-pending (`MobileHeaderJourneyTest` at 390/360/768px)
+
+| Slice | Branch | Head | Gate | Notes |
+|---|---|---|---|---|
+| BETA-2 | `nov-86-...` | `4a936b8` | Pest✓ Pint✓ | brand `min-w-0`; markup + Dusk-CI 390px specs |
+| BETA-1 | `nov-85-...` | `63e8033` | Pest✓ PHPStan0 | `notifications.open` click-through; dropdown un-latched; +open-redirect harden |
+| BETA-3 | `nov-87-...` | `b1695b5` | Pest✓ PHPStan0 | ◆ apex GO/0-open; explainer not 403; service enforcement untouched |
+| BETA-4 | `nov-88-...` | `11816b1` | Pest✓ PHPStan0 | ◆ apex GO/0-confirmed; ADR-0105; +eager-load & flash harden |
+| U8 | `nov-97-...` | `7b18646` | Pest✓ PHPStan0 migrate✓ | ADR-0106; +uniqueness-race→field-error harden |
+| U18 | `nov-98-...` | `98d7555` | Pest✓ PHPStan0 | ◆ apex GO/0-confirmed; ADR-0107; fixed latent Turnstile CSP gap |
+| U20 | `nov-99-...` | `3de26c3` | Pest✓ PHPStan0 | ◆-lite apex GO/0; ADR-0108; +pre-existing pending-topic leak fence |
+
+### Apex adversarial review (verify-then-refute, 6 reviewers × per-finding refutation) — **GO, 0 confirmed HIGH/MEDIUM**
+Ran one apex reviewer per seam-touching diff (BETA-1/3/4, U8/U18/U20), then an independent refuter on every HIGH/MEDIUM.
+**Both HIGH/MEDIUM candidates were REFUTED** on verification (not exploitable in the committed code): the BETA-1
+open-redirect (all notification URLs are `route()`-generated — no injection path) and the U18 hCaptcha `connect-src`
+(the checkbox widget doesn't touch the parent page's `connect-src`). I still applied **three cheap LOW hardenings** on
+my own new code because they're correct regardless:
+- **BETA-1** — the same-origin redirect check was a bare prefix match (`str_starts_with($url, url('/'))` admits
+  `host.evil`, `host@evil`, `hostevil.com`); replaced with a host-boundary match (`base+'/'`) rejecting `//host`/`/\host`.
+- **BETA-4** — `$canMergeTopic` lazy-loaded `topic.author->groups` (+1 query on the boundary-flaky moderator budget) →
+  eager-loaded; the bulk-skip flash cited "rank" for lock, which no longer rank-gates → reworded.
+- **U8** — a rare uniqueness race surfaced as a 500 → caught the integrity violation (SQLSTATE 23000/23505) → field error.
+
+Accepted-and-noted LOWs (not fixed — reasoned): BETA-1 GET-side-effect (idempotent, owner-scoped); BETA-3 TL0 reaching
+the read-only username autocomplete (usernames are already public via the members directory); U18 global CSP host
+allowlist (fail-safe); U8 imported usernames that violate `alpha_dash/min:3/max:30` are un-revertable (a product call —
+should revert bypass the format rule for a historical value? — **parked** for the owner).
+
+### Verified-and-skipped (Track UA — the whole 21-finding UI-audit spec)
+**Every Track-UA bug was already fixed on `main` before this session** — by **PR #41** (`b437462`, "UI-audit reconcile",
+merged 2026-06-27), NOT PR #49. A spot-check confirmed all 21 findings intact at HEAD and all 12 named test files green
+(40/40). So BUG-001/002/003/004/005/007/008/009/010/011/012/013/014/016/017/018/019/020/021 are **shipped, not
+rebuilt**; BUG-006 stays reclassified (not a defect). **PR-#49 overlap explained:** PR #49 (`011cf6c`) was the ACP
+members-directory PII/gating change (A1) — it does **not** touch BUG-007/008/015 or BUG-019; the kickoff's "likely PR
+#49" hint was mistaken (those are PR #41's `d9b7e79` and `d09e657`). **BETA-5** (scheduled-reply) was already fixed by
+**NOV-89 / PR #51** (`b83c1db`) → skipped. The v1.2 release therefore carries the UA fixes by virtue of PR #41 already
+being in `main`.
+
+### Parked (nothing shipped broken; owner follow-ups)
+- **U8 imported-username revert** — a legacy/imported handle violating the modern `alpha_dash/min:3/max:30` rule can't
+  be reverted (fails validation). ADR-0106 flags it; needs a product decision on relaxing the rule for historical values.
+- **U18 Turnstile fail-open** — the shipped Turnstile driver stays fail-**open** (its reasoned prior decision); the two
+  new drivers are fail-**closed** per the kickoff. Whether to unify posture is an owner call (ADR-0107).
+- **U20 out-of-scope (ADR-0108):** tag/club OpenGraph, a purpose-built 1200×630 social-card asset, JSON-LD beyond the
+  existing topic block, and the `<title>`/PWA-manifest reading `config('app.name')` instead of the ACP `general.site_name`.
+
+### New ADRs (0105–0108, lifted into DECISIONS.md; next-free was 0105 after 0104)
+0105 permission-aware moderation UI + bulk-lock semantics (BETA-4, apex); 0106 username history + admin revert (U8);
+0107 CAPTCHA driver completion fail-closed + opt-in Gravatar (U18); 0108 SEO polish + pending-topic fence (U20).
+
+### Linear (team NovFora) — all moves succeeded
+**→ Done:** NOV-85/86/87/88 (BETA-1..4), NOV-97/98/99 (U8/U18/U20), and the UA cluster NOV-77..NOV-84 (verified-shipped
+via PR #41). NOV-89 (BETA-5) + NOV-76 (BUG-001) were already Done; NOV-106/115 (U7/U17) already Done. No blocked writes
+this session.
+
+### ☀️ What the owner does next
+1. **Push (the one blocked git step):** `git push origin main` (fast-forwards `origin/main` `ab013c8` → `4ef4d24`) and
+   `git push origin v1.2.0`. The harness auto-mode classifier denied the direct push to the protected default branch;
+   nothing is wrong with the commits (tree clean, tag on HEAD, ff-safe). Add a Bash permission rule or push by hand.
+2. **Go live (backup-first):** upgrade **demo.novfora.com** via the **cron auto-upgrade** path — this batch carries
+   **new migrations** (`module_trust_keys`, `username_history`) + new capability keys, so it is NOT assets-only. The
+   verified `novfora-release.zip` (gitignored at repo root; SHA in `scripts/verify-release.sh` output) is ready, or
+   rebuild with `scripts/build-release.sh` on a Node host.
+3. **Run Dusk in CI** (no Chrome on the VPS) — 3 new mobile-header specs are CI-pending.
+4. **Decide the parked items** (U8 imported-username revert; U18 Turnstile posture) when convenient.
+
+---
+
 ## 🌅 Morning report — FABLE session: Phase-0 clear-decks + U7 + U17 (2026-07-01) — 4 branches off `main`, NONE pushed/merged
 
 Ran [`docs/product/FABLE-U7-U17-KICKOFF.md`](docs/product/FABLE-U7-U17-KICKOFF.md) end-to-end, unattended. Built the two
