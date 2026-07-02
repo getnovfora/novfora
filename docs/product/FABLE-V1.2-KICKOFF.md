@@ -23,9 +23,11 @@ Copyright 2026 The NovFora Authors
    **REFUTES NOV-120** (see the ⚡ warning in §3).
 3. `ROADMAP.md`, `docs/product/DEFINITIVE-ROADMAP-2026-06-27.md` (Tracks UA / BETA / quick wins), and
    `docs/product/ui-ux-fixes-spec.md`
-4. `UI-AUDIT-FIX-SPEC.md` — the 21 diagnosed bugs, each root-caused with `file:line`. **This is your
-   per-bug source of truth.** (If the filename differs on disk, it is the UI-audit fix spec referenced by the
-   DEFINITIVE roadmap Track UA table.)
+4. **`UI-AUDIT-FIX-SPEC.md`** — **at the repo ROOT** (tracked + pushed; ~402 lines). Every Track-UA bug
+   root-caused with `file:line`, a **locked-decisions block** (2026-06-19: BUG-002/003 = non-breaking **dual
+   resolver**, no 301s; BUG-019 = **display-name editing only**, username stays read-only — so these product
+   calls are settled, don't relitigate them), and a theme/slice build-order list. **This is your per-bug source
+   of truth — read it in full before touching any Track-UA bug.**
 5. `DECISIONS.md` — recent ADRs; the module/theme API and permission engine are semver'd public contracts.
 6. Linear: team **NovFora** — https://linear.app/novfora (issue bookkeeping in §8).
 
