@@ -59,6 +59,21 @@ it('treats empty / manual / malformed configs as no auto-promotion (null)', func
     expect($p->normalize(['op' => 'AND', 'rules' => [['criterion' => 'bogus', 'gte' => 1]]]))->toBeNull();
 });
 
+it('exempts a LOCKED account from auto-promotion (an admin-pinned or simulated member never earns a group)', function () {
+    // A group whose rule any active account trivially satisfies.
+    $group = apGroup(['op' => 'AND', 'rules' => [['criterion' => 'trust', 'gte' => 1]]]);
+
+    // An UNLOCKED account with the same metrics is promoted — proves the rule fires.
+    $unlocked = apUser(['trust_level' => 1, 'trust_locked' => false]);
+    expect(app(GroupAutoPromoter::class)->promote($unlocked))->toBe(1)
+        ->and($unlocked->fresh()->groups()->whereKey($group->getKey())->exists())->toBeTrue();
+
+    // A LOCKED account with identical metrics is NOT promoted (the fence).
+    $locked = apUser(['trust_level' => 1, 'trust_locked' => true]);
+    expect(app(GroupAutoPromoter::class)->promote($locked))->toBe(0)
+        ->and($locked->fresh()->groups()->whereKey($group->getKey())->exists())->toBeFalse();
+});
+
 // ── satisfiesTree() — AND / OR / nesting ───────────────────────────────────────────────────────────────
 
 it('evaluates an AND node (all criteria must hold)', function () {
