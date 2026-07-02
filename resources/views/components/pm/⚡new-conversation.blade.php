@@ -22,14 +22,18 @@ new class extends Component
 
     public string $markdownSource = '';
 
+    /** Whether the viewer may start conversations — false renders the friendly explainer, never a raw 403. */
+    public bool $canSend = false;
+
     public function mount(): void
     {
-        // Own-send gate — no user-id param; always auth()->user().
+        // Own-send surface — no user-id param; always auth()->user(). A member without pm.send (a fresh
+        // TL0 account, by anti-spam design) used to hit a bare framework 403 here (BETA-3 / NOV-87); they
+        // now get the explainer below. save() keeps the hard re-assert as the enforcement backstop, so
+        // nothing widened: a restricted account still cannot create a conversation row.
         $user = auth()->user();
-        abort_unless(
-            $user instanceof User && $user->canDo('pm.send', Scope::global()),
-            403,
-        );
+        abort_unless($user instanceof User, 403);
+        $this->canSend = $user->canDo('pm.send', Scope::global());
     }
 
     public function addRecipient(): void
@@ -162,6 +166,8 @@ new class extends Component
 };
 ?>
 
+<div>
+@if ($canSend)
 <form wire:submit="save" dusk="pm-new" class="space-y-4">
     {{-- Recipient chips --}}
     <div class="space-y-1.5">
@@ -253,3 +259,14 @@ new class extends Component
 
     <x-ui.button type="submit" size="lg" dusk="pm-create">Send message</x-ui.button>
 </form>
+@else
+    {{-- Friendly restricted state (BETA-3 / NOV-87): the pm.send gate is a deliberate anti-spam fence
+         (new TL0 accounts), so explain it instead of 403ing. Wording stays honest for the rarer manual
+         restriction too. --}}
+    <x-ui.alert variant="info" title="You can't send private messages yet" dusk="pm-restricted">
+        New accounts unlock private messaging after participating in the community for a little while —
+        reading and posting gets you there. You can still read and reply-to-read any conversations you
+        already received once messaging unlocks. If you think this is a mistake, please contact a moderator.
+    </x-ui.alert>
+@endif
+</div>
