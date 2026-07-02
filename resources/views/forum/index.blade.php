@@ -1,5 +1,10 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => __('common.forums').' · '.config('app.name', 'NovFora')])
+{{-- metaDescription (U20/ADR-0108): the ACP "Site description / tagline" backs the index's meta/og
+     description via the layout seam; empty setting → the tags are omitted entirely. --}}
+@extends('layouts.app', [
+    'title' => __('common.forums').' · '.config('app.name', 'NovFora'),
+    'metaDescription' => app(\App\Settings\Settings::class)->siteView()['site_description'] ?? '',
+])
 
 @push('head')
     <link rel="canonical" href="{{ route('forums.index') }}">

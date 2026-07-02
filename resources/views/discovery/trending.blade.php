@@ -1,5 +1,8 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => 'Trending · '.config('app.name', 'NovFora')])
+@extends('layouts.app', [
+    'title' => 'Trending · '.config('app.name', 'NovFora'),
+    'metaDescription' => 'The most active discussions on '.config('app.name', 'NovFora').' right now.',
+])
 
 @push('head')
     <link rel="canonical" href="{{ route('trending.index') }}">

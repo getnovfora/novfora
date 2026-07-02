@@ -61,6 +61,16 @@
     @auth <meta name="novfora-auth" content="1"> @endauth
     <title>{{ $title ?? config('app.name', 'NovFora') }}</title>
 
+    {{-- U20 (ADR-0108): site-wide OG identity + an OPTIONAL per-page meta description. og:site_name rides
+         the wordmark fallback chain already resolved above (site wordmark → app name); $metaDescription is
+         passed via @extends data exactly like $title — pages that @push their own description simply don't
+         pass it, so nothing ever double-tags. Deliberately NO unconditional global description fallback. --}}
+    <meta property="og:site_name" content="{{ $wordmark }}">
+    @if (($metaDescription ?? '') !== '')
+        <meta name="description" content="{{ $metaDescription }}">
+        <meta property="og:description" content="{{ $metaDescription }}">
+    @endif
+
     {{-- Brand favicon / app icons (NovFora constellation mark): SVG for modern browsers, PNG fallbacks for
          the rest. A site theme's custom favicon (below) overrides these on equal terms by coming later. --}}
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
