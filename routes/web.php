@@ -209,7 +209,13 @@ Route::get('/staff', function () {
 // Compose / moderate / upload — authenticated + email-verified.
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/forums/{forum}/topics/create', fn (Forum $forum) => view('forum.create-topic', ['forum' => $forum]))->name('topics.create');
-    Route::get('/posts/{post}/edit', fn (Post $post) => view('forum.edit-post', ['post' => $post]))->name('posts.edit');
+    // Match the edit SFC's own mount gate (PostPolicy update) so the page shell never renders for a viewer
+    // the embedded editor would immediately 403 (permission-aware UI contract, NOV-88).
+    Route::get('/posts/{post}/edit', function (Post $post) {
+        abort_unless(auth()->user()?->can('update', $post), 403);
+
+        return view('forum.edit-post', ['post' => $post]);
+    })->name('posts.edit');
     Route::get('/recycle-bin', [ModerationController::class, 'recycleBin'])->name('moderation.recycle-bin');
 
     // Rate-limited: the upload endpoint is an untrusted-file boundary (ADR-0094) — bound flooding on top of

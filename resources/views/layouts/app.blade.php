@@ -298,7 +298,10 @@
                         @if (auth()->user()->canDo('admin.access', \App\Permissions\Scope::global()))
                             <x-ui.dropdown-item :href="route('admin.dashboard')"><x-ui.icon name="cog" class="h-4 w-4 text-ink-subtle" /> Admin</x-ui.dropdown-item>
                         @endif
-                        @if (auth()->user()->isStaff())
+                        {{-- Gate on the EXACT capability the dashboard route enforces (bans.manage), not the
+                             group-slug isStaff() shorthand: a "moderators"-slugged member without the grant
+                             saw this link and 403'd; a delegated bans.manage holder never saw it (NOV-88). --}}
+                        @if (auth()->user()->canDo('bans.manage', \App\Permissions\Scope::global()))
                             <x-ui.dropdown-item :href="route('moderation.dashboard')"><x-ui.icon name="shield" class="h-4 w-4 text-ink-subtle" /> Moderation</x-ui.dropdown-item>
                         @endif
                         <div class="border-t border-line mt-1 pt-1">

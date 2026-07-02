@@ -3849,3 +3849,42 @@ The diagnostic mirrors the engine (no drift): `freezeReason()` reorders to (demo
 - **Concurrency (fixed):** `commit()` runs under a per-slug cache lock (`Cache::lock`, tier-graceful) so two same-slug installs serialize instead of merging via the `copyDirectory` fallback (the `is_dir` check-then-act TOCTOU).
 - **Partial-write, stale-row, manifest-size, banner (fixed):** `fwrite` now drains the full buffer (no silent truncation under disk pressure); a fresh install resets `consented_at`/`permission_keys` so a stale DB row can't inherit trust; a >1 MiB `module.json` is rejected before `json_decode` (avoids an uncatchable OOM that skips cleanup); the ACP banner reflects the real post-upgrade enabled state instead of always saying "disabled".
 - **Docblock corrected:** the compression-ratio cap is documented as a header-only pre-flight check (defence-in-depth); the per-file/total byte caps are the load-bearing streamed-byte fence.
+
+### ADR-0105 — Permission-aware moderation UI + bulk lock aligned to the single-action predicate (BETA-4/NOV-88, apex) (2026-07-02)
+**Status: Accepted — built + gated (v1.2). Amends the P2-M4 bulk-select rank-guard entry.**
+
+**Context.** A live beta tester (topic #26) holding `topic.moderate` bulk-selected two threads and hit
+"insufficient rank"; locking the same threads one at a time worked. Root cause: P2-M4 applied the
+`ActorRank` guard uniformly to every bulk action, but (a) no SINGLE topic action rank-gates (lock/pin/move/
+delete enforce exactly `topic.moderate`), and (b) with `allow_equal=false` the raw rank check reads the
+actor's OWN item — and any equal-priority author — as "refuse", so a custom-group moderator could bulk-act
+on almost nothing they could action singly. Adjacent ghost seams: the header "Moderation" link rendered on
+the `isStaff()` group-slug shorthand while the dashboard route enforces `bans.manage`; the Merge trigger
+rendered on `topic.moderate` alone while `MergeTopicsService` also rank-gates the source author; the GET
+`posts.edit` page shell rendered for viewers its embedded editor immediately 403s; queue/recycle-bin (pages
+any member may open — their lists self-filter) linked a dashboard that would refuse them.
+
+**Decision.**
+- **Bulk lock/unlock is capability-only** — it partitions on exactly the single-route predicate
+  (`topic.moderate` at the topic's scope). Invariant: bulk-locking N topics ≡ N single locks; provably no
+  widening, since every item was already single-lockable. Lock is a thread-STATE toggle, not an act against
+  the author.
+- **Bulk delete/move KEEP the rank guard** (destructive/relocating; the P2-M4 rationale stands) with two
+  carve-outs: a null author has no rank to out-rank (unchanged), and the actor's OWN item is never a
+  higher-ranked target (self-exemption — you already hold `*.own` authority over your own content).
+  Silent-skip + both-sets audit + non-transactional partial success are unchanged; the bulk bar's flash now
+  states the skip reason in plain words.
+- **Permission-aware UI contract applied:** the header Moderation link, the Merge trigger, the
+  queue/recycle-bin dashboard links, and the GET `posts.edit` shell now render on the EXACT capability their
+  server action enforces (hide when the only outcome is a 403 the viewer cannot remedy). Every visibility
+  test asserts the PAIR: control visible ↔ action succeeds; control hidden ↔ forged request 403s.
+
+**Flagged, deliberately NOT changed (owner decision, out of scope):** single-topic delete/move still have no
+rank guard while their bulk twins do — tightening singles would visibly regress behaviour the beta thread
+shows the owner endorses; loosening bulk delete/move discards P2-M4's recorded intent. The asymmetry is now
+documented instead of accidental.
+
+**Consequences.** A moderator's bulk lock matches what they can do one at a time (the beta repro passes);
+custom-group/delegated moderators see exactly the controls that will work; no capability was widened
+anywhere (regression tests assert the forged-request 403s). Tests: `TopicModerationVisibilityTest` (the
+contract pairs) + `BulkModerationTest` (lock invariant, delete self-exemption, admin-skip retained).

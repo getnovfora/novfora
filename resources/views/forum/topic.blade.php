@@ -92,8 +92,12 @@
                             <x-ui.icon name="lock" class="h-4 w-4" /> {{ $topic->status === 'locked' ? __('forum.unlock') : __('forum.lock') }}
                         </x-ui.button>
                     </form>
-                    {{-- Merge this topic into another (P2-M4): trigger + modal SFC. --}}
-                    <livewire:forum.merge-topic :topic-id="$topic->id" />
+                    {{-- Merge this topic into another (P2-M4): trigger + modal SFC. Hidden (not disabled)
+                         when the rank guard would refuse the source author — rank leakage has no
+                         user-actionable remedy, so a control that can only fail is pure ghost UI (NOV-88). --}}
+                    @if ($canMergeTopic)
+                        <livewire:forum.merge-topic :topic-id="$topic->id" />
+                    @endif
                     {{-- Bulk-select toggle (P2-M4): turns on per-post checkboxes wired to the Alpine bulkSelect store. --}}
                     <x-ui.button type="button" variant="ghost" size="sm" dusk="bulk-select-toggle"
                                  x-on:click="$store.bulkSelect.toggleMode()"

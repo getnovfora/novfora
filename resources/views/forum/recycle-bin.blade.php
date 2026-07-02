@@ -2,8 +2,12 @@
 @extends('layouts.app', ['title' => __('forum.recycle_bin').' · '.config('app.name', 'NovFora')])
 
 @section('breadcrumbs')
+    {{-- Reachable by any signed-in member (list filters to what they may restore); only link the dashboard
+         for a viewer its route would admit (NOV-88). --}}
     <x-ui.breadcrumbs :items="[
-        ['label' => 'Moderation', 'url' => route('moderation.dashboard')],
+        (auth()->user()?->canDo('bans.manage', \App\Permissions\Scope::global()) ?? false)
+            ? ['label' => 'Moderation', 'url' => route('moderation.dashboard')]
+            : ['label' => 'Moderation'],
         ['label' => __('forum.recycle_bin')],
     ]" />
 @endsection

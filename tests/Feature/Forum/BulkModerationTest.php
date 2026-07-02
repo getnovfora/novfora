@@ -15,9 +15,11 @@ use Tests\Support\Content;
 use Tests\Support\Users;
 
 /*
-| Cross-page bulk moderation (P2-M4 ◐). The contract under test is the RANK GUARD: a bulk action applies to
-| every eligible item and SILENTLY SKIPS items whose author out-ranks the actor — never erroring — and BOTH
-| sets land in the audit log. A non-staff caller can action nothing (the forum gate is enforced in the service).
+| Cross-page bulk moderation (P2-M4 ◐, amended by BETA-4/NOV-88 — ADR-0105). Destructive/relocating actions
+| (delete, move) keep the RANK GUARD — every eligible item applies, items whose author out-ranks the actor are
+| SILENTLY SKIPPED (never erroring), both sets audited — with a self-exemption: your OWN item is never a
+| higher-ranked target. Lock/unlock is capability-only, matching the single-topic route's exact predicate
+| (bulk N ≡ N singles). A non-staff caller can action nothing (the forum gate is enforced in the service).
 */
 
 uses(RefreshDatabase::class);
@@ -81,19 +83,54 @@ it('applies no post action for a non-staff member (forum gate enforced in the se
         ->and(Post::find($reply->id))->not->toBeNull();
 });
 
-it('bulk-locks topics a moderator outranks, skipping a higher-ranked author topic', function () {
+it('bulk-locks every topic the actor could lock singly — no rank skip (BETA-4/NOV-88)', function () {
+    // The beta repro: a moderator single-locked a thread fine, but the bulk bar skipped the same thread as
+    // "insufficient rank". Bulk lock now partitions on exactly the single-route predicate (topic.moderate),
+    // so their own topics AND higher-ranked authors' topics lock in bulk just as they do one at a time.
     $forum = bulkForum();
     $posts = app(PostService::class);
+    $mod = Users::inGroups(['moderators']);
     $memberTopic = $posts->createTopic(Users::inGroups(['members']), $forum, 'Member topic', 'tiptap_json', Content::doc('op'));
+    $adminTopic = $posts->createTopic(Users::inGroups(['admins']), $forum, 'Admin topic', 'tiptap_json', Content::doc('op'));
+    $ownTopic = $posts->createTopic($mod, $forum, 'Own topic', 'tiptap_json', Content::doc('op'));
+
+    $result = app(BulkModerationService::class)
+        ->lockTopics($mod, [(int) $memberTopic->id, (int) $adminTopic->id, (int) $ownTopic->id], true);
+
+    expect($result['skipped'])->toBe([])
+        ->and(count($result['applied']))->toBe(3);
+    expect($memberTopic->fresh()->status)->toBe('locked')
+        ->and($adminTopic->fresh()->status)->toBe('locked')
+        ->and($ownTopic->fresh()->status)->toBe('locked');
+});
+
+it('still applies no bulk lock for a non-moderator (capability gate is the fence)', function () {
+    $forum = bulkForum();
+    $posts = app(PostService::class);
+    $topic = $posts->createTopic(Users::inGroups(['members']), $forum, 'T', 'tiptap_json', Content::doc('op'));
+
+    $result = app(BulkModerationService::class)
+        ->lockTopics(Users::inGroups(['members']), [(int) $topic->id], true);
+
+    expect($result['applied'])->toBe([])
+        ->and($result['skipped'])->toBe([(int) $topic->id])
+        ->and($topic->fresh()->status)->toBe('open');
+});
+
+it('bulk-deletes the actor\'s OWN topic despite equal rank (self-exemption), still skipping an admin\'s', function () {
+    $forum = bulkForum();
+    $posts = app(PostService::class);
+    $mod = Users::inGroups(['moderators']);
+    $ownTopic = $posts->createTopic($mod, $forum, 'Own topic', 'tiptap_json', Content::doc('op'));
     $adminTopic = $posts->createTopic(Users::inGroups(['admins']), $forum, 'Admin topic', 'tiptap_json', Content::doc('op'));
 
     $result = app(BulkModerationService::class)
-        ->lockTopics(Users::inGroups(['moderators']), [(int) $memberTopic->id, (int) $adminTopic->id], true);
+        ->deleteTopics($mod, [(int) $ownTopic->id, (int) $adminTopic->id]);
 
-    expect($result['applied'])->toBe([(int) $memberTopic->id])
+    expect($result['applied'])->toBe([(int) $ownTopic->id])
         ->and($result['skipped'])->toBe([(int) $adminTopic->id]);
-    expect($memberTopic->fresh()->status)->toBe('locked')
-        ->and($adminTopic->fresh()->status)->toBe('open');
+    expect(Topic::find($ownTopic->id))->toBeNull()
+        ->and(Topic::find($adminTopic->id))->not->toBeNull();
 });
 
 it('bulk-moves eligible topics to another forum, skipping a no-op same-forum move', function () {
