@@ -256,6 +256,42 @@ it('refuses to install over an existing module without an upgrade confirmation',
     @unlink($zip2);
 });
 
+it('upgrades an installed module with an atomic swap (U17 review)', function () {
+    app(ModuleTrustKeys::class)->add('Acme', $this->trustedPublic);
+    $manifest = fn (string $v) => json_encode([
+        'name' => 'Acme Widget', 'slug' => 'acme/widget', 'version' => $v, 'api_version' => '^1.0',
+    ], JSON_PRETTY_PRINT);
+
+    app(ModuleInstaller::class)->installFromZip(u17Zip(['module.json' => $manifest('1.0.0')], $this->trustedSecret));
+    expect(Module::where('slug', 'acme/widget')->value('version'))->toBe('1.0.0');
+
+    $result = app(ModuleInstaller::class)->installFromZip(
+        u17Zip(['module.json' => $manifest('1.0.1'), 'src/New.php' => '<?php'], $this->trustedSecret),
+        allowUpgrade: true,
+    );
+
+    expect($result['slug'])->toBe('acme/widget')
+        ->and(Module::where('slug', 'acme/widget')->value('version'))->toBe('1.0.1')
+        ->and(is_file(config('novfora.modules.path').'/acme/widget/src/New.php'))->toBeTrue()
+        // No orphaned -backup directory left behind (the review's empty-dir + backup-leak fix).
+        ->and(count(File::glob(config('novfora.modules.zip.staging_path').'/*-backup')))->toBe(0);
+});
+
+it('rejects an unreasonably large manifest before decoding it (U17 review)', function () {
+    app(ModuleTrustKeys::class)->add('Acme', $this->trustedPublic);
+    // Raise the compression-ratio cap so THIS test exercises the 1 MiB manifest cap, not the bomb fence.
+    config(['novfora.modules.zip.max_compression_ratio' => 1_000_000]);
+    // A ~2 MiB valid-JSON manifest — over the 1 MiB manifest cap, rejected before json_decode.
+    $big = '{"name":"Big","slug":"acme/widget","version":"1.0.0","api_version":"^1.0","description":"'
+        .str_repeat('a', 2_000_000).'"}';
+    $zip = u17Zip(['module.json' => $big], $this->trustedSecret);
+
+    expect(fn () => app(ModuleInstaller::class)->installFromZip($zip))->toThrow(PackageException::class);
+    expect(Module::where('slug', 'acme/widget')->exists())->toBeFalse();
+
+    @unlink($zip);
+});
+
 it('rejects a package whose manifest is invalid', function () {
     app(ModuleTrustKeys::class)->add('Acme', $this->trustedPublic);
     $zip = u17Zip(['module.json' => '{ not valid json'], $this->trustedSecret);

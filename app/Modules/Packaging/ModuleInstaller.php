@@ -12,6 +12,8 @@ use App\Modules\ModuleException;
 use App\Modules\ModuleManager;
 use App\Modules\ModuleTrustKeys;
 use App\Support\Audit;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
@@ -57,7 +59,15 @@ final class ModuleInstaller
             $slug = $this->resolveSlug($staging);
             [$trust, $signerFingerprint] = $this->assertTrusted($staging, $slug);
 
-            $module = $this->commit($slug, $staging, $allowUpgrade, $trust, $signerFingerprint);
+            // Serialize concurrent installs of the SAME slug (cache-backed lock — DB on Baseline, Redis on
+            // Enhanced, tier-graceful) so a second request observes the first's committed directory and hits the
+            // "already installed" branch rather than merging into it via the copyDirectory fallback (the is_dir
+            // check-then-act TOCTOU). Held only across commit; extraction/verify already happened.
+            try {
+                $module = Cache::lock('module.install.'.$slug, 30)->block(5, fn (): Module => $this->commit($slug, $staging, $allowUpgrade, $trust, $signerFingerprint));
+            } catch (LockTimeoutException) {
+                throw new PackageException(__("Another install for ':slug' is in progress. Please retry.", ['slug' => $slug]));
+            }
 
             return ['module' => $module, 'slug' => $slug, 'trust' => $trust, 'signer_fingerprint' => $signerFingerprint];
         } catch (PackageException $e) {
@@ -74,6 +84,12 @@ final class ModuleInstaller
         $path = $staging.'/module.json';
         if (! is_file($path)) {
             throw new PackageException(__('The archive has no module.json at its root.'));
+        }
+
+        // A manifest is bounded by the generic per-file cap (32 MiB); a multi-MB manifest of millions of keys
+        // could exhaust memory in json_decode with an uncatchable fatal that skips the cleanup. Cap it small.
+        if ((int) filesize($path) > 1_048_576) {
+            throw new PackageException(__('The package manifest is unreasonably large.'));
         }
 
         try {
@@ -136,23 +152,30 @@ final class ModuleInstaller
                 File::deleteDirectory($target); // roll the files back out
                 throw new PackageException(__('Install failed after staging: :why', ['why' => $e->getMessage()]));
             }
+            // A fresh install re-establishes the code baseline: if a stale DB row survived an out-of-band
+            // directory deletion, drop any inherited full-trust consent so enabling this code re-prompts (the
+            // H3 consent gate keys on consented_at === null). A genuinely-new row already has these null.
+            $module->forceFill(['consented_at' => null, 'permission_keys' => []])->save();
             Audit::log('module.zip_install.accepted', $module, ['slug' => $slug, 'trust' => $trust, 'signer_fingerprint' => $signerFingerprint, 'action' => 'install']);
 
             return $module;
         }
 
-        // Upgrade path: back up the live dir, swap in the new files, upgrade; restore on any failure.
-        $backup = $this->freshDir($this->stagingRoot()).'-backup';
+        // Upgrade path: back up the live dir, swap in the new files, upgrade — the ENTIRE swap is protected so a
+        // failure at any step restores the previous version, and the backup is always cleaned. Compute the
+        // backup path directly (not via freshDir, which would pre-create + orphan an empty sibling dir).
+        $backup = rtrim($this->stagingRoot(), '/').'/'.Str::random(16).'-backup';
         $this->move($target, $backup);
-        $this->move($staging, $target);
         try {
+            $this->move($staging, $target);
             $module = $this->modules->upgrade($slug);
         } catch (\Throwable $e) {
-            File::deleteDirectory($target);
-            $this->move($backup, $target); // restore the previous version verbatim
+            File::deleteDirectory($target);          // clear a partial swap
+            $this->move($backup, $target);           // restore the previous version verbatim
             throw new PackageException(__('Upgrade failed and was rolled back: :why', ['why' => $e->getMessage()]));
+        } finally {
+            File::deleteDirectory($backup);          // never orphan the backup (no-op after a restore move)
         }
-        File::deleteDirectory($backup);
         Audit::log('module.zip_install.accepted', $module, ['slug' => $slug, 'trust' => $trust, 'signer_fingerprint' => $signerFingerprint, 'action' => 'upgrade']);
 
         return $module;

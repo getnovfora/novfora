@@ -17,9 +17,10 @@ use ZipArchive;
  *   or a backslash are rejected; the resolved target is re-checked to be under the staging root before write.
  * - Symlink escape: we only ever write REGULAR files (file_put_contents) — a symlink entry can never be
  *   created, so there is nothing for a later entry to traverse through. (extractTo is what makes that unsafe.)
- * - Zip bomb: entry-count, per-file, and total UNCOMPRESSED caps + a per-entry compression-ratio cap are read
- *   from the central directory first, then re-enforced against the ACTUAL bytes streamed out, so a lying
- *   header cannot slip a bomb past the pre-check.
+ * - Zip bomb: the per-entry compression-ratio cap is a pre-flight header check; the per-file and total
+ *   UNCOMPRESSED byte caps are the load-bearing fence — read from the central directory first, then
+ *   RE-ENFORCED against the ACTUAL bytes streamed out (per 256 KiB chunk), so a lying/zero comp_size header
+ *   cannot slip a bomb past the pre-check (extraction aborts within one chunk of the cap).
  * - Extension allowlist: only the file types a module legitimately ships are written; anything else rejects.
  *
  * All limits are config-driven (`novfora.modules.zip.*`). Every violation throws PackageException.
@@ -119,7 +120,8 @@ final class ArchiveGuard
             }
         }
 
-        // Extraction: our OWN streamed copy per entry — never extractTo. Re-enforce the caps on actual bytes.
+        // Extraction: our OWN streamed copy per entry — never extractTo. Re-enforce the per-file + total byte
+        // caps on the ACTUAL streamed bytes (the ratio cap above is header-only, defence-in-depth).
         $actualTotal = 0;
         for ($i = 0; $i < $count; $i++) {
             $name = (string) $zip->getNameIndex($i);
@@ -161,8 +163,16 @@ final class ArchiveGuard
                     if ($entryBytes > $this->maxFileBytes || $actualTotal > $this->maxTotalBytes) {
                         throw new PackageException(__('An entry expanded beyond its allowed size (:name).', ['name' => $name]));
                     }
-                    if (fwrite($out, $buffer) === false) {
-                        throw new PackageException(__('Could not write a staged file.'));
+                    // Drain the whole buffer: fwrite may return a SHORT count (not false) under disk pressure,
+                    // which would otherwise silently truncate the staged file.
+                    $offset = 0;
+                    $len = strlen($buffer);
+                    while ($offset < $len) {
+                        $wrote = fwrite($out, substr($buffer, $offset));
+                        if ($wrote === false || $wrote === 0) {
+                            throw new PackageException(__('Could not write a staged file.'));
+                        }
+                        $offset += $wrote;
                     }
                 }
             } finally {

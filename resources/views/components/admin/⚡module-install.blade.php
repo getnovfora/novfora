@@ -61,10 +61,12 @@ new class extends Component
         try {
             $result = app(ModuleInstaller::class)->installFromZip($path, $this->confirmUpgrade);
             $this->reset('archive', 'confirmUpgrade');
-            $this->status = __("Installed ':slug' (:trust). It is disabled — enable it from the list above after reviewing its capabilities.", [
-                'slug' => $result['slug'],
-                'trust' => $result['trust'] === 'signed' ? __('signature verified') : __('UNSIGNED — dev policy'),
-            ]);
+            $trust = $result['trust'] === 'signed' ? __('signature verified') : __('UNSIGNED — dev policy');
+            // Reflect the ACTUAL post-install state: upgrading an already-enabled module leaves it enabled
+            // (its migrations have already run); a fresh install (or upgrade of a disabled module) is disabled.
+            $this->status = $result['module']->enabled
+                ? __("Upgraded ':slug' (:trust). It remains ENABLED — its migrations have run.", ['slug' => $result['slug'], 'trust' => $trust])
+                : __("Installed ':slug' (:trust). It is disabled — enable it from the list above after reviewing its capabilities.", ['slug' => $result['slug'], 'trust' => $trust]);
         } catch (PackageException $e) {
             $this->error = $e->getMessage();
         }
