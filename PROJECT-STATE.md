@@ -13,6 +13,102 @@
 
 ---
 
+## 🌅 Morning report — FABLE session: Populate private plugin (E6a engine + E6b Studio) BUILT FIRST against v1.2.x — plugin repo complete + gated GREEN; one small core seams branch; owner reviews (2026-07-02)
+
+Ran [`docs/product/BUILD-PROMPTS-2026-07-02.md`](docs/product/BUILD-PROMPTS-2026-07-02.md) **Prompt 0** end-to-end,
+unattended, after owner plan approval ([`docs/product/POPULATE-E6-PLAN-2026-07-02.md`](docs/product/POPULATE-E6-PLAN-2026-07-02.md)).
+Built the **Populate private plugin** (NOV-140 E6a ◆ APEX + NOV-143 E6b) — content seed-import + drip engine +
+the four-pane Studio — as a **separate private repo `D:\novfora-populate`** (never committed to this repo, never in
+the release zip / public Registry). Committed as `Tommy Huynh` (DCO `-s`, no AI trailers). **Nothing pushed.**
+
+### Two-repo topology
+- **`D:\novfora-populate`** (PRIVATE, its own git repo — 11 commits, branch `main`): the plugin package
+  (`plugin/` = `novfora/populate`, `api_version ^1.2`), the updated ForumGen script (`script/generate_forum.py`),
+  schema docs, an example plan fixture, the signed-zip build recipe. The plugin's working tree lives at
+  `modules/novfora/populate` in THIS repo via an NTFS junction, git-excluded here (`.git/info/exclude`), so
+  `forum-dev` sees live files — but it is **not** part of this repo.
+- **`D:\Forum` branch `claude/populate-generic-seams`** (2 commits ahead of `main`; **`main` untouched at
+  `e04d071`**): the ONE anticipated core change — generic module seams the plugin rides (ADR-0120). Flagged per
+  the plan; the plugin depends on it (`api_version ^1.2`), so this branch merges FIRST.
+
+### Core seams branch (`claude/populate-generic-seams`, ADR-0120, Module API 1.1→1.2)
+Two additive, generic filter hooks (any module can use them — an Akismet scorer wants the first; any
+account-scoping module wants the second):
+- **`moderation.verdict`** (escalate-only) at the end of `ContentModerator::review()` — a module may only RAISE
+  the tri-state outcome (allow→hold→reject), never lower it. Powers the plugin's HOLD-into-modqueue fence.
+- **`stats.users.query`** at every member aggregate-count site (`ForumStatsWidget`, `AnalyticsService`) —
+  counts-only. Powers the stats-exclusion fence.
+- **`GroupAutoPromoter::promote()` now exempts `trust_locked` accounts** — an apex-review finding (see below).
+Zero behavior change with no hooks registered. Gates: AntiSpam+Analytics+Modules+Groups+Unit **278 passed**;
+Pint + PHPStan(app/) clean. ADR-0120 lifted into `DECISIONS.md` (next-free after 0108; the roadmap's 0109–0116
+reservations kept, so 0120 as the spec's §5 sketch suggested).
+
+### The plugin (E6a engine + E6b Studio) — spec §4, all fences default-on
+- **E6a engine ◆:** strict plan validator (hostile-JSON fence — key allowlists make identity/authority
+  smuggling structurally impossible; entity/size caps; sim-domain enforced; time-paradox rejection). Backfill
+  through the **ADR-0034 ImportRunner** (`PlanSourceDriver`) + a **counter-finalize pass** (the runner has none —
+  a recon-surfaced gap). Sim-account hardening (unusable hash, members+tl1 only, `trust_locked`, suppression row
+  per address, `populate_users` provenance map — no core column). **Drip runner** on the digest transactional-claim
+  discipline (CAS claim, per-plan daily caps, atomic publish, stale-claim self-heal). **Pacing engine** ported
+  from ForumGen (diurnal/weekday/ratio/decay/jitter + curve presets/quiet-periods/spikes; deterministic). **Purge**
+  = byte-equal reversal. **Fences:** login refusal (Fortify `Login` listener + unusable hash), HOLD mode, mail
+  suppression, bot flair (`topic.post.aside` slot), stats exclusion, never-staff/never-login — all proven.
+- **E6b Studio:** four server-rendered ACP panes (module routes behind `auth`+`verified`, with admin.access +
+  staff-2FA + `novfora.populate.manage` re-asserted in every controller action) — Persona Studio (ForumGen's 10
+  archetypes seeded, CRUD, pack import/export), Timeline & Pacing Designer (**live preview from the REAL pacing
+  engine** — `x-ui.sparkline` + sample 48h schedule), Content Controls (versioned genconfig, primary group fixed
+  to members), Run Console (dashboard, kill switch, pause/resume, dry-run, co-owner-gated purge with typed
+  confirm). No new JS deps. (Livewire-4 SFCs can't be registered from a module — server-rendered per the plan's
+  sanctioned fallback; module named routes resolve via a `RouteCollection::refreshNameLookups()` after the group.)
+- **Script:** `generate_forum.py --config genconfig.json` → plan schema v1; keys are **env-only** (the plaintext
+  Gemini key in the `F:\ForumGen` copy is dropped — **owner should revoke that key**); sim domain from config.
+
+### E6a apex adversarial review (verify-then-refute, 6 lenses × per-finding refutation) — **3 confirmed HIGH, ALL FIXED, re-gated**
+Ran on **Opus 4.8** (the apex fallback — Fable errors for spawned workflow agents here, per MEMORY). Every finding
+was a real defect the green suite missed:
+- **HIGH — drip mutex race:** the 120s engine-lock TTL could expire under an unbounded beat, letting a purge race
+  a live publish (orphan post, non-byte-equal). **Fixed:** 450s TTL (10× the new wall-clock beat budget) + hard
+  `tick_batch` clamp bound the beat inside the lock; the publish state-flip is now a **CAS** (`WHERE state='claimed'`)
+  so a purge-flipped event rolls its post back — no orphan.
+- **HIGH — purge activity-feed ghost:** drip publishes fire Topic/PostCreated → synchronous activity listeners
+  write `activities` rows purge never swept (a "[Deleted]" feed ghost). **Fixed:** purge sweeps `activities` for
+  every purged topic + post id.
+- **HIGH — sim-account escalation via `GroupAutoPromoter`:** `trust_locked` fences `TrustLevelManager` but NOT the
+  separate custom-group auto-promoter, so a sim account could be auto-promoted into a capability-bearing custom
+  group. **Fixed in core** (seams branch): `promote()` exempts locked accounts.
+Plus 1 LOW fixed (real members' follows of purged sim topics now swept). 0 findings survived unrefuted.
+
+### Gates (all GREEN)
+- **Plugin suite:** `pest modules/novfora/populate/tests` → **83 passed / 467 assertions** (validator, importer,
+  fences, drip, pacing, purge, Studio, generator round-trip, compressed-clock E2E, U17 dogfood). Pint clean;
+  **PHPStan L5 (project larastan config) 0 errors** over the plugin src.
+- **Compressed-clock E2E (spec §5):** import a ForumGen plan → 48h of simulated cron beats → purge byte-equal on a
+  lived-in two-forum board → module uninstall drops plugin schema only.
+- **U17 dogfood:** the signed zip (built via `script/build-package.sh`, ed25519 `module.sig`) installs through the
+  **real `installFromZip` pipeline** (ArchiveGuard → PackageSignature → trust registry → ModuleManager) against a
+  throwaway modules root — safe extraction (no `tests/` shipped), signature verified against the trusted key +
+  rejected for an untrusted key + on tamper, then enable → import → purge → uninstall clean.
+- **Core stays clean:** the plugin is inert unless installed+enabled; the core suite (278) passes with the seams
+  branch and no plugin present.
+
+### Linear (team NovFora)
+Both moved to **In Progress** at start. Work is complete + gated; left In Progress for owner review/merge (they
+flip to Done on merge, matching the prior-session convention). Completion comments attempted — see ☀️ if any write
+was blocked.
+
+### ☀️ What the owner does next
+1. **Review two repos:** the private plugin `D:\novfora-populate` (11 commits on `main`) and the core seams branch
+   `claude/populate-generic-seams` (2 commits). **Merge the seams branch to `main` FIRST** (the plugin's
+   `api_version ^1.2` depends on it), then push `origin main` (blocked here — protected branch).
+2. **Revoke the Gemini API key** committed in the old `F:\ForumGen\generate_forum.py` (the new script is env-only).
+3. **Distribute the plugin:** generate the owner release keypair (`php artisan novfora:module:sign --keygen`),
+   build the signed zip (`script/build-package.sh`), add the public key to a target instance's ACP trusted keys,
+   and install via ACP → Plugins on instances you personally grant it to. Keep `NOVFORA_MODULES_ALLOW_UNSIGNED=false`.
+4. **Run Dusk in CI** for the new ACP Studio panes (no Chrome here — server-render + auth-gated in the plugin suite).
+5. Set **NOV-140 / NOV-143 → Done** on merge.
+
+---
+
 ## 🌅 Morning report — FABLE session: v1.2.0 (UI-audit reconcile + 4 BETA fixes + U8/U18/U20) — MERGED to local `main`, gated GREEN, TAGGED; owner pushes (2026-07-02)
 
 Ran [`docs/product/FABLE-V1.2-KICKOFF.md`](docs/product/FABLE-V1.2-KICKOFF.md) end-to-end, unattended. Built the four
