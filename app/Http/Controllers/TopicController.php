@@ -16,6 +16,7 @@ use App\Models\Post;
 use App\Models\Topic;
 use App\Models\TopicRead;
 use App\Models\User;
+use App\Support\ActorRank;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -95,6 +96,13 @@ class TopicController extends Controller
         $canReply = $topic->isReplyable() && ($user?->canDo('post.create', $scope) ?? false);
         $canModerate = $user?->canDo('topic.moderate', $scope) ?? false;
 
+        // The Merge trigger mirrors MergeTopicsService's EXACT gate — topic.moderate PLUS out-ranking the
+        // source author — so a moderator on an equal/higher-ranked author's topic isn't shown a control
+        // whose every attempt fails "outranked" (ghost UI, NOV-88). Author is already eager-loaded above.
+        // $canModerate === true already narrows $user to a signed-in User (guests resolve it false).
+        $canMergeTopic = $canModerate
+            && ($topic->author === null || ActorRank::canActOn($user, $topic->author));
+
         // Moderation-queue visibility (ADR-0007 §2.4): pending posts are hidden from everyone except their
         // author and staff who can moderate here. Approved posts are visible to all.
         // Eager-load the author's groups too so the poster sidebar's staff/role badge ($author->isStaff())
@@ -154,7 +162,7 @@ class TopicController extends Controller
             ->orderBy('position')->orderBy('id')->value('body_text'), 160);
 
         return view('forum.topic', compact(
-            'topic', 'posts', 'viewer', 'user', 'canReply', 'canModerate', 'description',
+            'topic', 'posts', 'viewer', 'user', 'canReply', 'canModerate', 'canMergeTopic', 'description',
             'reactionCounts', 'viewerReactions', 'canReact',
             'pollData', 'pollVotes', 'canVote', 'canViewHistory',
             'canBookmark', 'viewerBookmarks', 'topicBookmarked', 'ignoredIds', 'related',

@@ -107,7 +107,8 @@ new class extends Component
     {
         $applied = count($result['applied']);
         $skipped = count($result['skipped']);
-        session()->flash('status', "Applied to {$applied} item(s)".($skipped > 0 ? ", skipped {$skipped} (insufficient rank or scope)" : '').'.');
+        session()->flash('status', 'Applied to '.$applied.' '.\Illuminate\Support\Str::plural('item', $applied)
+            .($skipped > 0 ? ', skipped '.$skipped.' you cannot act on (the author holds your rank or higher, or the item is outside your moderation scope)' : '').'.');
 
         // navigate:false forces a FULL reload (not an SPA navigate): the Alpine bulkSelect store resets so the
         // selection + bar clear, and the session flash renders on the fresh page.

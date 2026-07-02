@@ -1,10 +1,14 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
 @extends('layouts.app', ['title' => 'Moderation queue · '.config('app.name', 'NovFora')])
 
+{{-- This page is reachable by ANY signed-in member (their list filters to their own held items); the
+     dashboard/reports links only render for a viewer the dashboard route would actually admit (NOV-88). --}}
+@php($canModCp = auth()->user()?->canDo('bans.manage', \App\Permissions\Scope::global()) ?? false)
+
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[
         ['label' => 'Forums', 'url' => route('forums.index')],
-        ['label' => 'Moderation', 'url' => route('moderation.dashboard')],
+        $canModCp ? ['label' => 'Moderation', 'url' => route('moderation.dashboard')] : ['label' => 'Moderation'],
         ['label' => 'Queue'],
     ]" />
 @endsection
@@ -18,11 +22,11 @@
             </p>
         </div>
 
-        <x-ui.tabs :items="[
-            ['label' => 'Dashboard', 'url' => route('moderation.dashboard')],
+        <x-ui.tabs :items="array_values(array_filter([
+            $canModCp ? ['label' => 'Dashboard', 'url' => route('moderation.dashboard')] : null,
             ['label' => 'Queue', 'url' => route('moderation.queue'), 'active' => true, 'count' => $topics->count() + $posts->count()],
-            ['label' => 'Reports', 'url' => route('moderation.reports')],
-        ]" />
+            $canModCp ? ['label' => 'Reports', 'url' => route('moderation.reports')] : null,
+        ]))" />
 
         {{-- Pending topics --}}
         <section class="space-y-2.5">
