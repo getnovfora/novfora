@@ -66,8 +66,7 @@ it('the notification bell lazy-loads recent notifications on open and keeps the 
     Livewire::actingAs($author->fresh())
         ->test('notification-bell')
         ->assertSet('count', 1)            // the badge count (unchanged behaviour)
-        ->assertSet('loaded', false)       // nothing loaded on the per-page render (query budget)
+        ->assertSet('recent', [])          // nothing loaded on the per-page render (query budget)
         ->call('loadRecent')
-        ->assertSet('loaded', true)
-        ->assertSee('replied in');         // the dropdown summary line
+        ->assertSee('replied in');         // the dropdown summary line (BETA-1: reloads on EVERY open now)
 });
