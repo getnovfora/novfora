@@ -55,6 +55,16 @@ final class GroupAutoPromoter
      */
     public function promote(User $user): int
     {
+        // A LOCKED account is exempt from auto-promotion: `trust_locked` marks a member whose standing is
+        // MANAGED, not earned (an admin-pinned trust level, or a Populate simulated account). Custom-group
+        // auto-promotion is a separate engine from TrustLevelManager, which already treats trust_locked as
+        // authoritative — without this guard a pinned/simulated account's metrics (posts, tenure) could
+        // satisfy a custom group's rule tree and silently attach it (and, if that group carries an ALLOW
+        // acl_entry, its capabilities). Promotion-only + non-destructive, consistent with this class.
+        if ($user->trust_locked ?? false) {
+            return 0;
+        }
+
         $candidates = $this->candidateGroups();
         if ($candidates->isEmpty()) {
             return 0; // early-out: nothing auto-promotes on this board (keeps the event hot path ~free)
