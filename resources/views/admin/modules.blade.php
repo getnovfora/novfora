@@ -3,5 +3,8 @@
 @section('content')
     <x-admin.shell title="Modules & plugins">
         <livewire:admin.modules />
+        <div class="mt-6">
+            <livewire:admin.module-install />
+        </div>
     </x-admin.shell>
 @endsection
