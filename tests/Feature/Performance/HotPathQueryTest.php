@@ -7,6 +7,7 @@ declare(strict_types=1);
 use App\Clubs\ClubService;
 use App\Forum\PostService;
 use App\Models\Forum;
+use App\Upgrade\SchemaState;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Content;
@@ -30,7 +31,7 @@ beforeEach(function () {
     // probe (+2 queries) that a markerless host (forum-dev) never pays — making these cold-render budgets
     // host-dependent. Priming the cached flag here measures the same steady state on every host: the
     // probe is a once-per-deploy cost, never a per-request one.
-    app(\App\Upgrade\SchemaState::class)->refresh();
+    app(SchemaState::class)->refresh();
 });
 
 /** Run $fn with a fresh query log and return how many queries it issued. */
