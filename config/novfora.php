@@ -357,6 +357,32 @@ return [
         // every plugin even if one is crashing the boot, and the admins-only ACP toggle writes/removes it. A
         // file (not a DB flag) so it works before the DB is reachable and survives a module that breaks boot.
         'safe_mode_marker' => env('NOVFORA_MODULES_SAFE_MODE_MARKER', storage_path('modules-safe-mode')),
+
+        // Install-from-zip + signature/trust gate (U17, ADR-0104, apex). Upload an untrusted .zip → hardened
+        // extraction (traversal/symlink/bomb caps below) → ed25519 signature verified against the trusted-key
+        // registry (module_trust_keys) → atomic stage-then-rename into modules/<slug> → ModuleManager lifecycle.
+        'zip' => [
+            // TRUST POLICY: signed packages from a trusted key install by default; a present-but-invalid
+            // signature is ALWAYS rejected. Unsigned packages are refused unless this is on — DEV ONLY, loud.
+            'allow_unsigned' => (bool) env('NOVFORA_MODULES_ALLOW_UNSIGNED', false),
+
+            // Hostile-archive caps (ArchiveGuard). All enforced against the ACTUAL streamed bytes, so a lying
+            // central-directory header cannot slip a bomb through the pre-check.
+            'max_entries' => (int) env('NOVFORA_MODULES_ZIP_MAX_ENTRIES', 2000),
+            'max_file_bytes' => (int) env('NOVFORA_MODULES_ZIP_MAX_FILE_BYTES', 33_554_432),       // 32 MiB
+            'max_total_bytes' => (int) env('NOVFORA_MODULES_ZIP_MAX_TOTAL_BYTES', 134_217_728),    // 128 MiB
+            'max_compression_ratio' => (int) env('NOVFORA_MODULES_ZIP_MAX_RATIO', 200),
+
+            // The file types a module package may contain (lowercase, no dot). Anything else rejects.
+            'extensions' => [
+                'php', 'json', 'md', 'txt', 'css', 'js', 'svg', 'png', 'jpg', 'jpeg', 'gif',
+                'webp', 'yml', 'yaml', 'xml', 'ico', 'woff', 'woff2', 'ttf', 'lang', 'html',
+            ],
+
+            // Throwaway extraction area + the quarantine for rejected archives (both under storage/, prunable).
+            'staging_path' => storage_path('app/module-staging'),
+            'quarantine_path' => storage_path('app/module-quarantine'),
+        ],
     ],
 
     // ── Outbound webhooks (ADR-0033, Phase 3 B3) ────────────────────────────────────────────────────
