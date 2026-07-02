@@ -14,11 +14,11 @@ new class extends Component
 
     public ?int $userId = null;
 
-    /** Lazy-loaded recent notifications for the dropdown — populated on first open only, so the bell adds NO
-     *  query to the per-page header render (query-budget discipline). @var array<int,array<string,mixed>> */
+    /** Lazy-loaded recent notifications for the dropdown — populated on open only (never on the header
+     *  render), so the bell adds NO query to the per-page render (query-budget discipline). Reloaded on
+     *  EVERY open (BETA-1/NOV-85): the old first-open latch let the list disagree with the polling badge
+     *  for the rest of the page's life. @var array<int,array<string,mixed>> */
     public array $recent = [];
-
-    public bool $loaded = false;
 
     public function mount(): void
     {
@@ -39,11 +39,11 @@ new class extends Component
         $this->count = $user ? $user->unreadNotifications()->count() : 0;
     }
 
-    /** Load the latest notifications for the dropdown, re-gated for club visibility (no private-club leak). */
+    /** Load the latest notifications for the dropdown, re-gated for club visibility (no private-club leak).
+     *  Also refreshes the badge so list + count update atomically in one round-trip. */
     public function loadRecent(): void
     {
         $user = auth()->user();
-        $this->loaded = true;
         if (! $user) {
             $this->recent = [];
 
@@ -54,13 +54,14 @@ new class extends Component
             ->filter(fn (DatabaseNotification $n): bool => NotificationVisibility::visibleTo($n, $user))
             ->take(7)
             ->map(fn (DatabaseNotification $n): array => [
-                'url' => $n->data['url'] ?? route('notifications.index'),
+                'id' => $n->id,
                 'unread' => $n->read_at === null,
                 'event' => (string) ($n->data['event'] ?? ''),
                 'actor' => (string) ($n->data['actors'][0]['username'] ?? 'Someone'),
                 'topic' => $n->data['topic_title'] ?? null,
                 'when' => $n->created_at?->diffForHumans() ?? '',
             ])->values()->all();
+        $this->refreshCount();
     }
 
     public function markAllRead(): void
@@ -94,7 +95,7 @@ new class extends Component
      @endif
 >
     <button type="button"
-            @click="open = ! open; if (open && ! $wire.loaded) { $wire.loadRecent() }"
+            @click="open = ! open; if (open) { $wire.loadRecent() }"
             :aria-expanded="open.toString()" aria-haspopup="true"
             title="Notifications" aria-label="Notifications{{ $count > 0 ? ' ('.$count.' unread)' : '' }}"
             class="relative inline-flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink">
@@ -121,7 +122,8 @@ new class extends Component
         <ul wire:loading.remove wire:target="loadRecent" class="max-h-96 divide-y divide-line overflow-y-auto">
             @forelse ($recent as $item)
                 <li>
-                    <a href="{{ $item['url'] }}" @class([
+                    {{-- Click-through: opening a notification marks it read (notifications.open, BETA-1). --}}
+                    <a href="{{ route('notifications.open', $item['id']) }}" @class([
                         'flex items-start gap-2.5 px-3 py-2.5 text-sm transition-colors hover:bg-surface-sunken',
                         'bg-accent-soft/40' => $item['unread'],
                     ])>

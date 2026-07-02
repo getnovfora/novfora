@@ -293,6 +293,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::get('/notifications/{id}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::get('/settings/notifications', [NotificationController::class, 'preferences'])->name('settings.notifications');
     Route::post('/settings/notifications', [NotificationController::class, 'savePreferences'])->name('settings.notifications.save');
 

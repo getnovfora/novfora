@@ -62,7 +62,8 @@
                                 @endswitch
                             </span>
 
-                            <a href="{{ $d['url'] ?? route('notifications.index') }}"
+                            {{-- Click-through: opening a notification marks it read (notifications.open, BETA-1). --}}
+                            <a href="{{ route('notifications.open', $n->id) }}"
                                @class([
                                    'min-w-0 flex-1 text-sm',
                                    'font-semibold text-ink' => ! $n->read_at,
