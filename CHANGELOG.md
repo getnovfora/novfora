@@ -11,6 +11,58 @@ contracts** — a breaking change to either is a major-version event.
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-07
+
+This release folds in **U7 (embed API / SSI / web components, ADR-0103)** and **U17 (plugin install-from-zip
++ signature/trust gate, ADR-0104)** — both already merged into `main` before this cycle — plus the UI-audit
+reconcile (all 21 findings verified already fixed by PR #41 and intact), four live beta-tester fixes, and
+three Phase-6 quick wins. Two additive, reversible migrations ship this release (`module_trust_keys` from
+U17, `username_history` from U8), so the upgrade path is the **cron auto-upgrade** (backup-first), not
+assets-only.
+
+### Added
+
+- **U7 — Embed API / SSI / web components (ADR-0103).** Server-rendered `/embed/v1` widgets (iframe/SSI HTML
+  + versioned JSON) and a dependency-free `<novfora-*>` web-component bundle for external sites. Guest-visible
+  content only, OFF by default, per-origin allowlist with rotatable keys, stateless + rate-limited, 404 on
+  every denial. Adversarial-reviewed (0 open HIGH/MEDIUM).
+- **U17 — Plugin install-from-zip + signature/trust gate (ADR-0104).** Upload a signed module `.zip` in ACP →
+  Plugins; installs disabled only if safe to extract **and** authentic. Hostile-archive hardening
+  (traversal/symlink/zip-bomb structurally prevented), detached **ed25519** signatures verified against an
+  admin-managed trusted-key registry, atomic reversible commit with quarantine-on-failure. Adversarial-reviewed
+  (0 HIGH/MEDIUM).
+- **U8 — Username history + admin change/revert (ADR-0106).** Admins can rename members and revert a prior
+  handle from a fully audited `username_history`, gated by `users.manage` + the rank/no-self guard. Revert
+  fails loud on a now-taken name (never auto-suffixes). User-side username editing stays deferred.
+- **U18 — hCaptcha + reCAPTCHA CAPTCHA drivers (fail-closed) + opt-in Gravatar (ADR-0107).** Two new
+  registration CAPTCHA providers that fail **closed** on a provider outage (an unverifiable token is a failed
+  challenge); secrets stored encrypted, never rendered. Optional, default-OFF Gravatar avatar fallback with a
+  browser-side (no server call) email hash. Also fixes a latent CSP gap that silently blocked the shipped
+  Turnstile widget under the default policy. QA/null drivers remain the Baseline default.
+- **U20 — SEO polish (ADR-0108).** Profile OpenGraph/canonical (aggregate-only description, no post/signature
+  leak), site-wide `og:site_name` + an optional per-page meta-description seam, a "view all posts by this
+  member" author-search link, and a dynamic (subdirectory-aware) `robots.txt` replacing the shadowed static
+  file.
+
+### Fixed
+
+- **BETA-1 — Notification read-state now auto-updates (NOV-85).** Opening a notification (bell dropdown or the
+  index) marks it read via a new owner-scoped, same-origin-guarded click-through route, and the bell dropdown
+  reloads its list on every open so the list and the polling badge can no longer disagree.
+- **BETA-2 — Mobile portrait nav no longer spills at 390px (NOV-86).** The brand link is now the one flex
+  child that yields (`min-w-0`), so the signed-in bell/PM/avatar cluster can't be pushed off-viewport;
+  admin-added nav titles stay on one line.
+- **BETA-3 — Direct messages explain the send restriction instead of a bare 403 (NOV-87).** A new member
+  without `pm.send` (a deliberate anti-spam trust gate) now sees a friendly explainer on the compose page and
+  in a received conversation, instead of a raw framework 403. Enforcement is unchanged — no capability widened.
+- **BETA-4 — Moderation controls no longer render to users who can't use them (NOV-88, ADR-0105).** The
+  header Moderation link, the Merge trigger, the `posts.edit` page, and the queue/recycle-bin dashboard links
+  now render on the exact capability their action enforces; and bulk-lock now matches the single-lock
+  predicate (a moderator's bulk lock equals N single locks — no phantom "insufficient rank").
+- **Moderation leak fence (ADR-0108).** A topic whose opening post is pending moderation is now 404 (not 403,
+  no disclosure) to everyone but its author and moderators, and emits no crawlable/shareable metadata or feed
+  — closing a pre-existing direct-URL/Atom title-and-excerpt leak.
+
 ## [1.1.0] — 2026-06
 
 ### Added
@@ -87,5 +139,6 @@ StopForumSpam submission API are **scaffolded and unit-tested but NOT validated 
 `PROJECT-STATE.md → VALIDATE-BEFORE-GO-LIVE` and each ADR's enable steps. Enhanced-tier load numbers were not
 captured against a real host.
 
+[1.2.0]: https://github.com/getnovfora/novfora/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/getnovfora/novfora/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/getnovfora/novfora/releases/tag/v1.0.0
