@@ -9,6 +9,7 @@ namespace App\Members;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Models\UsernameHistory;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -56,6 +57,30 @@ class UsernameService
     }
 
     private function apply(User $target, string $newUsername, User $actor, ?string $reason, string $action): void
+    {
+        try {
+            $this->applyInTransaction($target, $newUsername, $actor, $reason, $action);
+        } catch (QueryException $e) {
+            // The users.username UNIQUE index is the true authority; lockForUpdate only locks the target's
+            // OWN row, so two admins racing two different members to the SAME new name both pass validation
+            // and the loser hits the constraint. Surface that as a field error (like a lost uniqueness check)
+            // rather than a 500 — the index still guaranteed no duplicate was written.
+            if ($this->isUniqueViolation($e)) {
+                throw ValidationException::withMessages(['username' => 'That username was just taken. Try another.']);
+            }
+            throw $e;
+        }
+    }
+
+    private function isUniqueViolation(QueryException $e): bool
+    {
+        // SQLSTATE 23000 (MySQL/SQLite) / 23505 (PostgreSQL) — an integrity/unique-constraint violation.
+        $sqlState = (string) ($e->errorInfo[0] ?? $e->getCode());
+
+        return $sqlState === '23000' || $sqlState === '23505';
+    }
+
+    private function applyInTransaction(User $target, string $newUsername, User $actor, ?string $reason, string $action): void
     {
         DB::transaction(function () use ($target, $newUsername, $actor, $reason, $action): void {
             // Re-read the current name UNDER A LOCK (held until commit) so two racing changes/reverts

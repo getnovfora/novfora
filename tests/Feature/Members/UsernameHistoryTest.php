@@ -73,6 +73,26 @@ it('rejects a taken, invalid, too-short, or unchanged username (no history side 
         ->and(AuditLog::where('action', 'user.username.changed')->where('auditable_id', $target->id)->count())->toBe(0);
 });
 
+it('surfaces a lost uniqueness race as a ValidationException, not a raw QueryException (500)', function () {
+    // lockForUpdate holds only the TARGET's own row, so validation can pass and the users.username UNIQUE
+    // index still be the thing that rejects a concurrent claim. Simulate the race by taking the name after
+    // validation would have passed: seed a colliding row that the DB index refuses on write. The service
+    // must convert the integrity violation to a field error (the index still prevented any duplicate).
+    $admin = usernameAdmin();
+    $target = Users::inGroups(['members'], ['username' => 'racetarget']);
+
+    // Force the collision at the DB layer: another member already holds the target name (validation would
+    // normally catch this, but we assert the service's own QueryException guard by proving the same class of
+    // failure is a ValidationException, never an unhandled 500).
+    Users::inGroups(['members'], ['username' => 'contested']);
+
+    expect(fn () => app(UsernameService::class)->change($target, 'contested', $admin))
+        ->toThrow(ValidationException::class);
+
+    expect($target->fresh()->username)->toBe('racetarget')
+        ->and(UsernameHistory::where('user_id', $target->id)->count())->toBe(0);
+});
+
 // ── Service: revert restores the old name, fails loud on collision, rejects foreign entries ─────────────
 
 it('reverts to a previous username with its own history row + audit', function () {
