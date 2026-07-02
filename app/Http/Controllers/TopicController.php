@@ -80,8 +80,10 @@ class TopicController extends Controller
         }
 
         // The view reads the topic's parent forum (breadcrumbs), author (JSON-LD), prefix (badge), and tags;
-        // load them once here so none lazy-loads at render time.
-        $topic->loadMissing(['forum', 'author', 'prefix', 'tags']);
+        // load them once here so none lazy-loads at render time. author.groups (not just author) so the merge
+        // rank guard below (ActorRank on the topic author) reads from memory — one bounded eager-load on a
+        // single row, never a per-request extra query on the moderator topic-view budget (NOV-88 review LOW).
+        $topic->loadMissing(['forum', 'author.groups', 'prefix', 'tags']);
 
         $user = $request->user();
 
