@@ -16,6 +16,14 @@
     $name = $name ?? $user?->display_name ?? $user?->username ?? 'User';
     $src = $src ?? ($user?->avatar_path ? \Illuminate\Support\Facades\Storage::url($user->avatar_path) : null);
 
+    // Gravatar fallback (U18, ADR-0107): admin opt-in only (members.gravatar_enabled, default OFF), never
+    // for the guest/absent branch — an uploaded avatar always wins. The URL is fetched by the BROWSER; no
+    // server-side call ever happens. Settings is a singleton with a per-request memo (RH-9), so this read
+    // is one cache hit per request even though the component renders many times per page.
+    if ($src === null && $user?->email && app(\App\Settings\Settings::class)->bool('members.gravatar_enabled')) {
+        $src = \App\Support\Gravatar::url($user->email, 160); // 160px covers 2x density at the largest (xl) size
+    }
+
     $initials = \Illuminate\Support\Str::of($name)->trim()->explode(' ')
         ->filter()->take(2)->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))->implode('');
     if ($initials === '') {

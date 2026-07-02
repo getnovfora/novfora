@@ -13,7 +13,7 @@ namespace App\AntiSpam\Captcha;
  */
 interface CaptchaProvider
 {
-    /** Stable key: qa | turnstile | null. */
+    /** Stable key: qa | turnstile | hcaptcha | recaptcha | null. */
     public function key(): string;
 
     /** Can this provider actually be used right now (configured/reachable)? false → manager degrades to Q&A. */

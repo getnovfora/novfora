@@ -30,6 +30,8 @@ final class CaptchaManager
     {
         return match ($key) {
             'turnstile' => app(TurnstileCaptchaProvider::class),
+            'hcaptcha' => app(HCaptchaProvider::class),
+            'recaptcha' => app(RecaptchaProvider::class),
             'null', 'none', 'honeypot', 'invisible' => app(NullCaptchaProvider::class),
             default => app(QaCaptchaProvider::class),
         };

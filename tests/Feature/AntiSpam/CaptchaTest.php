@@ -45,6 +45,42 @@ it('uses Turnstile when a secret is configured', function () {
     expect(app(CaptchaManager::class)->for('register')->key())->toBe('turnstile');
 });
 
+it('degrades an unconfigured hCaptcha to Q&A (tier-graceful)', function () {
+    config([
+        'novfora.antispam.registration.captcha.provider' => 'hcaptcha',
+        'novfora.antispam.registration.captcha.hcaptcha.secret' => '',
+    ]);
+
+    expect(app(CaptchaManager::class)->for('register')->key())->toBe('qa');
+});
+
+it('uses hCaptcha when a secret is configured', function () {
+    config([
+        'novfora.antispam.registration.captcha.provider' => 'hcaptcha',
+        'novfora.antispam.registration.captcha.hcaptcha.secret' => 'a-secret',
+    ]);
+
+    expect(app(CaptchaManager::class)->for('register')->key())->toBe('hcaptcha');
+});
+
+it('degrades an unconfigured reCAPTCHA to Q&A (tier-graceful)', function () {
+    config([
+        'novfora.antispam.registration.captcha.provider' => 'recaptcha',
+        'novfora.antispam.registration.captcha.recaptcha.secret' => '',
+    ]);
+
+    expect(app(CaptchaManager::class)->for('register')->key())->toBe('qa');
+});
+
+it('uses reCAPTCHA when a secret is configured', function () {
+    config([
+        'novfora.antispam.registration.captcha.provider' => 'recaptcha',
+        'novfora.antispam.registration.captcha.recaptcha.secret' => 'a-secret',
+    ]);
+
+    expect(app(CaptchaManager::class)->for('register')->key())->toBe('recaptcha');
+});
+
 it('honours a per-action override', function () {
     config([
         'novfora.antispam.registration.captcha.provider' => 'qa',

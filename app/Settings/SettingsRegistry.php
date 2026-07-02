@@ -117,9 +117,13 @@ final class SettingsRegistry
             new SettingDefinition('moderation.rate_default', 'int', config: 'novfora.antispam.rate_limits.default', default: 20, group: 'moderation', label: 'Flood limit — established (posts/min)'),
 
             // ── Anti-spam (PART 3.5) ────────────────────────────────────────────────────────────────
-            new SettingDefinition('antispam.captcha_provider', 'string', config: 'novfora.antispam.registration.captcha.provider', default: 'qa', group: 'antispam', label: 'CAPTCHA provider', options: ['qa', 'turnstile', 'none']),
+            new SettingDefinition('antispam.captcha_provider', 'string', config: 'novfora.antispam.registration.captcha.provider', default: 'qa', group: 'antispam', label: 'CAPTCHA provider', options: ['qa', 'turnstile', 'hcaptcha', 'recaptcha', 'none']),
             new SettingDefinition('antispam.turnstile_site_key', 'string', config: 'novfora.antispam.registration.captcha.turnstile.site_key', default: '', group: 'antispam', label: 'Turnstile site key'),
             new SettingDefinition('antispam.turnstile_secret', 'string', encrypted: true, config: 'novfora.antispam.registration.captcha.turnstile.secret', default: '', group: 'antispam', label: 'Turnstile secret key'),
+            new SettingDefinition('antispam.hcaptcha_site_key', 'string', config: 'novfora.antispam.registration.captcha.hcaptcha.site_key', default: '', group: 'antispam', label: 'hCaptcha site key'),
+            new SettingDefinition('antispam.hcaptcha_secret', 'string', encrypted: true, config: 'novfora.antispam.registration.captcha.hcaptcha.secret', default: '', group: 'antispam', label: 'hCaptcha secret key'),
+            new SettingDefinition('antispam.recaptcha_site_key', 'string', config: 'novfora.antispam.registration.captcha.recaptcha.site_key', default: '', group: 'antispam', label: 'reCAPTCHA site key'),
+            new SettingDefinition('antispam.recaptcha_secret', 'string', encrypted: true, config: 'novfora.antispam.registration.captcha.recaptcha.secret', default: '', group: 'antispam', label: 'reCAPTCHA secret key'),
             new SettingDefinition('antispam.sfs_use_api', 'bool', config: 'novfora.antispam.registration.stopforumspam.use_api', default: true, group: 'antispam', label: 'StopForumSpam live API'),
             // External-signal tuning + privacy (Phase 4 · M6.3). The confidence threshold is admin-tunable;
             // external_content_optin is the PRIVACY FENCE (default false) — post content is NEVER sent to a third
@@ -147,6 +151,11 @@ final class SettingsRegistry
             // Gates the public /members directory. 'everyone' (incl. guests) → 'members' (signed-in) →
             // 'staff' → 'disabled' (off). Read by App\Community\MembersDirectory::visibleTo().
             new SettingDefinition('members.directory_visibility', 'string', default: 'everyone', group: 'members', label: 'Members directory visibility', options: ['disabled', 'staff', 'members', 'everyone']),
+            // Gravatar fallback (U18, ADR-0107) — PRIVACY FENCE, default OFF: when on, members without an
+            // uploaded avatar get a gravatar.com image, and the MD5 hash of their email leaves the site
+            // CLIENT-side only (the browser fetches the <img>) — this server never calls gravatar.com.
+            // Read by <x-ui.avatar>; managed from Admin → Members → Directory.
+            new SettingDefinition('members.gravatar_enabled', 'bool', default: false, group: 'members', label: 'Use Gravatar for members without an uploaded avatar'),
 
             // ── Staff flair + roster (ACP v3 · v3-g) ────────────────────────────────────────────────
             // Display-only, no acl_entries touch. staff_flair_show_badge (default ON): the master switch for the
