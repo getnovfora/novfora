@@ -23,8 +23,14 @@ final class ModuleApi
      * 1.1.0 (Phase-3 hardening / dogfood): MINOR, additive — added the `topic.post.aside` UI slot (a per-post
      * extension outlet, with the post + topic as context) and a plugin SETTINGS registration path
      * (App\Settings\SettingsRegistry::register). Modules targeting `^1.0` keep working unchanged.
+     *
+     * 1.2.0 (generic seams, ADR-0120): MINOR, additive — two filter hooks: `moderation.verdict`
+     * (ModerationVerdict, args $author + $text; ESCALATE-ONLY — a filtered verdict may only raise the
+     * tri-state outcome, never lower it) and `stats.users.query` (the User query builder behind member
+     * aggregate counts, arg: a context label; counts only, never rows). Modules targeting `^1.0`/`^1.1`
+     * keep working unchanged.
      */
-    public const VERSION = '1.1.0';
+    public const VERSION = '1.2.0';
 
     /** Whether the core's MODULE API satisfies a module's declared `api_version` constraint. */
     public static function satisfies(string $constraint): bool
