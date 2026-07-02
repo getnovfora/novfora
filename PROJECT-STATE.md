@@ -13,6 +13,111 @@
 
 ---
 
+## 🌅 Morning report — FABLE session: Phase-0 clear-decks + U7 + U17 (2026-07-01) — 4 branches off `main`, NONE pushed/merged
+
+Ran [`docs/product/FABLE-U7-U17-KICKOFF.md`](docs/product/FABLE-U7-U17-KICKOFF.md) end-to-end, unattended. Built the two
+◆ APEX features (**U7** embeds, **U17** plugin install-from-zip) after clearing the Phase-0 decks. Each feature is an
+independent branch; both **share a small prerequisite base** (see topology). Gated green in `forum-dev` at every
+boundary; committed as `Tommy Huynh` (DCO `-s`, no AI trailers). **Nothing pushed, nothing merged** — the owner reviews.
+
+### Branch topology (all off `main` `658508d`)
+```
+main 658508d
+└─ claude/baseline-green 04e3ec6        3 commits: green-gate prerequisites (see below)
+   └─ nov-120 bed6f96                    +1: the trapped BelongsToMany fix (NOV-120)
+      ├─ nov-106 U7  b193699             +2: U7 embeds build + review fixes  (ADR-0103)
+      └─ nov-115 U17 0d1eb7b             +1: U17 zip-install + trust gate    (ADR-0104)
+```
+Both feature branches contain `baseline-green` + `nov-120`, so they gate green standalone. **Suggested merge order:**
+`baseline-green` → `nov-120` → `U7` → `U17`. Cross-branch overlap is trivial + additive: `DECISIONS.md` (U7 appends
+ADR-0103, U17 appends ADR-0104 — both after 0102; keep both), `config/novfora.php` (U7 adds a top-level `embeds` block,
+U17 adds a `zip` block inside `modules` — different regions), `.env.example` (both append after the oEmbed block). No
+shared code file conflicts.
+
+### Phase 0 — clear the decks
+- **`claude/baseline-green` (`04e3ec6`)** — the working tree carried **21 pre-existing reds** unrelated to this work;
+  fixed so the gate is trustworthy: **(1)** `forum-dev` image lacked **ext-gd** → 12 attachment specs LogicException'd
+  (added GD to `docker/dev/Dockerfile`; hot-installed in the running container). **(2)** `NavigationManager::tree()`
+  ran an **uncached `navigation_items` read per surface on every page** (+2 queries/page from PR #50) → 4 query budgets
+  blew; cached the enabled rows (plain arrays, RH-9) with model-event busting, and re-baselined two topic budgets in
+  the canonical `forum-dev` gate (prior ceilings were VPS-measured). **(3)** `MemberDirectoryTest` asserted 403 for an
+  admins-without-2FA user where the designed route behavior is a **302 bounce to 2FA** (the hard 403 is the
+  Livewire-internal guard, asserted separately). Full suite **2140 passed / 0 failed** at `04e3ec6`.
+- **NOV-120 — REFUTED, not purged (`bed6f96`).** The 45 `⚡`-prefixed files under `components/admin/` are **NOT a dead
+  shadow copy — they are the LIVE ACP** (Livewire 4 single-file components; each maps 1:1 to a `<livewire:admin.*>` tag
+  in the wrapper views; there is no `app/Livewire/` class twin). Evidence posted to the issue. The "trapped"
+  `BelongsToMany` type-hint fix was **already in the right file** (`⚡members.blade.php` IS the live members directory) —
+  committed in place. The proposed non-ASCII-blade CI guard was **rejected** (it would fail every live Livewire SFC). The
+  ⚡ files are load-bearing: without this fix, `MembersTableTest` TypeErrors, which is why both feature branches are based
+  on `bed6f96`.
+- **NOV-76 — already fixed on `main`.** `admin/section.blade.php` already carries the `@extends` envelope the issue
+  prescribes (shipped by the ACP v3 program after the UI-audit spec was written); verified by `PerSectionRailTest` +
+  `AcpSectionNavTest` (14 tests). No code change; the issue was simply never closed.
+
+### Phase 1 — U7 · Embed API / SSI / web components (`NOV-106`, ◆ APEX, ADR-0103) — GO
+Spike memo `docs/product/spike-u7-memo.md` (GO). Server-rendered iframe/SSI widgets (`/embed/v1/w/{widget}`) + versioned
+JSON (`/embed/v1/d/{widget}.json`) + a dependency-free `<novfora-*>` web-component bundle (`public/embed/embed.js`), all
+**guest-visible content only**, **OFF by default** (`embeds.enabled`). Stateless route group OUTSIDE `web` (no
+session/cookies/CSRF), per-IP rate limiter, 60s fragment cache. Per-embed allowlist (`embed_sites`, audited
+`EmbedManager`): a public rotatable site key bound to an exact origin; the HTML response owns its
+`frame-ancestors <origin>` CSP and the JSON response grants CORS to exactly that origin (no `*`, no credentials, no
+global CORS layer). No-leak fence = `User::guest()` + `VisibleForumIds` + club gates, **404 on every denial** (feature
+off / bad key / unknown widget / invisible forum indistinguishable). ACP Plugins→Embeds SFC (admin.access + staff-2FA).
+**Tests:** 25 (incl. adversarial: forged origins, oversized/malformed params, cross-origin JSON, private forum + private
+club probes, rotated keys, escaping, statelessness, 429) + 2 WCAG surfaces. One additive reversible migration
+(`embed_sites`).
+
+**U7 adversarial review (verify-then-refute, 5 lenses × per-finding verify) — GO, 0 open HIGH/MEDIUM after fixes
+(`b193699`).** One substantive finding (rated up to MEDIUM), fixed: the *board-wide* topics widget resolved the
+guest-visible forum set INSIDE the cache closure and keyed on a constant, so a just-restricted forum's topic titles
+served for the rest of the 60s TTL — inconsistent with the live-fenced scoped path. Fixed: resolve `VisibleForumIds`
+live and fold a signature of the visible set into the cache key (regression test proves the drop happens within the TTL
+without flushing the cache). Two LOW hardening items applied (`normalizeOrigin` strict host charset rejecting `;`/`,`/
+control/raw-UTF-8 bytes; `embed` limiter IPv6 /64 bucketing). 5 candidates refuted (array-param 400 not 500;
+control-char origins neutralized by `parse_url`; IDN/trailing-dot fail closed; web-component href is `route()`-generated;
+the `Cache-Control: public` window caches only guest-public bytes). Full suite **2186 / 0**.
+
+### Phase 2 — U17 · Plugin install-from-zip + signature/trust gate (`NOV-115`, ◆ APEX, ADR-0104) — GO
+Spike memo `docs/product/spike-u17-memo.md` (GO). Closes the ADR-0031/H3 flag that a package signature + distribution
+channel were "not built". Upload a signed module `.zip` in ACP → Plugins; installs **disabled** only if safe to extract
+AND authentic. **`ArchiveGuard`** never `extractTo`s an untrusted zip — it iterates entries and writes each via a
+bounded streamed copy to a path proven inside staging (traversal/absolute/backslash/null rejected; **symlink escape
+structurally impossible** — only regular files written; entry-count/per-file/total/ratio caps enforced on the ACTUAL
+streamed bytes so a lying header can't slip a bomb; extension allowlist). **`PackageSignature`** = detached **ed25519**
+(bundled `ext-sodium`, constant-time) over the package's canonical digest, verified against the admin-managed trusted-key
+registry (`module_trust_keys`); a present-but-invalid signature is ALWAYS rejected, unsigned rejected unless the loud dev
+`allow_unsigned` policy, fail-closed if `ext-sodium` absent. **`ModuleInstaller`** = stage → validate manifest (slug from
+`module.json`, never the filename) → verify sig → atomic rename into `modules/<slug>` → `ModuleManager::install/upgrade`;
+any failure rolls back + quarantines the archive with an audited reason. ACP module-install SFC (admin.access +
+staff-2FA); `novfora:module:sign` is the author recipe. **Tests:** 19 adversarial specs (traversal, absolute, symlink,
+bomb, bad sig, untrusted key, too-many-entries, disallowed type, invalid/absent manifest, install-over-existing, ACP
+authz + end-to-end signed upload). One additive reversible migration (`module_trust_keys`). Full suite **2159 / 0**.
+
+**U17 adversarial review (verify-then-refute, 5 lenses × per-finding verify) — GO, 0 HIGH, 0 MEDIUM.** Every
+security-class hypothesis was REFUTED against the code: no signature/trust bypass, no write-outside-staging, no bomb
+bypass, no 2FA bypass. The 10 confirmed items were all LOW/robustness; the cheap ones were applied so the "reversible"
+claim is honest: the upgrade swap is now fully inside the try (restore + `finally` backup cleanup, no orphaned dir);
+`commit()` runs under a per-slug `Cache::lock` (closes the `is_dir` TOCTOU); `fwrite` drains the full buffer; a fresh
+install resets inherited consent; a >1 MiB manifest is rejected before decode; the ACP banner reflects the real
+post-upgrade enabled state; and the ratio-cap docblock is corrected (the byte caps are the load-bearing fence). Full
+suite after fixes: **2159 / 0** (see below); 2 new regression tests (atomic upgrade + oversized manifest).
+
+### Environment note (per MEMORY)
+`claude-fable-5` errored in this env — the two APEX reviews ran on **Opus 4.8** (the apex fallback). GD was hot-installed
+into the running `forum-dev` container AND added to `docker/dev/Dockerfile` (rebuild picks it up permanently).
+
+### ☀️ What the owner does next
+1. **Review + merge** in order `baseline-green → nov-120 → U7 → U17` (apply the trivial additive overlaps above). Push is
+   the owner's — Code pushed/merged nothing; `main` is untouched at `658508d`.
+2. **Linear:** the auto-mode classifier blocked some issue writes from this session. Still to set: **NOV-120 → Done** on
+   merge (currently In Progress, refutation comment posted); **NOV-76 → Done** (already fixed; a close comment was
+   blocked); **NOV-106 / NOV-115 → In Progress → Done** on merge.
+3. **Run Dusk in CI** (no Chrome here) for the new ACP surfaces (Embeds, module-install).
+4. **Enabling U7** is a deliberate act (`embeds.enabled` / `NOVFORA_EMBEDS`); **U17 keeps `allow_unsigned=false`** in
+   production (dev-only override).
+
+---
+
 ## 🌅 Morning report — v1.x Polish-2 + a11y + targeted fixes — EXECUTED, MERGED, PUSHED (2026-06-22)
 
 Ran [`docs/product/v1x-polish2-and-fixes-kickoff.md`](docs/product/v1x-polish2-and-fixes-kickoff.md) end-to-end,
