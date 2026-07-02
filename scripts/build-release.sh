@@ -52,7 +52,10 @@ mkdir -p "$STAGE/bootstrap/cache"
 cp -a "$SRC/bootstrap/app.php" "$SRC/bootstrap/providers.php" "$STAGE/bootstrap/"
 cp -a "$SRC/bootstrap/cache/.gitignore" "$STAGE/bootstrap/cache/"
 mkdir -p "$STAGE/public"
-for f in .htaccess index.php robots.txt favicon.ico; do cp -a "$SRC/public/$f" "$STAGE/public/$f"; done
+# robots.txt is NO LONGER a static file (U20/ADR-0108): the /robots.txt route serves it dynamically with a
+# subdirectory-aware Sitemap: line, so the static file was deleted (it shadowed the route on Apache). Only
+# the genuinely-static public assets are staged here.
+for f in .htaccess index.php favicon.ico; do cp -a "$SRC/public/$f" "$STAGE/public/$f"; done
 cp -a "$SRC/public/build" "$STAGE/public/"
 # public/icons/ — the PWA web-manifest icons (PwaController emits asset('icons/icon-192.png') etc.) and the
 # apple-touch-icon (asset('icons/novfora.svg') in the app layout). Omit it and every manifest icon 404s.
