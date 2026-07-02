@@ -6,6 +6,7 @@ use App\Messaging\PmException;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
+use Illuminate\Auth\Access\AuthorizationException;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 
@@ -38,7 +39,8 @@ new class extends Component
 
     public function reply(ConversationService $service): void
     {
-        // Re-assert on every action — Livewire actions carry no route middleware.
+        // Re-assert on every action — Livewire actions carry no route middleware. Participation stays a
+        // hard 403 (a non-participant only gets here by forging a request).
         abort_unless(auth()->user()?->can('reply', $this->conversation()), 403);
 
         if ($this->bodyIsEmpty()) {
@@ -57,6 +59,14 @@ new class extends Component
             return;
         } catch (PmException $e) {
             $this->addError('body', $e->getMessage());
+
+            return;
+        } catch (AuthorizationException) {
+            // The service's pm.send re-check (BETA-3 / NOV-87): a participant WITHOUT the capability — a
+            // TL0 recipient of a staff DM, or a mid-session demotion — used to surface as an uncaught 403
+            // modal even though the composer was rendered for them. The service stays authoritative;
+            // nothing was sent. (The composer is also hidden for a known-restricted viewer below.)
+            $this->addError('body', "You can't send private messages yet — new accounts unlock messaging after participating for a little while.");
 
             return;
         }
@@ -113,6 +123,12 @@ new class extends Component
             $this->addError('invite', $e->getMessage());
 
             return;
+        } catch (AuthorizationException) {
+            // A stale page (can_invite revoked / participant left mid-session) degrades to an inline
+            // notice instead of a 403 modal; the service check stays authoritative.
+            $this->addError('invite', "You can't add participants to this conversation right now.");
+
+            return;
         }
 
         $this->inviteInput = '';
@@ -164,6 +180,9 @@ new class extends Component
     $conversation = \App\Models\Conversation::with(['messages.author', 'participantRows.user'])->findOrFail($conversationId);
     $authUser = auth()->user();
     $canInvite = $authUser?->can('invite', $conversation) ?? false;
+    // BETA-3 / NOV-87: receiving needs no capability, sending does (pm.send is trust-gated). Render the
+    // composer only for a viewer who can actually send; everyone else gets the explainer below.
+    $canSendPm = $authUser?->canDo('pm.send', \App\Permissions\Scope::global()) ?? false;
     $participants = $conversation->participantRows->where('left_at', null)->map(fn ($r) => $r->user)->filter();
 @endphp
 
@@ -233,7 +252,16 @@ new class extends Component
         @endforelse
     </div>
 
-    {{-- Reply composer --}}
+    {{-- Reply composer — only for a viewer who holds pm.send (BETA-3): a TL0 recipient could read a staff
+         DM but the always-rendered composer funnelled their Send into a 403. --}}
+    @if (! $canSendPm)
+        <div class="border-t border-line pt-4">
+            <x-ui.alert variant="info" title="You can't reply yet" dusk="pm-reply-restricted">
+                New accounts unlock private messaging after participating in the community for a little
+                while. You'll be able to reply here once messaging unlocks.
+            </x-ui.alert>
+        </div>
+    @else
     <div class="border-t border-line pt-4">
         @error('body') <x-ui.alert variant="danger" class="mb-3">{{ $message }}</x-ui.alert> @enderror
 
@@ -260,6 +288,7 @@ new class extends Component
             <x-ui.button type="submit" dusk="pm-reply-send">Send reply</x-ui.button>
         </form>
     </div>
+    @endif
 
     {{-- Invite control (only for participants who hold can_invite) --}}
     @if ($canInvite)
