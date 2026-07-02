@@ -290,7 +290,7 @@ return [
             ],
             'captcha' => [
                 // Default provider for any action; degrades to qa when unavailable (CaptchaManager).
-                'provider' => env('NOVFORA_CAPTCHA', 'qa'), // qa | turnstile | null
+                'provider' => env('NOVFORA_CAPTCHA', 'qa'), // qa | turnstile | hcaptcha | recaptcha | null
                 'actions' => [
                     // Per-action overrides, e.g. 'register' => 'turnstile', 'post' => 'qa'.
                 ],
@@ -304,6 +304,14 @@ return [
                 'turnstile' => [ // enhanced-tier example; absent secret → manager degrades to qa
                     'site_key' => env('TURNSTILE_SITE_KEY', ''),
                     'secret' => env('TURNSTILE_SECRET', ''),
+                ],
+                'hcaptcha' => [ // fail-closed external provider (U18, ADR-0107); absent secret → degrades to qa
+                    'site_key' => env('HCAPTCHA_SITE_KEY', ''),
+                    'secret' => env('HCAPTCHA_SECRET', ''),
+                ],
+                'recaptcha' => [ // reCAPTCHA v2 checkbox, fail-closed (U18, ADR-0107); absent secret → degrades to qa
+                    'site_key' => env('RECAPTCHA_SITE_KEY', ''),
+                    'secret' => env('RECAPTCHA_SECRET', ''),
                 ],
             ],
             'honeypot' => [
@@ -556,15 +564,20 @@ return [
             'enabled' => (bool) env('NOVFORA_CSP', true),
             'policy' => env('NOVFORA_CSP_POLICY', implode('; ', [
                 "default-src 'self'",
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+                // CAPTCHA widget loaders (U18, ADR-0107): Turnstile / hCaptcha / reCAPTCHA script hosts.
+                // 'unsafe-inline' only permits inline script BODIES, never a cross-origin src=, so these
+                // must be allowlisted explicitly (this also fixes the latent gap where the shipped
+                // Turnstile loader was CSP-blocked). Keep in sync with strict_policy + frame-src below.
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://js.hcaptcha.com https://*.hcaptcha.com https://www.google.com https://www.gstatic.com",
                 "style-src 'self' 'unsafe-inline'",
                 "img-src 'self' data: https:",
                 "font-src 'self' data:",
                 "connect-src 'self'",
                 "media-src 'self' https:",
                 // oEmbed (P2-M1): the allowlisted embed hosts — the SAME set as config('novfora.oembed.providers')
-                // (defence in depth, so even a stray iframe to another host is blocked by CSP). Keep in sync.
-                "frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com",
+                // (defence in depth, so even a stray iframe to another host is blocked by CSP) — plus the
+                // CAPTCHA widget iframes (U18, ADR-0107). Keep in sync with strict_policy.
+                "frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://challenges.cloudflare.com https://js.hcaptcha.com https://*.hcaptcha.com https://www.google.com https://www.gstatic.com",
                 "object-src 'none'",
                 "base-uri 'self'",
                 "form-action 'self'",
@@ -583,15 +596,19 @@ return [
             'strict' => (bool) env('NOVFORA_CSP_STRICT', false),
             'strict_policy' => env('NOVFORA_CSP_STRICT_POLICY', implode('; ', [
                 "default-src 'self'",
-                "script-src 'self' 'nonce-{nonce}' 'unsafe-eval'",
+                // CAPTCHA widget loaders (U18, ADR-0107): the loader <script> tags carry the nonce, but the
+                // scripts/frames the widgets inject afterwards do not — so the provider hosts are
+                // allowlisted here too. Keep in sync with the default policy + frame-src below.
+                "script-src 'self' 'nonce-{nonce}' 'unsafe-eval' https://challenges.cloudflare.com https://js.hcaptcha.com https://*.hcaptcha.com https://www.google.com https://www.gstatic.com",
                 "style-src 'self' 'unsafe-inline'",
                 "img-src 'self' data: https:",
                 "font-src 'self' data:",
                 "connect-src 'self'",
                 "media-src 'self' https:",
                 // oEmbed (P2-M1): the allowlisted embed hosts — the SAME set as config('novfora.oembed.providers')
-                // (defence in depth, so even a stray iframe to another host is blocked by CSP). Keep in sync.
-                "frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com",
+                // (defence in depth, so even a stray iframe to another host is blocked by CSP) — plus the
+                // CAPTCHA widget iframes (U18, ADR-0107). Keep in sync with the default policy.
+                "frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://challenges.cloudflare.com https://js.hcaptcha.com https://*.hcaptcha.com https://www.google.com https://www.gstatic.com",
                 "object-src 'none'",
                 "base-uri 'self'",
                 "form-action 'self'",

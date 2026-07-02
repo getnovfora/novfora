@@ -7,9 +7,9 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 /**
- * Admin → Settings → Anti-spam (ACP v1, PART 3.5). CAPTCHA provider + keys (the Turnstile secret stored
- * encrypted) and the StopForumSpam live-API toggle, all backing the existing CaptchaManager /
- * RegistrationGuard config. The crowdsourced blocklist size is shown read-only (it's cron-warmed).
+ * Admin → Settings → Anti-spam (ACP v1, PART 3.5; external drivers U18, ADR-0107). CAPTCHA provider + keys
+ * (every provider secret stored encrypted) and the StopForumSpam live-API toggle, all backing the existing
+ * CaptchaManager / RegistrationGuard config. The crowdsourced blocklist size is shown read-only (it's cron-warmed).
  */
 new class extends Component
 {
@@ -20,6 +20,18 @@ new class extends Component
     public string $turnstileSecret = ''; // never pre-filled — secret
 
     public bool $turnstileSecretSet = false;
+
+    public string $hcaptchaSiteKey = '';
+
+    public string $hcaptchaSecret = ''; // never pre-filled — secret
+
+    public bool $hcaptchaSecretSet = false;
+
+    public string $recaptchaSiteKey = '';
+
+    public string $recaptchaSecret = ''; // never pre-filled — secret
+
+    public bool $recaptchaSecretSet = false;
 
     public bool $sfsUseApi = true;
 
@@ -39,6 +51,10 @@ new class extends Component
         $this->captchaProvider = $settings->string('antispam.captcha_provider') ?: 'qa';
         $this->turnstileSiteKey = $settings->string('antispam.turnstile_site_key');
         $this->turnstileSecretSet = $settings->secretIsSet('antispam.turnstile_secret');
+        $this->hcaptchaSiteKey = $settings->string('antispam.hcaptcha_site_key');
+        $this->hcaptchaSecretSet = $settings->secretIsSet('antispam.hcaptcha_secret');
+        $this->recaptchaSiteKey = $settings->string('antispam.recaptcha_site_key');
+        $this->recaptchaSecretSet = $settings->secretIsSet('antispam.recaptcha_secret');
         $this->sfsUseApi = $settings->bool('antispam.sfs_use_api');
         $this->sfsThreshold = (int) $settings->int('antispam.sfs_confidence_threshold');
         $this->externalContentOptIn = $settings->bool('antispam.external_content_optin');
@@ -49,9 +65,13 @@ new class extends Component
     {
         $this->ensureAdmin();
         $data = $this->validate([
-            'captchaProvider' => ['required', 'in:qa,turnstile,none'],
+            'captchaProvider' => ['required', 'in:qa,turnstile,hcaptcha,recaptcha,none'],
             'turnstileSiteKey' => ['nullable', 'string', 'max:255'],
             'turnstileSecret' => ['nullable', 'string', 'max:255'],
+            'hcaptchaSiteKey' => ['nullable', 'string', 'max:255'],
+            'hcaptchaSecret' => ['nullable', 'string', 'max:255'],
+            'recaptchaSiteKey' => ['nullable', 'string', 'max:255'],
+            'recaptchaSecret' => ['nullable', 'string', 'max:255'],
             'sfsUseApi' => ['boolean'],
             'sfsThreshold' => ['required', 'integer', 'min:1', 'max:100'],
             'externalContentOptIn' => ['boolean'],
@@ -61,13 +81,19 @@ new class extends Component
         $settings->set('antispam.captcha_provider', $data['captchaProvider']);
         $settings->set('antispam.turnstile_site_key', $data['turnstileSiteKey'] ?? '');
         $settings->set('antispam.turnstile_secret', $data['turnstileSecret']); // blank ⇒ keep
+        $settings->set('antispam.hcaptcha_site_key', $data['hcaptchaSiteKey'] ?? '');
+        $settings->set('antispam.hcaptcha_secret', $data['hcaptchaSecret']); // blank ⇒ keep
+        $settings->set('antispam.recaptcha_site_key', $data['recaptchaSiteKey'] ?? '');
+        $settings->set('antispam.recaptcha_secret', $data['recaptchaSecret']); // blank ⇒ keep
         $settings->set('antispam.sfs_use_api', $data['sfsUseApi']);
         $settings->set('antispam.sfs_confidence_threshold', (string) $data['sfsThreshold']);
         $settings->set('antispam.external_content_optin', $data['externalContentOptIn']);
         $settings->set('antispam.sfs_api_key', $data['sfsApiKey']); // blank ⇒ keep
 
-        $this->turnstileSecret = $this->sfsApiKey = '';
+        $this->turnstileSecret = $this->hcaptchaSecret = $this->recaptchaSecret = $this->sfsApiKey = '';
         $this->turnstileSecretSet = $settings->secretIsSet('antispam.turnstile_secret');
+        $this->hcaptchaSecretSet = $settings->secretIsSet('antispam.hcaptcha_secret');
+        $this->recaptchaSecretSet = $settings->secretIsSet('antispam.recaptcha_secret');
         $this->sfsApiKeySet = $settings->secretIsSet('antispam.sfs_api_key');
         $this->saved = 'Saved.';
     }
@@ -99,9 +125,11 @@ new class extends Component
 
         <div id="setting-antispam-captcha-provider">
             <x-ui.select label="CAPTCHA provider" name="captchaProvider" wire:model.live="captchaProvider"
-                         hint="Q&A is the baseline (no external service). Turnstile degrades to Q&A if its keys are absent.">
+                         hint="Q&A is the baseline (no external service). An external provider degrades to Q&A if its keys are absent.">
                 <option value="qa">Question &amp; answer</option>
                 <option value="turnstile">Cloudflare Turnstile</option>
+                <option value="hcaptcha">hCaptcha</option>
+                <option value="recaptcha">Google reCAPTCHA v2</option>
                 <option value="none">None (not recommended)</option>
             </x-ui.select>
         </div>
@@ -113,6 +141,30 @@ new class extends Component
                 <div id="setting-antispam-turnstile-secret">
                     <x-ui.input label="Turnstile secret key" name="turnstileSecret" type="password" wire:model="turnstileSecret" autocomplete="new-password"
                                 :placeholder="$turnstileSecretSet ? '•••••• (leave blank to keep)' : ''"
+                                hint="Stored encrypted." />
+                </div>
+            </fieldset>
+        @endif
+
+        @if ($captchaProvider === 'hcaptcha')
+            <fieldset class="grid gap-5 border-t border-line pt-5 sm:grid-cols-2">
+                <legend class="sr-only">hCaptcha keys</legend>
+                <div id="setting-antispam-hcaptcha-site-key"><x-ui.input label="hCaptcha site key" name="hcaptchaSiteKey" wire:model="hcaptchaSiteKey" /></div>
+                <div id="setting-antispam-hcaptcha-secret">
+                    <x-ui.input label="hCaptcha secret key" name="hcaptchaSecret" type="password" wire:model="hcaptchaSecret" autocomplete="new-password"
+                                :placeholder="$hcaptchaSecretSet ? '•••••• (leave blank to keep)' : ''"
+                                hint="Stored encrypted." />
+                </div>
+            </fieldset>
+        @endif
+
+        @if ($captchaProvider === 'recaptcha')
+            <fieldset class="grid gap-5 border-t border-line pt-5 sm:grid-cols-2">
+                <legend class="sr-only">reCAPTCHA keys</legend>
+                <div id="setting-antispam-recaptcha-site-key"><x-ui.input label="reCAPTCHA site key" name="recaptchaSiteKey" wire:model="recaptchaSiteKey" /></div>
+                <div id="setting-antispam-recaptcha-secret">
+                    <x-ui.input label="reCAPTCHA secret key" name="recaptchaSecret" type="password" wire:model="recaptchaSecret" autocomplete="new-password"
+                                :placeholder="$recaptchaSecretSet ? '•••••• (leave blank to keep)' : ''"
                                 hint="Stored encrypted." />
                 </div>
             </fieldset>

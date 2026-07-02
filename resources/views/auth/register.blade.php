@@ -33,6 +33,12 @@
         @elseif (($captcha['type'] ?? null) === 'turnstile')
             <div class="cf-turnstile" data-sitekey="{{ $captcha['site_key'] }}"></div>
             <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}"></script>
+        @elseif (($captcha['type'] ?? null) === 'hcaptcha')
+            <div class="h-captcha" data-sitekey="{{ $captcha['site_key'] }}"></div>
+            <script src="https://js.hcaptcha.com/1/api.js" async defer nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}"></script>
+        @elseif (($captcha['type'] ?? null) === 'recaptcha')
+            <div class="g-recaptcha" data-sitekey="{{ $captcha['site_key'] }}"></div>
+            <script src="https://www.google.com/recaptcha/api.js" async defer nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}"></script>
         @endif
 
         <x-ui.button type="submit" size="lg" class="w-full">{{ __('auth.register.submit') }}</x-ui.button>
