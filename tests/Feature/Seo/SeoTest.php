@@ -54,3 +54,11 @@ it('excludes topics from forums a guest cannot see', function () {
 it('serves robots.txt pointing at the sitemap', function () {
     $this->get('/robots.txt')->assertOk()->assertSee('Sitemap:')->assertSee(route('sitemap'));
 });
+
+it('ships no static public/robots.txt that would shadow the dynamic route', function () {
+    // public/.htaccess rewrites to the front controller only when the request is NOT an existing file
+    // (RewriteCond %{REQUEST_FILENAME} !-f), so a checked-in public/robots.txt would silently shadow the
+    // dynamic route above — and its runtime Sitemap: URL (subdirectory-install aware) — on Apache/Baseline
+    // hosts. Deleted in U20 (ADR-0108); this pins it so it can't quietly come back.
+    expect(file_exists(public_path('robots.txt')))->toBeFalse();
+});

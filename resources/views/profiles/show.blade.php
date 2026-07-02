@@ -2,6 +2,22 @@
 @extends('layouts.app', ['title' => ($user->display_name ?? $user->username).' · '.config('app.name', 'NovFora')])
 
 @push('head')
+    {{-- Profile OG + canonical (U20/ADR-0108). The description is AGGREGATE-ONLY — join date + the public
+         post_count the members directory already exposes; NEVER signature_html or post content (a member's
+         posts may live in forums/clubs this viewer cannot see). The canonical drops the ?tab= param. --}}
+    @php($profileCanonical = route('profiles.show', $user))
+    @php($profileDescription = 'Member since '.($user->created_at?->format('F Y') ?? '—').' · '.number_format((int) $user->post_count).' '.\Illuminate\Support\Str::plural('post', (int) $user->post_count))
+    <link rel="canonical" href="{{ $profileCanonical }}">
+    <meta name="description" content="{{ $profileDescription }}">
+    <meta property="og:type" content="profile">
+    <meta property="og:title" content="{{ ($user->display_name ?? $user->username).' (@'.$user->username.')' }}">
+    <meta property="og:description" content="{{ $profileDescription }}">
+    <meta property="og:url" content="{{ $profileCanonical }}">
+    @if ($user->avatar_path)
+        {{-- Server-set path (forceFill-only, never mass-assigned); url() makes it absolute for scrapers. --}}
+        <meta property="og:image" content="{{ url(\Illuminate\Support\Facades\Storage::url($user->avatar_path)) }}">
+    @endif
+    <meta name="twitter:card" content="summary">
     {{-- RSS/Atom auto-discovery (discovery 3.2): this member's recent topics. --}}
     <link rel="alternate" type="application/atom+xml" title="{{ $user->display_name ?? $user->username }} — topics" href="{{ route('feeds.user', $user) }}">
 @endpush
@@ -114,6 +130,14 @@
                 @empty
                     <p class="px-4 py-6 text-center text-sm text-ink-subtle">{{ __('profiles.no_posts') }}</p>
                 @endforelse
+                {{-- Find-content-by-user (U20/ADR-0108): the tab above caps at the last 20 visible posts; the
+                     search author facet (already permission-fenced end-to-end) carries the full history. --}}
+                <div class="px-4 py-3">
+                    <a href="{{ route('search.index', ['author' => $user->username]) }}" dusk="profile-all-posts"
+                       class="text-sm font-medium text-accent hover:text-accent-hover">
+                        View all posts by {{ '@'.$user->username }} &rarr;
+                    </a>
+                </div>
             </x-ui.card>
         @else
             @php($hasFields = $fields->contains(fn ($field) => filled($values->get($field->id)?->value)))

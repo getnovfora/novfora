@@ -2,6 +2,10 @@
 @extends('layouts.app', ['title' => $topic->title.' · '.config('app.name', 'NovFora')])
 
 @push('head')
+    {{-- ADR-0108: the entire SEO head block is suppressed for a non-approved topic — even for its author or
+         a moderator (the only viewers who reach this page while it's pending), nothing crawlable/sharable
+         (canonical, description, OG, twitter, feed link, JSON-LD) may carry held content. --}}
+    @if ($topic->approved_state === 'approved')
     @php($canonical = route('topics.show', $topic))
     <link rel="canonical" href="{{ $canonical }}">
     <meta name="description" content="{{ $description }}">
@@ -30,6 +34,7 @@
             ],
         ], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) !!}
     </script>
+    @endif
 @endpush
 
 @section('breadcrumbs')

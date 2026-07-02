@@ -1,5 +1,8 @@
 {{-- SPDX-License-Identifier: Apache-2.0 --}}
-@extends('layouts.app', ['title' => 'Clubs · '.config('app.name', 'NovFora')])
+@extends('layouts.app', [
+    'title' => 'Clubs · '.config('app.name', 'NovFora'),
+    'metaDescription' => 'Clubs on '.config('app.name', 'NovFora').': sub-communities with their own discussion space.',
+])
 
 @section('breadcrumbs')
     <x-ui.breadcrumbs :items="[['label' => 'Clubs']]" />
