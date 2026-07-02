@@ -113,11 +113,27 @@ it('falls back to the notifications index for a missing or foreign-origin target
         ->assertRedirect(route('notifications.index'));
 
     // A non-same-origin URL (defence-in-depth: emitters only store route()-built URLs today) → index, never
-    // an open redirect. Protocol-relative form included.
-    foreach (['https://evil.example/phish', '//evil.example/phish'] as $foreign) {
+    // an open redirect. The boundary cases matter: a bare-prefix check would admit a look-alike host whose
+    // name starts with ours (no host delimiter after the base). Every one of these must fall back to index.
+    $base = rtrim(url('/'), '/'); // e.g. http://localhost
+    $foreignUrls = [
+        'https://evil.example/phish',
+        '//evil.example/phish',              // protocol-relative
+        '/\\evil.example/phish',             // backslash protocol-relative (some browsers honour)
+        $base.'.evil.example/phish',         // look-alike suffix on the host
+        $base.'@evil.example/phish',         // userinfo trick
+        $base.'evil.example/phish',          // no delimiter — the exact bare-prefix bypass
+    ];
+    foreach ($foreignUrls as $foreign) {
         $n->update(['data' => array_merge($n->data, ['url' => $foreign]), 'read_at' => null]);
         $this->actingAs($user)->get(route('notifications.open', $n->id))
             ->assertRedirect(route('notifications.index'));
+    }
+
+    // A genuinely same-origin absolute URL (base + '/path') and a rooted-relative path both pass.
+    foreach ([$base.'/topics/1', '/topics/1'] as $ok) {
+        $n->update(['data' => array_merge($n->data, ['url' => $ok]), 'read_at' => null]);
+        $this->actingAs($user)->get(route('notifications.open', $n->id))->assertRedirect($ok);
     }
 });
 
