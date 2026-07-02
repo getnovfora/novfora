@@ -3904,4 +3904,3 @@ contract pairs) + `BulkModerationTest` (lock invariant, delete self-exemption, a
 - **No public surface:** history is admin-only this pass; no user-side username editing (BUG-019 stands).
 
 **Consequences.** Admins can rename and un-rename members with a full audit trail; the audit-log screen's action-prefix filter surfaces `user.username.*` with no changes. One additive reversible migration. Old profile links break until reverted (documented above). Tests cover the service (history+audit ordering, taken/invalid/no-op rejection, loud revert collision, foreign-entry rejection) and the SFC (capability 403, rank guard, no-self, happy path + flash) in `tests/Feature/Members/UsernameHistoryTest.php`.
->>>>>>> echofivetech/nov-97-u8-username-history-and-name-change-revert
