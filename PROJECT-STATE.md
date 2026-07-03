@@ -13,6 +13,80 @@
 
 ---
 
+## 🌅 Morning report — v1.3 Phase 3B (front-of-site redesign · UX-1/3/4/5/6) — `nov-3b-frontsite` off nov-96, gated GREEN; NOTHING merged/pushed (owner reviews) (2026-07-03)
+
+Ran [`docs/product/BUILD-PROMPTS-2026-07-02.md`](docs/product/BUILD-PROMPTS-2026-07-02.md) **Prompt 2** (v1.3 Phase 3B ·
+Front-of-site redesign) after owner plan approval (base fork resolved: **stack on nov-96**, the 3A contract branch).
+Built the view-layer redesign in the existing token system — **no new JS deps**, every action affordance through the
+3A `<x-action>` contract — on **`nov-3b-frontsite` (off `nov-96` `72956ac`)**. Committed as `Tommy Huynh` (DCO `-s`, no
+AI trailers). **Nothing merged/pushed — `main` untouched at `6724a9a`.** The owner said "proceed with everything," so I
+continued past the demo checkpoint through UX-4/5/6 (the backup-first demo deploy remains the owner's to run).
+
+### Branch (one cohesive branch off nov-96, per-slice commits)
+```
+main 6724a9a → nov-96 72956ac (3A contract) → nov-3b-frontsite:
+  c1d532e  UX-6 · x-ui.timestamp (semantic <time>, the shared primitive)
+  d5baa3b  UX-1 · card-based board index (category cards, refined rows, timestamps)
+  5734c92  UX-3 · sm–md search discoverability entry
+  ── demo checkpoint (owner deploys backup-first when ready) ──
+  efc788d  UX-4 · board + thread (signed-out new-topic CTA via <x-action>, timestamps)
+  4dd2089  UX-5 · focused centered auth header (+ rebuilt public/build)
+  43c69be  test · 390px front-of-site Dusk journeys (CI-pending)
+```
+
+### Slices
+- **UX-6 (NOV-95):** `<x-ui.timestamp>` — a real `<time datetime>` (machine-readable ISO) + full-date title tooltip,
+  relative text, tabular-nums — adopted on the redesigned surfaces, replacing bare `diffForHumans()` spans. (A
+  `<x-forum.topic-badges>` extraction was considered but DEFERRED — the three badge clusters differ deliberately: the
+  thread uses `warn`/larger to emphasize the *current* locked thread vs the lists' `neutral`/calm; flattening would be a
+  design regression, not a DRY win.)
+- **UX-1 (NOV-90) — the headline change:** the forum index is now a **card-based board** — each category is a distinct
+  card (its name is the card header) inside a labelled `<section>`; forums are refined rows with a larger icon and
+  `<x-ui.timestamp>`. Reuses the existing F6 last-post/author data — **no new queries** (index budget ≤20 holds);
+  permission-scoping + theme regions intact.
+- **UX-3 (NOV-92):** the header was already premium (sticky+backdrop, NavigationManager-driven, NOV-86 responsive brand,
+  canDo-gated admin/mod links), so the one clear safe win: a **compact search entry for the sm–md range (640–767px)** —
+  where the hamburger (with its search) is gone (≥sm) and the full search bar isn't shown yet (<md), search was
+  unreachable.
+- **UX-4 (NOV-93):** the board's new-topic control routes through **`<x-action>`** — the live button when you can post, a
+  **"Sign in to post" CTA for guests**, hidden for a member without the capability. Board + thread times adopt
+  `<x-ui.timestamp>`. (The board table + thread post-cards were already scannable/info-rich.)
+- **UX-5 (NOV-94):** a **focused, centered auth header** (brand + serif title, calmer rhythm) over the existing card;
+  login/register/reset forms unchanged (already clean — `x-ui.input`, social providers).
+
+### Gates (GREEN, modulo documented env)
+- **a11y:** `WcagAuditTest` green — it already audits the board index, a topic page, `forums.show`, login, and register
+  (all my redesigned surfaces), and the nav on every page; stays green.
+- **HotPath:** the forum-index budget (≤20) holds (UX-1 added no queries). Two `QueryBudgetTest` **thread** budgets read
+  +1 in *this* drvfs env — I confirmed they **fail identically on `main`** (pre-existing warm-up variance; pass at 34/36
+  on CI's clean ext4). A query dump verified **no N+1** (all batched `IN(...)` reads). Not from this work.
+- **Assets:** UX-1/3/4 introduced **zero** new utilities; UX-5 added `py-8`/`sm:py-12` → `public/build` rebuilt. The
+  build is **byte-deterministic** here (verified — a clean rebuild reproduces the committed bundle with the exact locked
+  font versions), so the committed bundle matches CI's and `assets-fresh` holds. No new JS deps.
+- **Render/logic:** `Forum` + `Auth` suites green (197 passed; the only 3 errors are the pre-existing root-owned
+  `storage/framework/testing/disks/.../attachments` dir — environmental, green on CI's ext4).
+- **390px Dusk:** new `MobileFrontSiteJourneyTest` (card index + board list fit 390px no-scroll; sm–md search reachable)
+  — **CI-pending** (no Chrome here; `php -l` clean). It must be added to the dusk-job spec list, which lives on the
+  **nov-122** branch — a Prompt-4 merge reconciliation note.
+
+### Design posture (for your eval)
+Deliberately conservative on the already-polished surfaces (nav, board table, thread post-cards, auth forms — refined by
+prior passes). The **card index (UX-1)** is the main visible modernization; the rest is high-value, low-risk polish
+(timestamps, the sm–md search gap, the guest CTA, the auth header). The demo/beta round is where nav + board feedback is
+most valuable.
+
+### ☀️ What the owner does next
+1. **Review `nov-3b-frontsite`** (`git diff nov-96..nov-3b-frontsite`) — 6 commits, all view-layer, gated green. Rides
+   nov-96 (the 3A contract); **main untouched**.
+2. **Deploy UX-1+UX-3 to demo backup-first** — the checkpoint deploy is still yours to run (I continued past it on your
+   "proceed with everything"); beta feedback on the card index + nav is most useful.
+3. **Linear:** move **NOV-90/92/93/94/95 → In Progress** (no Linear write path this session).
+4. **Merge order (Prompt 4):** nov-96 → nov-3b (nov-3b rides it); the 390px Dusk spec joins the dusk-job list when
+   nov-122 merges.
+5. Merge/tag is **Prompt 4's** v1.3.0 release run.
+
+---
+
 ## 🌅 Morning report — v1.3 Phase 3A (NOV-96 · NOV-121 · NOV-122) — three branches off `main`, gated GREEN, apex-reviewed; NOTHING merged/pushed (owner reviews) (2026-07-03)
 
 Ran [`docs/product/BUILD-PROMPTS-2026-07-02.md`](docs/product/BUILD-PROMPTS-2026-07-02.md) **Prompt 1** (v1.3 Phase 3A ·
