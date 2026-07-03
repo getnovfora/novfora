@@ -69,6 +69,10 @@ jobs:
           coverage: none
       - run: composer install --no-interaction --no-progress --prefer-dist
       - run: cp .env.example .env && php artisan key:generate
+      - name: Clear any cached route table before testing (NOV-122)
+        # A stale bootstrap/cache/routes-*.php false-fails the SubdirInstall/PWA specs (the 2026-06-22 env
+        # finding). The gate must never test against a cached route table.
+        run: php artisan route:clear
       - name: Pest (unit + feature; incl. the service-tier forced-absence suite)
         # Explicit memory_limit (matches the static-analysis step): the single-process run loads every
         # touched class, and the suite has outgrown a 128M default on a stock php.ini.
@@ -184,7 +188,7 @@ jobs:
       # profiling-verified (system-architecture §7 marks them "profiling", not a hard CI assertion).
 
   dusk:
-    name: Dusk (installer enforce-ON + editor journeys, headless Chrome)
+    name: Dusk (installer enforce-ON + full app journeys, headless Chrome)
     runs-on: ubuntu-latest
     # Two serve passes (the RH-7 follow-up — enforce-ON harness split): PASS 1 drives the FULL installer
     # wizard under REAL pre-install enforcement (NOVFORA_INSTALL_ENFORCE=true, no marker, fresh DB), so every
@@ -227,6 +231,7 @@ jobs:
           start_serve() {
             php artisan config:clear >/dev/null
             php artisan view:clear >/dev/null
+            php artisan route:clear >/dev/null
             php artisan serve --host=127.0.0.1 --port=8000 > /tmp/serve.log 2>&1 &
             SERVE_PID=$!
             for _ in $(seq 1 30); do curl -sf http://127.0.0.1:8000/up >/dev/null 2>&1 && break || sleep 1; done
@@ -271,11 +276,26 @@ jobs:
           : > "$WS/database/dusk.sqlite"
           php artisan migrate:fresh --force
           start_serve
-          set +e; php artisan dusk --without-tty tests/Browser/EditorJourneyTest.php tests/Browser/ThemeScreenshotTest.php; EDITOR_CODE=$?; set -e
+          # NOV-122: every accumulated app-side Browser spec (all except InstallerWizardTest, which is PASS 1's
+          # enforce-ON wizard). Each self-seeds (DatabaseSeeder) against the disposable SQLite.
+          set +e; php artisan dusk --without-tty \
+            tests/Browser/EditorJourneyTest.php \
+            tests/Browser/ThemeScreenshotTest.php \
+            tests/Browser/MobileHeaderJourneyTest.php \
+            tests/Browser/AccountDeletionJourneyTest.php \
+            tests/Browser/ActivityFeedJourneyTest.php \
+            tests/Browser/AdminJourneyTest.php \
+            tests/Browser/AttachmentDropZoneTest.php \
+            tests/Browser/ContentDepthJourneyTest.php \
+            tests/Browser/ModerationJourneyTest.php \
+            tests/Browser/PmJourneyTest.php \
+            tests/Browser/SettingsNavJourneyTest.php \
+            tests/Browser/SocialPackJourneyTest.php \
+            tests/Browser/TopicRenderScrollTest.php; APP_CODE=$?; set -e
           stop_serve
 
-          echo "dusk passes — installer(enforce ON)=$INSTALLER_CODE  editor(enforce OFF)=$EDITOR_CODE"
-          if [ "$INSTALLER_CODE" -ne 0 ] || [ "$EDITOR_CODE" -ne 0 ]; then
+          echo "dusk passes — installer(enforce ON)=$INSTALLER_CODE  app journeys(enforce OFF)=$APP_CODE"
+          if [ "$INSTALLER_CODE" -ne 0 ] || [ "$APP_CODE" -ne 0 ]; then
             echo "--- serve.log (tail) ---"; tail -n 30 /tmp/serve.log || true
             exit 1
           fi
