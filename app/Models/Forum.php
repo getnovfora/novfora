@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 
 class Forum extends Model
 {
@@ -71,6 +72,14 @@ class Forum extends Model
                 app(AclVersion::class)->bump();
             }
         });
+
+        // The public index caches its category/board tree (ForumController, 'forum.index.tree', 60s). Any
+        // structural change — a new board, a rename/move, a soft-delete or restore — must bust it so the change
+        // shows AT ONCE rather than lingering for up to the TTL: an admin who just created a board in the ACP
+        // expects it on the index immediately. `saved` covers create + update; delete/restore the bin lifecycle.
+        static::saved(fn () => Cache::forget('forum.index.tree'));
+        static::deleted(fn () => Cache::forget('forum.index.tree'));
+        static::restored(fn () => Cache::forget('forum.index.tree'));
     }
 
     /** @return BelongsTo<self, $this> */

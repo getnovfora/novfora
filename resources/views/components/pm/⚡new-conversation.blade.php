@@ -187,7 +187,8 @@ new class extends Component
             </div>
         @endif
 
-        <div class="relative" x-data="{ open: false }">
+        <div class="flex items-start gap-2">
+        <div class="relative flex-1" x-data="{ open: false }">
             <input type="text"
                    id="pm-recipient"
                    wire:model.live.debounce.200ms="recipientInput"
@@ -221,7 +222,10 @@ new class extends Component
                 </ul>
             @endif
         </div>
-        <x-ui.button type="button" variant="subtle" size="sm" wire:click="addRecipient" dusk="pm-recipient-add" class="mt-1.5">Add recipient</x-ui.button>
+            {{-- The add button sits to the RIGHT of the input (not below it), so the absolutely-positioned
+                 suggestions dropdown can never overlap and intercept a click on it (the PM Dusk journey). --}}
+            <x-ui.button type="button" variant="subtle" size="sm" wire:click="addRecipient" dusk="pm-recipient-add" class="shrink-0 min-h-11">Add recipient</x-ui.button>
+        </div>
         <p class="text-xs text-ink-subtle">Max {{ config('novfora.pm.max_recipients', 10) }} recipients.</p>
     </div>
 
