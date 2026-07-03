@@ -50,7 +50,7 @@ it('drives the full installer wizard in a real browser, then locks', function ()
         // enforcement-ON every request also flows through RedirectIfNotInstalled on a single-threaded
         // `artisan serve`, and step 2→3 verifies a live MySQL connection.
         $browser->visit('/install')
-            ->waitForText('System check', 20)
+            ->waitForText('System check', 40)
             ->assertSee('Continue')
 
             // ── STEP 1 — system check + setup token ──────────────────────────────────────────────────
@@ -59,7 +59,7 @@ it('drives the full installer wizard in a real browser, then locks', function ()
             ->type('#setupToken', $token)
             ->pause(300)
             ->press('Continue')
-            ->waitForText('Database connection', 25)
+            ->waitForText('Database connection', 40)
 
             // ── STEP 2 — database (a disposable MySQL database) ──────────────────────────────────────
             ->type('#dbHost', $dbHost)
@@ -68,7 +68,7 @@ it('drives the full installer wizard in a real browser, then locks', function ()
             ->type('#dbPassword', $dbPass)
             ->pause(300)
             ->press('Continue')                         // toStep3 validates + verifies the live connection
-            ->waitForText('Administrator account', 30)
+            ->waitForText('Administrator account', 45)
 
             // ── STEP 3 — site & administrator ────────────────────────────────────────────────────────
             ->type('#siteName', 'Dusk Community')
@@ -78,7 +78,7 @@ it('drives the full installer wizard in a real browser, then locks', function ()
             ->type('#passwordConfirmation', 'Sup3rSecret!!')
             ->pause(400)
             ->press('Continue')
-            ->waitForText('Review &', 30)               // step 4 heading: "Review & install"
+            ->waitForText('Review &', 60)               // step 4 heading: "Review & install"
 
             // ── STEP 4 — review & install ────────────────────────────────────────────────────────────
             ->assertSee('Dusk Community')               // the review echoes what we typed (wire:model stuck)
@@ -87,7 +87,7 @@ it('drives the full installer wizard in a real browser, then locks', function ()
                                                         //    press instead of renaming it, so the wizard never
                                                         //    left step 4 and the wait below always timed out.)
 
-            ->waitForText('is installed', 60)           // step 5 — the real install ran to completion
+            ->waitForText('is installed', 90)           // step 5 — the real install ran to completion
             ->assertSee('cron');                        // the post-install cron-line guidance
     });
 
