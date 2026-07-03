@@ -181,7 +181,9 @@
         {{-- BUG-018: staff tools are gated AND now de-emphasised — a collapsed <details> below the tabs, not a
              red "Delete account" button front-and-centre under the hero. The permission gate + confirmation
              page are unchanged. --}}
-        @if ($viewer instanceof \App\Models\User && \App\Account\AccountDeletionService::canForceDelete($viewer, $user))
+        {{-- NOV-96 (ADR-0109): the staff account-tools block through the permission-aware contract — hidden for a
+             viewer without force-delete authority (the confirm page re-asserts it server-side). --}}
+        <x-action :can="$viewer instanceof \App\Models\User && \App\Account\AccountDeletionService::canForceDelete($viewer, $user)">
             <details class="rounded-lg border border-line bg-surface-raised" dusk="staff-tools">
                 <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-ink">{{ __('profiles.staff_tools') }}</summary>
                 <div class="space-y-3 border-t border-line px-4 py-4">
@@ -193,7 +195,7 @@
                     </div>
                 </div>
             </details>
-        @endif
+        </x-action>
 
         {{-- Private staff-only notes (A1). Gated by the same authority the SFC re-asserts in mount() and every
              action — never rendered for the subject or a non-staff viewer. --}}

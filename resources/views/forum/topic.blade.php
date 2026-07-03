@@ -211,16 +211,19 @@
                                     <livewire:forum.bookmark-button :key="'bm-post-'.$post->id" kind="post" :target-id="$post->id"
                                         :saved="($viewerBookmarks[$post->id] ?? false)" :can-save="$canBookmark" />
                                 @endif
-                                @can('update', $post)
+                                {{-- NOV-96 (ADR-0109): per-post edit/delete through the permission-aware contract —
+                                     hidden when the viewer can't act (a control whose only outcome is a 403 is
+                                     ghost UI). The policy is still the enforcement authority; this only governs UI. --}}
+                                <x-action :can="$user?->can('update', $post) ?? false">
                                     <x-ui.button :href="route('posts.edit', $post)" variant="subtle" size="sm">{{ __('common.edit') }}</x-ui.button>
-                                @endcan
-                                @can('delete', $post)
+                                </x-action>
+                                <x-action :can="$user?->can('delete', $post) ?? false">
                                     {{-- De-weighted vs Edit (Pillar 3): a quiet, text-only destructive action that
                                          doesn't compete with the neighbouring Edit control. --}}
                                     <form method="POST" action="{{ route('posts.destroy', $post) }}" onsubmit="return confirm('{{ __('forum.confirm_delete_post') }}')">@csrf @method('DELETE')
                                         <x-ui.button type="submit" variant="danger-soft" size="sm">{{ __('common.delete') }}</x-ui.button>
                                     </form>
-                                @endcan
+                                </x-action>
                                 {{-- Edit-history diff: only for EDITED posts the viewer can see (author of the post,
                                      or staff with post.history.view). open() re-asserts server-side. --}}
                                 @php($ownPost = $post->user_id && $user && (int) $post->user_id === (int) $user->id)
