@@ -70,14 +70,23 @@ final class AnnouncementService
             ->values();
     }
 
-    /** Are there ANY live (approved, unexpired) announcements at all? Cheap, cached, audience-agnostic gate. */
+    /**
+     * Are there ANY live (approved, unexpired) announcements at all? Cheap, cached, audience-agnostic gate.
+     * Renders on EVERY page, so it must degrade gracefully: if the DB isn't queryable yet (mid-install, a
+     * schema-less view-render test, a transient outage), treat it as "none" rather than throwing a
+     * ViewException that 500s the whole page — the same fail-soft contract the cache/notifier layers use.
+     */
     private function anyLive(): bool
     {
-        return (bool) Cache::remember(self::LIVE_FLAG, now()->addSeconds(60), fn () => Topic::query()
-            ->announcements()
-            ->where('approved_state', 'approved')
-            ->where(fn ($q) => $q->whereNull('announcement_expires_at')->orWhere('announcement_expires_at', '>', now()))
-            ->exists());
+        try {
+            return (bool) Cache::remember(self::LIVE_FLAG, now()->addSeconds(60), fn () => Topic::query()
+                ->announcements()
+                ->where('approved_state', 'approved')
+                ->where(fn ($q) => $q->whereNull('announcement_expires_at')->orWhere('announcement_expires_at', '>', now()))
+                ->exists());
+        } catch (\Throwable) {
+            return false; // DB not ready / table absent → no announcements; never break the render
+        }
     }
 
     /** The audience fence: null/empty audience = everyone; else the viewer must belong to a targeted group. */

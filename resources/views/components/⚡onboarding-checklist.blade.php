@@ -39,26 +39,31 @@ new class extends Component
             return ['show' => false, 'items' => collect()];
         }
 
-        $items = collect([
-            [
-                'key' => 'profile',
-                'done' => (bool) ($user->avatar_path || filled($user->signature_doc) || $user->customFieldValues()->exists()),
-                'label' => __('onboarding.item_profile'),
-                'url' => route('settings.profile'),
-            ],
-            [
-                'key' => 'post',
-                'done' => Post::where('user_id', $user->getKey())->where('approved_state', 'approved')->exists(),
-                'label' => __('onboarding.item_post'),
-                'url' => route('forums.index'),
-            ],
-            [
-                'key' => 'react',
-                'done' => Reaction::where('user_id', $user->getKey())->exists(),
-                'label' => __('onboarding.item_react'),
-                'url' => route('forums.index'),
-            ],
-        ]);
+        // Fail-soft (renders on the home page): if the DB isn't queryable, hide rather than 500 the page.
+        try {
+            $items = collect([
+                [
+                    'key' => 'profile',
+                    'done' => (bool) ($user->avatar_path || filled($user->signature_doc) || $user->customFieldValues()->exists()),
+                    'label' => __('onboarding.item_profile'),
+                    'url' => route('settings.profile'),
+                ],
+                [
+                    'key' => 'post',
+                    'done' => Post::where('user_id', $user->getKey())->where('approved_state', 'approved')->exists(),
+                    'label' => __('onboarding.item_post'),
+                    'url' => route('forums.index'),
+                ],
+                [
+                    'key' => 'react',
+                    'done' => Reaction::where('user_id', $user->getKey())->exists(),
+                    'label' => __('onboarding.item_react'),
+                    'url' => route('forums.index'),
+                ],
+            ]);
+        } catch (\Throwable) {
+            return ['show' => false, 'items' => collect()];
+        }
 
         // Dismissal + window were already ruled out above, so the only remaining gate is "not yet finished".
         return [
