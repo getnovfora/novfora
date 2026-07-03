@@ -2,6 +2,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 
+use App\Admin\DelegationService;
 use App\Models\Club;
 use App\Models\Forum;
 use App\Models\Group;
@@ -64,6 +65,13 @@ new class extends Component
 
         if ($editor->set($group, $key, $this->scope(), $state)) {
             $this->flash = (string) __('admin.perms.saved');
+
+            // NOV-121 (ADR-0087): a reduction ('no'/'never') can drop a member of this group below a capability
+            // they delegated as a co-owner — re-check their delegations against the reduced mask (bounded +
+            // queued; a no-op when no member of this group holds a live delegation).
+            if ($state !== 'yes') {
+                app(DelegationService::class)->onGroupMaskChanged([(int) $group->id]);
+            }
         }
     }
 
@@ -84,6 +92,10 @@ new class extends Component
 
         $count = $editor->copyForumToCategory(Forum::findOrFail($this->scopeId), $this->visibleKeys());
         $this->flash = (string) __('admin.perms.bulk_done', ['count' => $count]);
+
+        // NOV-121 (ADR-0087): the category copy can reduce any group's forum-scoped mask — re-check delegators of
+        // every group against their reduced mask (bounded + queued; a no-op absent live delegations).
+        app(DelegationService::class)->onGroupMaskChanged(Group::query()->pluck('id')->all());
     }
 
     // ── view data ───────────────────────────────────────────────────────────────────────────────────────
