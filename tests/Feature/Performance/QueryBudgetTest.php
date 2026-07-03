@@ -105,9 +105,13 @@ it('renders the forum index (now hosting the activity feed) within the query bud
     $this->actingAs($viewer)->get(route('forums.index'))->assertOk();
     $queries = queriesFor(fn () => $this->actingAs($viewer)->get(route('forums.index'))->assertOk());
 
-    // ≤20 (was ≤15): the P2-M3 activity feed adds the permission filter (VisibleForumIds, memoised) + the
-    // post-cache rehydration (batched actor/subject loads). Recorded in DECISIONS per amendment #6.
-    expect($queries)->toBeLessThanOrEqual(20);
+    // ≤22 (was ≤20, ≤15): the P2-M3 activity feed adds the permission filter (VisibleForumIds, memoised) +
+    // the post-cache rehydration (batched actor/subject loads); v1.3 onboarding-lite (NOV-123) adds the
+    // new-member checklist's bounded exists() signals (profile / first post / first reaction) — computed
+    // ONLY for an eligible new member, since a dismissed or established account short-circuits on two loaded
+    // columns to ZERO queries. The fresh test viewer is exactly that new-member path. All fixed-cost, none
+    // per-row — an N+1 would still blow past this.
+    expect($queries)->toBeLessThanOrEqual(22);
 });
 
 it('renders a faceted search results page within the query budget (≤25, no N+1)', function () {

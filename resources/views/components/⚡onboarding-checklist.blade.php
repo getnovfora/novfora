@@ -14,6 +14,9 @@ use Livewire\Component;
  */
 new class extends Component
 {
+    /** The onboarding window — the checklist is only ever computed for accounts younger than this. */
+    private const WINDOW_DAYS = 30;
+
     public function dismiss(): void
     {
         $user = auth()->user();
@@ -26,7 +29,13 @@ new class extends Component
     public function with(): array
     {
         $user = auth()->user();
-        if (! $user instanceof User) {
+
+        // Hot-path gate: only a genuinely-new, not-yet-dismissed member runs the signal queries below. Anyone
+        // who dismissed, or whose account is older than the onboarding window, short-circuits on two already-
+        // loaded columns and pays ZERO queries — so the home page stays cheap for the established majority.
+        if (! $user instanceof User
+            || $user->onboarding_dismissed_at !== null
+            || ($user->created_at !== null && $user->created_at->lt(now()->subDays(self::WINDOW_DAYS)))) {
             return ['show' => false, 'items' => collect()];
         }
 
@@ -51,8 +60,9 @@ new class extends Component
             ],
         ]);
 
+        // Dismissal + window were already ruled out above, so the only remaining gate is "not yet finished".
         return [
-            'show' => $user->onboarding_dismissed_at === null && ! $items->every(fn ($i) => $i['done']),
+            'show' => ! $items->every(fn ($i) => $i['done']),
             'items' => $items,
         ];
     }
