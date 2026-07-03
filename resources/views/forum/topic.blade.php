@@ -175,7 +175,7 @@
                         {{-- Body --}}
                         <div class="min-w-0 flex-1 pt-3 md:pt-0">
                             <div class="flex flex-wrap items-center gap-2 text-xs text-ink-subtle nums md:border-b md:border-line md:pb-2">
-                                <span>{{ $post->created_at?->diffForHumans() }}@if ($post->edited_at) · {{ __('forum.edited') }} @endif</span>
+                                <span><x-ui.timestamp :value="$post->created_at" />@if ($post->edited_at) · {{ __('forum.edited') }} @endif</span>
                                 @if ($post->approved_state === 'pending')
                                     <x-ui.badge variant="warn" class="ml-auto">{{ __('forum.awaiting_approval') }}</x-ui.badge>
                                 @endif

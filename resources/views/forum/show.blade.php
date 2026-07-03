@@ -44,11 +44,14 @@
                         <span x-text="$store.bulkSelect.active ? @js(__('forum.done')) : @js(__('forum.select'))"></span>
                     </x-ui.button>
                 @endif
-                @if ($canPost)
+                {{-- UX-4 (NOV-93): the new-topic affordance through the 3A contract — the live button when you can
+                     post, a sign-in CTA for a guest (signing in could grant it), hidden for a signed-in member
+                     without the capability (the ghost-UI kill). --}}
+                <x-action :can="$canPost" when-guest="cta" :cta-label="__('forum.sign_in_to_post')" :cta-url="route('login')">
                     <x-ui.button :href="route('topics.create', $forum)">
                         <x-ui.icon name="plus" class="h-4 w-4" /> {{ __('forum.new_topic') }}
                     </x-ui.button>
-                @endif
+                </x-action>
             </div>
         </div>
 
@@ -161,7 +164,7 @@
                                              always-distinct from the adjacent meta — WCAG 1.4.1). --}}
                                         <a href="{{ route('topics.show', ['topic' => $topic, 'page' => $lastPage]).($topic->last_post_id ? '#post-'.$topic->last_post_id : '') }}" class="group block">
                                             <span class="block truncate font-medium text-accent group-hover:underline"><x-ui.user-name :user="$topic->lastPostUser" /></span>
-                                            <span class="block text-xs text-ink-subtle nums">{{ $topic->last_posted_at->diffForHumans() }}</span>
+                                            <x-ui.timestamp :value="$topic->last_posted_at" class="block text-xs text-ink-subtle" />
                                         </a>
                                     @else
                                         <span class="text-xs text-ink-subtle">{{ __('forum.no_replies_yet') }}</span>
@@ -229,7 +232,7 @@
                                         <dt class="sr-only">{{ __('forum.col_last_post') }}</dt>
                                         <dd>
                                             <a href="{{ route('topics.show', ['topic' => $topic, 'page' => $lastPage]).($topic->last_post_id ? '#post-'.$topic->last_post_id : '') }}" class="text-accent hover:underline">{{ __('forum.last_by') }} <x-ui.user-name :user="$topic->lastPostUser" /></a>
-                                            <span class="nums">· {{ $topic->last_posted_at->diffForHumans() }}</span>
+                                            <span class="text-ink-subtle">· <x-ui.timestamp :value="$topic->last_posted_at" /></span>
                                         </dd>
                                     </div>
                                 @endif

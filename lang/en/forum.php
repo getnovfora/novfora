@@ -87,6 +87,7 @@ return [
     'locked_no_replies' => 'This topic is locked — no new replies can be posted.',
     'join_to_reply' => 'Join the conversation to leave a reply.',
     'sign_in_to_reply' => 'Sign in to reply',
+    'sign_in_to_post' => 'Sign in to post',
     'related_topics' => 'Related topics',
 
     // Create topic / edit post (forum/create-topic.blade.php, forum/edit-post.blade.php)
