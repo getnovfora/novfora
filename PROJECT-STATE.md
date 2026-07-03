@@ -13,6 +13,115 @@
 
 ---
 
+## 🌅 Morning report — v1.3 Phase 3A (NOV-96 · NOV-121 · NOV-122) — three branches off `main`, gated GREEN, apex-reviewed; NOTHING merged/pushed (owner reviews) (2026-07-03)
+
+Ran [`docs/product/BUILD-PROMPTS-2026-07-02.md`](docs/product/BUILD-PROMPTS-2026-07-02.md) **Prompt 1** (v1.3 Phase 3A ·
+Foundation & hygiene) end-to-end after owner plan approval (incl. the one plan fork: **wire** the ADR-0087 fan-out).
+Built the three slices as **independent branches off `main` (`6724a9a`)**, gated green at each boundary, ran the apex
+verify-then-refute review on the two ◆ slices, committed as `Tommy Huynh` (DCO `-s`, no AI trailers). **Nothing merged,
+nothing pushed — `main` untouched at `6724a9a`; the v1.3.0 merge/tag is Prompt 4's job.**
+
+### Branch topology (3 independent slices off `main` `6724a9a`)
+```
+main 6724a9a (untouched)
+├─ nov-121-engine-hygiene     52343d9  ◆ last-plain-admin removal guard + delegation fan-out (ADR-0086/0087 amend)
+├─ nov-96-permission-aware-ui 72956ac  ◆ Affordance + <x-action> + route-level friendly-403 (ADR-0109)
+└─ nov-122-ci-completion      0b126bc     Dusk specs wired + route:clear + guzzle audit bump + assets verified
+```
+Disjoint (engine vs. view-layer vs. CI config) — no stacking, no cross-branch code conflict expected. **Suggested merge
+order (Prompt 4): nov-121 → nov-96 → nov-122** (the only overlap is the DECISIONS.md append tail — keep 0086/0087
+amendments AND 0109 — and PROJECT-STATE.md, this report).
+
+### NOV-121 — Engine hygiene ◆ (`nov-121-engine-hygiene` `52343d9`; ADR-0086 + ADR-0087 amended)
+- **Door #1 (ADR-0086 gap closed):** `GroupManager::removeMember` guarded only the co-owner tier — the sole PLAIN admin
+  could be detached into a zero-reachable-admin strand. Now asserts `OwnerStrandGuard::wouldStrandAdminTierLocked()` as
+  the FIRST act inside the transaction (id-based, so a missing User model can't skip it), the SAME `group_user→users→bans`
+  lock order + ban-aware reachable-owner semantics as the ban/delete/demote doors, throwing `GroupException` (the ACP
+  Groups SFC already flashes it).
+- **Door #2 (ADR-0087 gap closed — owner chose WIRE):** a group losing a key via `GroupPermissionEditor` was not
+  cascaded, so a co-owner's delegation could exceed their reduced CURRENT mask for ≤30 days. Wired
+  `DelegationService::onGroupMaskChanged()` (both editor SFCs + the category bulk-apply, after a reduction) → the bounded
+  `CascadeDelegationsJob` re-checks members-with-live-delegations via the proven `cascadeForActor()`. Bounded to actual
+  delegators (a group with none is a no-op), chunked, cron-drainable (ADR-0097); an `exists()` pre-check keeps routine
+  delegation-free saves off the queue. "Never exceeds the delegator's current mask" now holds across every reduction door.
+- **Gates:** GroupManagerTest + DelegationFanoutTest **20/20**; blast-radius regression (Admin/Permissions/Groups/Account/
+  Moderation) **551/551**; Pint clean; PHPStan **0**; **no migration**.
+- **Apex review (verify-then-refute, inline):** **GO, 0 confirmed HIGH/MEDIUM** across 24 hostile hypotheses (TOCTOU
+  serialization, ban-race reachability, over/under-revocation, runtime-only DelegationService↔Job cycle, retry
+  idempotency, reduction-predicate completeness). One proactive hardening applied (the id-based admin guard).
+
+### NOV-96 — Permission-aware UI contract ◆ (`nov-96-permission-aware-ui` `72956ac`; ADR-0109)
+- The five affordance outcomes behind ONE contract (kills the ghost-UI bug class — BETA-4/ADR-0105 — by construction):
+  `App\Permissions\Affordance` (enum + `resolve()`, the pure map → Allow/DisabledWithReason/SignInCta/Hidden; caller
+  declares intent, both default to safe `hide`); the `<x-action>` Blade component renders each in-view state (`:can` takes
+  the authorization VERDICT — the server policy stays the enforcement authority, UI only); `App\Exceptions\
+  FriendlyDenialException` (`::deny`) is the route-level friendly-403 — a full-page denial → an auth-aware explainer
+  (sign-in CTA for guests) carrying only a curated i18n reason (no leak), still a real 403 for middleware/status/JSON;
+  the catastrophe-safe `errors/403` page is untouched. i18n in `lang/en/permissions.php`.
+- **Adopted this pass** (Phase 3B does the wide view-layer sweep "through the 3A contract"): topic per-post edit/delete +
+  the profile staff account-tools via `<x-action>`; the user-delete confirm GET via friendly-403.
+- **Gates:** ActionAffordanceTest + FriendlyDenialTest **13/13**; blast-radius regression (Account incl.
+  `AccountDeletionUiTest`, Forum incl. `TopicModerationVisibilityTest`, + Moderation/Permissions/Community/I18n/
+  Accessibility/Follow/Ignore) **450/453** — the 3 errors are the root-owned `storage/framework/testing/disks/.../
+  attachments` dir (environmental, unrelated; green on CI's clean ext4 checkout). Pint clean; PHPStan **0**; **no migration**.
+- **Apex review (verify-then-refute, inline):** **GO, 0 confirmed HIGH/MEDIUM** — no widening (`:can` is the policy
+  verdict; a forged request to any hidden control still 403s), no friendly-403 leak (curated reasons only), reason
+  `{{ }}`-escaped. One RENDERING defect found + fixed: a Blade `@if`-in-attributes on `<x-ui.button>` corrupted the
+  compiled component (caught by the render tests).
+- **Asset-freshness (verified build-independently):** the two NEW views introduce **zero** new Tailwind utilities — every
+  class is already generated in the committed bundle (`friendly-denial` was swapped `rounded-2xl`/`p-8` → the present
+  `rounded-lg`/`p-6` to keep it so). So `public/build` stays fresh and CI's `assets-fresh` guard passes with NO rebuild.
+  (A clean `npm run build` was not possible here — this env's `node_modules` is missing `@fontsource/inter`; freshness
+  was proven by class-presence inspection against the committed CSS, which needs no build.)
+
+### NOV-122 — CI completion (`nov-122-ci-completion` `0b126bc`)
+- **Dusk wired:** all 13 accumulated CI-pending Browser specs added to the dusk job's app pass (InstallerWizardTest stays
+  PASS 1, enforce-ON); each self-seeds. All `php -l` clean. **No Chrome in this env → CI is the green-verifier** (the
+  standing Dusk-CI-pending rule; Phase-3A's "Dusk green in CI" exit criterion closes on the CI run).
+- **route:clear** added to the test job + the dusk serve loop — kills the stale `bootstrap/cache/routes-*.php`
+  SubdirInstall/PWA false-fails (the 2026-06-22 env finding).
+- **composer audit:** bumped guzzle 7.12.1→7.13.1 + psr7 2.12.1→2.12.3 (CVE-2026-55568 HTTPS-proxy downgrade;
+  CVE-2026-55766 CRLF injection) — `composer audit --no-dev --locked` clean; lock-only (composer.json untouched).
+- **Asset budget:** verified — committed `public/build` fresh + within budget (main JS ~2 KB gz, CSS ~12.5 KB gz vs the
+  50 KB gz ceilings); no re-baseline needed. (Not apex — no adversarial review.)
+
+### Environment notes (this build env — same class as prior sessions, per MEMORY)
+Native WSL2 on a `/mnt/d` drvfs mount, **PHP 8.5.7** (CI is 8.3), **no Docker `forum-dev`, no Chrome**, several
+**root-owned dirs** from a prior root run (`vendor/pestphp/pest/.temp`, `storage/framework/views/livewire`,
+`storage/framework/testing/disks/.../attachments`) + an **incomplete `node_modules`** (`@fontsource/inter` missing).
+Worked around: pointed `VIEW_COMPILED_PATH` at a fresh ext4 dir (fixed intermittent Livewire `tempnam` failures on the
+root-owned compiled dir + sped up SFC tests); gates ran on the native toolchain (sqlite `:memory:`). **CI (clean ext4,
+PHP 8.3) closes the two env-gated items: Dusk green + the 3 attachment-storage tests.**
+
+### Parked decisions — RECOMMENDATIONS (Prompt 1: surface with a recommendation; do NOT implement without owner answer)
+- **U8 imported-username revert (ADR-0106).** A legacy/imported handle that violates the modern `alpha_dash/min:3/max:30`
+  rule can't be reverted (revert re-validates and fails). **Recommend: let a revert bypass the format rule for a value
+  that genuinely exists in `username_history`** — it WAS a real handle, uniqueness is still enforced, the admin explicitly
+  chose it; the format rule should gate NEW handles, not restoration of a historical one. Low risk, closes the gap.
+  (Alt: keep strict — some imported handles stay un-revertable.)
+- **U18 Turnstile posture (ADR-0107).** The shipped Turnstile driver stays fail-OPEN; the two new drivers
+  (hCaptcha/reCAPTCHA) are fail-CLOSED. **Recommend: make posture a per-driver config with fail-CLOSED the default,
+  keeping Turnstile's fail-open only as an explicit operator opt-in** — a CAPTCHA failing open under a provider outage
+  lets spam through; fail-closed is the safer default. (Alt: keep Turnstile's documented fail-open; the posture
+  inconsistency stays.)
+
+### Linear (team NovFora) — pending moves (no Linear tool this session; owner applies)
+**NOV-96 / NOV-121 / NOV-122 → In Progress** (or In Review) at run start; the owner flips to **Done** on merge (prior-
+session convention). The harness had no Linear write path this session.
+
+### ☀️ What the owner does next
+1. **Review the 3 branches** (`git diff main..<branch>`): `nov-121-engine-hygiene` (52343d9), `nov-96-permission-aware-ui`
+   (72956ac), `nov-122-ci-completion` (0b126bc). All gated green locally; apex **GO** on both ◆ slices. **Nothing
+   merged/pushed — `main` untouched at `6724a9a`.**
+2. **Decide the two parked items** (U8 revert rule, U18 Turnstile posture) — recommendations above; Phase-3A gate
+   decisions, not implemented pending your answer.
+3. **Run CI** to close the two env-gated items: **Dusk green** (all specs wired; needs Chrome/CI) + the 3
+   attachment-storage tests (root-owned dir here; pass on ext4).
+4. **This report** lives on `claude/v13-phase3a-report` (off `main`) — merge it alongside the slices.
+5. Merge/tag is **Prompt 4's** v1.3.0 release run, not this one.
+
+---
+
 ## 🌅 Morning report — FABLE session: Populate private plugin (E6a engine + E6b Studio) BUILT FIRST against v1.2.x — plugin repo complete + gated GREEN; one small core seams branch; owner reviews (2026-07-02)
 
 Ran [`docs/product/BUILD-PROMPTS-2026-07-02.md`](docs/product/BUILD-PROMPTS-2026-07-02.md) **Prompt 0** end-to-end,
