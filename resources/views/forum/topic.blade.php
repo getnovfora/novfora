@@ -235,6 +235,24 @@
                                         <x-ui.button type="submit" variant="danger-soft" size="sm">{{ __('common.delete') }}</x-ui.button>
                                     </form>
                                 </x-action>
+                                {{-- U6 front-of-site moderator toolset (NOV-104): act on HELD content inline — approve or
+                                     reject a pending reply without leaving the thread for the queue. Governed by the 3A
+                                     contract (hidden unless the viewer moderates this thread; posts.approve/reject
+                                     re-assert topic.moderate server-side). --}}
+                                @if ($post->approved_state === 'pending')
+                                    <x-action :can="$canModerate">
+                                        <form method="POST" action="{{ route('posts.approve', $post) }}">@csrf
+                                            <x-ui.button type="submit" variant="primary" size="sm" dusk="post-approve-{{ $post->id }}">
+                                                <x-ui.icon name="check" class="h-4 w-4" /> {{ __('forum.approve') }}
+                                            </x-ui.button>
+                                        </form>
+                                    </x-action>
+                                    <x-action :can="$canModerate">
+                                        <form method="POST" action="{{ route('posts.reject', $post) }}">@csrf
+                                            <x-ui.button type="submit" variant="danger-soft" size="sm">{{ __('forum.reject') }}</x-ui.button>
+                                        </form>
+                                    </x-action>
+                                @endif
                                 {{-- Edit-history diff: only for EDITED posts the viewer can see (author of the post,
                                      or staff with post.history.view). open() re-asserts server-side. --}}
                                 @php($ownPost = $post->user_id && $user && (int) $post->user_id === (int) $user->id)

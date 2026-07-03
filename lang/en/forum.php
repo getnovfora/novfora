@@ -82,6 +82,8 @@ return [
     'post_count' => ':count posts',
     'edited' => 'edited',
     'awaiting_approval' => 'awaiting approval',
+    'approve' => 'Approve',
+    'reject' => 'Reject',
     'report' => 'Report',
     'quote' => 'Quote',
     // Multi-quote (U1)
