@@ -277,6 +277,13 @@
 
             {{-- Right cluster. (Mobile search lives in the hamburger panel, so the bar stays uncrowded at 360px.) --}}
             <div class="flex items-center gap-1 ml-auto md:ml-1 shrink-0">
+                {{-- UX-3 (NOV-92) search discoverability: a compact search entry for the sm–md range, where the
+                     full search bar is hidden (< md) AND the hamburger with its search is gone (≥ sm) — so
+                     search stays reachable at every width. --}}
+                <a href="{{ route('search.index') }}" aria-label="Search"
+                   class="hidden sm:inline-flex md:hidden h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink">
+                    <x-ui.icon name="search" class="h-5 w-5" />
+                </a>
                 {{-- The colour-mode control lives in the user dropdown → Appearance (/settings/appearance); it
                      was removed from the nav so the right cluster stays on one line. Guests fall back to `auto`
                      (follows the OS) — the accepted tradeoff (no per-guest nav toggle). --}}
