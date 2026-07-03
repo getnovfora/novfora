@@ -43,6 +43,7 @@ use App\Http\Controllers\TagController;
 use App\Http\Controllers\TopicController;
 use App\Http\Controllers\TrendingController;
 use App\Http\Controllers\UnsubscribeController;
+use App\Http\Controllers\WallController;
 use App\Http\Controllers\WarningController;
 use App\Http\Controllers\WatchedController;
 use App\Http\Controllers\WhatsNewController;
@@ -244,6 +245,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/topics/{topic}/reject', [ModerationController::class, 'rejectTopic'])->name('topics.reject');
     Route::post('/posts/{post}/approve', [ModerationController::class, 'approvePost'])->name('posts.approve');
     Route::post('/posts/{post}/reject', [ModerationController::class, 'rejectPost'])->name('posts.reject');
+    Route::post('/wall-posts/{wallPost}/approve', [ModerationController::class, 'approveWallPost'])->name('wall-posts.approve');
+    Route::post('/wall-posts/{wallPost}/reject', [ModerationController::class, 'rejectWallPost'])->name('wall-posts.reject');
 
     // Reports → staff dashboard (security §3). Any member may report; staff (bans.manage) resolve.
     Route::post('/reports', [ReportController::class, 'store'])->name('reports.store');
@@ -277,6 +280,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Watched — followed forums/tags/topics + their recent activity (U2, the member home loop).
     Route::get('/watched', [WatchedController::class, 'index'])->name('watched');
     Route::post('/announcements/{topic}/dismiss', [AnnouncementController::class, 'dismiss'])->name('announcements.dismiss');
+    Route::delete('/wall/{profilePost}', [WallController::class, 'destroy'])->name('wall.destroy');
 
     // Scheduled replies (member tool 2.4).
     Route::view('/scheduled', 'scheduled.index')->name('scheduled.index');

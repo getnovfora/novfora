@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Community\ActivityFeed;
+use App\Community\WallService;
 use App\Content\ContentRenderer;
 use App\Models\CustomField;
 use App\Models\CustomFieldValue;
@@ -33,7 +34,7 @@ class ProfileController extends Controller
         $values = $user->customFieldValues()->get()->keyBy('custom_field_id');
 
         // Tab is query-param driven (single route, server-rendered for SEO). Default = About.
-        $tab = in_array($request->query('tab'), ['posts', 'activity'], true)
+        $tab = in_array($request->query('tab'), ['posts', 'activity', 'wall'], true)
             ? (string) $request->query('tab')
             : 'about';
 
@@ -43,7 +44,13 @@ class ProfileController extends Controller
         $activityLimit = max(1, min(50, app(Settings::class)->int('general.activity_feed_limit')));
         $activity = $tab === 'activity' ? app(ActivityFeed::class)->forActor($viewer, $user, $activityLimit) : [];
 
-        return view('profiles.show', compact('user', 'fields', 'values', 'tab', 'posts', 'activity'));
+        // Wall (◆-lite): pass the REAL viewer (null for a guest) so the ignore + pending fences apply exactly;
+        // canPostOn gates the composer's presence (the SFC re-checks server-side regardless).
+        $wallService = app(WallService::class);
+        $wall = $tab === 'wall' ? $wallService->visibleWall($request->user(), $user) : collect();
+        $canPostOnWall = $wallService->canPostOn($request->user(), $user);
+
+        return view('profiles.show', compact('user', 'fields', 'values', 'tab', 'posts', 'activity', 'wall', 'canPostOnWall'));
     }
 
     /**

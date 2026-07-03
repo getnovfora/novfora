@@ -105,5 +105,39 @@
                 </x-ui.card>
             @endforelse
         </section>
+
+        {{-- Pending wall posts (◆-lite) — a GLOBAL-scope queue (statuses carry no forum), so it renders only for
+             a global moderator, mirroring the bans.manage gate on the approve/reject endpoints. --}}
+        @if ($canModCp)
+            <section class="space-y-2.5">
+                <h2 class="text-lg font-semibold text-ink">Pending wall posts</h2>
+                @forelse ($wallPosts as $wp)
+                    <x-ui.card class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="min-w-0">
+                            <p class="font-medium text-ink">Status by <x-ui.user-name :user="$wp->author" /></p>
+                            <p class="mt-0.5 text-sm text-ink-muted">on <x-ui.user-name :user="$wp->profileUser" />’s wall</p>
+                            @if (filled($wp->body_text))
+                                <p class="mt-1 text-sm text-ink-subtle">{{ \Illuminate\Support\Str::limit((string) $wp->body_text, 200) }}</p>
+                            @endif
+                        </div>
+                        <div class="flex shrink-0 items-center gap-2">
+                            <form method="POST" action="{{ route('wall-posts.approve', $wp->id) }}">@csrf
+                                <x-ui.button type="submit" size="sm"><x-ui.icon name="check" class="h-4 w-4" /> Approve</x-ui.button>
+                            </form>
+                            <form method="POST" action="{{ route('wall-posts.reject', $wp->id) }}">@csrf
+                                <x-ui.button type="submit" size="sm" variant="danger-ghost">Reject</x-ui.button>
+                            </form>
+                        </div>
+                    </x-ui.card>
+                @empty
+                    <x-ui.card>
+                        <x-ui.empty title="No wall posts awaiting review">
+                            <x-slot:icon><x-ui.icon name="message" class="h-6 w-6" /></x-slot:icon>
+                            Held profile-wall statuses will appear here.
+                        </x-ui.empty>
+                    </x-ui.card>
+                @endforelse
+            </section>
+        @endif
     </x-ui.container>
 @endsection

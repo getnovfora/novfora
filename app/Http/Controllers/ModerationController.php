@@ -13,6 +13,7 @@ use App\Forum\AnnouncementService;
 use App\Forum\PostService;
 use App\Models\Forum;
 use App\Models\Post;
+use App\Models\ProfilePost;
 use App\Models\Report;
 use App\Models\Topic;
 use App\Models\User;
@@ -210,7 +211,32 @@ class ModerationController extends Controller
             $holdReasons[$id] = $reason;
         }
 
-        return view('moderation.queue', compact('topics', 'posts', 'holdReasons'));
+        // Pending profile-wall statuses (◆-lite). Unlike topics/posts these carry no forum scope, so the queue
+        // is global: only a global moderator (the MCP baseline, bans.manage) sees and clears them — mirroring
+        // WallService::canDelete's mod branch. Empty for a per-forum delegate.
+        $wallPosts = $user->canDo('bans.manage', Scope::global())
+            ? ProfilePost::where('approved_state', 'pending')->with(['author', 'profileUser'])->latest('id')->get()
+            : collect();
+
+        return view('moderation.queue', compact('topics', 'posts', 'holdReasons', 'wallPosts'));
+    }
+
+    public function approveWallPost(Request $request, ProfilePost $wallPost): RedirectResponse
+    {
+        abort_unless($request->user()?->canDo('bans.manage', Scope::global()), 403);
+        $wallPost->update(['approved_state' => 'approved']);
+        Audit::log('wall.approved', $wallPost);
+
+        return back();
+    }
+
+    public function rejectWallPost(Request $request, ProfilePost $wallPost): RedirectResponse
+    {
+        abort_unless($request->user()?->canDo('bans.manage', Scope::global()), 403);
+        $wallPost->delete(); // soft-delete → recoverable
+        Audit::log('wall.rejected', $wallPost);
+
+        return back();
     }
 
     public function approveTopic(Request $request, Topic $topic, PostService $posts): RedirectResponse
