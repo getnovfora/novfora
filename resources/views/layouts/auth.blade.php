@@ -3,9 +3,13 @@
 
 @section('content')
     <x-ui.container size="sm">
-        <div class="py-6 sm:py-10">
-            <p class="text-xs font-semibold uppercase tracking-wider text-ink-subtle">{{ config('app.name', 'NovFora') }}</p>
-            <h1 class="mt-1 mb-5 text-2xl font-semibold tracking-tight text-ink">{{ $authTitle ?? 'Account' }}</h1>
+        {{-- UX-5 (NOV-94): a focused, centered auth header over the card — brand wordmark + title, calmer
+             vertical rhythm. The form inside the card stays left-aligned for scannability. --}}
+        <div class="py-8 sm:py-12">
+            <div class="mb-6 text-center">
+                <p class="text-xs font-semibold uppercase tracking-wider text-ink-subtle">{{ config('app.name', 'NovFora') }}</p>
+                <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink font-display">{{ $authTitle ?? 'Account' }}</h1>
+            </div>
 
             {{-- Session status is shown by the global flash in layouts.app; here we show only validation errors. --}}
             @if ($errors->any())
