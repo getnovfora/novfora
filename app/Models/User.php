@@ -88,6 +88,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'signature_doc' => 'array',
             'posts_per_page' => 'integer',
             'show_online_status' => 'boolean',
+            'onboarding_dismissed_at' => 'datetime',
         ];
     }
 

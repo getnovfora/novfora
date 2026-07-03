@@ -25,6 +25,11 @@
 @section('content')
     @php $sidebarHtml = app(\App\Theme\LayoutManager::class)->render('forum_sidebar'); @endphp
     <x-ui.container size="lg" class="space-y-6">
+        {{-- Onboarding-lite (NOV-123): the dismissible getting-started checklist. Self-gates — shown only to a
+             signed-in member who hasn't dismissed it and hasn't finished every step. --}}
+        @auth
+            <livewire:onboarding-checklist />
+        @endauth
         @if ($sidebarHtml !== '')
         <div class="grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-start">
             <div class="space-y-6 min-w-0">
