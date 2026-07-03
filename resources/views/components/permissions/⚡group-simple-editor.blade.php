@@ -2,6 +2,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 
+use App\Admin\DelegationService;
 use App\Models\Club;
 use App\Models\Group;
 use App\Models\User;
@@ -91,6 +92,12 @@ new class extends Component
                 'keys' => $keys,
             ]);
             $this->flash = (string) __('admin.perms.saved');
+
+            // NOV-121 (ADR-0087): disabling a capability is a mask reduction — re-check this group's delegators
+            // against their reduced mask (bounded + queued; a no-op when the group has no live delegations).
+            if (! $enabled) {
+                app(DelegationService::class)->onGroupMaskChanged([(int) $group->id]);
+            }
         }
     }
 

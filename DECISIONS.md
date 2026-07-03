@@ -3560,6 +3560,17 @@ Allow NEVER in a mod role — rejected (the review finding; moderation is a gran
 
 **Alternatives considered.** (a) A single Root owner + transfer protocol — rejected by owner (multiple co-owners, ADR-0080). (b) Restrict an admin by ADDING per-user grants while keeping them in `admins` — impossible (they already inherit everything; you cannot subtract with an additive engine), hence the not-in-`admins` model. (c) Track a restricted admin's "current bundle" via a `RoleAssignment` — rejected: bundles are starting points and per-key toggles diverge from any preset, so the persistent state is the section-grant SET, managed as direct `acl_entries`. (d) Inline a duplicate locked guard in `AccountDeletionService` vs sharing a helper — kept inline (mirrors its existing `assertNotSoleAdminLocked`, each service throws its own exception). (e) Leave restricted admins outside the 2FA mandate (a lighter tier) — rejected (security-by-default; an admin in capability carries the second factor).
 
+**Amendment (NOV-121 · v1.3 Phase 3A, 2026-07-03).** The "Last-owner guard, SYSTEM-WIDE" seam above closed the
+co-owner tier on `GroupManager::removeMember` but left the last **PLAIN admin** unguarded — a documented removal-door
+gap (re-flagged by ADR-0100/S5's "flagged, not fixed"): the co-owner teardown is a no-op for an admin who is not a
+co-owner, so the sole remaining admins-group member could be detached into a zero-reachable-admin strand.
+`removeMember` now asserts `OwnerStrandGuard::wouldStrandAdminTierLocked()` as the FIRST act inside its transaction
+(before the co-owner teardown), throwing `GroupException` — routing the admin tier through the SAME shared ban-aware
+authority (ADR-0100) the ban/delete/demote doors use, under the identical `group_user → users → bans` lock order (no
+deadlock). All four owner-strand doors now reason about REACHABLE owners in BOTH tiers identically (a banned admin is
+not a viable remaining owner). Tests: `GroupManagerTest` — the ban-aware last-reachable-admin refusal + the allowed
+non-sole removal.
+
 ### ADR-0087 — ACP v3 · v3-f: temporary-access delegation — the provenance table, the ceiling/no-clobber fences, and the current-mask cascade (2026-06-21)
 **Status: Accepted — child of ADR-0080; owner-authorized unattended build, gated, APEX-reviewed (5-reason adversarial pass), flagged for review.**
 
@@ -3582,6 +3593,21 @@ Allow NEVER in a mod role — rejected (the review finding; moderation is a gran
 **Verification.** Inspector/resolver-oracle (G4, `explain()` uncached) across grant (recipient resolves the key; one TTL row written), the ceiling (delegate-what-you-don't-hold + delegate-broader-than-held → rejected, zero rows), non-delegable keys + non-co-owner actor (rejected), the 30-day clamp + past-window refusal, revoke (verdict flips on BOTH `explain()` and cached `can()`; `AclVersion` bumped; provenance kept), no-clobber (permanent-grant + NEVER refusals; revoke spares a permanent grant at the same cell), the auto-expiry seam (flip with no prune, then prune sweeps the dead row leaving the audit row), and the cascade (admins-group removal revokes the now-over-ceiling delegation; a still-held key is left intact) — 16 cases. Plus the SFC gate (403 non-co-owner / renders for a co-owner) + the Livewire grant→revoke round-trip. Gate: `pest` · `pint` · `phpstan` L max · `migrate` apply+rollback+re-apply.
 
 **Alternatives considered.** (a) Build a parallel "temporary grants" evaluation path — rejected (G1; the v3-0 `expires_at` seam already auto-expires a normal `acl_entries` row). (b) `updateOrCreate` the projected row unconditionally — rejected (clobbers a permanent grant / lifts a NEVER; hence the no-clobber fence). (c) Delegate to groups/roles — out of scope (per-user, single-key this pass). (d) Defer the current-mask cascade entirely (document the gap) — declined for the paths that matter (wired into the real admins-removal trigger); only the `GroupPermissionEditor` group-key fan-out is deferred, bounded by the 30-day cap. (e) A new cron to expire delegations — rejected (the existing prune already sweeps any TTL row; the resolver filter is authoritative without it).
+
+**Amendment (NOV-121 · v1.3 Phase 3A, 2026-07-03) — the deferred `GroupPermissionEditor` fan-out is now CLOSED
+(wired, not merely bounded).** The "Bounded gap (documented)" seam above — a co-owner's *group* losing a key via
+`GroupPermissionEditor` was not cascaded — is resolved by wiring it, so "never exceeds the delegator's CURRENT mask"
+now holds across EVERY mask-reduction door, no longer only within the ≤ 30-day auto-expiry cap.
+`DelegationService::onGroupMaskChanged($groupIds)` — called by both editor SFCs' single-edit save (`⚡group-editor`
+`setState`, `⚡group-simple-editor` `setCapability`) and the category bulk-apply (`copyForumToCategory`), AFTER a
+reduction ('yes' → 'no'/'never') commits — enqueues the bounded `CascadeDelegationsJob`, which runs
+`DelegationService::cascadeForGroups()`: the SAME `cascadeForActor()` primitive, fanned out over the members of the
+edited group(s) who hold live delegations (a group with none is a no-op). BOUNDED to actual delegators, chunked, and
+queued (cron-drained on Baseline — the ADR-0097 discipline), so a large group never blocks the editor request. The
+fan-out is deliberately NOT in `set()` (called in tight loops → O(keys)) but at the operation boundary, with a cheap
+`exists()` pre-check that keeps a routine delegation-free save off the queue entirely. This SUPERSEDES the "Bounded
+gap" seam and Alternatives (d) above for the editor path. Tests: `DelegationFanoutTest` (cascade revokes a stranded
+delegation, keeps one still backed, the pre-check gate, and the SFC wiring).
 
 ### ADR-0088 — ACP v3 · v3-g: staff flair + "The Team" roster — the live group-derived role resolver (the LAST v3 slice; ACP v3 program COMPLETE) (2026-06-21)
 **Status: Accepted — child of ADR-0080 (the final slice); owner-authorized unattended build, gated. DISPLAY-ONLY — no apex seam.**

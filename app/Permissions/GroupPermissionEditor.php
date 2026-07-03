@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Permissions;
 
+use App\Admin\DelegationService;
 use App\Models\AclEntry;
 use App\Models\Forum;
 use App\Models\Group;
@@ -88,6 +89,11 @@ final class GroupPermissionEditor
      * Set a single group's state for a permission at a scope. 'no' DELETES the row (inherit); 'yes'/'never' write
      * an ALLOW/NEVER row. Returns true if anything changed. Audited per change unless $audit is false (the bulk
      * path audits once for the whole operation).
+     *
+     * NOTE (NOV-121 / ADR-0087): a REDUCTION here ('yes' → 'no'/'never') can drop a group member below a
+     * capability they delegated as a co-owner. This method does NOT fan out that re-check itself — it is called
+     * in tight loops (copyForumToCategory, the simple-editor bundle), so a per-call fan-out would be O(keys).
+     * Callers invoke {@see DelegationService::onGroupMaskChanged()} ONCE after their edit commits.
      */
     public function set(Group $group, string $permissionKey, Scope $scope, string $state, bool $audit = true): bool
     {

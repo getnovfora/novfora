@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Admin;
 
+use App\Jobs\CascadeDelegationsJob;
 use App\Models\AclEntry;
 use App\Models\Delegation;
 use App\Models\Permission;
@@ -150,6 +151,61 @@ final class DelegationService
                     'key' => $delegation->permission_key,
                 ]);
             }
+        }
+    }
+
+    /**
+     * Fan out {@see cascadeForActor()} across a GROUP mask reduction (NOV-121 — closes the ADR-0087 gap). When a
+     * group's standing permissions are edited DOWN, every MEMBER of that group who granted live delegations may
+     * now exceed their reduced CURRENT mask — the same invariant the admins-removal door already honours. Re-check
+     * each such delegator (the SAME proven primitive), revoking only delegations that no longer pass a live
+     * canDo() at their scope. Bounded to ACTUAL delegators (a group with none is a no-op) and chunked so a large
+     * delegator set never runs unbounded. Runs off the request thread via {@see CascadeDelegationsJob}.
+     *
+     * @param  list<int>  $groupIds
+     */
+    public function cascadeForGroups(array $groupIds): void
+    {
+        $groupIds = array_values(array_filter(array_map('intval', $groupIds), fn (int $id): bool => $id > 0));
+        if ($groupIds === []) {
+            return;
+        }
+
+        $delegatorIds = Delegation::query()->live()
+            ->whereIn('delegator_id', DB::table('group_user')->select('user_id')->whereIn('group_id', $groupIds))
+            ->distinct()
+            ->pluck('delegator_id')
+            ->unique();
+
+        foreach ($delegatorIds->chunk(100) as $chunk) {
+            User::query()->whereIn('id', $chunk->all())->get()->each(function (User $delegator): void {
+                $this->cascadeForActor($delegator);
+            });
+        }
+    }
+
+    /**
+     * Notify the delegation engine that one or more groups' standing masks just changed (a permission-editor save
+     * / the category bulk-apply). Enqueues the bounded {@see CascadeDelegationsJob} — but ONLY when a
+     * member of an affected group actually holds a live delegation, so the overwhelmingly common case (no
+     * delegations in play) never touches the queue. Callers invoke this AFTER a mask REDUCTION commits (a
+     * 'yes' → 'no'/'never' edit); an over-fire is harmless (the job re-checks and revokes nothing).
+     *
+     * @param  list<int>  $groupIds
+     */
+    public function onGroupMaskChanged(array $groupIds): void
+    {
+        $groupIds = array_values(array_filter(array_map('intval', $groupIds), fn (int $id): bool => $id > 0));
+        if ($groupIds === []) {
+            return;
+        }
+
+        $hasDelegators = Delegation::query()->live()
+            ->whereIn('delegator_id', DB::table('group_user')->select('user_id')->whereIn('group_id', $groupIds))
+            ->exists();
+
+        if ($hasDelegators) {
+            CascadeDelegationsJob::dispatch($groupIds);
         }
     }
 

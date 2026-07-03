@@ -13,6 +13,7 @@ use App\Models\Group;
 use App\Models\Role;
 use App\Models\RoleAssignment;
 use App\Models\User;
+use App\Moderation\OwnerStrandGuard;
 use App\Permissions\AclVersion;
 use App\Permissions\MembershipCache;
 use App\Permissions\RoleExpander;
@@ -298,16 +299,34 @@ final class GroupManager
         $this->assertManualMembership($group);
 
         DB::transaction(function () use ($group, $userId): void {
-            // The admins membership carries co-ownership (the is_co_owner pivot flag + the per-user
-            // admin.security.access grant), so removing it is a SECOND door onto the last-owner invariant
-            // AdminCoOwnerService::revoke() guards (ADR-0080). Unguarded it could strand the forum at zero
-            // co-owners and orphan the security grant. Tear co-ownership down — the locked last-owner guard
-            // refuses the sole co-owner — BEFORE the detach drops the pivot flag, atomically in this transaction.
-            if ($group->slug === 'admins' && ($target = User::find($userId)) instanceof User) {
-                try {
-                    app(AdminCoOwnerService::class)->tearDownForAdminsRemoval($target);
-                } catch (AdminCoOwnerException $e) {
-                    throw new GroupException($e->getMessage(), previous: $e);
+            // Removing the admins membership is a mask reduction onto the last-owner invariant on TWO tiers, so it
+            // is guarded before the detach — atomically in this transaction, under the shared ban-aware authority's
+            // group_user → users → bans lock order (ADR-0086/0100, NOV-121):
+            //   • the ADMIN tier — a plain admin (co-owner or not) whose removal would leave zero REACHABLE
+            //     administrators. This was the documented ADR-0086 removal-door gap: the co-owner teardown below
+            //     guards only the co-owner tier, so the sole PLAIN admin could be detached into a zero-owner strand.
+            //     Route it through OwnerStrandGuard so removal reasons about REACHABLE admins identically to the
+            //     ban/delete/demote doors (a banned admin is not a viable remaining owner).
+            //   • the CO-OWNER tier — the is_co_owner pivot flag + the per-user admin.security.access grant, torn
+            //     down under the SAME locked last-co-owner guard AdminCoOwnerService::revoke() uses (ADR-0080),
+            //     which also clears the otherwise-orphaned security grant BEFORE the detach drops the pivot flag.
+            if ($group->slug === 'admins') {
+                // ADMIN tier — guard on the id ALONE. A bare group_user row still counts toward the
+                // reachable-admin tally even if no User model currently backs it, so gating this on User::find
+                // could let the last-admin strand slip through a missing model. wouldStrandAdminTierLocked() is a
+                // no-op when $userId is not actually in the admins tier.
+                if (app(OwnerStrandGuard::class)->wouldStrandAdminTierLocked($userId)) {
+                    throw new GroupException('The last administrator cannot be removed from the Administrators group — appoint another administrator first.');
+                }
+
+                // CO-OWNER tier — needs the User model (the teardown clears its per-user admin.security.access
+                // grant under the locked last-co-owner guard) before the detach drops the pivot flag.
+                if (($target = User::find($userId)) instanceof User) {
+                    try {
+                        app(AdminCoOwnerService::class)->tearDownForAdminsRemoval($target);
+                    } catch (AdminCoOwnerException $e) {
+                        throw new GroupException($e->getMessage(), previous: $e);
+                    }
                 }
             }
 

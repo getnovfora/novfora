@@ -16,6 +16,7 @@ use App\Permissions\PermissionResolver;
 use App\Permissions\PermissionValue;
 use App\Permissions\Scope;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\Support\Users;
 
@@ -238,4 +239,36 @@ it('removeMember detaches a non-sole co-owner, tearing down the flag and the sec
         ->where('holder_id', $coGo->id)->exists())->toBeFalse();
     // The remaining co-owner is untouched.
     expect(app(AdminCoOwnerService::class)->isCoOwner($coKeep))->toBeTrue();
+});
+
+// ── Last-PLAIN-admin guard on the same removal door (closes the ADR-0086 gap; NOV-121) ────────────────────
+
+it('removeMember refuses to detach the last REACHABLE admin — the ADR-0086 plain-admin gap (NOV-121)', function () {
+    $admins = Group::where('slug', 'admins')->firstOrFail();
+
+    // Target is a plain admin (NOT a co-owner), so the co-owner teardown would NOT catch it — this is exactly
+    // the door the co-owner guard left open. Make it the SOLE reachable admin by effectively banning every other
+    // admins-group member (status='banned'): routed through OwnerStrandGuard, a banned peer is not a viable
+    // remaining owner, so removing the last UNBANNED admin is refused even while banned admins linger in the group.
+    $lastAdmin = Users::inGroups(['admins']);
+    $otherAdminIds = DB::table('group_user')->where('group_id', $admins->id)
+        ->where('user_id', '!=', $lastAdmin->id)->pluck('user_id');
+    User::query()->whereIn('id', $otherAdminIds)->update(['status' => 'banned']);
+
+    expect(fn () => gm()->removeMember($admins, (int) $lastAdmin->id))
+        ->toThrow(GroupException::class, 'last administrator');
+
+    // Refused before any mutation — still an admin (nothing detached).
+    expect($lastAdmin->fresh()->groups->pluck('slug')->contains('admins'))->toBeTrue();
+});
+
+it('removeMember detaches a plain admin while another reachable admin remains (NOV-121)', function () {
+    $admins = Group::where('slug', 'admins')->firstOrFail();
+    $keep = Users::inGroups(['admins']); // a second reachable admin — removal must not strand
+    $go = Users::inGroups(['admins']);   // a plain admin (no co-owner flag) to remove
+
+    gm()->removeMember($admins, (int) $go->id);
+
+    expect($go->fresh()->groups->pluck('slug')->contains('admins'))->toBeFalse()
+        ->and($keep->fresh()->groups->pluck('slug')->contains('admins'))->toBeTrue();
 });
