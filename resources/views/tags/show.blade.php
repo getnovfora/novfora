@@ -18,6 +18,10 @@
                     {{ number_format($tag->usage_count) }} {{ $tag->usage_count === 1 ? 'topic' : 'topics' }}
                 </p>
             </div>
+            @auth
+                {{-- U2 (NOV-101): follow this tag — its new topics surface on your Watched feed + digest. --}}
+                <livewire:forum.subscribe-button :key="'sub-tag-'.$tag->id" kind="tag" :target-id="$tag->id" />
+            @endauth
         </div>
 
         @if ($topics->isNotEmpty())

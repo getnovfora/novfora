@@ -195,6 +195,7 @@
                             <a href="{{ route('notifications.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Notifications</a>
                             <a href="{{ route('pm.inbox') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Messages</a>
                             <a href="{{ route('saved.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Saved</a>
+                            <a href="{{ route('watched') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">{{ __('watched.title') }}</a>
                             <a href="{{ route('settings.profile') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Profile &amp; settings</a>
                         @endauth
                     </nav>
@@ -306,6 +307,7 @@
                         </div>
                         <x-ui.dropdown-item :href="route('profiles.show', auth()->user())"><x-ui.icon name="user" class="h-4 w-4 text-ink-subtle" /> Profile</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('saved.index')"><x-ui.icon name="pin" class="h-4 w-4 text-ink-subtle" /> Saved</x-ui.dropdown-item>
+                        <x-ui.dropdown-item :href="route('watched')"><x-ui.icon name="bell" class="h-4 w-4 text-ink-subtle" /> {{ __('watched.title') }}</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('scheduled.index')"><x-ui.icon name="clock" class="h-4 w-4 text-ink-subtle" /> Scheduled</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('saved-searches.index')"><x-ui.icon name="search" class="h-4 w-4 text-ink-subtle" /> Saved searches</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('settings.profile')"><x-ui.icon name="cog" class="h-4 w-4 text-ink-subtle" /> Edit profile</x-ui.dropdown-item>

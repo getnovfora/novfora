@@ -271,6 +271,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Saved topics + posts (member tool 2.1).
     Route::get('/saved', [BookmarkController::class, 'index'])->name('saved.index');
 
+    // Watched — followed forums/tags/topics + their recent activity (U2, the member home loop).
+    Route::get('/watched', [\App\Http\Controllers\WatchedController::class, 'index'])->name('watched');
+
     // Scheduled replies (member tool 2.4).
     Route::view('/scheduled', 'scheduled.index')->name('scheduled.index');
 
