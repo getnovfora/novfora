@@ -68,6 +68,9 @@
                         @if ($topic->status === 'locked')
                             <x-ui.badge variant="warn"><x-ui.icon name="lock" class="h-3.5 w-3.5" /> {{ __('forum.locked') }}</x-ui.badge>
                         @endif
+                        @if ($topic->isAnnouncement())
+                            <x-ui.badge variant="accent"><x-ui.icon name="bell" class="h-3.5 w-3.5" /> {{ __('announcements.badge') }}</x-ui.badge>
+                        @endif
                     </div>
                 @endif
                 <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ $topic->title }}</h1>
@@ -95,6 +98,14 @@
                     <form method="POST" action="{{ route('topics.lock', $topic) }}">@csrf
                         <x-ui.button type="submit" variant="ghost" size="sm">
                             <x-ui.icon name="lock" class="h-4 w-4" /> {{ $topic->status === 'locked' ? __('forum.unlock') : __('forum.lock') }}
+                        </x-ui.button>
+                    </form>
+                    {{-- Announce/retract (U4, NOV-102). This toggle publishes to everyone; criteria-targeting by
+                         group is carried end-to-end by the controller + AnnouncementService and lands in the mod
+                         toolset UI (U6). --}}
+                    <form method="POST" action="{{ route('topics.announce', $topic) }}">@csrf
+                        <x-ui.button type="submit" variant="ghost" size="sm">
+                            <x-ui.icon name="bell" class="h-4 w-4" /> {{ $topic->isAnnouncement() ? __('announcements.unannounce') : __('announcements.announce') }}
                         </x-ui.button>
                     </form>
                     {{-- Merge this topic into another (P2-M4): trigger + modal SFC. Hidden (not disabled)

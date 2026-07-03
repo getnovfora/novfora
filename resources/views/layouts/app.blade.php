@@ -368,6 +368,10 @@
         </div>
     @endif
 
+    {{-- Dismissible, criteria-targeted announcements (U4, NOV-102). The component fences audience + forum
+         visibility + lifecycle in AnnouncementService; nothing the viewer may not see reaches this markup. --}}
+    <x-announcements />
+
     {{-- Optional breadcrumb bar: a page provides @section('breadcrumbs') with <x-ui.breadcrumbs>. --}}
     @hasSection('breadcrumbs')
         <div class="border-b border-line bg-surface-raised">
