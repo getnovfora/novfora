@@ -233,12 +233,21 @@
                                 @endif
                                 @auth
                                     @if ($canReply)
-                                        {{-- Quote-reply (M1): pre-fills the bottom composer with a blockquote +
-                                             attribution and links the reply to this post; scrolls to the composer. --}}
+                                        {{-- Quote-reply (M1): 1-click single quote — pre-fills the composer with an
+                                             attributed blockquote of this post and scrolls to it. --}}
                                         <x-ui.button :href="route('topics.show', $topic).'?quote='.$post->id.'#reply-composer'"
                                                      variant="ghost" size="sm" dusk="quote-post-{{ $post->id }}">
                                             {{ __('forum.quote') }}
                                         </x-ui.button>
+                                        {{-- Multi-quote (U1): +Quote toggles this post into the basket; the floating bar
+                                             inserts them all in one reply (the composer resolves ?quote=<csv> server-side). --}}
+                                        <button type="button" x-on:click="$store.quoteBasket.toggle({{ $post->id }})"
+                                                x-bind:class="$store.quoteBasket.has({{ $post->id }}) ? 'border-accent text-accent' : 'border-line text-ink-muted'"
+                                                :aria-pressed="$store.quoteBasket.has({{ $post->id }}).toString()"
+                                                class="inline-flex items-center gap-1 min-h-9 px-2.5 rounded-md border text-sm font-medium hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                                                dusk="multiquote-post-{{ $post->id }}" title="{{ __('forum.multiquote_add') }}">
+                                            <x-ui.icon name="plus" class="h-4 w-4" /><span class="sr-only">{{ __('forum.multiquote_add') }}</span>
+                                        </button>
                                     @endif
                                     <form method="POST" action="{{ route('reports.store') }}" class="ml-auto">@csrf
                                         <input type="hidden" name="post_id" value="{{ $post->id }}">
@@ -264,12 +273,28 @@
 
         @auth
             @if ($canReply)
-                {{-- ?quote={id} (M1) pre-fills a quote-reply; ?canned={id} (T1, staff picker) pre-fills a canned reply. --}}
+                {{-- U1 multi-quote: the basket store + a floating bar that inserts every picked quote in one reply. --}}
+                @include('partials.quote-basket-store')
+                <div x-cloak x-show="$store.quoteBasket.ids.length > 0" x-transition.origin.bottom
+                     class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface-raised shadow-md" dusk="multiquote-bar">
+                    <x-ui.container size="lg" class="flex flex-wrap items-center justify-between gap-3 py-3">
+                        <p class="text-sm text-ink"><span class="nums font-semibold" x-text="$store.quoteBasket.ids.length"></span>
+                            <span x-text="$store.quoteBasket.ids.length === 1 ? @js(__('forum.multiquote_one')) : @js(__('forum.multiquote_many'))"></span></p>
+                        <div class="flex items-center gap-2">
+                            <button type="button" x-on:click="$store.quoteBasket.clear()" class="min-h-9 px-3 text-sm text-ink-muted hover:text-ink">{{ __('common.cancel') }}</button>
+                            <x-ui.button type="button" size="sm" dusk="multiquote-insert"
+                                         x-on:click="window.location.href='{{ route('topics.show', $topic) }}?quote=' + $store.quoteBasket.ids.join(',') + '#reply-composer'">
+                                {{ __('forum.multiquote_insert') }}
+                            </x-ui.button>
+                        </div>
+                    </x-ui.container>
+                </div>
+                {{-- ?quote={id|csv} (M1/U1) pre-fills quote-reply(s); ?canned={id} (T1 staff picker) a canned reply. --}}
                 <div id="reply-composer">
                     <livewire:forum.reply-composer :topic-id="$topic->id"
-                        :quote="(int) request('quote') ?: null"
+                        :quote="request('quote') ?: null"
                         :canned="(int) request('canned') ?: null"
-                        :key="'reply-composer-'.((int) request('quote')).'-'.((int) request('canned'))" />
+                        :key="'reply-composer-'.request('quote').'-'.((int) request('canned'))" />
                 </div>
             @elseif ($topic->status === 'locked')
                 <x-ui.card class="flex items-center gap-3 text-ink-muted">

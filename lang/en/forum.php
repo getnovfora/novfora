@@ -84,6 +84,11 @@ return [
     'awaiting_approval' => 'awaiting approval',
     'report' => 'Report',
     'quote' => 'Quote',
+    // Multi-quote (U1)
+    'multiquote_add' => 'Add to quote',
+    'multiquote_insert' => 'Insert quotes',
+    'multiquote_one' => 'post selected to quote',
+    'multiquote_many' => 'posts selected to quote',
     'locked_no_replies' => 'This topic is locked — no new replies can be posted.',
     'join_to_reply' => 'Join the conversation to leave a reply.',
     'sign_in_to_reply' => 'Sign in to reply',

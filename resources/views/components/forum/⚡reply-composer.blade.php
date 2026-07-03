@@ -32,19 +32,23 @@ new class extends Component
     /** Optional "publish at" (datetime-local string) — when set + future, the reply is scheduled (2.4). */
     public ?string $publishAt = null;
 
-    /** Quote-reply linkage (M1) — set server-side from the ?quote param; #[Locked] so the client can't forge it. */
+    /** Multi-quote basket cap (U1) — one reply never pulls in more than this many source posts. */
+    private const MAX_QUOTES = 10;
+
+    /** Quote-reply linkage (M1/U1) — the FIRST quoted post; set server-side, #[Locked] so the client can't forge it. */
     #[Locked]
     public ?int $replyToPostId = null;
 
-    public function mount(int $topicId, ?int $quote = null, ?int $canned = null): void
+    public function mount(int $topicId, ?string $quote = null, ?int $canned = null): void
     {
         $this->topicId = $topicId;
         $this->ensureCanReply();
 
-        // A per-post Quote (?quote={id}, M1) pre-fills the composer with a blockquote + attribution and links the
-        // reply to its source; a canned reply (?canned={id}, T1, staff-only/bans.manage) pre-fills it with a stock
-        // body. Either takes precedence over an autosaved draft for this load; quote wins if both are present.
-        if ($quote !== null && $this->applyQuote($quote)) {
+        // A Quote param (?quote={id} single, or ?quote=1,2,3 multi — U1's selection basket) pre-fills the composer
+        // with an attributed blockquote per source post and links the reply to the first; a canned reply
+        // (?canned={id}, T1, staff-only/bans.manage) pre-fills a stock body. Either takes precedence over an
+        // autosaved draft for this load; quote wins if both are present.
+        if ($quote !== null && $this->applyQuotes($quote)) {
             return;
         }
         if ($canned !== null && $this->applyCanned($canned)) {
@@ -54,22 +58,37 @@ new class extends Component
         $this->restoreDraft(); // restore any autosaved reply draft for this topic (own-only)
     }
 
-    /** Build the quoted-content doc + record the parent linkage. Returns false (→ fall back to the draft) if the
-     *  quoted post isn't an APPROVED post in THIS topic — so a forged/cross-topic id can never pull in content. */
-    private function applyQuote(int $quote): bool
+    /** U1 multi-quote: parse a comma-separated id list, keep only APPROVED posts in THIS topic (so a forged or
+     *  cross-topic id can never pull in content), de-duplicate, preserve the requested order, and cap at
+     *  MAX_QUOTES. Builds ONE doc with an attributed blockquote per source; the parent linkage points at the
+     *  first. Returns false (→ draft fallback) if none resolve. One batched query, never a per-id N+1. */
+    private function applyQuotes(string $quote): bool
     {
-        $quoted = Post::query()
-            ->where('id', $quote)
-            ->where('topic_id', $this->topicId)
-            ->where('approved_state', 'approved')
-            ->first();
+        $ids = collect(explode(',', $quote))
+            ->map(fn ($v): int => (int) trim((string) $v))
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->take(self::MAX_QUOTES)
+            ->values();
 
-        if ($quoted === null) {
+        if ($ids->isEmpty()) {
             return false;
         }
 
-        $this->canonicalJson = $this->buildQuotedDoc($quoted);
-        $this->replyToPostId = $quoted->id;
+        $found = Post::query()
+            ->whereIn('id', $ids->all())
+            ->where('topic_id', $this->topicId)
+            ->where('approved_state', 'approved')
+            ->get()
+            ->keyBy('id');
+
+        $ordered = $ids->map(fn (int $id): ?Post => $found->get($id))->filter()->values();
+        if ($ordered->isEmpty()) {
+            return false;
+        }
+
+        $this->canonicalJson = $this->buildQuotedDoc($ordered->all());
+        $this->replyToPostId = (int) $ordered->first()->id;
 
         return true;
     }
@@ -96,28 +115,30 @@ new class extends Component
         return true;
     }
 
-    /** A canonical-JSON doc: an attribution line linking to the source post, a blockquote of the excerpt (the
-     *  plain-text projection — never re-embedding another post's nodes/attachments), then an empty paragraph. */
-    private function buildQuotedDoc(Post $quoted): array
+    /** A canonical-JSON doc: for EACH quoted post, an attribution line linking to the source + a blockquote of the
+     *  excerpt (the plain-text projection — never re-embedding another post's nodes/attachments), then a trailing
+     *  empty paragraph for the reply. Attribution depth (U1): every source keeps its own author + permalink.
+     *
+     *  @param  list<Post>  $posts */
+    private function buildQuotedDoc(array $posts): array
     {
-        $author = $quoted->author;
-        $name = $author?->display_name ?? $author?->username ?? 'A member';
-        $excerpt = trim(Str::limit((string) $quoted->body_text, 600));
+        $content = [];
+        foreach ($posts as $quoted) {
+            $author = $quoted->author;
+            $name = $author?->display_name ?? $author?->username ?? 'A member';
+            $excerpt = trim(Str::limit((string) $quoted->body_text, 600));
+            $content[] = ['type' => 'paragraph', 'content' => [[
+                'type' => 'text',
+                'text' => $name.' wrote:',
+                'marks' => [['type' => 'link', 'attrs' => ['href' => '#post-'.$quoted->id]]],
+            ]]];
+            $content[] = ['type' => 'blockquote', 'content' => [
+                ['type' => 'paragraph', 'content' => $excerpt !== '' ? [['type' => 'text', 'text' => $excerpt]] : []],
+            ]];
+        }
+        $content[] = ['type' => 'paragraph', 'content' => []];
 
-        return [
-            'type' => 'doc',
-            'content' => [
-                ['type' => 'paragraph', 'content' => [[
-                    'type' => 'text',
-                    'text' => $name.' wrote:',
-                    'marks' => [['type' => 'link', 'attrs' => ['href' => '#post-'.$quoted->id]]],
-                ]]],
-                ['type' => 'blockquote', 'content' => [
-                    ['type' => 'paragraph', 'content' => $excerpt !== '' ? [['type' => 'text', 'text' => $excerpt]] : []],
-                ]],
-                ['type' => 'paragraph', 'content' => []],
-            ],
-        ];
+        return ['type' => 'doc', 'content' => $content];
     }
 
     /** @return Collection<int, CannedReply> active canned replies for the staff picker (empty for non-staff). */
