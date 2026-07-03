@@ -68,6 +68,9 @@
                         @if ($topic->status === 'locked')
                             <x-ui.badge variant="warn"><x-ui.icon name="lock" class="h-3.5 w-3.5" /> {{ __('forum.locked') }}</x-ui.badge>
                         @endif
+                        @if ($topic->isAnnouncement())
+                            <x-ui.badge variant="accent"><x-ui.icon name="bell" class="h-3.5 w-3.5" /> {{ __('announcements.badge') }}</x-ui.badge>
+                        @endif
                     </div>
                 @endif
                 <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ $topic->title }}</h1>
@@ -95,6 +98,14 @@
                     <form method="POST" action="{{ route('topics.lock', $topic) }}">@csrf
                         <x-ui.button type="submit" variant="ghost" size="sm">
                             <x-ui.icon name="lock" class="h-4 w-4" /> {{ $topic->status === 'locked' ? __('forum.unlock') : __('forum.lock') }}
+                        </x-ui.button>
+                    </form>
+                    {{-- Announce/retract (U4, NOV-102). This toggle publishes to everyone; criteria-targeting by
+                         group is carried end-to-end by the controller + AnnouncementService and lands in the mod
+                         toolset UI (U6). --}}
+                    <form method="POST" action="{{ route('topics.announce', $topic) }}">@csrf
+                        <x-ui.button type="submit" variant="ghost" size="sm">
+                            <x-ui.icon name="bell" class="h-4 w-4" /> {{ $topic->isAnnouncement() ? __('announcements.unannounce') : __('announcements.announce') }}
                         </x-ui.button>
                     </form>
                     {{-- Merge this topic into another (P2-M4): trigger + modal SFC. Hidden (not disabled)
@@ -175,7 +186,7 @@
                         {{-- Body --}}
                         <div class="min-w-0 flex-1 pt-3 md:pt-0">
                             <div class="flex flex-wrap items-center gap-2 text-xs text-ink-subtle nums md:border-b md:border-line md:pb-2">
-                                <span>{{ $post->created_at?->diffForHumans() }}@if ($post->edited_at) · {{ __('forum.edited') }} @endif</span>
+                                <span><x-ui.timestamp :value="$post->created_at" />@if ($post->edited_at) · {{ __('forum.edited') }} @endif</span>
                                 @if ($post->approved_state === 'pending')
                                     <x-ui.badge variant="warn" class="ml-auto">{{ __('forum.awaiting_approval') }}</x-ui.badge>
                                 @endif
@@ -211,16 +222,37 @@
                                     <livewire:forum.bookmark-button :key="'bm-post-'.$post->id" kind="post" :target-id="$post->id"
                                         :saved="($viewerBookmarks[$post->id] ?? false)" :can-save="$canBookmark" />
                                 @endif
-                                @can('update', $post)
+                                {{-- NOV-96 (ADR-0109): per-post edit/delete through the permission-aware contract —
+                                     hidden when the viewer can't act (a control whose only outcome is a 403 is
+                                     ghost UI). The policy is still the enforcement authority; this only governs UI. --}}
+                                <x-action :can="$user?->can('update', $post) ?? false">
                                     <x-ui.button :href="route('posts.edit', $post)" variant="subtle" size="sm">{{ __('common.edit') }}</x-ui.button>
-                                @endcan
-                                @can('delete', $post)
+                                </x-action>
+                                <x-action :can="$user?->can('delete', $post) ?? false">
                                     {{-- De-weighted vs Edit (Pillar 3): a quiet, text-only destructive action that
                                          doesn't compete with the neighbouring Edit control. --}}
                                     <form method="POST" action="{{ route('posts.destroy', $post) }}" onsubmit="return confirm('{{ __('forum.confirm_delete_post') }}')">@csrf @method('DELETE')
                                         <x-ui.button type="submit" variant="danger-soft" size="sm">{{ __('common.delete') }}</x-ui.button>
                                     </form>
-                                @endcan
+                                </x-action>
+                                {{-- U6 front-of-site moderator toolset (NOV-104): act on HELD content inline — approve or
+                                     reject a pending reply without leaving the thread for the queue. Governed by the 3A
+                                     contract (hidden unless the viewer moderates this thread; posts.approve/reject
+                                     re-assert topic.moderate server-side). --}}
+                                @if ($post->approved_state === 'pending')
+                                    <x-action :can="$canModerate">
+                                        <form method="POST" action="{{ route('posts.approve', $post) }}">@csrf
+                                            <x-ui.button type="submit" variant="primary" size="sm" dusk="post-approve-{{ $post->id }}">
+                                                <x-ui.icon name="check" class="h-4 w-4" /> {{ __('forum.approve') }}
+                                            </x-ui.button>
+                                        </form>
+                                    </x-action>
+                                    <x-action :can="$canModerate">
+                                        <form method="POST" action="{{ route('posts.reject', $post) }}">@csrf
+                                            <x-ui.button type="submit" variant="danger-soft" size="sm">{{ __('forum.reject') }}</x-ui.button>
+                                        </form>
+                                    </x-action>
+                                @endif
                                 {{-- Edit-history diff: only for EDITED posts the viewer can see (author of the post,
                                      or staff with post.history.view). open() re-asserts server-side. --}}
                                 @php($ownPost = $post->user_id && $user && (int) $post->user_id === (int) $user->id)
@@ -230,12 +262,21 @@
                                 @endif
                                 @auth
                                     @if ($canReply)
-                                        {{-- Quote-reply (M1): pre-fills the bottom composer with a blockquote +
-                                             attribution and links the reply to this post; scrolls to the composer. --}}
+                                        {{-- Quote-reply (M1): 1-click single quote — pre-fills the composer with an
+                                             attributed blockquote of this post and scrolls to it. --}}
                                         <x-ui.button :href="route('topics.show', $topic).'?quote='.$post->id.'#reply-composer'"
                                                      variant="ghost" size="sm" dusk="quote-post-{{ $post->id }}">
                                             {{ __('forum.quote') }}
                                         </x-ui.button>
+                                        {{-- Multi-quote (U1): +Quote toggles this post into the basket; the floating bar
+                                             inserts them all in one reply (the composer resolves ?quote=<csv> server-side). --}}
+                                        <button type="button" x-on:click="$store.quoteBasket.toggle({{ $post->id }})"
+                                                x-bind:class="$store.quoteBasket.has({{ $post->id }}) ? 'border-accent text-accent' : 'border-line text-ink-muted'"
+                                                :aria-pressed="$store.quoteBasket.has({{ $post->id }}).toString()"
+                                                class="inline-flex items-center gap-1 min-h-9 px-2.5 rounded-md border text-sm font-medium hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                                                dusk="multiquote-post-{{ $post->id }}" title="{{ __('forum.multiquote_add') }}">
+                                            <x-ui.icon name="plus" class="h-4 w-4" /><span class="sr-only">{{ __('forum.multiquote_add') }}</span>
+                                        </button>
                                     @endif
                                     <form method="POST" action="{{ route('reports.store') }}" class="ml-auto">@csrf
                                         <input type="hidden" name="post_id" value="{{ $post->id }}">
@@ -261,12 +302,28 @@
 
         @auth
             @if ($canReply)
-                {{-- ?quote={id} (M1) pre-fills a quote-reply; ?canned={id} (T1, staff picker) pre-fills a canned reply. --}}
+                {{-- U1 multi-quote: the basket store + a floating bar that inserts every picked quote in one reply. --}}
+                @include('partials.quote-basket-store')
+                <div x-cloak x-show="$store.quoteBasket.ids.length > 0" x-transition.origin.bottom
+                     class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface-raised shadow-md" dusk="multiquote-bar">
+                    <x-ui.container size="lg" class="flex flex-wrap items-center justify-between gap-3 py-3">
+                        <p class="text-sm text-ink"><span class="nums font-semibold" x-text="$store.quoteBasket.ids.length"></span>
+                            <span x-text="$store.quoteBasket.ids.length === 1 ? @js(__('forum.multiquote_one')) : @js(__('forum.multiquote_many'))"></span></p>
+                        <div class="flex items-center gap-2">
+                            <button type="button" x-on:click="$store.quoteBasket.clear()" class="min-h-9 px-3 text-sm text-ink-muted hover:text-ink">{{ __('common.cancel') }}</button>
+                            <x-ui.button type="button" size="sm" dusk="multiquote-insert"
+                                         x-on:click="window.location.href='{{ route('topics.show', $topic) }}?quote=' + $store.quoteBasket.ids.join(',') + '#reply-composer'">
+                                {{ __('forum.multiquote_insert') }}
+                            </x-ui.button>
+                        </div>
+                    </x-ui.container>
+                </div>
+                {{-- ?quote={id|csv} (M1/U1) pre-fills quote-reply(s); ?canned={id} (T1 staff picker) a canned reply. --}}
                 <div id="reply-composer">
                     <livewire:forum.reply-composer :topic-id="$topic->id"
-                        :quote="(int) request('quote') ?: null"
+                        :quote="request('quote') ?: null"
                         :canned="(int) request('canned') ?: null"
-                        :key="'reply-composer-'.((int) request('quote')).'-'.((int) request('canned'))" />
+                        :key="'reply-composer-'.request('quote').'-'.((int) request('canned'))" />
                 </div>
             @elseif ($topic->status === 'locked')
                 <x-ui.card class="flex items-center gap-3 text-ink-muted">

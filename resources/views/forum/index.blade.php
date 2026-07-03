@@ -25,6 +25,11 @@
 @section('content')
     @php $sidebarHtml = app(\App\Theme\LayoutManager::class)->render('forum_sidebar'); @endphp
     <x-ui.container size="lg" class="space-y-6">
+        {{-- Onboarding-lite (NOV-123): the dismissible getting-started checklist. Self-gates — shown only to a
+             signed-in member who hasn't dismissed it and hasn't finished every step. --}}
+        @auth
+            <livewire:onboarding-checklist />
+        @endauth
         @if ($sidebarHtml !== '')
         <div class="grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-start">
             <div class="space-y-6 min-w-0">
@@ -41,22 +46,26 @@
 
         @forelse ($tree as $node)
             @if ($node->isCategory())
-                <section class="space-y-2">
-                    <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle font-sans">{{ $node->title }}</h2>
-                    @php
-                        $visibleForums = collect($node->children)
-                            ->filter(fn ($forum) => $viewer->canDo('forum.view', $forum->permissionScope()));
-                    @endphp
-                    @if ($visibleForums->isNotEmpty())
-                        <x-ui.card flush>
+                @php
+                    $visibleForums = collect($node->children)
+                        ->filter(fn ($forum) => $viewer->canDo('forum.view', $forum->permissionScope()));
+                @endphp
+                @if ($visibleForums->isNotEmpty())
+                    {{-- UX-1 (NOV-90): each category is a distinct board card — its name is the card header, its
+                         forums the rows. A labelled <section> groups them for assistive tech. --}}
+                    <section aria-labelledby="cat-{{ $loop->index }}">
+                        <x-ui.card flush class="overflow-hidden">
+                            <div class="border-b border-line bg-surface-sunken px-4 py-2.5">
+                                <h2 id="cat-{{ $loop->index }}" class="text-xs font-semibold uppercase tracking-wide text-ink-subtle font-sans">{{ $node->title }}</h2>
+                            </div>
                             <div class="divide-y divide-line">
                                 @foreach ($visibleForums as $forum)
                                     @include('forum.partials.forum-row', ['forum' => $forum])
                                 @endforeach
                             </div>
                         </x-ui.card>
-                    @endif
-                </section>
+                    </section>
+                @endif
             @elseif ($viewer->canDo('forum.view', $node->permissionScope()))
                 <x-ui.card flush>
                     <div class="divide-y divide-line">

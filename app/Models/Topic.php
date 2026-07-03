@@ -6,13 +6,16 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Forum\AnnouncementService;
 use App\Permissions\AclVersion;
 use App\Permissions\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 
 class Topic extends Model
 {
@@ -25,6 +28,8 @@ class Topic extends Model
         'reply_count' => 'integer',
         'view_count' => 'integer',
         'last_posted_at' => 'datetime',
+        'announcement_audience' => 'array',
+        'announcement_expires_at' => 'datetime',
     ];
 
     /**
@@ -68,6 +73,26 @@ class Topic extends Model
         static::created(fn (Topic $t) => $t->adjustForumTopicCount(1));
         static::deleted(fn (Topic $t) => $t->adjustForumTopicCount(-1));
         static::restored(fn (Topic $t) => $t->adjustForumTopicCount(1));
+
+        // U4: keep the every-page announcement banner's existence-gate flag fresh across ALL mutation paths
+        // (mod endpoint, direct update, seeder, soft-delete/restore) — the flag is what lets pages with no
+        // live announcement skip the banner query entirely. `saved` covers create + update (incl. type flips
+        // in and out of 'announcement' via getOriginal); delete/restore move a row out of / back into the set.
+        static::saved(function (Topic $t) {
+            if ($t->type === 'announcement' || $t->getOriginal('type') === 'announcement') {
+                Cache::forget(AnnouncementService::LIVE_FLAG);
+            }
+        });
+        static::deleted(function (Topic $t) {
+            if ($t->type === 'announcement') {
+                Cache::forget(AnnouncementService::LIVE_FLAG);
+            }
+        });
+        static::restored(function (Topic $t) {
+            if ($t->type === 'announcement') {
+                Cache::forget(AnnouncementService::LIVE_FLAG);
+            }
+        });
     }
 
     public function forum(): BelongsTo
@@ -95,6 +120,12 @@ class Topic extends Model
     public function posts(): HasMany
     {
         return $this->hasMany(Post::class);
+    }
+
+    /** @return HasMany<AnnouncementDismissal, $this> per-user dismissals of this announcement (U4) */
+    public function dismissals(): HasMany
+    {
+        return $this->hasMany(AnnouncementDismissal::class);
     }
 
     /**
@@ -139,6 +170,24 @@ class Topic extends Model
     public function isReplyable(): bool
     {
         return $this->status !== 'locked';
+    }
+
+    /** Whether this topic is a published announcement (U4, NOV-102) — backs the badge, banner, and mod toggle. */
+    public function isAnnouncement(): bool
+    {
+        return $this->type === 'announcement';
+    }
+
+    /**
+     * Announcement-type topics only (U4). Kept as a scope so the banner query and any future admin listing
+     * share one definition of "is an announcement".
+     *
+     * @param  Builder<Topic>  $query
+     * @return Builder<Topic>
+     */
+    public function scopeAnnouncements($query)
+    {
+        return $query->where('type', 'announcement');
     }
 
     public function adjustForumTopicCount(int $delta): void

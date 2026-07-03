@@ -87,3 +87,40 @@ it('does not quote a held (unapproved) post', function () {
 
     $component->assertSet('replyToPostId', null);
 });
+
+// ── U1 multi-quote — a comma-separated basket of quotes in one reply ───────────────────────────────────────
+
+it('pre-fills multiple attributed blockquotes for a comma-separated quote list, linking the reply to the first (U1)', function () {
+    $forum = quoteForum();
+    $op = Users::inGroups(['members', 'tl4']);
+    $topic = app(PostService::class)->createTopic($op, $forum, 'Topic', 'tiptap_json', Content::doc('first insight'));
+    $p1 = $topic->posts()->firstOrFail();
+    $p2 = app(PostService::class)->reply($op, $topic, 'tiptap_json', Content::doc('second insight'));
+
+    $component = Livewire::actingAs(Users::inGroups(['members', 'tl4']))
+        ->test('forum.reply-composer', ['topicId' => $topic->id, 'quote' => "{$p1->id},{$p2->id}"]);
+
+    // One attributed blockquote per source; the parent linkage points at the FIRST.
+    $doc = $component->get('canonicalJson');
+    expect(collect($doc['content'])->where('type', 'blockquote')->count())->toBe(2);
+    $component->assertSet('replyToPostId', $p1->id);
+    expect(json_encode($doc))->toContain('first insight')->toContain('second insight');
+});
+
+it('drops unapproved and cross-topic ids from a multi-quote list, keeping only the valid ones (U1)', function () {
+    $forum = quoteForum();
+    $u = Users::inGroups(['members', 'tl4']);
+    $topic = app(PostService::class)->createTopic($u, $forum, 'A', 'tiptap_json', Content::doc('kept insight'));
+    $good = $topic->posts()->firstOrFail();
+    $held = app(PostService::class)->reply($u, $topic, 'tiptap_json', Content::doc('held insight'));
+    $held->update(['approved_state' => 'pending']);
+    $foreign = app(PostService::class)->createTopic($u, $forum, 'B', 'tiptap_json', Content::doc('secret beta'))->posts()->firstOrFail();
+
+    $component = Livewire::actingAs($u)
+        ->test('forum.reply-composer', ['topicId' => $topic->id, 'quote' => "{$good->id},{$held->id},{$foreign->id}"]);
+
+    $doc = $component->get('canonicalJson');
+    expect(collect($doc['content'])->where('type', 'blockquote')->count())->toBe(1);
+    $component->assertSet('replyToPostId', $good->id);
+    expect(json_encode($doc))->toContain('kept insight')->not->toContain('held insight')->not->toContain('secret beta');
+});

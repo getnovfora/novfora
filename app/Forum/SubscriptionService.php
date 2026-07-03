@@ -8,6 +8,7 @@ namespace App\Forum;
 
 use App\Models\ContentSubscription;
 use App\Models\Forum;
+use App\Models\Tag;
 use App\Models\Topic;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -88,6 +89,7 @@ final class SubscriptionService
         return match ($kind) {
             'topic' => Topic::find($id),
             'forum' => Forum::find($id),
+            'tag' => Tag::find($id),
             default => null,
         };
     }

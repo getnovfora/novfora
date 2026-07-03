@@ -9,6 +9,7 @@ namespace App\Http\Controllers;
 use App\Account\AccountDeletionException;
 use App\Account\AccountDeletionService;
 use App\AntiSpam\SpamCleaner;
+use App\Exceptions\FriendlyDenialException;
 use App\Models\Ban;
 use App\Models\User;
 use App\Moderation\OwnerStrandException;
@@ -110,7 +111,12 @@ class BanController extends Controller
     public function confirmDelete(Request $request, User $user): View
     {
         $actor = $request->user();
-        abort_unless($actor instanceof User && AccountDeletionService::canForceDelete($actor, $user), 403);
+        // NOV-96 (ADR-0109): a full-page GET a demoted/curious viewer can reach directly — a friendly, auth-aware
+        // explainer (with a sign-in CTA for guests) is kinder than a bare 403. The DELETE action below keeps its
+        // hard-403 backstop, and the service re-asserts the full guard regardless.
+        if (! ($actor instanceof User && AccountDeletionService::canForceDelete($actor, $user))) {
+            FriendlyDenialException::deny('permissions.denied.staff_only');
+        }
 
         return view('moderation.confirm-delete', [
             'user' => $user,

@@ -14,7 +14,7 @@
     $ltUrl = $lt ? route('topics.show', $lt).($lt->last_post_id ? '#post-'.$lt->last_post_id : '') : null;
 @endphp
 <div class="flex items-start gap-3 p-4 hover:bg-surface-sunken">
-    <span class="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-soft-ink">
+    <span class="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-soft-ink">
         <x-ui.icon name="message" class="h-5 w-5" />
     </span>
 
@@ -43,7 +43,7 @@
                             @if ($lt->lastPostUser)
                                 <span class="text-ink-subtle">{{ __('forum.last_post_by') }} <x-ui.user-name :user="$lt->lastPostUser" /></span>
                             @endif
-                            <span class="nums text-ink-subtle">· {{ $forum->last_posted_at->diffForHumans() }}</span>
+                            <span class="text-ink-subtle">· <x-ui.timestamp :value="$forum->last_posted_at" /></span>
                         @else
                             <span class="nums">{{ __('forum.updated_ago', ['ago' => $forum->last_posted_at->diffForHumans()]) }}</span>
                         @endif
@@ -70,11 +70,11 @@
                             {{ __('forum.last_post_by') }} <x-ui.user-name :user="$lt->lastPostUser" />
                         @endif
                     </span>
-                    <span class="block nums text-ink-subtle">{{ $forum->last_posted_at->diffForHumans() }}</span>
+                    <x-ui.timestamp :value="$forum->last_posted_at" class="block text-ink-subtle" />
                 @elseif ($forum->last_topic_id)
-                    <a href="{{ route('topics.show', $forum->last_topic_id) }}" class="block nums text-accent hover:underline">{{ $forum->last_posted_at->diffForHumans() }}</a>
+                    <a href="{{ route('topics.show', $forum->last_topic_id) }}" class="block text-accent hover:underline"><x-ui.timestamp :value="$forum->last_posted_at" /></a>
                 @else
-                    <span class="block nums text-ink-muted">{{ $forum->last_posted_at->diffForHumans() }}</span>
+                    <x-ui.timestamp :value="$forum->last_posted_at" class="block text-ink-muted" />
                 @endif
             @else
                 <span class="block text-ink-subtle">{{ __('forum.no_posts_yet') }}</span>

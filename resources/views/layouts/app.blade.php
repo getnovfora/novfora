@@ -195,6 +195,7 @@
                             <a href="{{ route('notifications.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Notifications</a>
                             <a href="{{ route('pm.inbox') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Messages</a>
                             <a href="{{ route('saved.index') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Saved</a>
+                            <a href="{{ route('watched') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">{{ __('watched.title') }}</a>
                             <a href="{{ route('settings.profile') }}" class="flex items-center min-h-11 px-3 rounded-md text-ink hover:bg-surface-sunken">Profile &amp; settings</a>
                         @endauth
                     </nav>
@@ -277,6 +278,13 @@
 
             {{-- Right cluster. (Mobile search lives in the hamburger panel, so the bar stays uncrowded at 360px.) --}}
             <div class="flex items-center gap-1 ml-auto md:ml-1 shrink-0">
+                {{-- UX-3 (NOV-92) search discoverability: a compact search entry for the sm–md range, where the
+                     full search bar is hidden (< md) AND the hamburger with its search is gone (≥ sm) — so
+                     search stays reachable at every width. --}}
+                <a href="{{ route('search.index') }}" aria-label="Search"
+                   class="hidden sm:inline-flex md:hidden h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink">
+                    <x-ui.icon name="search" class="h-5 w-5" />
+                </a>
                 {{-- The colour-mode control lives in the user dropdown → Appearance (/settings/appearance); it
                      was removed from the nav so the right cluster stays on one line. Guests fall back to `auto`
                      (follows the OS) — the accepted tradeoff (no per-guest nav toggle). --}}
@@ -299,6 +307,7 @@
                         </div>
                         <x-ui.dropdown-item :href="route('profiles.show', auth()->user())"><x-ui.icon name="user" class="h-4 w-4 text-ink-subtle" /> Profile</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('saved.index')"><x-ui.icon name="pin" class="h-4 w-4 text-ink-subtle" /> Saved</x-ui.dropdown-item>
+                        <x-ui.dropdown-item :href="route('watched')"><x-ui.icon name="bell" class="h-4 w-4 text-ink-subtle" /> {{ __('watched.title') }}</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('scheduled.index')"><x-ui.icon name="clock" class="h-4 w-4 text-ink-subtle" /> Scheduled</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('saved-searches.index')"><x-ui.icon name="search" class="h-4 w-4 text-ink-subtle" /> Saved searches</x-ui.dropdown-item>
                         <x-ui.dropdown-item :href="route('settings.profile')"><x-ui.icon name="cog" class="h-4 w-4 text-ink-subtle" /> Edit profile</x-ui.dropdown-item>
@@ -358,6 +367,10 @@
             </x-ui.container>
         </div>
     @endif
+
+    {{-- Dismissible, criteria-targeted announcements (U4, NOV-102). The component fences audience + forum
+         visibility + lifecycle in AnnouncementService; nothing the viewer may not see reaches this markup. --}}
+    <x-announcements />
 
     {{-- Optional breadcrumb bar: a page provides @section('breadcrumbs') with <x-ui.breadcrumbs>. --}}
     @hasSection('breadcrumbs')

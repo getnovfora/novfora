@@ -9,9 +9,11 @@ namespace App\Http\Controllers;
 use App\AntiSpam\NewUserModeration;
 use App\AntiSpam\TrustLevelManager;
 use App\Events\PostCreated;
+use App\Forum\AnnouncementService;
 use App\Forum\PostService;
 use App\Models\Forum;
 use App\Models\Post;
+use App\Models\ProfilePost;
 use App\Models\Report;
 use App\Models\Topic;
 use App\Models\User;
@@ -50,6 +52,40 @@ class ModerationController extends Controller
         $this->authorizeModerate($request, $topic);
         $topic->update(['type' => $topic->type === 'normal' ? 'sticky' : 'normal']);
         Audit::log('topic.type.'.$topic->type, $topic);
+
+        return back();
+    }
+
+    /**
+     * Publish or retract an announcement (U4, NOV-102). Gated by the same topic.moderate check as every other
+     * action here. Publishing accepts an optional criteria-targeting audience (group ids) and an optional expiry;
+     * an empty audience means everyone. Retracting clears both so a demoted announcement leaves no stale
+     * targeting behind. The banner render + audience fence live in {@see AnnouncementService}.
+     */
+    public function announce(Request $request, Topic $topic): RedirectResponse
+    {
+        $this->authorizeModerate($request, $topic);
+
+        if ($topic->isAnnouncement()) {
+            $topic->update(['type' => 'normal', 'announcement_audience' => null, 'announcement_expires_at' => null]);
+            Audit::log('topic.unannounced', $topic);
+
+            return back();
+        }
+
+        $data = $request->validate([
+            'audience_groups' => ['sometimes', 'array'],
+            'audience_groups.*' => ['integer', 'exists:groups,id'],
+            'expires_at' => ['nullable', 'date', 'after:now'],
+        ]);
+        $groups = array_values(array_unique(array_map('intval', $data['audience_groups'] ?? [])));
+
+        $topic->update([
+            'type' => 'announcement',
+            'announcement_audience' => $groups === [] ? null : ['groups' => $groups],
+            'announcement_expires_at' => $data['expires_at'] ?? null,
+        ]);
+        Audit::log('topic.announced', $topic, ['audience' => $groups, 'expires_at' => $data['expires_at'] ?? null]);
 
         return back();
     }
@@ -175,7 +211,32 @@ class ModerationController extends Controller
             $holdReasons[$id] = $reason;
         }
 
-        return view('moderation.queue', compact('topics', 'posts', 'holdReasons'));
+        // Pending profile-wall statuses (◆-lite). Unlike topics/posts these carry no forum scope, so the queue
+        // is global: only a global moderator (the MCP baseline, bans.manage) sees and clears them — mirroring
+        // WallService::canDelete's mod branch. Empty for a per-forum delegate.
+        $wallPosts = $user->canDo('bans.manage', Scope::global())
+            ? ProfilePost::where('approved_state', 'pending')->with(['author', 'profileUser'])->latest('id')->get()
+            : collect();
+
+        return view('moderation.queue', compact('topics', 'posts', 'holdReasons', 'wallPosts'));
+    }
+
+    public function approveWallPost(Request $request, ProfilePost $wallPost): RedirectResponse
+    {
+        abort_unless($request->user()?->canDo('bans.manage', Scope::global()), 403);
+        $wallPost->update(['approved_state' => 'approved']);
+        Audit::log('wall.approved', $wallPost);
+
+        return back();
+    }
+
+    public function rejectWallPost(Request $request, ProfilePost $wallPost): RedirectResponse
+    {
+        abort_unless($request->user()?->canDo('bans.manage', Scope::global()), 403);
+        $wallPost->delete(); // soft-delete → recoverable
+        Audit::log('wall.rejected', $wallPost);
+
+        return back();
     }
 
     public function approveTopic(Request $request, Topic $topic, PostService $posts): RedirectResponse

@@ -87,6 +87,7 @@
         @php($tabs = [
             ['label' => __('profiles.tab_activity'), 'url' => route('profiles.show', [$user, 'tab' => 'activity']), 'active' => $tab === 'activity'],
             ['label' => __('profiles.tab_posts'), 'url' => route('profiles.show', [$user, 'tab' => 'posts']), 'active' => $tab === 'posts'],
+            ['label' => __('wall.tab'), 'url' => route('profiles.show', [$user, 'tab' => 'wall']), 'active' => $tab === 'wall'],
             ['label' => __('profiles.tab_about'), 'url' => route('profiles.show', $user), 'active' => $tab === 'about'],
         ])
         <x-ui.tabs :items="$tabs" dusk="profile-tabs" />
@@ -139,6 +140,48 @@
                     </a>
                 </div>
             </x-ui.card>
+        @elseif ($tab === 'wall')
+            {{-- Profile wall / status posts (◆-lite). Composer shown only when the viewer may post (owner not
+                 ignoring them); the SFC re-gates on save. Every listed status is already approval + ignore
+                 fenced in WallService::visibleWall, and only the sanitised body_html_cache is rendered. --}}
+            <div class="space-y-4" dusk="profile-wall">
+                @if ($canPostOnWall)
+                    <x-ui.card>
+                        <livewire:community.wall-composer :profile-user-id="$user->id" :key="'wall-composer-'.$user->id" />
+                    </x-ui.card>
+                @endif
+                @forelse ($wall as $status)
+                    <x-ui.card>
+                        <div class="flex items-start gap-3">
+                            <x-ui.avatar :user="$status->author" size="sm" />
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-2 text-sm">
+                                    <x-ui.user-name :user="$status->author" class="font-semibold" />
+                                    @if ($status->created_at)<x-ui.timestamp :value="$status->created_at" class="text-ink-subtle" />@endif
+                                    @if ($status->approved_state === 'pending')
+                                        <x-ui.badge variant="warn">{{ __('wall.pending') }}</x-ui.badge>
+                                    @endif
+                                </div>
+                                <div class="novfora-prose mt-1 text-ink">{!! $status->body_html_cache !!}</div>
+                            </div>
+                            @auth
+                                @if (app(\App\Community\WallService::class)->canDelete(auth()->user(), $status))
+                                    <form method="POST" action="{{ route('wall.destroy', $status) }}" onsubmit="return confirm('{{ __('wall.confirm_delete') }}')">@csrf @method('DELETE')
+                                        <button type="submit" class="shrink-0 text-ink-subtle hover:text-danger" aria-label="{{ __('wall.delete') }}"><x-ui.icon name="trash" class="h-4 w-4" /></button>
+                                    </form>
+                                @endif
+                            @endauth
+                        </div>
+                    </x-ui.card>
+                @empty
+                    <x-ui.card flush>
+                        <x-ui.empty title="{{ __('wall.empty_title') }}">
+                            <x-slot:icon><x-ui.icon name="message" class="h-6 w-6" /></x-slot:icon>
+                            {{ __('wall.empty_body') }}
+                        </x-ui.empty>
+                    </x-ui.card>
+                @endforelse
+            </div>
         @else
             @php($hasFields = $fields->contains(fn ($field) => filled($values->get($field->id)?->value)))
             @if ($hasFields)
@@ -181,7 +224,9 @@
         {{-- BUG-018: staff tools are gated AND now de-emphasised — a collapsed <details> below the tabs, not a
              red "Delete account" button front-and-centre under the hero. The permission gate + confirmation
              page are unchanged. --}}
-        @if ($viewer instanceof \App\Models\User && \App\Account\AccountDeletionService::canForceDelete($viewer, $user))
+        {{-- NOV-96 (ADR-0109): the staff account-tools block through the permission-aware contract — hidden for a
+             viewer without force-delete authority (the confirm page re-asserts it server-side). --}}
+        <x-action :can="$viewer instanceof \App\Models\User && \App\Account\AccountDeletionService::canForceDelete($viewer, $user)">
             <details class="rounded-lg border border-line bg-surface-raised" dusk="staff-tools">
                 <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-ink">{{ __('profiles.staff_tools') }}</summary>
                 <div class="space-y-3 border-t border-line px-4 py-4">
@@ -193,7 +238,7 @@
                     </div>
                 </div>
             </details>
-        @endif
+        </x-action>
 
         {{-- Private staff-only notes (A1). Gated by the same authority the SFC re-asserts in mount() and every
              action — never rendered for the subject or a non-staff viewer. --}}

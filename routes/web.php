@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\MemberPrimaryGroupController;
 use App\Http\Controllers\Admin\SearchController as AdminSearchController;
 use App\Http\Controllers\Admin\SectionController;
 use App\Http\Controllers\Admin\TasksController;
+use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AppearanceController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\Auth\SamlController;
@@ -42,7 +43,9 @@ use App\Http\Controllers\TagController;
 use App\Http\Controllers\TopicController;
 use App\Http\Controllers\TrendingController;
 use App\Http\Controllers\UnsubscribeController;
+use App\Http\Controllers\WallController;
 use App\Http\Controllers\WarningController;
+use App\Http\Controllers\WatchedController;
 use App\Http\Controllers\WhatsNewController;
 use App\Http\Middleware\EnsureSystemPanelAccess;
 use App\Http\Middleware\RequireTwoFactorForStaff;
@@ -226,6 +229,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/topics/{topic}/lock', [ModerationController::class, 'lock'])->name('topics.lock');
     Route::post('/topics/{topic}/pin', [ModerationController::class, 'pin'])->name('topics.pin');
     Route::post('/topics/{topic}/stick', [ModerationController::class, 'stick'])->name('topics.stick');
+    Route::post('/topics/{topic}/announce', [ModerationController::class, 'announce'])->name('topics.announce');
     Route::post('/topics/{topic}/move', [ModerationController::class, 'move'])->name('topics.move');
     Route::delete('/topics/{topic}', [ModerationController::class, 'destroyTopic'])->name('topics.destroy');
     Route::post('/topics/{topic}/restore', [ModerationController::class, 'restoreTopic'])->name('topics.restore');
@@ -241,6 +245,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/topics/{topic}/reject', [ModerationController::class, 'rejectTopic'])->name('topics.reject');
     Route::post('/posts/{post}/approve', [ModerationController::class, 'approvePost'])->name('posts.approve');
     Route::post('/posts/{post}/reject', [ModerationController::class, 'rejectPost'])->name('posts.reject');
+    Route::post('/wall-posts/{wallPost}/approve', [ModerationController::class, 'approveWallPost'])->name('wall-posts.approve');
+    Route::post('/wall-posts/{wallPost}/reject', [ModerationController::class, 'rejectWallPost'])->name('wall-posts.reject');
 
     // Reports → staff dashboard (security §3). Any member may report; staff (bans.manage) resolve.
     Route::post('/reports', [ReportController::class, 'store'])->name('reports.store');
@@ -270,6 +276,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Saved topics + posts (member tool 2.1).
     Route::get('/saved', [BookmarkController::class, 'index'])->name('saved.index');
+
+    // Watched — followed forums/tags/topics + their recent activity (U2, the member home loop).
+    Route::get('/watched', [WatchedController::class, 'index'])->name('watched');
+    Route::post('/announcements/{topic}/dismiss', [AnnouncementController::class, 'dismiss'])->name('announcements.dismiss');
+    Route::delete('/wall/{profilePost}', [WallController::class, 'destroy'])->name('wall.destroy');
 
     // Scheduled replies (member tool 2.4).
     Route::view('/scheduled', 'scheduled.index')->name('scheduled.index');
