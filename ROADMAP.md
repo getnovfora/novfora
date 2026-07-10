@@ -20,6 +20,15 @@ Phases are scoped by deliverable and dependency, not calendar.
 > (Track UX redesign) and the **Phase 6 "U-series"** backlog (18 of 21 remain: U1–U7, U9–U17, U19, U21). Single
 > aggregated plan: [`docs/product/DEFINITIVE-ROADMAP-2026-06-27.md`](docs/product/DEFINITIVE-ROADMAP-2026-06-27.md).
 > Mirrored to Linear (team **NovFora**). No open PRs.
+>
+> **▶ Forward plan (2026-07-02, supersedes the definitive roadmap's §3 sequencing):** the
+> **v1.3 / v1.4 / v1.5 release roadmap** —
+> [`docs/product/ROADMAP-V1.3-V1.5-2026-07-02.md`](docs/product/ROADMAP-V1.3-V1.5-2026-07-02.md)
+> (competitive gap analysis + phases/milestones; mirrored to Linear as the three release projects) — plus
+> the **Admin API + Self-upgrade + Populate program spec** —
+> [`docs/product/ADMIN-API-AND-POPULATE-SPEC-2026-07-02.md`](docs/product/ADMIN-API-AND-POPULATE-SPEC-2026-07-02.md)
+> (v1.4 Phase 4E; the **Populate private plugin builds FIRST against current `main`**). Build prompts:
+> [`docs/product/BUILD-PROMPTS-2026-07-02.md`](docs/product/BUILD-PROMPTS-2026-07-02.md).
 
 | Phase | Theme | Headline deliverables |
 |---|---|---|
