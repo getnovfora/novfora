@@ -30,6 +30,8 @@ new class extends Component
 
     public string $wordmark = '';
 
+    public string $globalCustomCss = '';
+
     public ?string $saved = null;
 
     public function mount(Settings $settings): void
@@ -43,6 +45,7 @@ new class extends Component
         $this->posterPosition = $settings->string('appearance.poster_position') ?: 'left';
         $this->boardListStyle = $settings->string('appearance.board_list_style') ?: 'info-rich';
         $this->wordmark = $settings->string('appearance.wordmark');
+        $this->globalCustomCss = $settings->string('appearance.global_custom_css');
     }
 
     public function save(Settings $settings): void
@@ -57,6 +60,7 @@ new class extends Component
             'posterPosition' => ['required', 'in:top,left,right'],
             'boardListStyle' => ['required', 'in:info-rich,minimal'],
             'wordmark' => ['nullable', 'string', 'max:40'],
+            'globalCustomCss' => ['nullable', 'string', 'max:40000'],
         ]);
 
         $accent = trim((string) ($data['accentColor'] ?? ''));
@@ -72,6 +76,8 @@ new class extends Component
         $settings->set('appearance.poster_position', $data['posterPosition']);
         $settings->set('appearance.board_list_style', $data['boardListStyle']);
         $settings->set('appearance.wordmark', $data['wordmark'] ?? '');
+        // Stored sanitised (defence-in-depth) so a stray </style> can never break out; re-sanitised at render.
+        $settings->set('appearance.global_custom_css', \App\Theme\StyleThemeManager::sanitizeCss((string) ($data['globalCustomCss'] ?? '')));
         $this->saved = 'Saved. Reload a page to see the change.';
     }
 
@@ -163,6 +169,13 @@ new class extends Component
         </div>
     </div>
     <p class="text-xs text-ink-subtle">Default mode &amp; density apply to visitors and signed-out users; members keep their own choice.</p>
+
+    {{-- U12 (NOV-110): site-wide global custom CSS — applied on every page, on top of the active style theme. --}}
+    <div id="setting-appearance-global-custom-css">
+        <x-ui.textarea label="Global custom CSS" name="globalCustomCss" wire:model="globalCustomCss" rows="8"
+                       hint="Applied site-wide on top of the active style theme. Plain CSS (e.g. :root{ --radius-md: 2px; }). Any style close-tag is stripped."
+                       class="font-mono text-xs" />
+    </div>
 
     <div>
         <x-ui.button type="submit" wire:loading.attr="disabled" wire:target="save">

@@ -138,6 +138,13 @@
         <style @if ($nonce) nonce="{{ $nonce }}" @endif>{!! $styleThemeCss !!}</style>
     @endif
 
+    {{-- U12 (NOV-110): site-wide global custom CSS box (ACP Appearance). Emitted after the style theme so it
+         can tweak anything; sanitised through the same </style>/comment fence as theme custom CSS. --}}
+    @php($globalCss = \App\Theme\StyleThemeManager::sanitizeCss((string) ($site['global_custom_css'] ?? '')))
+    @if ($globalCss !== '')
+        <style @if ($nonce) nonce="{{ $nonce }}" @endif>{!! $globalCss !!}</style>
+    @endif
+
     {{-- Filesystem child-theme head injection (a theme overrides partials.theme-head). Emitted last so a
          theme's accent palette wins on equal specificity, like the DB style theme above. --}}
     @include('partials.theme-head', ['nonce' => $nonce])

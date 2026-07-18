@@ -139,6 +139,10 @@ final class SettingsRegistry
             new SettingDefinition('appearance.default_color_mode', 'string', default: 'auto', group: 'appearance', label: 'Default colour mode (visitors)', options: ['auto', 'light', 'dark']),
             new SettingDefinition('appearance.default_density', 'string', default: 'comfortable', group: 'appearance', label: 'Default density (visitors)', options: ['comfortable', 'compact']),
             new SettingDefinition('appearance.poster_position', 'string', default: 'left', group: 'appearance', label: 'Poster-info position', options: ['top', 'left', 'right']),
+            // U12 (NOV-110): a site-wide custom-CSS box, applied on every page independently of the active
+            // style theme. Sanitised at render (StyleThemeManager::sanitizeCss — the same </style>/comment
+            // fence as theme custom CSS); admin-trusted, bounded in the ACP form.
+            new SettingDefinition('appearance.global_custom_css', 'string', default: '', group: 'appearance', label: 'Global custom CSS'),
             new SettingDefinition('appearance.board_list_style', 'string', default: 'info-rich', group: 'appearance', label: 'Board-list style', options: ['info-rich', 'minimal']),
             new SettingDefinition('appearance.wordmark', 'string', default: '', group: 'appearance', label: 'Wordmark text'),
 

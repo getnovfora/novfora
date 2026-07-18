@@ -159,6 +159,27 @@ final class StyleThemeManager
         Audit::log('theme.asset.updated', $theme, ['kind' => $kind]);
     }
 
+    /**
+     * Bind an asset from an absolute FILE PATH (U12 style import), copying it onto the public disk under a
+     * hashed name. The caller (StylePackage) has already proven the path is inside its staging root and has
+     * an allowed extension for the slot; this stores the bytes and binds the column.
+     */
+    public function attachAssetFile(SiteTheme $theme, string $kind, string $absolutePath): void
+    {
+        $column = self::ASSET_COLUMNS[$kind] ?? throw new \InvalidArgumentException("Unknown theme asset '{$kind}'.");
+
+        $ext = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION)) ?: 'bin';
+        $name = 'theme-assets/'.Str::random(40).'.'.$ext;
+        Storage::disk('public')->put($name, (string) file_get_contents($absolutePath));
+
+        $old = (string) ($theme->{$column} ?? '');
+        $theme->update([$column => $name]);
+        if ($old !== '' && $old !== $name) {
+            Storage::disk('public')->delete($old);
+        }
+        $this->invalidate();
+    }
+
     /** Remove a bound asset (delete the file + clear the column). */
     public function clearAsset(SiteTheme $theme, string $kind): void
     {

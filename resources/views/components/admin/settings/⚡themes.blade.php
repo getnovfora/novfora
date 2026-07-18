@@ -30,6 +30,9 @@ new class extends Component
 
     public $backgroundUpload = null;
 
+    /** U12: an uploaded .zip style package to import. */
+    public $importUpload = null;
+
     /** Currently-stored asset URLs (shown while editing). @var array<string,?string> */
     public array $assetUrls = ['logo' => null, 'favicon' => null, 'background' => null];
 
@@ -139,6 +142,35 @@ new class extends Component
         $this->ensureAdmin();
         $manager->deactivate();
         $this->flash('Reverted to the built-in default look.', 'success');
+    }
+
+    /** U12 (NOV-110): stream a portable style package (.zip) for a theme — the registry theme format. */
+    public function exportTheme(int $id, \App\Theme\Packaging\StylePackage $packager)
+    {
+        $this->ensureAdmin();
+        $theme = SiteTheme::findOrFail($id);
+        $zipPath = $packager->export($theme);
+        $filename = 'novfora-style-'.$theme->slug.'.zip';
+
+        return response()->streamDownload(function () use ($zipPath): void {
+            readfile($zipPath);
+            @unlink($zipPath);
+        }, $filename, ['Content-Type' => 'application/zip']);
+    }
+
+    /** U12 (NOV-110): import a style package (.zip) as a new theme. */
+    public function importStyle(\App\Theme\Packaging\StylePackage $packager): void
+    {
+        $this->ensureAdmin();
+        $this->validate(['importUpload' => ['required', 'file', 'mimes:zip', 'max:10240']]);
+
+        try {
+            $theme = $packager->import($this->importUpload->getRealPath());
+            $this->flash("Imported “{$theme->name}”. Activate it when you're ready.", 'success');
+        } catch (\App\Modules\Packaging\PackageException $e) {
+            $this->flash('Could not import: '.$e->getMessage(), 'danger');
+        }
+        $this->reset('importUpload');
     }
 
     public function askDelete(int $id): void
@@ -253,9 +285,20 @@ new class extends Component
             AA-contrast in both light and dark. (For deeper template overrides, drop a child theme in the
             themes directory — it appears in the <strong>Appearance</strong> page's theme dropdown.)
         </p>
-        <x-ui.button type="button" size="sm" wire:click="newTheme" dusk="acp-new-theme">
-            <x-ui.icon name="plus" class="h-4 w-4" /> New theme
-        </x-ui.button>
+        <div class="flex flex-wrap items-center gap-2">
+            {{-- U12: import a style package (.zip). --}}
+            <label class="inline-flex items-center gap-1.5 text-xs text-ink-muted">
+                <input type="file" accept=".zip" wire:model="importUpload" dusk="acp-style-import"
+                       class="block max-w-48 text-xs text-ink-muted file:mr-2 file:rounded file:border-0 file:bg-surface-sunken file:px-2 file:py-1 file:text-xs file:text-ink" />
+            </label>
+            @if ($importUpload)
+                <x-ui.button type="button" variant="subtle" size="sm" wire:click="importStyle" dusk="acp-style-import-go">Import</x-ui.button>
+            @endif
+            @error('importUpload') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+            <x-ui.button type="button" size="sm" wire:click="newTheme" dusk="acp-new-theme">
+                <x-ui.icon name="plus" class="h-4 w-4" /> New theme
+            </x-ui.button>
+        </div>
     </div>
 
     {{-- Create / edit form. --}}
@@ -392,6 +435,9 @@ new class extends Component
                             @else
                                 <x-ui.button type="button" variant="subtle" size="sm" wire:click="activate({{ $theme->id }})" dusk="acp-theme-activate-{{ $theme->id }}">Activate</x-ui.button>
                             @endif
+                            <x-ui.button type="button" variant="ghost" size="sm" icon wire:click="exportTheme({{ $theme->id }})" title="Export" dusk="acp-theme-export-{{ $theme->id }}">
+                                <x-ui.icon name="arrow-down" class="h-4 w-4" />
+                            </x-ui.button>
                             <x-ui.button type="button" variant="ghost" size="sm" icon wire:click="edit({{ $theme->id }})" title="Edit" dusk="acp-theme-edit-{{ $theme->id }}">
                                 <x-ui.icon name="pencil" class="h-4 w-4" />
                             </x-ui.button>
