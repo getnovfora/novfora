@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class SiteTemplate extends Model
 {
-    protected $fillable = ['template_key', 'source', 'is_enabled'];
+    protected $fillable = ['template_key', 'source', 'base_source', 'is_enabled', 'merge_state', 'merged_at'];
 
-    protected $casts = ['is_enabled' => 'boolean'];
+    protected $casts = ['is_enabled' => 'boolean', 'merged_at' => 'datetime'];
 }

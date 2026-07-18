@@ -358,6 +358,9 @@
         </div>
     @endif
 
+    {{-- U11 (ADR-0112): template-hook anchor — admin sandbox fragments below the site header. --}}
+    <x-template-hook name="site.header.after" />
+
     {{-- Site-wide notice (ACP v1 General settings) — shown on every page when an admin sets one. --}}
     @if (($site['notice'] ?? '') !== '')
         <div class="border-b border-line bg-accent-soft text-accent-soft-ink">
@@ -399,6 +402,9 @@
                 <x-ui.container size="xl" class="py-4 text-sm text-ink-muted">{!! $themeChrome['footer'] !!}</x-ui.container>
             </div>
         @endif
+
+        {{-- U11 (ADR-0112): template-hook anchor — admin sandbox fragments above the footer. --}}
+        <x-template-hook name="site.footer.before" />
 
         {{-- Theme Studio 1.3: configurable site-footer region (all pages) — admin-placed widgets. --}}
         @php($siteFooterRegion = app(\App\Theme\LayoutManager::class)->render('site_footer'))

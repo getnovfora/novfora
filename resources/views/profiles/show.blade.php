@@ -33,6 +33,9 @@
     <x-ui.container size="md" class="space-y-5">
         {{-- Theme Studio 1.3: configurable region — admin-placed widgets at the top of a profile. --}}
         <x-region name="profile_top" />
+
+        {{-- U11 (ADR-0112): template-hook anchor — admin sandbox fragments atop a profile. --}}
+        <x-template-hook name="profile.header" :data="['profile' => ['username' => (string) $user->username]]" />
         <x-ui.card flush class="overflow-hidden">
             @if ($user->cover_path)
                 <img src="{{ Storage::disk('public')->url($user->cover_path) }}" alt=""

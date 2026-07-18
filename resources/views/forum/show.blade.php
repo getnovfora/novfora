@@ -58,6 +58,10 @@
         {{-- Theme Studio 1.3: configurable region — admin-placed widgets at the top of a board. --}}
         <x-region name="board_top" />
 
+        {{-- U11 (ADR-0112): template-hook anchor — admin sandbox fragments above the topic list. --}}
+        <x-template-hook name="board.header"
+            :data="['board' => ['name' => $forum->title, 'description' => (string) ($forum->description ?? '')]]" />
+
         @if ($canModerate)
             @include('partials.bulk-select-store')
             <livewire:forum.bulk-actions context="topics" :forum-id="$forum->id" />
@@ -260,6 +264,10 @@
                 </x-ui.empty>
             </x-ui.card>
         @endif
+
+        {{-- U11 (ADR-0112): template-hook anchor — admin sandbox fragments below the topic list. --}}
+        <x-template-hook name="board.footer"
+            :data="['board' => ['name' => $forum->title, 'description' => (string) ($forum->description ?? '')]]" />
 
         {{-- Theme Studio 1.3: configurable region — admin-placed widgets at the bottom of a board. --}}
         <x-region name="board_bottom" />

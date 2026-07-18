@@ -11,6 +11,7 @@ use App\Backup\RestoreState;
 use App\Install\Installer;
 use App\Permissions\PermissionSync;
 use App\Support\Audit;
+use App\Theme\Sandbox\TemplateSync;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
@@ -176,6 +177,11 @@ class UpgradeRunner
         // already-seeded site (ADR-0036 — closes the "403 on a new admin screen" class). Best-effort.
         $permissionsSynced = $this->syncPermissions();
 
+        // (c.2) U11 (ADR-0112): reconcile stored template overrides against this release's shipped defaults
+        // (diff3 — clean merges advance, conflicts keep serving the old source + surface in the ACP).
+        // Best-effort with the same discipline as the permission sync: never fails a good upgrade.
+        $templatesSynced = $this->syncTemplates();
+
         // (d) refresh the caches that could hold a pre-migration shape. Compiled views are content-hashed;
         // config isn't cached on the baseline tier; the schema-state flag is rewritten by recordSuccess().
         $this->clearAppCaches();
@@ -191,6 +197,7 @@ class UpgradeRunner
             'duration_ms' => $durationMs,
             'backup' => $backup,
             'permissions_synced' => $permissionsSynced,
+            'templates_synced' => $templatesSynced,
             'mode' => $auto ? 'auto' : 'manual',
         ]);
 
@@ -236,6 +243,26 @@ class UpgradeRunner
         } catch (Throwable $e) {
             report($e);
             $this->audit('upgrade.permissions_sync_failed', ['error' => mb_substr($e->getMessage(), 0, 500)]);
+
+            return null;
+        }
+    }
+
+    /**
+     * U11 (ADR-0112): three-way-merge stored template overrides against this release's shipped defaults.
+     * BEST-EFFORT with the same contract as syncPermissions(): a sync failure must never fail an upgrade —
+     * unreconciled overrides simply keep rendering their existing (old but functional) sources, and the
+     * ACP templates page runs the same sync lazily. Returns the outcome map, or null on failure.
+     *
+     * @return array<string,string>|null
+     */
+    private function syncTemplates(): ?array
+    {
+        try {
+            return app(TemplateSync::class)->sync();
+        } catch (Throwable $e) {
+            report($e);
+            $this->audit('upgrade.templates_sync_failed', ['error' => mb_substr($e->getMessage(), 0, 500)]);
 
             return null;
         }

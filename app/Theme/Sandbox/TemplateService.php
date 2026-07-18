@@ -8,6 +8,7 @@ namespace App\Theme\Sandbox;
 
 use App\Models\Post;
 use App\Models\SiteTemplate;
+use App\Models\SiteTemplateHook;
 use App\Models\Topic;
 use App\Models\User;
 use App\Support\Audit;
@@ -21,6 +22,12 @@ use Illuminate\Support\Facades\Cache;
  */
 final class TemplateService
 {
+    /** The cached map of enabled hook fragments (hook_key → ordered list) — one read per request. */
+    public const HOOKS_CACHE_KEY = 'novfora:tpl:hooks';
+
+    /** @var array<string, list<array{id:int,name:string,source:string}>>|null per-request memo */
+    private ?array $hooksMemo = null;
+
     public function __construct(private readonly SandboxRenderer $renderer) {}
 
     /** Render an overridable template by key, or '' when it isn't enabled / doesn't exist / fails to render. */
@@ -55,7 +62,9 @@ final class TemplateService
         return SiteTemplate::query()->where('template_key', $key)->exists();
     }
 
-    /** Validate + lint, then store/update the override (kept enabled state, default enabled for a new one). */
+    /** Validate + lint, then store/update the override (kept enabled state, default enabled for a new one).
+     *  Every explicit save stamps base_source = the CURRENT shipped default (U11): the admin's edit is, by
+     *  definition, derived from the default they saw — that snapshot is diff3's base on the next release. */
     public function save(string $key, string $source): SiteTemplate
     {
         if (! TemplateContract::has($key)) {
@@ -66,6 +75,9 @@ final class TemplateService
 
         $row = SiteTemplate::query()->firstOrNew(['template_key' => $key]);
         $row->source = $source;
+        $row->base_source = TemplateContract::default($key);
+        $row->merge_state = 'current';
+        $row->merged_at = null;
         if (! $row->exists) {
             $row->is_enabled = true;
         }
@@ -98,6 +110,121 @@ final class TemplateService
         if ($row instanceof SiteTemplate) {
             Audit::log('template.removed', $row, ['key' => $key]);
             $row->delete();
+        }
+    }
+
+    /**
+     * Render every enabled fragment attached to a hook anchor (U11), in position order, each through the
+     * SAME sandbox as template overrides. A fragment that fails degrades to '' in isolation — one broken
+     * fragment never takes down its siblings or the page. Unknown anchors render nothing.
+     */
+    public function renderHooks(string $hookKey, array $extra = []): string
+    {
+        if (! TemplateContract::hasHook($hookKey)) {
+            return '';
+        }
+
+        $fragments = $this->hooksMap()[$hookKey] ?? [];
+        if ($fragments === []) {
+            return '';
+        }
+
+        $context = $this->globalContext() + $extra;
+        $out = '';
+        foreach ($fragments as $fragment) {
+            try {
+                $out .= $this->renderer->render($fragment['source'], $context);
+            } catch (SandboxException) {
+                // isolated failure — skip this fragment
+            }
+        }
+
+        return $out;
+    }
+
+    /** Lint + store a hook fragment (new or edited). The anchor must exist in the contract. */
+    public function saveHook(?int $id, string $hookKey, string $name, string $source, int $position = 0): SiteTemplateHook
+    {
+        if (! TemplateContract::hasHook($hookKey)) {
+            throw new \InvalidArgumentException("Unknown template hook '{$hookKey}'.");
+        }
+        $name = trim($name);
+        if ($name === '') {
+            throw new \InvalidArgumentException('A fragment name is required.');
+        }
+
+        $this->lint($source);
+
+        $row = $id !== null ? SiteTemplateHook::query()->findOrFail($id) : new SiteTemplateHook;
+        $row->fill(['hook_key' => $hookKey, 'name' => $name, 'source' => $source, 'position' => $position]);
+        if (! $row->exists) {
+            $row->is_enabled = true;
+        }
+        $row->save();
+        $this->invalidateHooks();
+
+        Audit::log('template.hook.saved', $row, ['hook' => $hookKey, 'name' => $name]);
+
+        return $row;
+    }
+
+    public function setHookEnabled(int $id, bool $enabled): void
+    {
+        $row = SiteTemplateHook::query()->findOrFail($id);
+        $row->update(['is_enabled' => $enabled]);
+        $this->invalidateHooks();
+        Audit::log($enabled ? 'template.hook.enabled' : 'template.hook.disabled', $row, ['hook' => $row->hook_key]);
+    }
+
+    public function removeHook(int $id): void
+    {
+        $row = SiteTemplateHook::query()->find($id);
+        if ($row instanceof SiteTemplateHook) {
+            Audit::log('template.hook.removed', $row, ['hook' => $row->hook_key, 'name' => $row->name]);
+            $row->delete();
+            $this->invalidateHooks();
+        }
+    }
+
+    /** Drop the cached hook map (called on every hook write). */
+    public function invalidateHooks(): void
+    {
+        $this->hooksMemo = null;
+        Cache::forget(self::HOOKS_CACHE_KEY);
+    }
+
+    /**
+     * The enabled hook fragments grouped by anchor, cached forever + memoised — the render path costs zero
+     * queries steady-state (the query budgets depend on this). Defensive pre-install, like the style themes.
+     *
+     * @return array<string, list<array{id:int,name:string,source:string}>>
+     */
+    private function hooksMap(): array
+    {
+        if ($this->hooksMemo !== null) {
+            return $this->hooksMemo;
+        }
+
+        try {
+            $cached = Cache::get(self::HOOKS_CACHE_KEY);
+            if (is_array($cached)) {
+                return $this->hooksMemo = $cached;
+            }
+
+            $map = [];
+            $rows = SiteTemplateHook::query()->where('is_enabled', true)
+                ->orderBy('position')->orderBy('id')
+                ->get(['id', 'hook_key', 'name', 'source']);
+            foreach ($rows as $row) {
+                $map[(string) $row->hook_key][] = [
+                    'id' => (int) $row->id, 'name' => (string) $row->name, 'source' => (string) $row->source,
+                ];
+            }
+            Cache::forever(self::HOOKS_CACHE_KEY, $map);
+
+            return $this->hooksMemo = $map;
+        } catch (\Throwable) {
+            return []; // pre-install / mid-migration — render nothing, don't poison the cache
         }
     }
 

@@ -54,6 +54,10 @@
         x-bind:style="$store.bulkSelect.active ? 'padding-bottom: 7rem' : ''">
         {{-- Theme Studio 1.3: configurable region — admin-placed widgets at the top of a topic. --}}
         <x-region name="topic_top" />
+
+        {{-- U11 (ADR-0112): template-hook anchor — admin sandbox fragments above the posts. --}}
+        <x-template-hook name="topic.header"
+            :data="['topic' => ['title' => $topic->title, 'reply_count' => (int) $topic->reply_count]]" />
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 space-y-2">
                 @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix || $topic->tags->isNotEmpty())
@@ -209,6 +213,11 @@
                                  are passed as context; output is sanitised through the post-HTML allowlist. --}}
                             <x-slot-outlet name="topic.post.aside" :context="['post' => $post, 'topic' => $topic]" />
 
+                            {{-- U11 (ADR-0112): per-post template-hook anchor — admin sandbox fragments at
+                                 the foot of every post (author/position/topic exposed as data only). --}}
+                            <x-template-hook name="topic.post.footer"
+                                :data="['topic' => ['title' => $topic->title], 'post' => ['author' => (string) ($author?->username ?? ''), 'position' => (int) (($posts->firstItem() ?? 1) + $loop->index)]]" />
+
                             <livewire:forum.post-reactions :key="'react-'.$post->id"
                                 :post-id="$post->id"
                                 :topic-id="$post->topic_id"
@@ -337,6 +346,10 @@
                 <x-ui.button :href="route('login')" size="sm">{{ __('forum.sign_in_to_reply') }}</x-ui.button>
             </x-ui.card>
         @endauth
+
+        {{-- U11 (ADR-0112): template-hook anchor — admin sandbox fragments after the last post. --}}
+        <x-template-hook name="topic.after_posts"
+            :data="['topic' => ['title' => $topic->title, 'reply_count' => (int) $topic->reply_count]]" />
 
         {{-- Overridable sandbox template (ADR-0038): a topic-footer note, rendered only when enabled. --}}
         <x-sandbox-template name="topic_footer"
