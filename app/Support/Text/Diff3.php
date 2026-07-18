@@ -29,8 +29,10 @@ final class Diff3
 
     public const MAX_LINES = 2000;
 
-    /** Myers D cap per side-diff — beyond this the sources are too divergent to auto-merge honestly. */
-    public const MAX_EDIT_DISTANCE = 1000;
+    /** Myers D cap per side-diff — beyond this the sources are too divergent to auto-merge honestly. Kept
+     *  modest so the O(D^2) backtrack trace stays small (~D^2 int cells; 400 → ~160k, a few MB) on the
+     *  no-SSH shared-host tier where an OOM would be a fatal, uncatchable E_ERROR (apex finding D1). */
+    public const MAX_EDIT_DISTANCE = 400;
 
     /**
      * @return array{clean: bool, merged: ?string, conflicts: int}
@@ -100,10 +102,21 @@ final class Diff3
             $chunkT = array_slice($t, $ti, $nextT - $ti);
 
             if ($chunkO === $chunkB) {
+                // Ours left this region alone → take theirs.
                 foreach ($chunkT as $line) {
                     $out[] = $line;
                 }
-            } elseif ($chunkT === $chunkB || $chunkO === $chunkT) {
+            } elseif ($chunkT === $chunkB) {
+                // Theirs left this region alone → take ours.
+                foreach ($chunkO as $line) {
+                    $out[] = $line;
+                }
+            } elseif ($chunkO === $chunkT && $chunkB !== []) {
+                // Both made the SAME modification to a real base region → take it once. Requiring a
+                // NON-EMPTY base chunk is the fix for the duplicate-line collapse (apex finding D2):
+                // when chunkB is empty, an equal chunkO/chunkT is a COINCIDENTAL duplicate match from
+                // two independent insertions near a repeated line, not a shared edit — collapsing it
+                // would silently drop one side's line. Fall through to conflict instead.
                 foreach ($chunkO as $line) {
                     $out[] = $line;
                 }
@@ -151,6 +164,14 @@ final class Diff3
     {
         $n = count($a);
         $m = count($b);
+
+        // The minimum edit distance is at least |n - m|; if that already exceeds the cap, the endpoint can
+        // never be reached within MAX_EDIT_DISTANCE, so bail BEFORE building the O(D^2) trace (a tiny base
+        // vs a large override is the ordinary conflict path — apex finding D1: don't grind, don't OOM).
+        if (abs($n - $m) > self::MAX_EDIT_DISTANCE) {
+            return null;
+        }
+
         $max = min($n + $m, self::MAX_EDIT_DISTANCE);
 
         // V[k] = furthest x on diagonal k; store a copy per D for backtracking.

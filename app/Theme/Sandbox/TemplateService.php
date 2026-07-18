@@ -25,6 +25,9 @@ final class TemplateService
     /** The cached map of enabled hook fragments (hook_key → ordered list) — one read per request. */
     public const HOOKS_CACHE_KEY = 'novfora:tpl:hooks';
 
+    /** Aggregate output cap for ALL fragments rendered at one anchor (defence against a many-fragment anchor). */
+    private const HOOKS_MAX_OUTPUT = 262144;
+
     /** @var array<string, list<array{id:int,name:string,source:string}>>|null per-request memo */
     private ?array $hooksMemo = null;
 
@@ -137,6 +140,11 @@ final class TemplateService
             } catch (SandboxException) {
                 // isolated failure — skip this fragment
             }
+            // Aggregate cap across all fragments at one anchor (each fragment is already bounded to the
+            // renderer's per-render MAX_OUTPUT; this bounds a many-fragments anchor, esp. the per-post one).
+            if (strlen($out) > self::HOOKS_MAX_OUTPUT) {
+                return substr($out, 0, self::HOOKS_MAX_OUTPUT);
+            }
         }
 
         return $out;
@@ -228,37 +236,83 @@ final class TemplateService
         }
     }
 
+    /** Literal-text markers forbidden in a stored template (raw-emitted text only — {{ }} values are escaped). */
+    private const FORBIDDEN_SUBSTRINGS = [
+        '<script', '</script', '<style', '</style', '<iframe', '<object', '<embed',
+        '<base', '<meta', '<link', 'javascript:', 'vbscript:', 'data:text/html',
+    ];
+
     /**
      * Defence-in-depth lint, run BEFORE a template can be stored. The engine already cannot execute code and
      * escapes every {{ }} value — this additionally forbids an admin's LITERAL template text from carrying
-     * <script>/<style>/handlers/javascript: (and readies the sandbox for lower-trust authors). It also
+     * <script>/<style>/handlers/javascript:/etc. (and readies the sandbox for lower-trust authors). It also
      * requires the source to PARSE, so an admin can't save a broken template.
+     *
+     * The scanned text is derived from the REAL parsed AST — the exact TEXT nodes the renderer emits raw —
+     * NOT a regex approximation. The prior regex skeleton (`{{…}}`/`{%…%}` strip) did not agree with the
+     * lexer's tag boundaries: a `{{` inside a string literal within a {% %} tag let the regex over-delete
+     * real literal text, so a literal <script> could survive the scan yet render raw (apex finding H1).
+     * Scanning the AST text nodes is sound by construction.
      *
      * @throws SandboxException
      */
     public function lint(string $source): void
     {
-        // Parse first — rejects malformed tags + un-sandboxable syntax, and guarantees the tags are well-formed
-        // for the skeleton strip below (an unclosed/garbled tag can never be stored).
-        $error = SandboxRenderer::validate($source);
-        if ($error !== null) {
-            throw new SandboxException($error);
-        }
+        // Parse with the real lexer — throws on malformed / un-sandboxable syntax (so a broken template can
+        // never be stored) and yields the exact nodes the renderer will execute.
+        $nodes = SandboxParser::parse($source);
 
-        // Scan the LITERAL SKELETON — the source with every {{…}} / {%…%} tag removed — NOT the raw source.
-        // Dynamic {{ }} output is HTML-escaped at render, so only literal text can introduce raw markup; the
-        // skeleton IS that literal text. Stripping the tags collapses split tokens (e.g. `<scr{{ x }}ipt>`),
-        // which would otherwise pass a raw stripos() yet reassemble into `<script>` in the unescaped output.
-        $skeleton = (string) preg_replace(['/\{\{.*?\}\}/s', '/\{%.*?%\}/s'], '', $source);
-
-        foreach (['<script', '</script', '<style', '</style', '<iframe', '<object', '<embed', '<base', '<meta', '<link', 'javascript:'] as $forbidden) {
-            if (stripos($skeleton, $forbidden) !== false) {
-                throw new SandboxException('A template may not contain "'.$forbidden.'".');
+        // Two scans over the raw-emitted literal text, both collapsing tokens split across interpolations
+        // (the ADR-0038 split-token lesson): (gap) interpolations contribute nothing → rejoins a split TAG
+        // like `<scr{{ x }}ipt>`; (filler) each interpolation contributes one word char → rejoins a split
+        // ATTRIBUTE name like `on{{ "error" }}=` into `ona=`. A conditional's branches are concatenated —
+        // conservative: text that COULD assemble into a forbidden token across branches is refused.
+        foreach ([$this->literalText($nodes, false), $this->literalText($nodes, true)] as $scan) {
+            foreach (self::FORBIDDEN_SUBSTRINGS as $forbidden) {
+                if (stripos($scan, $forbidden) !== false) {
+                    throw new SandboxException('A template may not contain "'.$forbidden.'".');
+                }
+            }
+            // An event handler in ANY HTML attribute position — separated from the tag by whitespace OR a
+            // slash (both are valid HTML attribute separators; the slash form `<img/onerror=>` bypassed the
+            // old whitespace-only regex — apex finding H2).
+            if (preg_match('/[\s\/]on[a-z][a-z0-9_-]*\s*=/i', $scan) === 1) {
+                throw new SandboxException('A template may not contain inline event handlers (on…=).');
             }
         }
-        if (preg_match('/\son[a-z]+\s*=/i', $skeleton) === 1) {
-            throw new SandboxException('A template may not contain inline event handlers (on…=).');
+    }
+
+    /**
+     * Concatenate the raw-emitted LITERAL text of a parsed AST, recursing into if/for bodies. With
+     * $filler=false an interpolation contributes nothing (rejoins a split tag); with $filler=true it
+     * contributes one word char (rejoins a split attribute name).
+     *
+     * @param  list<array<string,mixed>>  $nodes
+     */
+    private function literalText(array $nodes, bool $filler): string
+    {
+        $out = '';
+        foreach ($nodes as $node) {
+            switch ($node['t'] ?? '') {
+                case 'text':
+                    $out .= (string) ($node['v'] ?? '');
+                    break;
+                case 'out':
+                    $out .= $filler ? 'x' : '';
+                    break;
+                case 'if':
+                    foreach ($node['branches'] ?? [] as $branch) {
+                        $out .= $this->literalText($branch['body'] ?? [], $filler);
+                    }
+                    $out .= $this->literalText($node['else'] ?? [], $filler);
+                    break;
+                case 'for':
+                    $out .= $this->literalText($node['body'] ?? [], $filler);
+                    break;
+            }
         }
+
+        return $out;
     }
 
     /**

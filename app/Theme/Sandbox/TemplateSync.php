@@ -40,6 +40,14 @@ final class TemplateSync
         foreach (SiteTemplate::query()->get() as $row) {
             $key = (string) $row->template_key;
 
+            // Already-flagged conflicts are awaiting the admin's decision and their base has NOT advanced —
+            // re-running Diff3 every call would recompute the same conflict and re-write the row on every ACP
+            // mount (apex finding W1: write amplification). Skip until the admin resolves it, which returns
+            // the row to 'current'. (A 'merged' row's base DID advance, so it re-syncs normally below.)
+            if ((string) $row->merge_state === 'conflict') {
+                continue;
+            }
+
             // A key no longer in the contract can never render (render() checks the contract first);
             // leave the row for the operator rather than silently deleting their work.
             if (! TemplateContract::has($key)) {
@@ -95,8 +103,12 @@ final class TemplateSync
             }
         }
 
-        if ($report !== []) {
-            Audit::log('template.sync', null, ['outcomes' => $report]);
+        // Audit only when something was actually reconciled — NOT for a page of all-'unchanged'/'orphan'
+        // rows, which every ACP templates mount would otherwise log, growing the append-only trail with
+        // noise that buries real security events (apex finding W1).
+        $reconciled = array_filter($report, static fn (string $o): bool => in_array($o, ['merged', 'conflict', 'stamped'], true));
+        if ($reconciled !== []) {
+            Audit::log('template.sync', null, ['outcomes' => $reconciled]);
         }
 
         return $report;

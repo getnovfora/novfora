@@ -72,6 +72,29 @@ it('refuses oversized input as a conflict instead of unbounded work', function (
     expect($r['clean'])->toBeFalse()->and($r['merged'])->toBeNull();
 });
 
+it('conflicts (never silently collapses) on the duplicate-line ambiguity — apex D2', function () {
+    // base two identical lines; ours appends a third; theirs inserts a different line into the run.
+    // A naive collapse would drop one copy — the safe answer is a conflict, not a wrong clean merge.
+    $r = Diff3::merge("A\nA", "A\nA\nA", "A\nB\nA\nA");
+    expect($r['clean'])->toBeFalse()
+        ->and($r['merged'])->toBeNull();
+
+    // Isomorphic real-template shape: repeated structural lines.
+    $r2 = Diff3::merge("<hr>\n<hr>", "<hr>\n<hr>\n<hr>", "<hr>\n<span>or</span>\n<hr>\n<hr>");
+    expect($r2['clean'])->toBeFalse()->and($r2['merged'])->toBeNull();
+});
+
+it('bails to conflict on a tiny-base vs huge-override diff without building the trace — apex D1', function () {
+    // |n - m| far exceeds MAX_EDIT_DISTANCE, so matches() must refuse before the O(D^2) trace — the
+    // ordinary "admin grew a 6-line default into a 1500-line override, then the default changed" path.
+    $base = implode("\n", array_fill(0, 6, 'default line'));
+    $ours = implode("\n", array_map(fn ($i) => "custom line {$i}", range(1, 1500)));
+    $theirs = implode("\n", array_fill(0, 6, 'changed default line'));
+
+    $r = Diff3::merge($base, $ours, $theirs);
+    expect($r['clean'])->toBeFalse()->and($r['merged'])->toBeNull();
+});
+
 it('fuzz: disjoint edits always merge cleanly with both sides preserved and no markers', function () {
     mt_srand(20260717);
 

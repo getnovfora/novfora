@@ -87,6 +87,42 @@ it('renders fragments on the real pages: site header, board, topic (incl. per-po
     $this->get(route('profiles.show', $author))->assertSee('hook-profile-'.$author->username);
 });
 
+it('rejects the lint-skeleton bypass: a literal <script> hidden behind a string-literal tag — apex H1', function () {
+    $svc = app(TemplateService::class);
+    // A `{{` inside a {% %} string literal fooled the old regex skeleton into over-deleting the real
+    // literal <script>, which then rendered raw. The AST-based scan catches it.
+    // The lint (the save-time gate the {!! !!} hook render relies on) must REJECT it before storage —
+    // the renderer emits literal text nodes raw by design, so lint is the escaping boundary here.
+    $poc = '{% if "{{" %}<script>alert(document.cookie)</script>{{ \'\' }}{% endif %}';
+    expect(fn () => $svc->saveHook(null, 'site.header.after', 'PoC', $poc))
+        ->toThrow(SandboxException::class);
+    // And the same source is rejected on the template-override + merge paths (all route through lint()).
+    expect(fn () => $svc->save('home_welcome', $poc))->toThrow(SandboxException::class);
+});
+
+it('rejects slash-separated and svg event handlers and the data:text/html scheme — apex H2', function () {
+    $svc = app(TemplateService::class);
+    foreach ([
+        '<img/onerror=alert(document.cookie) src=x>',
+        '<svg/onload=alert(1)>',
+        '<a href="data:text/html,<script>alert(1)</script>">x</a>',
+        "<img\tonmouseover=alert(1) src=x>", // real tab (double-quoted) — whitespace separator
+    ] as $evil) {
+        expect(fn () => $svc->saveHook(null, 'topic.header', 'evil', $evil))
+            ->toThrow(SandboxException::class);
+    }
+
+    // A benign <img> with a real src is still fine (no false positive).
+    $ok = $svc->saveHook(null, 'topic.header', 'ok', '<img src="/logo.png" alt="logo">');
+    expect($ok->source)->toContain('<img');
+});
+
+it('catches an event handler whose name is split across an interpolation (filler scan)', function () {
+    $svc = app(TemplateService::class);
+    expect(fn () => $svc->saveHook(null, 'site.header.after', 'split', '<img src=x on{{ "error" }}=alert(1)>'))
+        ->toThrow(SandboxException::class);
+});
+
 it('gates hook management behind the admin SFC guard (non-admin 403)', function () {
     $this->seed();
     $this->actingAs(Users::inGroups(['members']));

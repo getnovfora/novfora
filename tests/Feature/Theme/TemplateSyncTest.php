@@ -4,6 +4,7 @@
 
 declare(strict_types=1);
 
+use App\Models\AuditLog;
 use App\Models\SiteTemplate;
 use App\Theme\Sandbox\TemplateContract;
 use App\Theme\Sandbox\TemplateService;
@@ -143,4 +144,35 @@ it('exposes pending review state for the ACP banner', function () {
     SiteTemplate::query()->where('template_key', 'topic_footer')->update(['merge_state' => 'conflict']);
 
     expect(app(TemplateSync::class)->hasPendingReview())->toBeTrue();
+});
+
+it('does not re-write a conflicted row or re-audit on repeat syncs — apex W1 (write amplification)', function () {
+    // A conflicted row: base != default, admin source diverged. Re-syncing must be a no-op (no DB write,
+    // no audit) until the admin resolves it — the ACP mount() runs sync() on every page load.
+    app(TemplateService::class)->save('topic_footer', '<p>mine</p>');
+    app(TemplateSync::class)->sync(['topic_footer' => '<p>new default</p>']); // → conflict (first time)
+    $row = SiteTemplate::where('template_key', 'topic_footer')->firstOrFail();
+    expect($row->merge_state)->toBe('conflict');
+
+    $auditBefore = AuditLog::count();
+    $updatedBefore = $row->updated_at;
+
+    // Repeat the sync three times (simulating three ACP mounts) — nothing should change.
+    for ($i = 0; $i < 3; $i++) {
+        $report = app(TemplateSync::class)->sync(['topic_footer' => '<p>new default</p>']);
+        expect($report)->toBe([]); // conflict row is skipped, no other rows
+    }
+
+    expect(AuditLog::count())->toBe($auditBefore)
+        ->and($row->fresh()->updated_at->eq($updatedBefore))->toBeTrue();
+});
+
+it('does not audit a page of all-unchanged rows — apex W1', function () {
+    app(TemplateService::class)->save('home_welcome', TemplateContract::default('home_welcome'));
+    app(TemplateSync::class)->sync(); // stamps base = default; may audit the initial stamp
+
+    $auditBefore = AuditLog::count();
+    app(TemplateSync::class)->sync(); // now all 'unchanged'
+    app(TemplateSync::class)->sync();
+    expect(AuditLog::count())->toBe($auditBefore);
 });
