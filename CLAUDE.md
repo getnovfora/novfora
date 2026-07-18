@@ -124,6 +124,18 @@ Never re-read a file you just edited — the harness tracks state.
   any sandbox default such as `Claude <noreply@anthropic.com>`). Sign off with `-s` (DCO). Never add AI
   co-author/attribution trailers — `.claude/settings.json` keeps attribution off; do not reintroduce it.
 - Record non-obvious choices as ADRs in `DECISIONS.md`.
+- **Close the loop on Linear at the end of every build cycle (mandatory).** A cycle is not finished until
+  the tracker matches the repo. Before writing the morning report / handing back:
+  1. **Flip state** on every issue the cycle touched — `In Progress` when work starts, `Done` when the work
+     is merged (or when the convention in play says "Done on merge", say so explicitly in the report).
+  2. **Post a completion comment** on each issue: branch + head SHA, gate result, ADR number, and any
+     finding an adversarial review confirmed. The issue should stand alone without the report.
+  3. **File what the cycle discovered** — new bugs, parked product calls, flagged pre-existing gaps — as
+     new issues in the right project/milestone, rather than burying them in prose.
+  4. **Report blocked writes.** If the harness classifier denies a Linear write, do NOT silently drop it —
+     list the exact issues + intended state in the ☀️ owner section so they can be flipped by hand.
+  5. **Reconcile `PROJECT-STATE.md` in the same breath** — a shipped release with no report is the same
+     failure as an un-flipped issue (v1.3.0 shipped with zero mention in PROJECT-STATE; don't repeat it).
 - Treat the **module and theme APIs as stable, semver'd public contracts** — a breaking change is a
   major-version event.
 - Laravel idioms: Eloquent, form requests, policies/gates for authorization, queued jobs, events +
