@@ -10,9 +10,10 @@ use App\Import\BbcodeConverter;
 use App\Import\Contracts\ProvidesAttachments;
 use App\Import\Contracts\SourceDriver;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\Query\Builder;
 
 /**
- * SMF 2.x source driver — SCAFFOLD (ADR-0034). Maps SMF's public schema (`smf_members`, `smf_boards`,
+ * SMF 2.x source driver (ADR-0034; H2a fixture-verified, real-members filter + attachment-uploader parity). Maps SMF's public schema (`smf_members`, `smf_boards`,
  * `smf_topics`, `smf_messages`) behind the same SourceDriver contract as the fully-built phpBB driver.
  * CLEAN-ROOM: schema only — no SMF code/templates are used, even though SMF's BSD licence would permit it
  * (the project's strict clean-room rule). SMF's SHA-1(lowercase-username + password) hashes are not
@@ -45,16 +46,26 @@ final class SmfDriver implements ProvidesAttachments, SourceDriver
     public function counts(): array
     {
         return [
-            'users' => $this->connection->table($this->prefix.'members')->count(),
+            'users' => $this->usersQuery()->count(),
             'forums' => $this->connection->table($this->prefix.'boards')->count(),
             'topics' => $this->connection->table($this->prefix.'topics')->count(),
             'posts' => $this->connection->table($this->prefix.'messages')->count(),
         ];
     }
 
+    /**
+     * The importable-users base query: activated members only (SMF `is_activated` = 1; 0 = pending, 3+ =
+     * banned/deleted variants), mirroring phpBB's bot exclusion / XenForo's valid-only filter so preflight
+     * counts and the import agree.
+     */
+    private function usersQuery(): Builder
+    {
+        return $this->connection->table($this->prefix.'members')->where('is_activated', 1);
+    }
+
     public function users(int $afterId, int $limit): array
     {
-        return $this->connection->table($this->prefix.'members')
+        return $this->usersQuery()
             ->where('id_member', '>', $afterId)->orderBy('id_member')->limit($limit)
             ->get(['id_member', 'member_name', 'email_address', 'date_registered'])
             ->map(fn ($r): array => [
@@ -118,13 +129,19 @@ final class SmfDriver implements ProvidesAttachments, SourceDriver
             return [];
         }
 
-        return $this->connection->table($this->prefix.'attachments')
-            ->where('id_attach', '>', $afterId)->orderBy('id_attach')->limit($limit)
-            ->get(['id_attach', 'id_msg', 'filename', 'file_hash', 'mime_type'])
+        // Resolve the uploader by joining the owning message (SMF's attachments table carries no uploader id
+        // of its own; the poster of the message an attachment belongs to IS its uploader).
+        $messages = $this->prefix.'messages';
+        $attach = $this->prefix.'attachments';
+
+        return $this->connection->table($attach)
+            ->leftJoin($messages, "{$attach}.id_msg", '=', "{$messages}.id_msg")
+            ->where("{$attach}.id_attach", '>', $afterId)->orderBy("{$attach}.id_attach")->limit($limit)
+            ->get(["{$attach}.id_attach", "{$attach}.id_msg", "{$attach}.filename", "{$attach}.file_hash", "{$attach}.mime_type", "{$messages}.id_member"])
             ->map(fn ($r): array => [
                 'source_id' => (int) $r->id_attach,
                 'post_source_id' => (int) $r->id_msg,
-                'author_source_id' => 0, // SMF attachments carry no uploader id; author resolves to null
+                'author_source_id' => (int) ($r->id_member ?? 0), // the owning message's poster
                 'original_name' => (string) $r->filename,
                 'mime' => (string) $r->mime_type,
                 'path' => rtrim($this->attachmentsPath, '/').'/'.$r->id_attach.'_'.$r->file_hash,
