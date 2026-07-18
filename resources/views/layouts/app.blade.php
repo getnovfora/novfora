@@ -36,18 +36,19 @@
     }
 
     // DB-backed style theme (ACP visual theme editor). Resolve the manager ONCE so css()/chrome()/assets()
-    // share a single active-theme lookup on a cold cache (one site_themes query, not three).
+    // share a single resolution on a cold cache. U10: resolution is per-viewer — a member's chosen style
+    // (users.style_theme_id) wins over the site default; guests always get the default.
     $styleTheme = app(\App\Theme\StyleThemeManager::class);
 
-    // The active theme's compiled CSS (its AA-safe accent + sanitised custom CSS), cached and read once per
-    // request. Emitted AFTER the appearance overrides below so an active theme wins on equal specificity.
-    $styleThemeCss = $styleTheme->css();
+    // The resolved theme's compiled CSS (its AA-safe accent + sanitised custom CSS), cached per theme and
+    // read once per request. Emitted AFTER the appearance overrides below so a theme wins on equal specificity.
+    $styleThemeCss = $styleTheme->css($authUser);
 
-    // Theme Studio 1.2: the active theme's custom header/footer HTML (sanitised at write time, cached).
-    $themeChrome = $styleTheme->chrome();
+    // Theme Studio 1.2: the resolved theme's custom header/footer HTML (sanitised at write time, cached).
+    $themeChrome = $styleTheme->chrome($authUser);
 
-    // Theme Studio 1.5: the active theme's logo + favicon URLs (the background rides $styleThemeCss).
-    $themeAssets = $styleTheme->assets();
+    // Theme Studio 1.5: the resolved theme's logo + favicon URLs (the background rides $styleThemeCss).
+    $themeAssets = $styleTheme->assets($authUser);
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"

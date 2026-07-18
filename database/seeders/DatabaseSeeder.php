@@ -31,6 +31,7 @@ class DatabaseSeeder extends Seeder
             WarningTypeSeeder::class, // default infraction "action bundles" (security §3)
             BlocklistSeeder::class,   // local disposable-email domain list (ADR-0007 §2.2)
             CustomFieldSeeder::class, // example profile fields (data-model §1)
+            StylePresetSeeder::class, // U10 shipped style presets (base + Daylight/Midnight; nothing activated)
         ]);
     }
 }

@@ -35,6 +35,12 @@ new class extends Component
 
     public string $name = '';
 
+    /** U10: the parent style ('' = none) — inheritance resolves child-wins through StyleThemeManager. */
+    public string $parentId = '';
+
+    /** U10: offered in the member style chooser. */
+    public bool $userSelectable = false;
+
     public string $accentColor = '';
 
     /** @var array<string,string> token-key => LIGHT value (see App\Theme\ThemeApi::editableTokens()) */
@@ -73,6 +79,8 @@ new class extends Component
         $theme = SiteTheme::findOrFail($id);
         $this->formId = $theme->id;
         $this->name = (string) $theme->name;
+        $this->parentId = $theme->parent_id !== null ? (string) $theme->parent_id : '';
+        $this->userSelectable = (bool) $theme->is_user_selectable;
         $this->accentColor = (string) ($theme->accent_color ?? '');
         $this->tokens = is_array($theme->tokens) ? $theme->tokens : [];
         $this->tokensDark = is_array($theme->tokens_dark) ? $theme->tokens_dark : [];
@@ -106,6 +114,8 @@ new class extends Component
 
         $payload = [
             'name' => $data['name'],
+            'parent_id' => $this->parentId !== '' ? (int) $this->parentId : null,
+            'is_user_selectable' => $this->userSelectable,
             'accent_color' => $data['accentColor'] ?? null,
             'tokens' => $this->tokens, // StyleThemeManager::cleanTokens() strict-validates each value
             'tokens_dark' => $this->tokensDark,
@@ -114,12 +124,19 @@ new class extends Component
             'footer_html' => $this->footerHtml,
         ];
 
-        if ($this->formId === null) {
-            $theme = $manager->create($payload);
-            $this->flash("Created theme “{$theme->name}”.", 'success');
-        } else {
-            $theme = $manager->update(SiteTheme::findOrFail($this->formId), $payload);
-            $this->flash("Saved theme “{$theme->name}”.", 'success');
+        try {
+            if ($this->formId === null) {
+                $theme = $manager->create($payload);
+                $this->flash("Created theme “{$theme->name}”.", 'success');
+            } else {
+                $theme = $manager->update(SiteTheme::findOrFail($this->formId), $payload);
+                $this->flash("Saved theme “{$theme->name}”.", 'success');
+            }
+        } catch (\InvalidArgumentException $e) {
+            // Tree guards (self-parent / cycle / depth / missing parent) surface as a field error.
+            $this->addError('parentId', $e->getMessage());
+
+            return;
         }
 
         // Bind any freshly-uploaded assets to the saved theme (validated 'image' above).
@@ -166,9 +183,49 @@ new class extends Component
             return;
         }
         $theme = SiteTheme::findOrFail($this->deleteId);
-        $manager->delete($theme);
-        $this->flash("Deleted “{$theme->name}”.", 'success');
+        try {
+            $manager->delete($theme);
+            $this->flash("Deleted “{$theme->name}”.", 'success');
+        } catch (\InvalidArgumentException $e) {
+            $this->flash($e->getMessage(), 'warn');
+        }
         $this->deleteId = null;
+    }
+
+    /** U10: install the shipped presets (idempotent by slug) for installs that predate the seeder. */
+    public function installPresets(): void
+    {
+        $this->ensureAdmin();
+        $created = \App\Theme\StylePresets::install();
+        $this->flash($created === []
+            ? 'The shipped presets are already installed.'
+            : 'Installed presets: '.implode(', ', $created).'.', 'success');
+    }
+
+    /**
+     * The styles eligible as a parent for the form's theme: everything except itself and its descendants
+     * (a child of your own subtree would be a cycle).
+     *
+     * @return list<SiteTheme>
+     */
+    public function parentOptions(): array
+    {
+        $all = SiteTheme::query()->orderBy('name')->get();
+        if ($this->formId === null) {
+            return $all->all();
+        }
+
+        // Collect the edited theme's descendant ids (bounded walk).
+        $exclude = [$this->formId => true];
+        $frontier = [$this->formId];
+        for ($i = 0; $i < 5 && $frontier !== []; $i++) {
+            $frontier = SiteTheme::query()->whereIn('parent_id', $frontier)->pluck('id')->all();
+            foreach ($frontier as $id) {
+                $exclude[$id] = true;
+            }
+        }
+
+        return $all->reject(fn (SiteTheme $t) => isset($exclude[$t->id]))->values()->all();
     }
 
     public function removeAsset(string $kind, StyleThemeManager $manager): void
@@ -193,7 +250,7 @@ new class extends Component
     {
         $this->ensureAdmin();
 
-        return SiteTheme::query()->orderByDesc('is_active')->orderBy('name')->get()->all();
+        return SiteTheme::query()->with('parent')->orderByDesc('is_active')->orderBy('name')->get()->all();
     }
 
     /**
@@ -255,8 +312,8 @@ new class extends Component
 
     private function resetForm(): void
     {
-        $this->reset(['formId', 'name', 'accentColor', 'tokens', 'tokensDark', 'customCss', 'headerHtml', 'footerHtml',
-            'logoUpload', 'faviconUpload', 'backgroundUpload', 'assetUrls']);
+        $this->reset(['formId', 'name', 'parentId', 'userSelectable', 'accentColor', 'tokens', 'tokensDark',
+            'customCss', 'headerHtml', 'footerHtml', 'logoUpload', 'faviconUpload', 'backgroundUpload', 'assetUrls']);
         $this->resetErrorBag();
     }
 
@@ -287,9 +344,14 @@ new class extends Component
             AA-contrast in both light and dark. (For deeper template overrides, drop a child theme in the
             themes directory — it appears in the <strong>Appearance</strong> page's theme dropdown.)
         </p>
-        <x-ui.button type="button" size="sm" wire:click="newTheme" dusk="acp-new-theme">
-            <x-ui.icon name="plus" class="h-4 w-4" /> New theme
-        </x-ui.button>
+        <div class="flex items-center gap-2">
+            <x-ui.button type="button" variant="subtle" size="sm" wire:click="installPresets" dusk="acp-install-presets">
+                Install presets
+            </x-ui.button>
+            <x-ui.button type="button" size="sm" wire:click="newTheme" dusk="acp-new-theme">
+                <x-ui.icon name="plus" class="h-4 w-4" /> New theme
+            </x-ui.button>
+        </div>
     </div>
 
     {{-- Create / edit form. --}}
@@ -302,6 +364,29 @@ new class extends Component
                     <x-ui.input label="Name" name="name" wire:model="name" required maxlength="60" dusk="acp-theme-name" />
                     <x-ui.input label="Accent colour" name="accentColor" wire:model.live="accentColor" placeholder="#245fbb"
                                 hint="Hex, e.g. #245fbb. Blank = inherit the built-in Nova Blue." />
+                </div>
+
+                {{-- Style tree (U10): parent inheritance + the member chooser flag. --}}
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label for="theme-parent" class="block text-sm font-medium text-ink">Parent style</label>
+                        <select id="theme-parent" wire:model="parentId" dusk="acp-theme-parent"
+                                class="mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-ink">
+                            <option value="">None — a root style</option>
+                            @foreach ($this->parentOptions() as $option)
+                                <option value="{{ $option->id }}">{{ $option->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('parentId') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        <p class="mt-1 text-xs text-ink-subtle">A child style inherits every value it doesn't set itself.</p>
+                    </div>
+                    <div class="flex items-start pt-6">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" wire:model="userSelectable" dusk="acp-theme-selectable"
+                                   class="h-4 w-4 rounded border-line text-accent focus:ring-accent">
+                            <span class="text-sm font-medium text-ink">Members can choose this style</span>
+                        </label>
+                    </div>
                 </div>
 
                 @php($previewAccent = \App\Support\AccentPalette::for($accentColor))
@@ -442,9 +527,17 @@ new class extends Component
                     <div class="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5 text-sm">
                         <span class="inline-block h-4 w-4 shrink-0 rounded-full border border-line"
                               style="background: {{ $swatch }};" aria-hidden="true"></span>
-                        <span class="min-w-0 flex-1 truncate font-medium text-ink">{{ $theme->name }}</span>
+                        <span class="min-w-0 flex-1 truncate font-medium text-ink">
+                            {{ $theme->name }}
+                            @if ($theme->parent_id !== null)
+                                <span class="text-xs text-ink-subtle">· child of {{ $theme->parent?->name ?? '?' }}</span>
+                            @endif
+                        </span>
                         @if ($theme->is_active)
                             <x-ui.badge variant="accent">Active</x-ui.badge>
+                        @endif
+                        @if ($theme->is_user_selectable)
+                            <x-ui.badge variant="neutral">Selectable</x-ui.badge>
                         @endif
                         <div class="flex flex-wrap items-center gap-1">
                             @if ($theme->is_active)
