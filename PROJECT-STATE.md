@@ -13,6 +13,189 @@
 
 ---
 
+## 🌅 Morning report — v1.3 Phase 3B (front-of-site redesign · UX-1/3/4/5/6) — `nov-3b-frontsite` off nov-96, gated GREEN; NOTHING merged/pushed (owner reviews) (2026-07-03)
+
+Ran [`docs/product/BUILD-PROMPTS-2026-07-02.md`](docs/product/BUILD-PROMPTS-2026-07-02.md) **Prompt 2** (v1.3 Phase 3B ·
+Front-of-site redesign) after owner plan approval (base fork resolved: **stack on nov-96**, the 3A contract branch).
+Built the view-layer redesign in the existing token system — **no new JS deps**, every action affordance through the
+3A `<x-action>` contract — on **`nov-3b-frontsite` (off `nov-96` `72956ac`)**. Committed as `Tommy Huynh` (DCO `-s`, no
+AI trailers). **Nothing merged/pushed — `main` untouched at `6724a9a`.** The owner said "proceed with everything," so I
+continued past the demo checkpoint through UX-4/5/6 (the backup-first demo deploy remains the owner's to run).
+
+### Branch (one cohesive branch off nov-96, per-slice commits)
+```
+main 6724a9a → nov-96 72956ac (3A contract) → nov-3b-frontsite:
+  c1d532e  UX-6 · x-ui.timestamp (semantic <time>, the shared primitive)
+  d5baa3b  UX-1 · card-based board index (category cards, refined rows, timestamps)
+  5734c92  UX-3 · sm–md search discoverability entry
+  ── demo checkpoint (owner deploys backup-first when ready) ──
+  efc788d  UX-4 · board + thread (signed-out new-topic CTA via <x-action>, timestamps)
+  4dd2089  UX-5 · focused centered auth header (+ rebuilt public/build)
+  43c69be  test · 390px front-of-site Dusk journeys (CI-pending)
+```
+
+### Slices
+- **UX-6 (NOV-95):** `<x-ui.timestamp>` — a real `<time datetime>` (machine-readable ISO) + full-date title tooltip,
+  relative text, tabular-nums — adopted on the redesigned surfaces, replacing bare `diffForHumans()` spans. (A
+  `<x-forum.topic-badges>` extraction was considered but DEFERRED — the three badge clusters differ deliberately: the
+  thread uses `warn`/larger to emphasize the *current* locked thread vs the lists' `neutral`/calm; flattening would be a
+  design regression, not a DRY win.)
+- **UX-1 (NOV-90) — the headline change:** the forum index is now a **card-based board** — each category is a distinct
+  card (its name is the card header) inside a labelled `<section>`; forums are refined rows with a larger icon and
+  `<x-ui.timestamp>`. Reuses the existing F6 last-post/author data — **no new queries** (index budget ≤20 holds);
+  permission-scoping + theme regions intact.
+- **UX-3 (NOV-92):** the header was already premium (sticky+backdrop, NavigationManager-driven, NOV-86 responsive brand,
+  canDo-gated admin/mod links), so the one clear safe win: a **compact search entry for the sm–md range (640–767px)** —
+  where the hamburger (with its search) is gone (≥sm) and the full search bar isn't shown yet (<md), search was
+  unreachable.
+- **UX-4 (NOV-93):** the board's new-topic control routes through **`<x-action>`** — the live button when you can post, a
+  **"Sign in to post" CTA for guests**, hidden for a member without the capability. Board + thread times adopt
+  `<x-ui.timestamp>`. (The board table + thread post-cards were already scannable/info-rich.)
+- **UX-5 (NOV-94):** a **focused, centered auth header** (brand + serif title, calmer rhythm) over the existing card;
+  login/register/reset forms unchanged (already clean — `x-ui.input`, social providers).
+
+### Gates (GREEN, modulo documented env)
+- **a11y:** `WcagAuditTest` green — it already audits the board index, a topic page, `forums.show`, login, and register
+  (all my redesigned surfaces), and the nav on every page; stays green.
+- **HotPath:** the forum-index budget (≤20) holds (UX-1 added no queries). Two `QueryBudgetTest` **thread** budgets read
+  +1 in *this* drvfs env — I confirmed they **fail identically on `main`** (pre-existing warm-up variance; pass at 34/36
+  on CI's clean ext4). A query dump verified **no N+1** (all batched `IN(...)` reads). Not from this work.
+- **Assets:** UX-1/3/4 introduced **zero** new utilities; UX-5 added `py-8`/`sm:py-12` → `public/build` rebuilt. The
+  build is **byte-deterministic** here (verified — a clean rebuild reproduces the committed bundle with the exact locked
+  font versions), so the committed bundle matches CI's and `assets-fresh` holds. No new JS deps.
+- **Render/logic:** `Forum` + `Auth` suites green (197 passed; the only 3 errors are the pre-existing root-owned
+  `storage/framework/testing/disks/.../attachments` dir — environmental, green on CI's ext4).
+- **390px Dusk:** new `MobileFrontSiteJourneyTest` (card index + board list fit 390px no-scroll; sm–md search reachable)
+  — **CI-pending** (no Chrome here; `php -l` clean). It must be added to the dusk-job spec list, which lives on the
+  **nov-122** branch — a Prompt-4 merge reconciliation note.
+
+### Design posture (for your eval)
+Deliberately conservative on the already-polished surfaces (nav, board table, thread post-cards, auth forms — refined by
+prior passes). The **card index (UX-1)** is the main visible modernization; the rest is high-value, low-risk polish
+(timestamps, the sm–md search gap, the guest CTA, the auth header). The demo/beta round is where nav + board feedback is
+most valuable.
+
+### ☀️ What the owner does next
+1. **Review `nov-3b-frontsite`** (`git diff nov-96..nov-3b-frontsite`) — 6 commits, all view-layer, gated green. Rides
+   nov-96 (the 3A contract); **main untouched**.
+2. **Deploy UX-1+UX-3 to demo backup-first** — the checkpoint deploy is still yours to run (I continued past it on your
+   "proceed with everything"); beta feedback on the card index + nav is most useful.
+3. **Linear:** move **NOV-90/92/93/94/95 → In Progress** (no Linear write path this session).
+4. **Merge order (Prompt 4):** nov-96 → nov-3b (nov-3b rides it); the 390px Dusk spec joins the dusk-job list when
+   nov-122 merges.
+5. Merge/tag is **Prompt 4's** v1.3.0 release run.
+
+---
+
+## 🌅 Morning report — v1.3 Phase 3A (NOV-96 · NOV-121 · NOV-122) — three branches off `main`, gated GREEN, apex-reviewed; NOTHING merged/pushed (owner reviews) (2026-07-03)
+
+Ran [`docs/product/BUILD-PROMPTS-2026-07-02.md`](docs/product/BUILD-PROMPTS-2026-07-02.md) **Prompt 1** (v1.3 Phase 3A ·
+Foundation & hygiene) end-to-end after owner plan approval (incl. the one plan fork: **wire** the ADR-0087 fan-out).
+Built the three slices as **independent branches off `main` (`6724a9a`)**, gated green at each boundary, ran the apex
+verify-then-refute review on the two ◆ slices, committed as `Tommy Huynh` (DCO `-s`, no AI trailers). **Nothing merged,
+nothing pushed — `main` untouched at `6724a9a`; the v1.3.0 merge/tag is Prompt 4's job.**
+
+### Branch topology (3 independent slices off `main` `6724a9a`)
+```
+main 6724a9a (untouched)
+├─ nov-121-engine-hygiene     52343d9  ◆ last-plain-admin removal guard + delegation fan-out (ADR-0086/0087 amend)
+├─ nov-96-permission-aware-ui 72956ac  ◆ Affordance + <x-action> + route-level friendly-403 (ADR-0109)
+└─ nov-122-ci-completion      0b126bc     Dusk specs wired + route:clear + guzzle audit bump + assets verified
+```
+Disjoint (engine vs. view-layer vs. CI config) — no stacking, no cross-branch code conflict expected. **Suggested merge
+order (Prompt 4): nov-121 → nov-96 → nov-122** (the only overlap is the DECISIONS.md append tail — keep 0086/0087
+amendments AND 0109 — and PROJECT-STATE.md, this report).
+
+### NOV-121 — Engine hygiene ◆ (`nov-121-engine-hygiene` `52343d9`; ADR-0086 + ADR-0087 amended)
+- **Door #1 (ADR-0086 gap closed):** `GroupManager::removeMember` guarded only the co-owner tier — the sole PLAIN admin
+  could be detached into a zero-reachable-admin strand. Now asserts `OwnerStrandGuard::wouldStrandAdminTierLocked()` as
+  the FIRST act inside the transaction (id-based, so a missing User model can't skip it), the SAME `group_user→users→bans`
+  lock order + ban-aware reachable-owner semantics as the ban/delete/demote doors, throwing `GroupException` (the ACP
+  Groups SFC already flashes it).
+- **Door #2 (ADR-0087 gap closed — owner chose WIRE):** a group losing a key via `GroupPermissionEditor` was not
+  cascaded, so a co-owner's delegation could exceed their reduced CURRENT mask for ≤30 days. Wired
+  `DelegationService::onGroupMaskChanged()` (both editor SFCs + the category bulk-apply, after a reduction) → the bounded
+  `CascadeDelegationsJob` re-checks members-with-live-delegations via the proven `cascadeForActor()`. Bounded to actual
+  delegators (a group with none is a no-op), chunked, cron-drainable (ADR-0097); an `exists()` pre-check keeps routine
+  delegation-free saves off the queue. "Never exceeds the delegator's current mask" now holds across every reduction door.
+- **Gates:** GroupManagerTest + DelegationFanoutTest **20/20**; blast-radius regression (Admin/Permissions/Groups/Account/
+  Moderation) **551/551**; Pint clean; PHPStan **0**; **no migration**.
+- **Apex review (verify-then-refute, inline):** **GO, 0 confirmed HIGH/MEDIUM** across 24 hostile hypotheses (TOCTOU
+  serialization, ban-race reachability, over/under-revocation, runtime-only DelegationService↔Job cycle, retry
+  idempotency, reduction-predicate completeness). One proactive hardening applied (the id-based admin guard).
+
+### NOV-96 — Permission-aware UI contract ◆ (`nov-96-permission-aware-ui` `72956ac`; ADR-0109)
+- The five affordance outcomes behind ONE contract (kills the ghost-UI bug class — BETA-4/ADR-0105 — by construction):
+  `App\Permissions\Affordance` (enum + `resolve()`, the pure map → Allow/DisabledWithReason/SignInCta/Hidden; caller
+  declares intent, both default to safe `hide`); the `<x-action>` Blade component renders each in-view state (`:can` takes
+  the authorization VERDICT — the server policy stays the enforcement authority, UI only); `App\Exceptions\
+  FriendlyDenialException` (`::deny`) is the route-level friendly-403 — a full-page denial → an auth-aware explainer
+  (sign-in CTA for guests) carrying only a curated i18n reason (no leak), still a real 403 for middleware/status/JSON;
+  the catastrophe-safe `errors/403` page is untouched. i18n in `lang/en/permissions.php`.
+- **Adopted this pass** (Phase 3B does the wide view-layer sweep "through the 3A contract"): topic per-post edit/delete +
+  the profile staff account-tools via `<x-action>`; the user-delete confirm GET via friendly-403.
+- **Gates:** ActionAffordanceTest + FriendlyDenialTest **13/13**; blast-radius regression (Account incl.
+  `AccountDeletionUiTest`, Forum incl. `TopicModerationVisibilityTest`, + Moderation/Permissions/Community/I18n/
+  Accessibility/Follow/Ignore) **450/453** — the 3 errors are the root-owned `storage/framework/testing/disks/.../
+  attachments` dir (environmental, unrelated; green on CI's clean ext4 checkout). Pint clean; PHPStan **0**; **no migration**.
+- **Apex review (verify-then-refute, inline):** **GO, 0 confirmed HIGH/MEDIUM** — no widening (`:can` is the policy
+  verdict; a forged request to any hidden control still 403s), no friendly-403 leak (curated reasons only), reason
+  `{{ }}`-escaped. One RENDERING defect found + fixed: a Blade `@if`-in-attributes on `<x-ui.button>` corrupted the
+  compiled component (caught by the render tests).
+- **Asset-freshness (verified build-independently):** the two NEW views introduce **zero** new Tailwind utilities — every
+  class is already generated in the committed bundle (`friendly-denial` was swapped `rounded-2xl`/`p-8` → the present
+  `rounded-lg`/`p-6` to keep it so). So `public/build` stays fresh and CI's `assets-fresh` guard passes with NO rebuild.
+  (A clean `npm run build` was not possible here — this env's `node_modules` is missing `@fontsource/inter`; freshness
+  was proven by class-presence inspection against the committed CSS, which needs no build.)
+
+### NOV-122 — CI completion (`nov-122-ci-completion` `0b126bc`)
+- **Dusk wired:** all 13 accumulated CI-pending Browser specs added to the dusk job's app pass (InstallerWizardTest stays
+  PASS 1, enforce-ON); each self-seeds. All `php -l` clean. **No Chrome in this env → CI is the green-verifier** (the
+  standing Dusk-CI-pending rule; Phase-3A's "Dusk green in CI" exit criterion closes on the CI run).
+- **route:clear** added to the test job + the dusk serve loop — kills the stale `bootstrap/cache/routes-*.php`
+  SubdirInstall/PWA false-fails (the 2026-06-22 env finding).
+- **composer audit:** bumped guzzle 7.12.1→7.13.1 + psr7 2.12.1→2.12.3 (CVE-2026-55568 HTTPS-proxy downgrade;
+  CVE-2026-55766 CRLF injection) — `composer audit --no-dev --locked` clean; lock-only (composer.json untouched).
+- **Asset budget:** verified — committed `public/build` fresh + within budget (main JS ~2 KB gz, CSS ~12.5 KB gz vs the
+  50 KB gz ceilings); no re-baseline needed. (Not apex — no adversarial review.)
+
+### Environment notes (this build env — same class as prior sessions, per MEMORY)
+Native WSL2 on a `/mnt/d` drvfs mount, **PHP 8.5.7** (CI is 8.3), **no Docker `forum-dev`, no Chrome**, several
+**root-owned dirs** from a prior root run (`vendor/pestphp/pest/.temp`, `storage/framework/views/livewire`,
+`storage/framework/testing/disks/.../attachments`) + an **incomplete `node_modules`** (`@fontsource/inter` missing).
+Worked around: pointed `VIEW_COMPILED_PATH` at a fresh ext4 dir (fixed intermittent Livewire `tempnam` failures on the
+root-owned compiled dir + sped up SFC tests); gates ran on the native toolchain (sqlite `:memory:`). **CI (clean ext4,
+PHP 8.3) closes the two env-gated items: Dusk green + the 3 attachment-storage tests.**
+
+### Parked decisions — RECOMMENDATIONS (Prompt 1: surface with a recommendation; do NOT implement without owner answer)
+- **U8 imported-username revert (ADR-0106).** A legacy/imported handle that violates the modern `alpha_dash/min:3/max:30`
+  rule can't be reverted (revert re-validates and fails). **Recommend: let a revert bypass the format rule for a value
+  that genuinely exists in `username_history`** — it WAS a real handle, uniqueness is still enforced, the admin explicitly
+  chose it; the format rule should gate NEW handles, not restoration of a historical one. Low risk, closes the gap.
+  (Alt: keep strict — some imported handles stay un-revertable.)
+- **U18 Turnstile posture (ADR-0107).** The shipped Turnstile driver stays fail-OPEN; the two new drivers
+  (hCaptcha/reCAPTCHA) are fail-CLOSED. **Recommend: make posture a per-driver config with fail-CLOSED the default,
+  keeping Turnstile's fail-open only as an explicit operator opt-in** — a CAPTCHA failing open under a provider outage
+  lets spam through; fail-closed is the safer default. (Alt: keep Turnstile's documented fail-open; the posture
+  inconsistency stays.)
+
+### Linear (team NovFora) — pending moves (no Linear tool this session; owner applies)
+**NOV-96 / NOV-121 / NOV-122 → In Progress** (or In Review) at run start; the owner flips to **Done** on merge (prior-
+session convention). The harness had no Linear write path this session.
+
+### ☀️ What the owner does next
+1. **Review the 3 branches** (`git diff main..<branch>`): `nov-121-engine-hygiene` (52343d9), `nov-96-permission-aware-ui`
+   (72956ac), `nov-122-ci-completion` (0b126bc). All gated green locally; apex **GO** on both ◆ slices. **Nothing
+   merged/pushed — `main` untouched at `6724a9a`.**
+2. **Decide the two parked items** (U8 revert rule, U18 Turnstile posture) — recommendations above; Phase-3A gate
+   decisions, not implemented pending your answer.
+3. **Run CI** to close the two env-gated items: **Dusk green** (all specs wired; needs Chrome/CI) + the 3
+   attachment-storage tests (root-owned dir here; pass on ext4).
+4. **This report** lives on `claude/v13-phase3a-report` (off `main`) — merge it alongside the slices.
+5. Merge/tag is **Prompt 4's** v1.3.0 release run, not this one.
+
+---
+
 ## 🌅 Morning report — FABLE session: Populate private plugin (E6a engine + E6b Studio) BUILT FIRST against v1.2.x — plugin repo complete + gated GREEN; one small core seams branch; owner reviews (2026-07-02)
 
 Ran [`docs/product/BUILD-PROMPTS-2026-07-02.md`](docs/product/BUILD-PROMPTS-2026-07-02.md) **Prompt 0** end-to-end,
