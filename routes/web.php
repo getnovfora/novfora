@@ -455,6 +455,7 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
 
         // Plugins section — the module/plugin lifecycle + outbound webhooks + embed sites.
         Route::view('/plugins/modules', 'admin.modules')->name('modules');           // ADR-0031
+        Route::view('/plugins/registry', 'admin.registry')->name('registry');        // ADR-0113 (Registry v1)
         Route::view('/plugins/webhooks', 'admin.webhooks')->name('webhooks');        // ADR-0033
         Route::view('/plugins/embeds', 'admin.embeds')->name('embeds');              // ADR-0103 (U7)
 

@@ -71,6 +71,7 @@ return [
         'layout' => 'Layout & widgets',
         'navigation' => 'Navigation',
         'modules' => 'Modules & plugins',
+        'registry' => 'Registry',
         'webhooks' => 'Webhooks',
         'embeds' => 'Embeds',
         'general' => 'General',

@@ -393,6 +393,31 @@ return [
         ],
     ],
 
+    // ── The NovFora Registry (Phase 4C, ADR-0113, apex supply chain) ────────────────────────────────
+    // A STATIC signed JSON feed of installable themes + plugins. The feed is fetched, its ed25519 detached
+    // signature verified against the PINNED root public key below (a mirror serves bytes, never trust), its
+    // monotonic sequence checked (rollback refused), and each package's zip verified against the sha256 the
+    // signed feed pins (mirror substitution refused). One-click install rides the UNTOUCHED ArchiveGuard +
+    // PackageSignature/StylePackage paths — no second install path. See docs/product/spike-registry-memo.md.
+    'registry' => [
+        'enabled' => (bool) env('NOVFORA_REGISTRY_ENABLED', true),
+        // The signed feed + its detached `.sig` (any mirror; the signature is the authority, not the host).
+        'feed_url' => env('NOVFORA_REGISTRY_FEED_URL', 'https://novfora.com/registry/registry.json'),
+        // The PINNED registry root ed25519 public key (base64, 32 raw bytes). Shipping this is what makes the
+        // feed tamper-evident; rotating it is a release event. Empty = the registry is inert (nothing installs).
+        'root_public_key' => env('NOVFORA_REGISTRY_ROOT_KEY', ''),
+        // On a publisher revocation reaching an installed package: 'alert' (default — surface loudly, the
+        // operator decides; auto-killing a live module is itself a DoS) or 'disable' (auto kill-switch).
+        'on_revoke' => env('NOVFORA_REGISTRY_ON_REVOKE', 'alert'),
+        // A verified feed older than this many days surfaces a staleness warning (mirror-freeze detection).
+        'stale_after_days' => (int) env('NOVFORA_REGISTRY_STALE_DAYS', 30),
+        'staging_path' => storage_path('app/registry-staging'),
+        // SSRF fence: the feed/package fetches re-validate every redirect hop against IpClassifier and refuse
+        // an internal/blocked address (a mirror is UNTRUSTED bytes — it must not become an SSRF primitive to
+        // cloud metadata / internal hosts). Set true ONLY for a loopback dev registry — NEVER in production.
+        'allow_private' => (bool) env('NOVFORA_REGISTRY_ALLOW_PRIVATE', false),
+    ],
+
     // ── Outbound webhooks (ADR-0033, Phase 3 B3) ────────────────────────────────────────────────────
     // Admin-registered endpoints receive HMAC-signed deliveries of domain events, drained by the cron runner.
     // allow_private lets a developer point a webhook at a loopback/private host (the SSRF guard refuses these

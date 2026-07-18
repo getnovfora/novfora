@@ -6,6 +6,7 @@ use App\Backup\RestoreRunner;
 use App\Backup\RestoreState;
 use App\Http\Controllers\HealthController;
 use App\Install\PublicStorageLinker;
+use App\Registry\RegistryClient;
 use App\Upgrade\UpgradeRunner;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -208,4 +209,22 @@ Schedule::command('novfora:deliverability:poll-bounces')
     ->everyMinute()
     ->withoutOverlapping()
     ->name('novfora-poll-bounces')
+    ->skip($duringRestore);
+
+// The NovFora Registry daily refresh (ADR-0113): fetch + verify the signed feed once a day so a publisher
+// REVOCATION propagates to installed packages (trust-key disable + on_revoke kill-switch) automatically —
+// not only when an admin opens the ACP. No-op / best-effort when the registry is unconfigured or offline.
+Schedule::call(function (): void {
+    try {
+        $registry = app(RegistryClient::class);
+        if ($registry->isConfigured()) {
+            $registry->refresh();
+        }
+    } catch (Throwable) {
+        // offline / transient — the next tick retries; never break the scheduler run
+    }
+})
+    ->name('novfora-registry-refresh')
+    ->daily()
+    ->withoutOverlapping()
     ->skip($duringRestore);
