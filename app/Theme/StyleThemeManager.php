@@ -192,10 +192,15 @@ final class StyleThemeManager
             $css .= ":root[data-theme='dark']{".$vars($accent['dark']).'}';
         }
 
-        // Core token overrides (Theme Studio 1.1). Emitted as a plain :root{} block AFTER app.css, so they win
-        // in light mode while the higher-specificity dark rules preserve the tuned dark palette. Values are
-        // already strict-validated (cleanTokens), so this can never inject beyond a declaration.
-        $css .= self::tokenCss(is_array($theme->tokens) ? $theme->tokens : null);
+        // Core token overrides (Theme Studio 1.1 + U9 dark layer). The light map is a plain :root{} block
+        // AFTER app.css, so it wins in light mode while the higher-specificity dark rules preserve the tuned
+        // dark palette; the optional dark map re-states those higher-specificity dark selectors after app.css
+        // so an explicit dark override wins too. Values are already strict-validated (cleanTokens), so this
+        // can never inject beyond a declaration.
+        $css .= self::tokenCss(
+            is_array($theme->tokens) ? $theme->tokens : null,
+            is_array($theme->tokens_dark) ? $theme->tokens_dark : null,
+        );
 
         // Background image (Theme Studio 1.5) — a full-page background behind the board. The path is one we
         // generated (hashed name on the public disk); addcslashes is belt-and-braces against the url() quote.
@@ -210,26 +215,42 @@ final class StyleThemeManager
     }
 
     /**
-     * Compile the validated token map into a `:root{}` override block (or '' when empty). Only keys in the
-     * ThemeApi editable-token contract are emitted, each as its REAL core CSS variable.
+     * Compile the validated token maps into override blocks (or '' when empty). Only keys in the ThemeApi
+     * editable-token contract are emitted, each as its REAL core CSS variable. The light map emits a plain
+     * `:root{}` block; the dark map (U9) emits the SAME two dark selectors app.css uses (the OS media query
+     * and the explicit data-theme attribute), so an override wins in dark mode by document order while a
+     * blank dark map keeps the tuned built-in dark palette untouched.
      *
      * @param  array<string,string>|null  $tokens
+     * @param  array<string,string>|null  $tokensDark
      */
-    public static function tokenCss(?array $tokens): string
+    public static function tokenCss(?array $tokens, ?array $tokensDark = null): string
     {
-        if (empty($tokens)) {
-            return '';
-        }
-
         $registry = ThemeApi::editableTokens();
-        $decls = '';
-        foreach ($tokens as $key => $value) {
-            if (isset($registry[$key]) && $value !== '') {
-                $decls .= $registry[$key]['var'].':'.$value.';';
+        $decls = static function (?array $map) use ($registry): string {
+            $out = '';
+            foreach ($map ?? [] as $key => $value) {
+                if (isset($registry[$key]) && $value !== '') {
+                    $out .= $registry[$key]['var'].':'.$value.';';
+                }
             }
+
+            return $out;
+        };
+
+        $css = '';
+        $light = $decls($tokens);
+        if ($light !== '') {
+            $css .= ':root{'.$light.'}';
         }
 
-        return $decls === '' ? '' : ':root{'.$decls.'}';
+        $dark = $decls($tokensDark);
+        if ($dark !== '') {
+            $css .= "@media (prefers-color-scheme: dark){:root:not([data-theme='light']){".$dark.'}}';
+            $css .= ":root[data-theme='dark']{".$dark.'}';
+        }
+
+        return $css;
     }
 
     /**
@@ -259,6 +280,7 @@ final class StyleThemeManager
             'accent_color' => $this->cleanAccent($data['accent_color'] ?? null),
             'custom_css' => self::sanitizeCss((string) ($data['custom_css'] ?? '')) ?: null,
             'tokens' => $this->cleanTokens($data['tokens'] ?? null),
+            'tokens_dark' => $this->cleanTokens($data['tokens_dark'] ?? null),
             'header_html' => $this->cleanHtml($data['header_html'] ?? null),
             'footer_html' => $this->cleanHtml($data['footer_html'] ?? null),
             'is_active' => false,
@@ -287,6 +309,7 @@ final class StyleThemeManager
             'accent_color' => $this->cleanAccent($data['accent_color'] ?? null),
             'custom_css' => self::sanitizeCss((string) ($data['custom_css'] ?? '')) ?: null,
             'tokens' => $this->cleanTokens($data['tokens'] ?? null),
+            'tokens_dark' => $this->cleanTokens($data['tokens_dark'] ?? null),
             'header_html' => $this->cleanHtml($data['header_html'] ?? null),
             'footer_html' => $this->cleanHtml($data['footer_html'] ?? null),
         ]);

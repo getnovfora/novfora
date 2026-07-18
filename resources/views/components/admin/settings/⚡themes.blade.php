@@ -37,8 +37,11 @@ new class extends Component
 
     public string $accentColor = '';
 
-    /** @var array<string,string> token-key => value (see App\Theme\ThemeApi::editableTokens()) */
+    /** @var array<string,string> token-key => LIGHT value (see App\Theme\ThemeApi::editableTokens()) */
     public array $tokens = [];
+
+    /** @var array<string,string> token-key => DARK value (U9; blank = keep the tuned built-in dark) */
+    public array $tokensDark = [];
 
     public string $customCss = '';
 
@@ -72,6 +75,7 @@ new class extends Component
         $this->name = (string) $theme->name;
         $this->accentColor = (string) ($theme->accent_color ?? '');
         $this->tokens = is_array($theme->tokens) ? $theme->tokens : [];
+        $this->tokensDark = is_array($theme->tokens_dark) ? $theme->tokens_dark : [];
         $this->customCss = (string) ($theme->custom_css ?? '');
         $this->headerHtml = (string) ($theme->header_html ?? '');
         $this->footerHtml = (string) ($theme->footer_html ?? '');
@@ -104,6 +108,7 @@ new class extends Component
             'name' => $data['name'],
             'accent_color' => $data['accentColor'] ?? null,
             'tokens' => $this->tokens, // StyleThemeManager::cleanTokens() strict-validates each value
+            'tokens_dark' => $this->tokensDark,
             'custom_css' => $data['customCss'] ?? null,
             'header_html' => $this->headerHtml,  // sanitised through the post allowlist on save
             'footer_html' => $this->footerHtml,
@@ -192,18 +197,40 @@ new class extends Component
     }
 
     /**
-     * The live token preview: each token's EFFECTIVE value (draft override or built-in default) plus the
-     * WCAG contrast ratios the editor badges. Recomputed on every wire:model.live edit — keeps the Blade
-     * dumb (no arrow functions / inline logic that the compiler trips over).
+     * The live token preview: each token's EFFECTIVE value per colour mode (draft override or built-in
+     * default) plus the WCAG contrast ratios the editor badges, and the registry grouped for display.
+     * Recomputed on every wire:model.live edit — keeps the Blade dumb (no arrow functions / inline logic
+     * that the compiler trips over).
      *
-     * @return array{eff: array<string,string>, badges: list<array{label:string,ratio:float,pass:bool}>}
+     * @return array{
+     *   eff: array<string,string>,
+     *   effDark: array<string,string>,
+     *   badges: list<array{label:string,ratio:float,pass:bool}>,
+     *   badgesDark: list<array{label:string,ratio:float,pass:bool}>,
+     *   groups: array<string, array<string, array{var:string,label:string,group:string,type:string,default:string,dark_default:?string}>>,
+     * }
      */
     public function tokenPreview(): array
     {
+        $registry = \App\Theme\ThemeApi::editableTokens();
+
         $eff = [];
-        foreach (\App\Theme\ThemeApi::editableTokens() as $key => $meta) {
+        $effDark = [];
+        foreach ($registry as $key => $meta) {
             $v = isset($this->tokens[$key]) ? trim((string) $this->tokens[$key]) : '';
             $eff[$key] = $v !== '' ? $v : $meta['default'];
+
+            $dv = isset($this->tokensDark[$key]) ? trim((string) $this->tokensDark[$key]) : '';
+            // A length token has no dark variant (dark_default null) — the light effective value applies.
+            $effDark[$key] = $dv !== '' ? $dv : ($meta['dark_default'] ?? $eff[$key]);
+        }
+
+        $groups = [];
+        foreach (\App\Theme\ThemeApi::tokenGroups() as $group) {
+            $groups[$group] = [];
+        }
+        foreach ($registry as $key => $meta) {
+            $groups[$meta['group']][$key] = $meta;
         }
 
         $ratio = static fn (string $a, string $b): float => \App\Support\AccentPalette::contrastRatio($a, $b) ?? 0.0;
@@ -211,17 +238,24 @@ new class extends Component
 
         return [
             'eff' => $eff,
+            'effDark' => $effDark,
+            'groups' => $groups,
             'badges' => [
                 $badge('Text on bg', $ratio($eff['ink'], $eff['surface'])),
                 $badge('Muted on bg', $ratio($eff['ink_muted'], $eff['surface'])),
                 $badge('Text on card', $ratio($eff['ink'], $eff['surface_raised'])),
+            ],
+            'badgesDark' => [
+                $badge('Text on bg', $ratio($effDark['ink'], $effDark['surface'])),
+                $badge('Muted on bg', $ratio($effDark['ink_muted'], $effDark['surface'])),
+                $badge('Text on card', $ratio($effDark['ink'], $effDark['surface_raised'])),
             ],
         ];
     }
 
     private function resetForm(): void
     {
-        $this->reset(['formId', 'name', 'accentColor', 'tokens', 'customCss', 'headerHtml', 'footerHtml',
+        $this->reset(['formId', 'name', 'accentColor', 'tokens', 'tokensDark', 'customCss', 'headerHtml', 'footerHtml',
             'logoUpload', 'faviconUpload', 'backgroundUpload', 'assetUrls']);
         $this->resetErrorBag();
     }
@@ -278,49 +312,75 @@ new class extends Component
                     </p>
                 @endif
 
-                {{-- Colours & tokens (Theme Studio 1.1): override the core design tokens, AA-checked live. --}}
+                {{-- Style properties (U9): grouped, typed tokens with light + dark values, AA-checked live. --}}
                 @php($preview = $this->tokenPreview())
                 <div class="rounded-md border border-line p-4 space-y-4" dusk="acp-theme-tokens">
                     <div class="flex items-center justify-between gap-2">
-                        <h3 class="text-sm font-semibold text-ink">Colours &amp; tokens</h3>
-                        <span class="text-xs text-ink-subtle">Light palette · dark stays tuned · blank = built-in</span>
+                        <h3 class="text-sm font-semibold text-ink">Style properties</h3>
+                        <span class="text-xs text-ink-subtle">Blank = built-in · dark blank = tuned dark stays</span>
                     </div>
-                    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        @foreach (\App\Theme\ThemeApi::editableTokens() as $key => $meta)
-                            <div>
-                                <label for="token-{{ $key }}" class="block text-xs font-medium text-ink-muted">{{ $meta['label'] }}</label>
-                                <div class="mt-1 flex items-center gap-2">
-                                    @if ($meta['type'] === 'color')
-                                        <span class="inline-block h-6 w-6 shrink-0 rounded border border-line" style="background: {{ $preview['eff'][$key] }}" aria-hidden="true"></span>
-                                    @endif
-                                    <input id="token-{{ $key }}" type="text" wire:model.live="tokens.{{ $key }}"
-                                           placeholder="{{ $meta['default'] }}" autocomplete="off" spellcheck="false"
-                                           class="w-full rounded-md border border-line bg-surface px-2 py-1 font-mono text-xs text-ink" />
+                    @foreach ($preview['groups'] as $group => $groupTokens)
+                        @if ($groupTokens !== [])
+                            <fieldset class="space-y-2">
+                                <legend class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ $group }}</legend>
+                                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                    @foreach ($groupTokens as $key => $meta)
+                                        <div>
+                                            <label for="token-{{ $key }}" class="block text-xs font-medium text-ink-muted">{{ $meta['label'] }}</label>
+                                            <div class="mt-1 flex items-center gap-2">
+                                                @if ($meta['type'] === 'color')
+                                                    <span class="inline-block h-6 w-6 shrink-0 rounded border border-line" style="background: {{ $preview['eff'][$key] }}" aria-hidden="true"></span>
+                                                @endif
+                                                <input id="token-{{ $key }}" type="text" wire:model.live="tokens.{{ $key }}"
+                                                       placeholder="{{ $meta['default'] }}" autocomplete="off" spellcheck="false"
+                                                       aria-label="{{ $meta['label'] }} — light value"
+                                                       class="w-full rounded-md border border-line bg-surface px-2 py-1 font-mono text-xs text-ink" />
+                                                @if ($meta['dark_default'] !== null)
+                                                    <span class="inline-block h-6 w-6 shrink-0 rounded border border-line" style="background: {{ $preview['effDark'][$key] }}" aria-hidden="true"></span>
+                                                    <input id="token-dark-{{ $key }}" type="text" wire:model.live="tokensDark.{{ $key }}"
+                                                           placeholder="{{ $meta['dark_default'] }}" autocomplete="off" spellcheck="false"
+                                                           aria-label="{{ $meta['label'] }} — dark value"
+                                                           class="w-full rounded-md border border-line bg-surface-sunken px-2 py-1 font-mono text-xs text-ink" />
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </fieldset>
+                        @endif
+                    @endforeach
+                    <p class="text-xs text-ink-subtle">Each row: light value, then dark value. Colours are hex (<code>#rrggbb</code>); lengths are <code>px/rem/em</code>.</p>
+
+                    {{-- Live preview + WCAG AA badges for BOTH colour modes (server-computed; updates as you type). --}}
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        @foreach (['eff' => ['label' => 'Light', 'badges' => 'badges'], 'effDark' => ['label' => 'Dark', 'badges' => 'badgesDark']] as $mode => $modeMeta)
+                            @php($m = $preview[$mode])
+                            <div class="space-y-2">
+                                <div class="rounded-md border p-4"
+                                     style="background: {{ $m['surface'] }}; border-color: {{ $m['line'] }}; border-radius: {{ $m['radius'] }}"
+                                     dusk="acp-theme-preview{{ $mode === 'effDark' ? '-dark' : '' }}">
+                                    <p class="text-xs font-semibold uppercase tracking-wide" style="color: {{ $m['ink_subtle'] }}">{{ $modeMeta['label'] }}</p>
+                                    <p class="text-sm font-semibold" style="color: {{ $m['ink'] }}">The quick brown fox</p>
+                                    <p class="text-xs" style="color: {{ $m['ink_muted'] }}">Muted secondary text jumps over the lazy dog.</p>
+                                    <span class="mt-2 inline-block rounded px-2 py-1 text-xs font-medium"
+                                          style="background: {{ $m['surface_raised'] }}; color: {{ $m['ink'] }}; border-radius: {{ $m['radius'] }}">Raised chip</span>
+                                    <span class="mt-2 ml-1 inline-block rounded px-2 py-1 text-xs font-medium"
+                                          style="background: {{ $m['success_soft'] }}; color: {{ $m['success_ink'] }}; border-radius: {{ $m['radius'] }}">Success</span>
+                                    <span class="mt-2 ml-1 inline-block rounded px-2 py-1 text-xs font-medium"
+                                          style="background: {{ $m['danger_soft'] }}; color: {{ $m['danger_ink'] }}; border-radius: {{ $m['radius'] }}">Danger</span>
+                                </div>
+                                <div class="space-y-1 text-xs">
+                                    @foreach ($preview[$modeMeta['badges']] as $b)
+                                        <div class="flex items-center justify-between gap-2">
+                                            <span class="text-ink-muted">{{ $b['label'] }}</span>
+                                            <span class="font-mono {{ $b['pass'] ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">{{ number_format($b['ratio'], 1) }}:1 {{ $b['pass'] ? '✓' : '✗' }}</span>
+                                        </div>
+                                    @endforeach
                                 </div>
                             </div>
                         @endforeach
                     </div>
-
-                    {{-- Live preview + WCAG AA badges (server-computed; updates as you type). --}}
-                    <div class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-stretch">
-                        <div class="rounded-md border p-4"
-                             style="background: {{ $preview['eff']['surface'] }}; border-color: {{ $preview['eff']['line'] }}; border-radius: {{ $preview['eff']['radius'] }}"
-                             dusk="acp-theme-preview">
-                            <p class="text-sm font-semibold" style="color: {{ $preview['eff']['ink'] }}">The quick brown fox</p>
-                            <p class="text-xs" style="color: {{ $preview['eff']['ink_muted'] }}">Muted secondary text jumps over the lazy dog.</p>
-                            <span class="mt-2 inline-block rounded px-2 py-1 text-xs font-medium"
-                                  style="background: {{ $preview['eff']['surface_raised'] }}; color: {{ $preview['eff']['ink'] }}; border-radius: {{ $preview['eff']['radius'] }}">Raised chip</span>
-                        </div>
-                        <div class="space-y-1 text-xs">
-                            @foreach ($preview['badges'] as $b)
-                                <div class="flex items-center justify-between gap-2">
-                                    <span class="text-ink-muted">{{ $b['label'] }}</span>
-                                    <span class="font-mono {{ $b['pass'] ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">{{ number_format($b['ratio'], 1) }}:1 {{ $b['pass'] ? '✓' : '✗' }}</span>
-                                </div>
-                            @endforeach
-                            <p class="pt-1 text-ink-subtle">AA needs 4.5:1 for text.</p>
-                        </div>
-                    </div>
+                    <p class="text-xs text-ink-subtle">AA needs 4.5:1 for text.</p>
                 </div>
 
                 <x-ui.textarea label="Custom CSS" name="customCss" wire:model="customCss" rows="8"
