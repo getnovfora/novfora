@@ -13,14 +13,163 @@
 
 ---
 
-## ▶ ACTIVE TASK — v1.4 "The Creator Release" (kickoff 2026-07-17, IN PROGRESS)
+## 🌅 Morning report — FABLE v1.4 "The Creator Release" — Phase 0 + 4A + 4B + 4C COMPLETE (green, apex-reviewed, committed per-slice); 4D/4E PARKED for a follow-up; owner reviews (2026-07-18)
 
-Executing [`docs/product/FABLE-V1.4-KICKOFF-2026-07-17.md`](docs/product/FABLE-V1.4-KICKOFF-2026-07-17.md)
-end-to-end, unattended (owner pre-approved the BUILD-PROMPTS 5–8 plan gates by approving that doc). Order:
-**Phase 0 reconcile → 4A style engine → 4B ◆ template hooks/Diff3 → 4C ◆ export+Registry+importers (NOV-124
-spike self-gates GO/NO-GO) → 4D admin-at-scale → 4E ◆◆ admin API + self-upgrade → release run** ending at a
-**locally tagged `v1.4.0`** (owner pushes). One branch per slice off `main`; nothing merges until the release
-run; every ◆/◆◆ slice gets the verify-then-refute apex review with 0 open HIGH/MEDIUM before merge.
+Ran [`docs/product/FABLE-V1.4-KICKOFF-2026-07-17.md`](docs/product/FABLE-V1.4-KICKOFF-2026-07-17.md) unattended.
+Delivered **Phase 0 (reconcile) + 4A (style engine) + 4B (upgrade-safe customization) + 4C (distribution:
+export / Registry / importers)** — every slice gated GREEN, both ◆ apex slices adversarially reviewed with **0
+open HIGH/MEDIUM at merge**, each on its own branch off `main`, committed as `Tommy Huynh` (DCO `-s`, no AI
+trailers). **Phases 4D and 4E are PARKED** (a deliberate depth-over-breadth call — the remaining ~13 slices +
+2 apex reviews + release run did not fit one session at the apex quality bar; documented below with exact plans
++ clean branch state so a follow-up resumes cleanly). **Nothing merged to `main` beyond Phase 0; no `v1.4.0`
+tag** — a partial release can't honestly be tagged. `main` is at Phase 0's `5c3800b`.
+
+### The apex review earned its keep (the kickoff's core bet)
+Both ◆ slices' verify-then-refute reviews caught **real HIGH/MEDIUM bugs a fully-green suite missed** — exactly
+the evidence the kickoff cites. **U11: 5 findings** (1 HIGH + 4 MEDIUM). **Registry v1: 6 findings** (2 HIGH +
+4 MEDIUM, across three review passes). **All 11 fixed + regression-tested before the slice's green boundary.**
+Full ledgers in ADR-0112 and ADR-0113.
+
+### Branch topology (all off `main` `5c3800b`; only Phase 0 is on `main`)
+```
+main 5c3800b (Phase 0 merged)
+├─ claude/v14-u9-style-props     U9 rich style props (7→21 tokens + dark)       NOV-107
+│  └─ claude/v14-u10-style-tree  U10 style tree + per-user chooser (on U9)      NOV-108
+├─ claude/v14-u11-template-hooks U11 template hooks + Diff3 (ADR-0112, ◆apex)   NOV-109
+├─ claude/v14-u12-style-io       U12 style import/export + global CSS + spike   NOV-110/124
+│  └─ claude/v14-registry-v1     Registry v1 (ADR-0113, ◆apex; stacked on U12)  NOV-125
+├─ claude/v14-importers          MyBB/SMF importer completion                   NOV-126
+└─ claude/v14-morning-report     THIS report (doc-only)
+```
+
+### Phase 0 — MERGED to `main` (`5c3800b`)
+Landed the two stranded v1.3 report branches; wrote the missing v1.3.0 release record; trimmed PROJECT-STATE
+847→125 lines (reports → PROJECT-HISTORY); link-check + pint green.
+
+### 4A — Style engine (Sonnet-rung once the design locked)
+- **U9 (NOV-107):** ThemeApi grows **7→21 typed/grouped style tokens** (MINOR → 1.3.0) with **per-token dark
+  values** (`tokens_dark`, closing ADR-0037's deferred dark customisation) behind the unchanged strict
+  `cleanTokens()` injection fence; grouped ACP editor with dual-mode AA preview. Full suite 2311/0.
+- **U10 (NOV-108, on U9):** `site_themes` becomes a **tree** (parent_id, depth-5, cycle-guarded,
+  delete-refused-with-children, child-wins inheritance) + a **per-user style chooser** (`users.style_theme_id`,
+  no-JS form, validated); compiled CSS under a **monotonic generation key** so a parent edit atomically busts
+  descendants, viewer-resolution generation-cached → warm path stays **zero site_themes queries**; ships
+  NovFora/Daylight/Midnight presets (never auto-activated). **Gate 4A proof — a child theme built entirely in
+  the ACP — passes.** Full suite 2323/0.
+
+### 4B ◆ APEX — U11 upgrade-safe customization (NOV-109, ADR-0112)
+Two mechanisms on the **unchanged ADR-0038 sandbox** as the sole render/safety authority: **template-hook
+fragments** on 8 named anchors (name-anchored → survive upgrades; per-fragment isolated; forever-cached map =
+zero warm-path queries) + **Diff3 three-way merge** for full overrides (in-house bounded Myers, no new
+dependency; a conflict NEVER touches the stored source and `Diff3` returns `merged=null` so markers can't
+exist; merged output re-passes the sandbox lint). `TemplateSync` on the upgrade path + `novfora:templates:sync`
++ lazy ACP. **Gate 4B proof — a themed + template-modded install crosses a simulated release with mods intact,
+conflicts non-fatal — passes.** Apex: **1 HIGH** (lint skeleton unsound — regex→AST text-node scan) **+ 4
+MEDIUM** (slash-separated handlers; Diff3 duplicate-collapse corruption; Diff3 O(D²) OOM; ACP sync
+write-amplification), all fixed. Full suite 2340/0.
+
+### 4C ◆ — Distribution (spike GO, U12, Registry apex, importers)
+- **NOV-124 spike → GO** ([`docs/product/spike-registry-memo.md`](docs/product/spike-registry-memo.md)) on all
+  four self-gate criteria.
+- **U12 (NOV-110):** `StylePackage` export/import — a portable zip whose `style.json` manifest **IS the registry
+  theme format**; import rides ArchiveGuard + StyleThemeManager's strict validation (no second path;
+  traversal/CSS-injection refused). Plus a site-wide global custom-CSS box. Full suite 2313/0.
+- **Registry v1 (NOV-125, ADR-0113, APEX):** signed static-feed client — ed25519 root-key verify over exact
+  bytes, **durable** monotonic sequence, sha256 content-address, publisher-active + downgrade refusal,
+  **SSRF-guarded** fetches, one-click install via the untouched paths, publisher **revocation → trust-key
+  disable + `on_revoke` kill-switch + ACP alert + daily cron refresh**, ops `novfora:registry:sign`, ACP Browse.
+  Apex across **three passes: 2 HIGH + 4 MEDIUM, all fixed** (fingerprint decoupling; dead kill-switch config;
+  cache-flushable rollback floor; redirect SSRF; cached-path revocation skip + no cron; unbounded download).
+  Registry suite 18 tests; full suite 2331/0.
+- **Importers (NOV-126):** MyBB/SMF filter to real members (parity with phpBB bot-exclusion / XenForo
+  valid-only, mirrored into `counts()`); SMF attachment uploader resolves via the owning message; SCAFFOLD
+  labels flipped. Import 15/15 (7929 assertions); full suite 2305/0.
+
+### Gate discipline
+`route:clear` before every gate; slice gate = Pest + Pint + PHPStan(app/) 0 + migrate apply/rollback/re-apply +
+a11y where touched; full parallel suite green at each committed boundary. **Dusk = CI-pending** (no Chrome in
+the env). New reversible migrations across the slices: `site_themes.tokens_dark`; style tree +
+`users.style_theme_id`; `site_templates` merge-tracking + `site_template_hooks`; `registry_installs` +
+`registry_state`.
+
+---
+
+## ⏸ PARKED — Phases 4D + 4E + the release run (follow-up session; nothing built, nothing broken)
+
+Parked deliberately for capacity, per the kickoff's "park that phase, ship around it, flag it" rule. Each has a
+ready plan; nothing is half-built. A follow-up session branches per slice off `main` and continues.
+
+- **Phase 4D — Admin at scale (mostly Sonnet-rung):** U14 registration controls + pending-member exit-ramp fix
+  (**NOV-112**; spec `docs/product/pending-member-review-kickoff.md` — do its Step-0 ADR first, the
+  anti-spam-sensitive activation policy), U13 IP investigation + CIDR/range bans *(elevated review)*
+  (**NOV-111**), U16 maintenance/rebuild + logs + mail-test ACP (**NOV-114**), U19 custom topic fields +
+  move-with-redirect wiring the existing `moved_to_topic_id` seam (**NOV-116**), staff workflow + Hearth
+  metrics v1 on `moderator_assignments` — **real signals only** (**NOV-127**, ADR-0114). Gate 4D: full gates +
+  demo soak.
+- **Phase 4E ◆◆ — Admin API + self-upgrade:** **read
+  [`docs/product/ADMIN-API-AND-POPULATE-SPEC-2026-07-02.md`](docs/product/ADMIN-API-AND-POPULATE-SPEC-2026-07-02.md)
+  IN FULL first** (authoritative). Slice order E1→E2→E3→E4→E5→E7→E8. E1 ◆APEX scoped tokens (scopes ∩ `canDo`,
+  no super-scope, co-owner-only restore/upgrade scopes, 2FA-gated mint, `Idempotency-Key`, OpenAPI 3.1;
+  **NOV-135**, ADR-0115), E2 read (**NOV-136**), E3 ◆ write via existing domain services only (**NOV-137**), E4
+  ◆APEX backups (**NOV-138**, ADR-0116), E5 ◆◆APEX restore — the most dangerous endpoint (**NOV-139**,
+  ADR-0117), E7 ◆◆APEX self-upgrade — ed25519 core-release signing + GitHub Releases channel (**NOV-141**,
+  ADR-0118), E8 docs (**NOV-142**). **E6a/E6b already shipped** as the private Populate plugin — do NOT rebuild;
+  add only the thin Populate API round-trip endpoints behind E1's scopes. Gate 4E: the spec §5 end-to-end proof
+  on all three RH-4 layouts.
+- **The release run (§6):** only after 4D/4E are green — `backup/pre-v14` tag, `--no-ff` merges in phase order
+  (U9→U10→U11→U12→Registry→importers→4D→4E) re-gating between merges, union gate, bump `config/app.php` →
+  `1.4.0`, `build-release.sh` → `verify-release.sh` = `RELEASE_VERIFY=PASS` (confirm Populate is NOT in the
+  zip), tag `v1.4.0` locally. **Expected merge conflicts:** the `DECISIONS.md` append tail (keep 0112 then 0113
+  in order); the **themes SFC** 3-way (U9 grouped tokens / U10 tree / U12 export-import — all additive,
+  hand-merge); `AdminNavigation`/`routes/web.php`/`lang/en/admin.php` adjacent nav items; the
+  `AdminAccessWalkTest` sentinel (trivial both-add).
+
+---
+
+## ✅ Definition-of-done (kickoff §10) — status at this handoff
+
+- [x] Phase 0 landed: PROJECT-STATE accurate + lean, v1.3.0 recorded, history moved.
+- [~] Every phase 4A–4E **merged green or parked with a documented reason**: 4A/4B/4C **green + committed** (not
+  merged — the release run is parked); 4D/4E **parked with plans** above. None silently dropped.
+- [x] Every ◆/◆◆ slice **built so far** (U11, Registry v1) has an apex review with **0 open HIGH/MEDIUM**,
+  findings + fixes recorded (ADR-0112, ADR-0113). *(4E's ◆◆ slices are parked, un-built.)*
+- [x] Union gate green **per slice**; migrations reversible. *(The §6 union re-gate across all merged slices is
+  part of the parked release run.)*
+- [ ] `RELEASE_VERIFY=PASS` / Populate-not-in-zip — **parked** (release run not reached).
+- [ ] Version `1.4.0` / `v1.4.0` tag / `backup/pre-v14` — **not done** (partial release; see ☀️).
+- [!] **Linear reconciled — BLOCKED this session** (no Linear MCP in the env). Every intended state/comment is
+  listed in the ☀️ section for the owner to apply by hand.
+- [x] ADRs lifted at confirmed next-free numbers (0112, 0113) on their branches.
+- [x] This report + the ☀️ owner section.
+
+---
+
+## ☀️ What the owner does next
+
+1. **Review + keep the 6 slice branches** (all green, apex-reviewed where ◆): `claude/v14-u9-style-props` →
+   `claude/v14-u10-style-tree` (stacked); `claude/v14-u11-template-hooks`; `claude/v14-u12-style-io` →
+   `claude/v14-registry-v1` (stacked); `claude/v14-importers`. And **merge this doc-only report branch**
+   (`claude/v14-morning-report`) to `main` so the handoff record lives on `main` (don't strand it — that was
+   the Phase 0 lesson). All local — the harness cannot push the protected `main`.
+2. **Run a follow-up v1.4 session for 4D + 4E + the release run** (parked section above has the full plan, ADR
+   numbers, and the expected merge conflicts). 4D is mostly Sonnet-rung; 4E is the big apex phase.
+3. **Linear — apply by hand (NO Linear write path this session; the classifier had no MCP to deny — the tool
+   simply isn't present).** Set → **Done on merge:** NOV-107, NOV-108, NOV-109, NOV-110, NOV-124 (spike),
+   NOV-125, NOV-126. Post the per-issue completion comment (branch + head SHA + gate + ADR + confirmed apex
+   findings) — the full ledger is in the session scratchpad; the essentials are in this report. Still **verify**
+   (Phase 0 could not, no MCP): the v1.3 issues are `Done`, and NOV-140/NOV-143 (Populate E6a/E6b) are `Done`
+   with completion comments backfilled. Leave **NOV-112/111/114/116/127** (4D) and **NOV-135–139/141/142** (4E)
+   in Backlog — parked.
+4. **File the discovered follow-ups as issues:** (a) importer live-dump verification + per-driver traversal
+   tests + the tracked `docs/architecture/phase3-extensibility/importers.md` refresh (stale re: XenForo) + the
+   untracked `novfora-docs` migrating-guide "scaffold" wording + the ACP import surface that guide references
+   but which doesn't exist; (b) the U12 export → wire `effective()`+`tokens_dark` once U10 merges (reserved
+   manifest slot); (c) demo.novfora.com still runs pre-v1.3 (upgrade via the cron auto-upgrade path,
+   backup-first — v1.3.0 and later carry migrations, not assets-only).
+5. **Gemini API key (STILL OPEN):** the key committed in the old `F:\ForumGen\generate_forum.py` was flagged for
+   revocation 2026-07-02 and is **not confirmed revoked**. Confirm it's revoked (the new script is env-only).
+6. **Dusk in CI:** all new ACP surfaces (theme editor, templates/hooks, Registry Browse) are server-render +
+   auth-gated here; no Chrome in the build env, so their browser journeys are CI-pending.
 
 ---
 
@@ -106,9 +255,11 @@ Scaffolded/disabled-by-default; unit-tested against fakes only. Enable + validat
 PostgreSQL on Docker/VPS; Vite prebuilt assets (no host Node). **Two tiers from one codebase** (baseline shared PHP
 host / enhanced Docker-VPS); WYSIWYG-first editor; phpBB-grade permission masks; strict clean-room.
 
-**Status:** shipped **1.0.0 (GA)**, then **v1.2.0** and **v1.3.0** (tagged + pushed; record above). Current work:
-**v1.4 "The Creator Release"** (active task above). The private Populate plugin (E6a/E6b) lives in its own repo
-`D:\novfora-populate`, junctioned at `modules/novfora/populate` — never committed here, never shipped.
+**Status:** shipped **1.0.0 (GA)**, then **v1.2.0** and **v1.3.0** (tagged + pushed). Current work: **v1.4 "The
+Creator Release"** — **Phase 0 merged; 4A/4B/4C green + committed on per-slice branches (both ◆ apex slices
+reviewed, 0 open HIGH/MEDIUM); 4D/4E + the release run PARKED** for a follow-up (report above). No `v1.4.0`
+tag yet. The private Populate plugin (E6a/E6b) lives in its own repo `D:\novfora-populate`, junctioned at
+`modules/novfora/populate` — never committed here, never shipped.
 
 **How we work:** Claude Code builds (plan-before-code per phase); Claude Cowork does knowledge work (no app code);
 don't run both against the working tree at once; commit between handoffs. Two stages, gated.
