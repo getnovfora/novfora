@@ -90,7 +90,10 @@ it('renders a busy thread within the query budget (≤33, no N+1)', function () 
     // measured request (observed intermittently in CI and consistently on the drvfs dev box). The delta is ONE
     // fixed query, never per-post; an N+1 across these 17 posts still adds ≥16 and blows past this. Raised to
     // stop a ragged-edge flake, not to admit an N+1.
-    expect($queries)->toBeLessThanOrEqual(35);
+    //
+    // ≤36 (was ≤35): U19 renders custom topic fields in the header via one bounded topic_field_values lookup
+    // (a single fixed query, never per-post — an N+1 across these 17 posts still adds ≥16 and blows past this).
+    expect($queries)->toBeLessThanOrEqual(36);
 });
 
 it('renders the forum index (now hosting the activity feed) within the query budget (≤20, no N+1)', function () {
@@ -202,5 +205,7 @@ it('renders a moderator’s thread (bulk-select + merge UI) within the query bud
     // thread above — the warm measure occasionally settles one query high; a single fixed query, never
     // per-post. The steady-state list is bounded/batched throughout — an N+1 across these 17 posts adds ≥16
     // and still blows the budget. Raised to stop a ragged-edge flake, not to admit an N+1.
-    expect($queries)->toBeLessThanOrEqual(37);
+    //
+    // ≤38 (was ≤37): U19's one bounded topic_field_values lookup on the topic header (fixed, never per-post).
+    expect($queries)->toBeLessThanOrEqual(38);
 });

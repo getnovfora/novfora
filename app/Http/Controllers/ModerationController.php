@@ -11,6 +11,7 @@ use App\AntiSpam\TrustLevelManager;
 use App\Events\PostCreated;
 use App\Forum\AnnouncementService;
 use App\Forum\PostService;
+use App\Forum\TopicCounters;
 use App\Models\Forum;
 use App\Models\Post;
 use App\Models\ProfilePost;
@@ -22,6 +23,7 @@ use App\Support\Audit;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Moderation actions — every one gated through the permission engine (topic.moderate at the forum scope,
@@ -90,16 +92,50 @@ class ModerationController extends Controller
         return back();
     }
 
-    public function move(Request $request, Topic $topic): RedirectResponse
+    public function move(Request $request, Topic $topic, TopicCounters $counters): RedirectResponse
     {
         $this->authorizeModerate($request, $topic);
-        $data = $request->validate(['forum_id' => ['required', 'integer', 'exists:forums,id']]);
+        // A redirect shell is not itself movable — moving one would create a shadow-of-a-shadow chain (U19).
+        abort_if($topic->moved_to_topic_id !== null, 422);
+
+        $data = $request->validate([
+            'forum_id' => ['required', 'integer', 'exists:forums,id'],
+            'leave_redirect' => ['nullable', 'boolean'], // U19: leave a "moved" shadow in the source forum
+        ]);
         $target = Forum::findOrFail($data['forum_id']);
         $this->authorizeModerate($request, $topic, $target); // must moderate the destination too
 
         $from = $topic->forum_id;
-        $topic->update(['forum_id' => $target->id]);
-        Audit::log('topic.moved', $topic, ['from' => $from, 'to' => $target->id]);
+        $leaveRedirect = (bool) ($data['leave_redirect'] ?? false) && $from !== $target->id;
+
+        DB::transaction(function () use ($topic, $target, $from, $leaveRedirect): void {
+            $topic->update(['forum_id' => $target->id]);
+
+            // U19 move-with-redirect: a lightweight shadow topic in the SOURCE forum whose moved_to_topic_id
+            // points at the (now-moved) real topic, so its URL transitively-301s to it via TopicController.
+            // It carries no posts; it only marks "this moved to → target" in the old forum's listing.
+            if ($leaveRedirect) {
+                Topic::create([
+                    'forum_id' => $from,
+                    'user_id' => $topic->user_id,
+                    'title' => $topic->title,
+                    'slug' => $topic->slug,
+                    'type' => 'normal',
+                    'status' => 'moved',
+                    'approved_state' => 'approved',
+                    'moved_to_topic_id' => $topic->getKey(),
+                ]);
+            }
+        });
+
+        // Re-derive the denormalised counts for both boards: the departed topic leaves the source (a plain move
+        // never rebalanced this) and any redirect shell is reflected. Authoritative SETs → idempotent.
+        $counters->recomputeForum((int) $from);
+        if ($from !== $target->id) {
+            $counters->recomputeForum((int) $target->id);
+        }
+
+        Audit::log('topic.moved', $topic, ['from' => $from, 'to' => $target->id, 'redirect' => $leaveRedirect]);
 
         return redirect()->route('topics.show', $topic);
     }

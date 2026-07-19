@@ -4018,3 +4018,57 @@ contract pairs) + `BulkModerationTest` (lock invariant, delete self-exemption, a
 **Consequences.** A Baseline-safe onboarding surface with no daemon and no new subsystem; reversible (one column, one listener, one component). Tests (`tests/Feature/Onboarding/OnboardingTest.php`): the welcome email is queued to the registrant; the checklist shows for a fresh member, hides once all three signals are met, and stays hidden after dismissal.
 
 **Alternatives considered.** (a) A dedicated onboarding progress table / state machine — rejected as over-built for "lite": the signals already exist on posts/reactions/profile, so a boolean read is the honest model. (b) A multi-step modal tour — rejected: intrusive and JS-heavy; a dismissible inline card degrades gracefully and respects the reader. (c) Send the welcome mail synchronously in the registration request — rejected: it belongs off the hot path on the queue, exactly like the join-badge award.
+
+### ADR-0122 — Custom topic fields + move-with-redirect (U19, NOV-116) (2026-07-19)
+**Status: Accepted — built + gated on `claude/v14-u19-topic-fields` (v1.4 Phase 4D; NOV-116).**
+
+**Context.** Two long-standing gaps: (a) no way to collect structured, per-topic metadata (a bug's version, a
+classified's price) — only free-form body text; and (b) `topics.moved_to_topic_id` + `TopicController`'s
+transitive-301 resolver existed (proven by `MergeTopicsService`) but no *move* action ever left a redirect, so
+a moved topic vanished from its old forum with no forwarding. The profile `custom_fields` tables + `Prefix`'s
+forum-scoping are the structural precedents.
+
+**Decision.**
+1. **`topic_fields` / `topic_field_values`** — mirror the profile custom-field tables but keyed to a topic and
+   **forum-SCOPED like `Prefix`** (nullable `forum_id` = a global field on every forum, or one forum's). Typed
+   **text | url | textarea | select** (`select` gets a real `options` list — the profile precedent left it a dead
+   seam). Reversible migration (drops both tables; values cascade).
+2. **`TopicFieldService` — the value authority (apex-adjacent: values come from untrusted TOPIC CREATORS).**
+   Every value is **validated server-side** — required-present, a real **http(s)-only** URL (so a
+   `javascript:`/`data:` value can never be stored and later rendered as a link), a `select` value drawn from the
+   field's own option list, and length caps. The profile precedent had only an HTML5 hint (not a control); topic
+   fields are a genuine input boundary, so validation is load-bearing. Captured in `PostService::createTopic`
+   (a new `?array $fieldValues` param, threaded like `$prefixId`, synced inside the create transaction so an
+   invalid value rolls the whole topic back), rendered in the topic header (URL values as `rel="nofollow noopener
+   ugc"` links). ACP CRUD (`TopicFieldController`, gated on `admin.settings`) in the Forums section.
+3. **Move-with-redirect.** `ModerationController::move` gains a `leave_redirect` option: it moves the topic
+   (existing `forum_id` update) AND, when chosen, creates a lightweight **shadow topic** in the SOURCE forum
+   (`status='moved'`, `moved_to_topic_id` = the moved topic) — the phpBB shadow. The shadow shows a "Moved" badge
+   in the old forum's listing and its URL transitively-301s to the real topic via the **unchanged**
+   `TopicController` resolver (which already caps at 10 hops + self-detects a cycle). **A shadow is not itself
+   movable** (`abort_if($topic->moved_to_topic_id !== null, 422)`) — so no shadow-of-a-shadow chain can form; the
+   shadow always points at a real topic whose own `moved_to_topic_id` is null, so the resolver terminates in one
+   hop.
+
+**Consequences.** Structured topic metadata with no core edits; a moved topic leaves a forwarding trail. The
+loop hazard is closed at the source (shells are unmovable) and defence-in-depth at the resolver (hop cap). Tests:
+`TopicFieldsTest` (capture, the three rejection paths — required/url/select, forum-scoping, ACP CRUD + gate),
+`TopicMoveRedirectTest` (shadow creation + 301 + the unmovable-shadow 422).
+
+**Focused review (0 HIGH/MEDIUM; the untrusted-input + loop paths held).** The adversarial pass confirmed no
+XSS (URL forced http(s) + Blade-escaped href), no redirect loop (shells are unmovable + the resolver's hop
+cap), and transactional rollback on an invalid value. It surfaced only LOWs; the cheap, clearly-correct ones
+are FIXED in this slice: URL values now carry a length cap and reject embedded credentials (`user:pass@host`
+phishing); the mobile/minimal listing shows the "Moved" badge; the recent-topics widget excludes redirect
+shells; and `move()` now recomputes both boards' denormalised counts (fixing the shadow's `+1` and a
+pre-existing plain-move drift). Topic-field rendering adds one bounded `topic_field_values` lookup on the topic
+header — a fixed per-page query (never per-post), so the three topic-page query budgets are +1 (documented).
+
+**Deliberately deferred (owner follow-up, all LOW).** (a) A per-topic field-value **edit** surface — there is
+no topic-edit page in the codebase today (only post-body edit), so values are captured at creation and shown
+thereafter; building one is its own slice and was not guessed at here. (b) Cleaning up an orphaned "moved"
+shadow when its target topic is later deleted — the resolver already 404s safely on a trashed terminal (no
+leak), so the shell merely dead-ends rather than crashing. (c) Re-scoping `displayValues()` to a topic's
+CURRENT forum after a move — left showing the values the author legitimately entered (hiding them post-move
+would lose real data). (d) The `nullOnDelete` forum_id could promote a forum-scoped field to global on a HARD
+forum delete — not reachable today (forums soft-delete only) and mirrors the `prefixes` precedent.

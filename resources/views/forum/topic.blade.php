@@ -74,6 +74,23 @@
                     </div>
                 @endif
                 <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ $topic->title }}</h1>
+
+                {{-- Custom topic fields (U19 / NOV-116). URL values render as a safe (rel=nofollow) link. --}}
+                @php($topicFields = app(\App\Forum\TopicFieldService::class)->displayValues($topic))
+                @if ($topicFields !== [])
+                    <dl class="mt-1 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-[auto_1fr]" dusk="topic-fields">
+                        @foreach ($topicFields as $tf)
+                            <dt class="font-medium text-ink-muted">{{ $tf['label'] }}</dt>
+                            <dd class="min-w-0 break-words text-ink">
+                                @if ($tf['type'] === 'url')
+                                    <a href="{{ $tf['value'] }}" rel="nofollow noopener ugc" target="_blank" class="text-accent hover:underline">{{ $tf['value'] }}</a>
+                                @else
+                                    {{ $tf['value'] }}
+                                @endif
+                            </dd>
+                        @endforeach
+                    </dl>
+                @endif
             </div>
 
             <div class="flex items-center gap-2">

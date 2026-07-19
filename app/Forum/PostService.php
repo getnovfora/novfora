@@ -42,6 +42,7 @@ final class PostService
         private readonly Notifier $notifier,
         private readonly EmbedRenderer $embeds,
         private readonly AttachmentService $attachments,
+        private readonly TopicFieldService $topicFields,
     ) {}
 
     /**
@@ -57,10 +58,14 @@ final class PostService
         return $this->embeds->inject($this->words->applyReplacements($renderedHtml), $canonical);
     }
 
-    /** Create a topic and its opening post atomically. */
-    public function createTopic(User $author, Forum $forum, string $title, string $format, array $canonical, ?int $prefixId = null): Topic
+    /**
+     * Create a topic and its opening post atomically.
+     *
+     * @param  array<string,mixed>  $fieldValues  raw custom topic-field values, keyed by field key (U19)
+     */
+    public function createTopic(User $author, Forum $forum, string $title, string $format, array $canonical, ?int $prefixId = null, array $fieldValues = []): Topic
     {
-        $topic = DB::transaction(function () use ($author, $forum, $title, $format, $canonical, $prefixId) {
+        $topic = DB::transaction(function () use ($author, $forum, $title, $format, $canonical, $prefixId, $fieldValues) {
             // Validate the prefix: it must be global (forum_id = null) or belong to this forum.
             $resolvedPrefixId = null;
             if ($prefixId !== null) {
@@ -80,6 +85,10 @@ final class PostService
                 'approved_state' => 'approved',
                 'prefix_id' => $resolvedPrefixId,
             ]);
+
+            // Capture custom topic-field values (U19). Validated server-side; an invalid value throws and rolls
+            // back the whole topic creation (the Livewire form pre-validates, so this is the backstop).
+            $this->topicFields->sync($topic, $forum, $fieldValues);
 
             // The topic inherits its opening post's moderation state — a held OP makes the topic pending too.
             $post = $this->writePost($author, $topic, $format, $canonical);

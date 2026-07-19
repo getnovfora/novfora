@@ -100,7 +100,9 @@ it('renders a topic page with a bounded query count regardless of post count', f
     // <43 (was <42): v1.3 announcements render a banner on EVERY page behind a cached existence-gate; a warm
     // page pays 0 (cache hit — see QueryBudgetTest), but this deliberately-cold render pays the one-time
     // exists() probe, exactly the class of one-time miss this test already documents. Fixed-cost, not per-post.
-    expect($q)->toBeLessThan(43);
+    // <44 (was <43): U19 renders custom topic fields via one bounded topic_field_values lookup on the topic
+    // header — a single fixed query (never per-post; an N+1 across these 16 posts adds ≥15 and blows past this).
+    expect($q)->toBeLessThan(44);
 })->group('perf');
 
 it('renders search results with a bounded query count', function () {

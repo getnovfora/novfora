@@ -41,6 +41,7 @@ use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\TopicController;
+use App\Http\Controllers\TopicFieldController;
 use App\Http\Controllers\TrendingController;
 use App\Http\Controllers\UnsubscribeController;
 use App\Http\Controllers\WallController;
@@ -408,6 +409,10 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         // Forums section — the structure tree + topic prefixes + the per-forum card-per-group editor (v3-c).
         Route::view('/forums/structure', 'admin.structure')->name('structure');      // <livewire:admin.structure />
         Route::view('/forums/prefixes', 'admin.prefixes')->name('prefixes');         // <livewire:admin.prefixes />
+        // Custom topic fields (U19 / NOV-116) — admin-defined, forum-scoped, typed extra fields on new topics.
+        Route::get('/forums/topic-fields', [TopicFieldController::class, 'index'])->name('topic-fields');
+        Route::post('/forums/topic-fields', [TopicFieldController::class, 'store'])->name('topic-fields.store');
+        Route::delete('/forums/topic-fields/{field}', [TopicFieldController::class, 'destroy'])->name('topic-fields.destroy');
         Route::get('/forums/{forum}/permissions', ForumPermissionsController::class)->name('forums.permissions');
         // ACP v3 · v3-b — per-forum moderator assignment (Forums → forum → Moderators).
         Route::get('/forums/{forum}/moderators', ForumModeratorsController::class)->name('forums.moderators');

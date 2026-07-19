@@ -53,6 +53,7 @@ return [
     // Topic view (forum/topic.blade.php)
     'pinned' => 'Pinned',
     'locked' => 'Locked',
+    'moved' => 'Moved',
     'unread' => 'Unread',
     'pin' => 'Pin',
     'unpin' => 'Unpin',
