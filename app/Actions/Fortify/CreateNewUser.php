@@ -85,7 +85,10 @@ class CreateNewUser implements CreatesNewUsers
         // queued too (TL0). An allowed signup is active. Either way the account is real and recoverable.
         // `status` is set server-side (it is not in User's mass-assignable set), so a crafted register
         // payload can never choose its own account state.
-        $user->status = $screening->flagged() ? 'pending' : 'active';
+        // U14 (NOV-112): an operator may require EVERY new registration to land in the pending review queue
+        // (manual approval before participation), regardless of the screener verdict.
+        $requireApproval = app(Settings::class)->bool('registration.require_approval');
+        $user->status = ($screening->flagged() || $requireApproval) ? 'pending' : 'active';
         $user->save();
 
         // Default membership: primary Members + the entry trust level (security §1 / ADR-0007).

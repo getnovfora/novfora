@@ -47,6 +47,7 @@ final class AdminNavigation
         'members' => ['users', 'admin.members', [
             [null, [
                 ['all_members', 'admin.members.index', 'users'],
+                ['pending_members', 'admin.members.pending', 'inbox'],
                 ['directory', 'admin.members.directory', 'users'],
                 ['staff_flair', 'admin.members.staff-flair', 'shield'], // v3-g: staff flair + Team roster (display-only)
                 ['profile_fields', 'admin.members.profile-fields', 'list'],

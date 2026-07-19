@@ -51,6 +51,7 @@ return [
         'roles' => 'Roles',
         'join_requests' => 'Join requests',
         'all_members' => 'All members',
+        'pending_members' => 'Pending members',
         'directory' => 'Directory',
         'staff_flair' => 'Staff flair',
         'profile_fields' => 'Profile fields',

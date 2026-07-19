@@ -211,6 +211,15 @@ return [
             'posts' => (int) env('NOVFORA_NEW_USER_HOLD_POSTS', 2),
         ],
 
+        // Pending-member auto-activation (U14 / NOV-112, ADR-0119). DEFAULT OFF — the admin-in-the-loop
+        // review queue + the approve-post nudge are the P0 exit ramp. When enabled, a `pending` (flagged)
+        // author is auto-activated ONLY after `posts` MOD-APPROVED posts (each a human vouch — every post of a
+        // pending author is manually approved), and NEVER a banned/blocked account. Conservative default K=5.
+        'auto_activation' => [
+            'enabled' => (bool) env('NOVFORA_AUTO_ACTIVATE', false),
+            'posts' => (int) env('NOVFORA_AUTO_ACTIVATE_POSTS', 5),
+        ],
+
         // Auto promotion/demotion (data-model §4). Numeric promotion thresholds live on each TL group's
         // `auto_promotion` (seeded by GroupSeeder); this governs the demotion side. A live infraction-point
         // total at/above this demotes the account to TL0; any live flag below it freezes promotion.
