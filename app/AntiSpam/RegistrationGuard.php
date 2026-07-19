@@ -9,6 +9,7 @@ namespace App\AntiSpam;
 use App\Models\Ban;
 use App\Models\BlocklistEntry;
 use App\Models\RegistrationCheck;
+use App\Moderation\IpBanGuard;
 use Illuminate\Support\Str;
 
 /**
@@ -22,7 +23,10 @@ use Illuminate\Support\Str;
  */
 final class RegistrationGuard
 {
-    public function __construct(private readonly StopForumSpamClient $sfs) {}
+    public function __construct(
+        private readonly StopForumSpamClient $sfs,
+        private readonly IpBanGuard $ipBans,
+    ) {}
 
     /**
      * @param  array{email?:string, username?:string, ip?:string}  $context
@@ -111,20 +115,15 @@ final class RegistrationGuard
 
     private function banned(string $ip, string $email): bool
     {
-        if ($ip === '' && $email === '') {
-            return false;
+        // IP side: exact ip OR a CIDR/range ban (U13 — range bans were stored but matched nowhere before).
+        if ($ip !== '' && $this->ipBans->isBanned($ip)) {
+            return true;
         }
 
-        return Ban::query()
+        // Email side: exact-value ban (unchanged).
+        return $email !== '' && Ban::query()
+            ->where('type', 'email')->where('value', $email)
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
-            ->where(function ($q) use ($ip, $email) {
-                if ($ip !== '') {
-                    $q->orWhere(fn ($q2) => $q2->where('type', 'ip')->where('value', $ip));
-                }
-                if ($email !== '') {
-                    $q->orWhere(fn ($q2) => $q2->where('type', 'email')->where('value', $email));
-                }
-            })
             ->exists();
     }
 

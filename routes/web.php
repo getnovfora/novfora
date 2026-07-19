@@ -436,6 +436,8 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
 
         // Moderation section — spam intelligence + moderation policy (queues/reports are the MCP, linked out).
         Route::view('/moderation/spam-intelligence', 'admin.spam-intelligence')->name('spam-intelligence');
+        // U13 (ADR-0121) — IP / range / email ban management + IP investigation. <livewire:admin.moderation.ip-bans />
+        Route::view('/moderation/ip-bans', 'admin.moderation.ip-bans')->name('moderation.ip-bans');
         // ACP v4 · A3 (ADR-0096) — warning-type CRUD + read-only consequence thresholds. <livewire:admin.warning-types />
         Route::view('/moderation/warning-types', 'admin.warning-types')->name('moderation.warning-types');
         // T1 — canned / stock moderator replies CRUD. <livewire:admin.canned-replies />

@@ -61,6 +61,7 @@ return [
         'reports' => 'Reports',
         'mod_panel' => 'Mod control panel',
         'spam_intelligence' => 'Spam intelligence',
+        'ip_bans' => 'IP & range bans',
         'warning_types' => 'Warning types',
         'canned_replies' => 'Canned replies',
         'moderators' => 'Moderators',
