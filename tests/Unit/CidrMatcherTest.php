@@ -65,6 +65,29 @@ it('normalises valid values and rejects invalid ones for storage', function () {
         ->and(CidrMatcher::normalize('203.0.113.0/40'))->toBeNull();
 });
 
+it('parse classifies an IPv6 /32 as a RANGE, not a single host (the U13 apex HIGH)', function () {
+    // str_ends_with(..., "/32") wrongly treated an IPv6 /32 as exact; parse() decides by the parsed prefix.
+    expect(CidrMatcher::parse('2001:db8::/32')['isHost'])->toBeFalse()
+        ->and(CidrMatcher::parse('2001:db8::/32')['cidr'])->toBe('2001:db8::/32')
+        ->and(CidrMatcher::parse('2001:db8::1')['isHost'])->toBeTrue()   // /128 = exact host
+        ->and(CidrMatcher::parse('203.0.113.0/24')['isHost'])->toBeFalse()
+        ->and(CidrMatcher::parse('203.0.113.5')['isHost'])->toBeTrue()   // /32 = exact host
+        ->and(CidrMatcher::parse('0.0.0.0/0')['prefix'])->toBe(0)
+        ->and(CidrMatcher::parse('nonsense'))->toBeNull();
+});
+
+it('canonicalises equivalent IPv6 spellings and folds IPv4-mapped IPv6 to IPv4 (the U13 apex MEDIUM/LOW)', function () {
+    // One address, many spellings → one canonical form (so an exact-set lookup can never miss it).
+    expect(CidrMatcher::canonicalIp('2001:DB8::1'))->toBe('2001:db8::1')
+        ->and(CidrMatcher::canonicalIp('2001:0db8:0000:0000:0000:0000:0000:0001'))->toBe('2001:db8::1')
+        ->and(CidrMatcher::parse('2001:DB8::1')['address'])->toBe('2001:db8::1')
+        // IPv4-mapped IPv6 folds to the plain IPv4 form on BOTH the match and the canonical paths.
+        ->and(CidrMatcher::canonicalIp('::ffff:203.0.113.5'))->toBe('203.0.113.5')
+        ->and(CidrMatcher::matches('::ffff:203.0.113.5', '203.0.113.0/24'))->toBeTrue()
+        ->and(CidrMatcher::matches('::ffff:203.0.113.5', '203.0.113.5'))->toBeTrue()
+        ->and(CidrMatcher::canonicalIp('not-an-ip'))->toBeNull();
+});
+
 it('fuzz: a random /24 contains exactly its 256 addresses and nothing adjacent', function () {
     mt_srand(424242);
     for ($r = 0; $r < 40; $r++) {

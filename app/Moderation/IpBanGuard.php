@@ -30,11 +30,14 @@ final class IpBanGuard
         if ($ip === '') {
             return false;
         }
+        // Canonicalise the live IP (fold ::ffff: → IPv4, collapse equivalent IPv6 spellings) so it matches the
+        // canonically-stored exact value. matchesAny() canonicalises internally, so ranges take the raw $ip.
+        $canonical = CidrMatcher::canonicalIp($ip);
 
         ['ip' => $exact, 'range' => $ranges] = $this->activeBans();
 
         // Exact ip match is O(1) via the set; range match walks the (small) CIDR list.
-        return isset($exact[$ip]) || CidrMatcher::matchesAny($ip, $ranges);
+        return ($canonical !== null && isset($exact[$canonical])) || CidrMatcher::matchesAny($ip, $ranges);
     }
 
     /** Drop the cached active-ban list (called by IpBanService on every ip/range ban write). */
@@ -69,7 +72,8 @@ final class IpBanGuard
                     continue;
                 }
                 if ($row->type === 'ip') {
-                    $out['ip'][$value] = true;
+                    // Key by the canonical form so a legacy/non-canonically-stored row still matches a live IP.
+                    $out['ip'][CidrMatcher::canonicalIp($value) ?? $value] = true;
                 } else {
                     $out['range'][] = $value;
                 }

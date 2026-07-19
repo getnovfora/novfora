@@ -12,11 +12,11 @@ use App\AntiSpam\SpamCleaner;
 use App\Exceptions\FriendlyDenialException;
 use App\Models\Ban;
 use App\Models\User;
+use App\Moderation\IpBanService;
 use App\Moderation\OwnerStrandException;
 use App\Moderation\UserBanService;
 use App\Permissions\Scope;
 use App\Support\ActorRank;
-use App\Support\Audit;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,7 +29,7 @@ use Illuminate\Support\Carbon;
  */
 class BanController extends Controller
 {
-    public function store(Request $request, UserBanService $bans): RedirectResponse
+    public function store(Request $request, UserBanService $bans, IpBanService $ipBans): RedirectResponse
     {
         $this->authorizeBans($request);
 
@@ -61,16 +61,19 @@ class BanController extends Controller
             return back();
         }
 
-        // IP / email / range (value-based) ban — no account status flip, so no owner-strand surface.
-        $ban = Ban::create([
-            'user_id' => null,
-            'type' => $data['type'],
-            'value' => $data['value'] ?? null,
-            'scope_type' => 'global',
-            'reason' => $data['reason'] ?? null,
-            'expires_at' => $data['expires_at'] ?? null,
-        ]);
-        Audit::log('ban.created', $ban, ['type' => $ban->type]);
+        // IP / email / range (value-based) ban — no account status flip, so no owner-strand surface. Route through
+        // IpBanService (U13, ADR-0121) so the CIDR validation, /0 self-lockout guard, ip-vs-range classification,
+        // canonicalisation, and enforcement-cache invalidation apply HERE too — not only on the ACP Livewire page.
+        try {
+            $ipBans->create(
+                $data['type'],
+                (string) ($data['value'] ?? ''),
+                $data['reason'] ?? null,
+                ! empty($data['expires_at']) ? Carbon::parse((string) $data['expires_at']) : null,
+            );
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         return back();
     }

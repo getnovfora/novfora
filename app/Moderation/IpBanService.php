@@ -38,14 +38,29 @@ final class IpBanService
         }
 
         if ($type === 'ip' || $type === 'range') {
-            $normalized = CidrMatcher::normalize($value);
-            if ($normalized === null) {
+            $parsed = CidrMatcher::parse($value);
+            if ($parsed === null) {
                 throw new \InvalidArgumentException('That is not a valid IP address or CIDR range.');
             }
-            // A bare address stored as ip; anything with a real prefix stored as range so the guard walks it.
-            $isRange = str_contains($value, '/') && ! str_ends_with($normalized, '/32') && ! str_ends_with($normalized, '/128');
-            $type = $isRange ? 'range' : 'ip';
-            $value = $isRange ? $normalized : explode('/', $normalized)[0];
+            // A /0 is a "ban every address of this family" catch-all: it would silently disable ALL registration
+            // and is almost always a fat-finger. Closing registration is a separate, deliberate setting.
+            if ($parsed['prefix'] === 0) {
+                throw new \InvalidArgumentException('A /0 range would ban every address. To close registration, use the registration setting instead.');
+            }
+            // Classify by the PARSED prefix, not a string suffix: a single-address prefix (/32 v4, /128 v6) is an
+            // exact ip ban; any broader prefix — including an IPv6 /32 — is a range the guard must walk. Store the
+            // CANONICAL form so equivalent IPv6 spellings resolve to one ban target.
+            if ($parsed['isHost']) {
+                $type = 'ip';
+                $value = $parsed['address'];
+            } else {
+                $type = 'range';
+                $value = $parsed['cidr'];
+            }
+        } elseif ($type === 'email') {
+            // RegistrationGuard lowercases the incoming email before the exact-match lookup, so a mixed-case
+            // ban value ('Spammer@X.test') would never enforce — store it lowercased to match.
+            $value = strtolower($value);
         }
 
         $ban = Ban::create([

@@ -52,6 +52,70 @@ it('normalises a bare address to an exact ip ban and a prefixed one to a range b
         ->toThrow(InvalidArgumentException::class);
 });
 
+it('enforces an IPv6 /32 range across the whole block (U13 apex HIGH — was downgraded to one host)', function () {
+    $this->seed();
+    $ban = app(IpBanService::class)->create('range', '2001:db8::/32', 'ipv6 abuse', null);
+
+    // Stored as a RANGE (not silently collapsed to the single host 2001:db8::).
+    expect($ban->type)->toBe('range')->and($ban->value)->toBe('2001:db8::/32');
+
+    $guard = app(RegistrationGuard::class);
+    // Any address inside the /32 is blocked; an address outside it is not.
+    expect($guard->screen(['email' => 'a@x.test', 'username' => 'a', 'ip' => '2001:db8:1234::5678'])->blocked())->toBeTrue()
+        ->and($guard->screen(['email' => 'b@x.test', 'username' => 'b', 'ip' => '2001:db9::1'])->blocked())->toBeFalse();
+});
+
+it('matches an exact IPv6 ban regardless of the textual spelling (U13 apex MEDIUM — canonicalisation)', function () {
+    $this->seed();
+    // Admin bans the address as it appears in their logs — uppercase, non-canonical.
+    $ban = app(IpBanService::class)->create('ip', '2001:DB8::1', null, null);
+    expect($ban->value)->toBe('2001:db8::1'); // stored canonical
+
+    // The live request arrives in canonical lowercase form and is still caught.
+    expect(app(IpBanGuard::class)->isBanned('2001:db8::1'))->toBeTrue()
+        ->and(app(IpBanGuard::class)->isBanned('2001:0db8:0000:0000:0000:0000:0000:0001'))->toBeTrue()
+        // A dual-stack client presenting the IPv4-mapped form is caught by a plain IPv4 ban.
+        ->and(app(IpBanService::class)->create('ip', '198.51.100.9', null, null))
+        ->and(app(IpBanGuard::class)->isBanned('::ffff:198.51.100.9'))->toBeTrue();
+});
+
+it('refuses a /0 catch-all that would ban everyone (U13 apex MEDIUM — self-lockout guard)', function () {
+    $this->seed();
+    expect(fn () => app(IpBanService::class)->create('range', '0.0.0.0/0', 'oops', null))
+        ->toThrow(InvalidArgumentException::class)
+        ->and(fn () => app(IpBanService::class)->create('range', '::/0', 'oops', null))
+        ->toThrow(InvalidArgumentException::class);
+    // No ban row was written, so registration is not disabled.
+    expect(Ban::whereIn('type', ['ip', 'range'])->count())->toBe(0);
+});
+
+it('the POST /bans route also routes value bans through the hardened service (U13 apex MEDIUM — 2nd write path)', function () {
+    $this->seed();
+    $admin = Users::inGroups(['admins']); // holds bans.manage
+    // The /0 catch-all is refused here too — no row, registration stays open.
+    $this->actingAs($admin)
+        ->post(route('bans.store'), ['type' => 'range', 'value' => '0.0.0.0/0', 'reason' => 'oops'])
+        ->assertRedirect();
+    expect(Ban::whereIn('type', ['ip', 'range'])->count())->toBe(0);
+
+    // A CIDR submitted as type=ip is reclassified to a range (not stored as an un-matchable exact ip).
+    $this->actingAs($admin)
+        ->post(route('bans.store'), ['type' => 'ip', 'value' => '203.0.113.0/24'])
+        ->assertRedirect();
+    $ban = Ban::whereIn('type', ['ip', 'range'])->firstOrFail();
+    expect($ban->type)->toBe('range')->and($ban->value)->toBe('203.0.113.0/24')
+        ->and(app(IpBanGuard::class)->isBanned('203.0.113.50'))->toBeTrue();
+});
+
+it('enforces a mixed-case email ban (U13 apex LOW — value lowercased to match the guard)', function () {
+    $this->seed();
+    app(IpBanService::class)->create('email', 'Spammer@X.test', null, null);
+    expect(Ban::where('type', 'email')->value('value'))->toBe('spammer@x.test');
+
+    $guard = app(RegistrationGuard::class);
+    expect($guard->screen(['email' => 'spammer@x.test', 'username' => 'a', 'ip' => '198.51.100.1'])->blocked())->toBeTrue();
+});
+
 it('the guard cache invalidates on a lift so enforcement is immediate', function () {
     $this->seed();
     $ban = app(IpBanService::class)->create('ip', '198.51.100.9', null, null);
