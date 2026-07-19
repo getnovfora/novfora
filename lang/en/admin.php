@@ -87,6 +87,7 @@ return [
         'suppressions' => 'Email suppressions',
         'audit' => 'Audit log',
         'tasks' => 'Scheduled tasks',
+        'maintenance' => 'Maintenance',
         'co_owners' => 'Co-owners',
         'admin_accounts' => 'Admin Manager',
         'permissions' => 'Permission Inspector',

@@ -116,6 +116,7 @@ final class AdminNavigation
                 ['suppressions', 'admin.system.suppressions', 'mail'],
                 ['audit', 'admin.system.audit', 'list'],
                 ['tasks', 'admin.system.tasks', 'clock'],
+                ['maintenance', 'admin.system.maintenance', 'sliders'],
             ]],
         ]],
         'security' => ['shield', 'admin.security', [

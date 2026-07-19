@@ -3,7 +3,7 @@
 use App\Models\User;
 use App\Permissions\Scope;
 use App\Settings\Settings;
-use Illuminate\Support\Facades\Mail;
+use App\Support\Mail\TestMailer;
 use Livewire\Component;
 
 /**
@@ -82,18 +82,14 @@ new class extends Component
         $this->saved = 'Saved.';
     }
 
-    public function sendTest(Settings $settings): void
+    public function sendTest(Settings $settings, TestMailer $mailer): void
     {
         $this->ensureAdmin();
         $this->validate(['testTo' => ['required', 'email']]);
         $settings->applyToConfig(); // make the saved SMTP overrides live for this send
 
         try {
-            Mail::raw(
-                ' — if you received this, outbound email is working. For reliable '
-                .'delivery, verify SPF, DKIM and DMARC DNS records for your sending domain.',
-                fn ($message) => $message->to($this->testTo)->subject(''),
-            );
+            $mailer->send($this->testTo); // the single self-test sender (U16 / NOV-114)
             $this->testResult = 'Test email sent to '.$this->testTo.'. Check that inbox (and the spam folder).';
             $this->testVariant = 'success';
         } catch (\Throwable $e) {

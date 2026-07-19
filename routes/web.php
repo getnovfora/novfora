@@ -373,6 +373,9 @@ Route::middleware(['auth', 'verified', EnsureSystemPanelAccess::class, RequireTw
         Route::view('/audit', 'admin.audit')->name('audit');
         Route::get('/tasks', TasksController::class)->name('tasks');
 
+        // Maintenance — caches, counter self-heal, log tail, mail self-test (U16 / NOV-114).
+        Route::view('/maintenance', 'admin.maintenance')->name('maintenance');
+
         // Admin-defined custom profile fields (data-model §1).
         Route::get('/profile-fields', [ProfileFieldController::class, 'index'])->name('profile-fields');
         Route::post('/profile-fields', [ProfileFieldController::class, 'store'])->name('profile-fields.store');
