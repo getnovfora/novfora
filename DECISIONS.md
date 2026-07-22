@@ -4018,3 +4018,56 @@ contract pairs) + `BulkModerationTest` (lock invariant, delete self-exemption, a
 **Consequences.** A Baseline-safe onboarding surface with no daemon and no new subsystem; reversible (one column, one listener, one component). Tests (`tests/Feature/Onboarding/OnboardingTest.php`): the welcome email is queued to the registrant; the checklist shows for a fresh member, hides once all three signals are met, and stays hidden after dismissal.
 
 **Alternatives considered.** (a) A dedicated onboarding progress table / state machine — rejected as over-built for "lite": the signals already exist on posts/reactions/profile, so a boolean read is the honest model. (b) A multi-step modal tour — rejected: intrusive and JS-heavy; a dismissible inline card degrades gracefully and respects the reader. (c) Send the welcome mail synchronously in the registration request — rejected: it belongs off the hot path on the queue, exactly like the join-badge award.
+
+### ADR-0114 — Staff assignment workflow + Hearth health metrics v1 (NOV-127) (2026-07-19)
+**Status: Accepted — built + gated on `claude/v14-staff-workflow` (v1.4 Phase 4D; NOV-127).** (Number reserved
+for this slice in the 4D plan memo.)
+
+**Context.** Two gaps in staff tooling: (a) the report queue routed nothing to anyone — two mods could work the
+same report or a report could sit unowned; and (b) the analytics page showed growth counts but no
+community-HEALTH signal (how responsive is the board, how much moderation load, are members coming back). The
+`reports` table already had `handled_by`/`handled_at`; `moderator_assignments` is per-forum capability
+delegation (NOT work-item routing); `AnalyticsService` + `daily_metrics` + `⚡analytics.blade` is the
+add-a-metric seam.
+
+**Decision.**
+1. **Report assignment** (the workflow's core — the report queue IS the work queue, so a per-topic assignee
+   table would be redundant for v1). New nullable `reports.assigned_to` + `assigned_at` (parallel to
+   `handled_by`/`handled_at`; reversible migration) + a `Report::assignee()` relation. `ReportController::assign`
+   (gated on the same `bans.manage` as the queue) assigns / claims (assign-to-self) / unassigns (empty), audited
+   as `report.assigned` / `report.unassigned`. **An assignee must itself hold `bans.manage`** (you can't route
+   work to a non-handler → 422). The reports queue shows an assignee badge + an assign dropdown (the
+   admins/moderators staff pool) + a Claim button; the mod dashboard gains a **"My workload"** card = open
+   reports assigned to the viewer.
+2. **Hearth health metrics v1 — REAL signals only, reproducible, never estimated.** THREE new `daily_metrics`
+   keys computed in the existing daily rollup (idempotent, cron-driven), each derived from IMMUTABLE rows AS OF
+   end-of-day so a re-roll or a backfill of a past day reproduces the exact same figure (an apex focused review
+   caught, and this design fixes, two truthfulness violations — see below):
+   - **first-response minutes** — avg gap from a topic's creation to its first reply, over topics created that
+     day answered by end-of-day. One grouped SQL aggregate (join posts→topics, exclude the OP by column compare)
+     — no per-id `IN` list to hit a driver's bind-variable limit; negative gaps from merge/split (a moved-in post
+     predating the topic) are excluded, never clamped to a fabricated 0.
+   - **unanswered %** — share of that day's topics with no reply by end-of-day, computed from immutable
+     `posts.created_at` (NOT the live `reply_count`, which cannot be reconstructed for a past day — the review's
+     HIGH #1).
+   - **staff actions** — count of staff CONTENT-moderation actions in the `audit_log` that day, over an HONEST
+     allowlist: workflow bookkeeping (`report.assigned` / `report.unassigned` — self-inflatable, not content
+     moderation) is excluded, and every content action that ships is included (stick, spam-clean, merge, split,
+     bulk) — the review's MEDIUM.
+   The analytics page renders a **"Community health"** tile row with honest per-metric aggregation — total for the
+   count, true 30-day mean for the rate, mean-over-days-with-replies for the time metric — plus the sparkline.
+
+**Consequences.** Work is owned and visible; operators get truthful health signals with no new subsystem
+(one column pair + four rollup lines + one tile row). Tests: `ReportAssignmentTest` (assign/claim/unassign, the
+non-staff-assignee 422, the bans.manage 403, the dashboard workload count) and `HearthMetricsTest` (each of the
+four signals computed against seeded data with a frozen clock). Migrate round-trip verified.
+
+**Alternatives / deferred.** (a) A separate `moderator_topic_assignments` table for per-topic claims — deferred:
+the report queue covers v1's routing need; a topic-level claim can layer on later without schema churn. (b) A
+per-moderator staff-load breakdown (who did what) — `daily_metrics` is `(date, key) → int`, so a per-actor shape
+needs its own table; v1 ships the daily TOTAL (a real timeseries) and leaves the breakdown to a follow-up.
+(c) A member-retention / returning-members signal — **omitted from v1, not shipped as a lying tile.** The apex
+review (HIGH #2) showed it cannot be reconstructed for a PAST day from the overwrite-only `users.last_active_at`
+(which holds only a user's most-recent activity), so a backfill or the daily re-roll of yesterday silently
+undercounts it. Per the "omit a tile if the signal isn't truthfully derivable" rule it is deferred until a
+per-day activity-history table exists to support a real cohort curve.

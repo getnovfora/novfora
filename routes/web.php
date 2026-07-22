@@ -252,6 +252,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/reports', [ReportController::class, 'store'])->name('reports.store');
     Route::get('/moderation/reports', [ReportController::class, 'index'])->name('moderation.reports');
     Route::post('/reports/{report}/resolve', [ReportController::class, 'resolve'])->name('reports.resolve');
+    Route::post('/reports/{report}/assign', [ReportController::class, 'assign'])->name('reports.assign'); // NOV-127
 
     // Bans + Spam Cleaner (security §3) — gated on bans.manage.
     Route::post('/bans', [BanController::class, 'store'])->name('bans.store');

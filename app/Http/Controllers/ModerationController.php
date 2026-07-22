@@ -171,6 +171,8 @@ class ModerationController extends Controller
             'pending_topics' => Topic::where('approved_state', 'pending')->count(),
             'pending_posts' => Post::where('approved_state', 'pending')->count(),
             'open_reports' => Report::where('status', 'open')->count(),
+            // NOV-127: open reports assigned to THIS staff member (their personal workload).
+            'assigned_to_me' => Report::where('status', 'open')->where('assigned_to', $user->getKey())->count(),
         ];
 
         return view('moderation.dashboard', compact('counts'));

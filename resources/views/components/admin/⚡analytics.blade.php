@@ -97,6 +97,62 @@ new class extends Component
         ];
     }
 
+    /**
+     * Hearth health tiles (NOV-127) — REAL signals with HONEST per-metric aggregation (an average response
+     * time or an unanswered % is not a sum). Each tile: the 30-day series (from daily_metrics) + a headline
+     * summarised the right way for its unit.
+     *
+     * @return list<array{key:string,label:string,headline:string,caption:string,values:list<int>}>
+     */
+    public function hearthTiles(): array
+    {
+        $this->ensureAdmin();
+        $series = app(AnalyticsService::class)->series(30);
+
+        $dates = [];
+        for ($i = 29; $i >= 0; $i--) {
+            $dates[] = now()->subDays($i)->toDateString();
+        }
+        $dense = function (string $key) use ($series, $dates): array {
+            $byDate = [];
+            foreach (($series[$key] ?? []) as $point) {
+                $byDate[$point['date']] = (int) $point['value'];
+            }
+
+            return array_map(fn (string $d): int => $byDate[$d] ?? 0, $dates);
+        };
+
+        // agg: sum (total over 30d), avg (true mean over ALL 30 days — genuine zeros included, so a count is
+        // never inflated), avgnz (mean over days that HAVE data — only for a TIME metric, where a 0 means "no
+        // answered topics to time", not a real zero). unit is appended to the headline.
+        $defs = [
+            ['key' => 'hearth_first_response_min', 'label' => __('First response'), 'unit' => __('min'), 'agg' => 'avgnz', 'caption' => __('avg on days with replies')],
+            ['key' => 'hearth_unanswered_pct', 'label' => __('Unanswered'), 'unit' => '%', 'agg' => 'avg', 'caption' => __('avg over 30 days')],
+            ['key' => 'hearth_staff_actions', 'label' => __('Staff actions'), 'unit' => '', 'agg' => 'sum', 'caption' => __('last 30 days')],
+        ];
+
+        $tiles = [];
+        foreach ($defs as $d) {
+            $values = $dense($d['key']);
+            $nonZero = array_values(array_filter($values, fn (int $v): bool => $v > 0));
+            $n = match ($d['agg']) {
+                'sum' => array_sum($values),
+                'avg' => $values === [] ? 0 : (int) round(array_sum($values) / count($values)),
+                'avgnz' => $nonZero === [] ? 0 : (int) round(array_sum($nonZero) / count($nonZero)),
+                default => 0,
+            };
+            $tiles[] = [
+                'key' => $d['key'],
+                'label' => $d['label'],
+                'headline' => number_format($n).($d['unit'] !== '' ? ' '.$d['unit'] : ''),
+                'caption' => $d['caption'],
+                'values' => $values,
+            ];
+        }
+
+        return $tiles;
+    }
+
     private function ensureAdmin(): void
     {
         $user = auth()->user();
@@ -147,6 +203,27 @@ new class extends Component
                 </div>
             </x-ui.card>
         @endforeach
+    </div>
+
+    {{-- Hearth health (NOV-127): community-health signals, every one derived from real rows (no estimation).
+         Presented with honest per-metric aggregation — an average time / rate is not a sum. --}}
+    @php($hearth = $this->hearthTiles())
+    <div>
+        <h2 class="mb-2 text-sm font-semibold text-ink">{{ __('Community health') }}</h2>
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            @foreach ($hearth as $t)
+                <x-ui.card>
+                    <div class="flex items-baseline justify-between gap-2">
+                        <span class="text-xs uppercase tracking-wide text-ink-subtle">{{ $t['label'] }}</span>
+                        <span class="nums text-lg font-semibold text-ink" dusk="hearth-{{ $t['key'] }}">{{ $t['headline'] }}</span>
+                    </div>
+                    <p class="mt-0.5 text-xs text-ink-subtle">{{ $t['caption'] }}</p>
+                    <div class="mt-2">
+                        <x-ui.sparkline :series="$t['values']" tone="accent" dusk="hearth-chart-{{ $t['key'] }}" />
+                    </div>
+                </x-ui.card>
+            @endforeach
+        </div>
     </div>
 
     @php($rows = $this->rows())
