@@ -6,6 +6,7 @@ use App\Backup\RestoreRunner;
 use App\Backup\RestoreState;
 use App\Http\Controllers\HealthController;
 use App\Install\PublicStorageLinker;
+use App\Models\ApiIdempotencyKey;
 use App\Upgrade\UpgradeRunner;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -156,6 +157,11 @@ Schedule::call(function (): void {
             ->delete();
     }
 })->daily()->name('novfora-cache-prune')->skip($duringRestore);
+
+// Prune expired Admin-API idempotency keys (E1 / NOV-135, ADR-0115). The ledger is TTL-bounded — a stale row is
+// already ignored on read (EnforceIdempotency lazy-expires it), this reclaims the disk. Skipped during a restore.
+Schedule::call(fn () => ApiIdempotencyKey::query()->where('expires_at', '<', now())->delete())
+    ->daily()->name('novfora-idempotency-prune')->skip($duringRestore);
 
 // Outbound webhook egress (ADR-0033, B3): drain pending deliveries, signing + POSTing with retry/backoff.
 // The cron path makes delivery work on the baseline tier (no persistent worker); overlap-guarded so a coarse

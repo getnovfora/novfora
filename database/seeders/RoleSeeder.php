@@ -95,6 +95,9 @@ class RoleSeeder extends Seeder
             'admin.analytics.access' => $allow,
             'admin.settings.access' => $allow,
             'admin.system.access' => $allow,
+            // E1 (NOV-135): mint/rotate/revoke Admin-API tokens. Additive — propagates to existing admins via
+            // PermissionSync on upgrade. Destructive token scopes still require the actor be a co-owner at mint.
+            'admin.api_tokens.manage' => $allow,
         ];
 
         return [

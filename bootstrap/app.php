@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsureNotInstalled;
 use App\Http\Middleware\PreventRequestsDuringUpgrade;
 use App\Http\Middleware\PwaResponseHeaders;
 use App\Http\Middleware\RedirectIfNotInstalled;
+use App\Http\Middleware\RequireApiScope;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\ThrottledLastActive;
@@ -13,6 +14,8 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -64,9 +67,25 @@ return Application::configure(basePath: dirname(__DIR__))
             PwaResponseHeaders::class,
         ]);
 
+        // Trusted reverse proxies (E1 hardening / NOV-135). Behind nginx / a load balancer / Cloudflare,
+        // `request()->ip()` — used by the API-token ip_allowlist, the audit ip_address, and the rate-limit key —
+        // otherwise resolves to the PROXY, silently defeating IP pinning. Set TRUSTED_PROXIES (a comma list, or
+        // `*` for a fully trusted edge like a container network) so the real client IP is read from
+        // X-Forwarded-For. UNSET = trust nothing (REMOTE_ADDR only), which fails CLOSED against XFF spoofing.
+        $trustedProxies = env('TRUSTED_PROXIES');
+        if (is_string($trustedProxies) && trim($trustedProxies) !== '') {
+            $middleware->trustProxies(
+                at: trim($trustedProxies) === '*' ? '*' : array_map('trim', explode(',', $trustedProxies)),
+                headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_HOST
+                    | Request::HEADER_X_FORWARDED_PORT | Request::HEADER_X_FORWARDED_PROTO,
+            );
+        }
+
         // The installer lock — applied to the installer routes so they 403 once installed.
         $middleware->alias([
             'novfora.not-installed' => EnsureNotInstalled::class,
+            // Admin-API scope gate (E1 / NOV-135): `->middleware('api.scope:admin:settings.write')`.
+            'api.scope' => RequireApiScope::class,
         ]);
 
         // Spike P2 (deliverability): the inbound provider bounce/complaint webhook and the RFC 8058
@@ -92,4 +111,34 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->expectsJson() || $request->is('api/*'),
         );
+
+        // Admin-API consistent error envelope (E1 / NOV-135, ADR-0115): `{error: {code, message, fields?}}` for
+        // every `api/admin/*` failure — validation, aborts (401/403/404), rate-limit. Other routes keep Laravel's
+        // default JSON shape, so the member API (api/v1) is untouched.
+        $exceptions->render(function (Throwable $e, Request $request) {
+            if (! $request->is('api/admin/*')) {
+                return null;
+            }
+            if ($e instanceof ValidationException) {
+                return response()->json(['error' => [
+                    'code' => 'validation_failed',
+                    'message' => 'The request is invalid.',
+                    'fields' => $e->errors(),
+                ]], 422);
+            }
+            if ($e instanceof HttpExceptionInterface) {
+                $status = $e->getStatusCode();
+                $message = $e->getMessage();
+
+                return response()->json(['error' => [
+                    'code' => match ($status) {
+                        401 => 'unauthenticated', 403 => 'forbidden', 404 => 'not_found',
+                        405 => 'method_not_allowed', 429 => 'rate_limited', default => 'error',
+                    },
+                    'message' => $message !== '' ? $message : 'Request failed.',
+                ]], $status);
+            }
+
+            return null; // any other exception falls through to the default renderer
+        });
     })->create();

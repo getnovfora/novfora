@@ -51,6 +51,7 @@ class PermissionCatalogSeeder extends Seeder
             'admin.settings.access' => ['Access the Settings admin section', 'global', 'Administration', 'Open the Settings section of the ACP (general, registration, email, anti-spam, SSO, search, payments).'],
             'admin.system.access' => ['Access the System admin section', 'global', 'Administration', 'Open the System section of the ACP (service tier, backups, upgrade, suppressions, audit, tasks).'],
             'admin.security.access' => ['Access the Security admin section', 'global', 'Administration', 'Open the Security section of the ACP (co-owners, Admin Manager, permission inspector). Held only by co-owners.'],
+            'admin.api_tokens.manage' => ['Manage API tokens', 'global', 'Administration', 'Mint, rotate, and revoke scoped Admin-API tokens (E1). Destructive scopes additionally require co-owner.'],
 
             'bans.manage' => ['Issue & lift bans', 'global', 'Moderation', 'Ban or unban users, globally or per scope.'],
 

@@ -91,6 +91,7 @@ return [
         'admin_accounts' => 'Admin Manager',
         'permissions' => 'Permission Inspector',
         'active_delegations' => 'Active delegations',
+        'api_tokens' => 'API tokens',
     ],
 
     // Per-section dashboard landing copy (foundations §3: start with the section summary; widgets land later).

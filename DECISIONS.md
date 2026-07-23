@@ -4018,3 +4018,63 @@ contract pairs) + `BulkModerationTest` (lock invariant, delete self-exemption, a
 **Consequences.** A Baseline-safe onboarding surface with no daemon and no new subsystem; reversible (one column, one listener, one component). Tests (`tests/Feature/Onboarding/OnboardingTest.php`): the welcome email is queued to the registrant; the checklist shows for a fresh member, hides once all three signals are met, and stays hidden after dismissal.
 
 **Alternatives considered.** (a) A dedicated onboarding progress table / state machine — rejected as over-built for "lite": the signals already exist on posts/reactions/profile, so a boolean read is the honest model. (b) A multi-step modal tour — rejected: intrusive and JS-heavy; a dismissible inline card degrades gracefully and respects the reader. (c) Send the welcome mail synchronously in the registration request — rejected: it belongs off the hot path on the queue, exactly like the join-badge award.
+
+### ADR-0115 — Scoped Admin-API tokens: the auth spine (E1, NOV-135) (2026-07-22)
+**Status: Accepted — built + gated on `claude/v14-e1-api-tokens` (v1.4 Phase 4E; NOV-135); adversarial
+verify-then-refute review on record.** First slice of the Admin-API program (spec: `ADMIN-API-AND-POPULATE-SPEC`).
+
+**Context.** The member API v1 (ADR-0033) has a hashed-token spine (`ApiTokenService`, `AuthenticateApiToken`,
+`throttle:api`, maintenance-gates-ahead-of-auth) but no scope model and no admin surface. E1 EXTENDS that spine
+into a scoped administrative API — same token table, new scope model — never a parallel authz path.
+
+**Decision — one rule: a token can never do more than its owner.**
+1. **Scoped tokens on the existing table** — additive `scopes` (JSON) + `ip_allowlist` (JSON) columns (`expires_at`
+   / `last_used_at` already exist). Admin-scoped tokens mint with a DISTINCT `nvfa_` prefix (secret-scanning
+   signal); plain member tokens keep `nvf_` and act fully as their user. Reversible migration.
+2. **`ApiScopes` — the fixed taxonomy** mirroring the ACP sections (`admin:settings.read|write`, `structure`,
+   `members`, `moderation`, `backups.read|create`, `restore`, `maintenance`, `upgrade`, `populate`). **No `admin:*`
+   super-scope.** Secret-bearing / destructive scopes (backups/restore/upgrade/populate) are **co-owner-mintable
+   only** (`AdminCoOwnerService::isCoOwner`).
+3. **Effective ability = token scopes ∩ owner `canDo`.** `RequireApiScope` middleware enforces the route's scope;
+   the controller (`AdminApiController::requireCapability`) asserts the owner's `canDo` — BOTH must pass, so a
+   scope alone grants nothing and a revoked/demoted/expired/banned owner's token dies with the mask (the resolver
+   is authoritative). `ip_allowlist` (exact-IP, `inet_pton`-canonical; CIDR lands post-U13-merge) + expiry are
+   enforced in `AuthenticateApiToken`; `last_used_at` is a throttled write (Cache::add, ≤1/5min).
+4. **Minting** — a new `admin.api_tokens.manage` capability (in the `Administration` cluster → auto escalation-
+   fenced by `RoleManager`; added to the `administrator` preset → propagates via `PermissionSync`). Minted only
+   from a 2FA-verified panel session (the Security → API tokens SFC re-asserts staff-2FA), for the CURRENT admin;
+   secret shown once. Revoke works on any admin token (incident response).
+5. **Idempotency** — a mutating request may carry an `Idempotency-Key`; `EnforceIdempotency` stores the first 2xx
+   response keyed by (token, sha256(key)) for 24h and replays it verbatim on retry. The UNIQUE index is the
+   authoritative at-most-once guard (the Stripe-webhook idiom). Automation-safe on flaky cron/CI callers.
+6. **Provenance** — `Audit::log` folds a `via_token` marker into the changes when the actor acts through a token
+   (`AuthenticateApiToken` stamps the id on the request).
+7. **Contract** — a consistent error envelope `{error:{code,message,fields?}}` for every `api/admin/*` failure
+   (bootstrap render closure; the member API is untouched), a `{data:…}` success envelope, and an OpenAPI 3.1
+   scaffold at `/api/admin/v1/openapi.json` (token-gated) publishing the security scheme + full scope taxonomy.
+
+**Proof surface (E1):** `GET /whoami`, `POST /ping` (audited, idempotent), `GET /openapi.json` — they exercise
+the whole chain end-to-end so the spine is verifiable before E2/E3 add the resource endpoints.
+
+**Consequences.** A trust-tight foundation the rest of 4E rides. Tests: `AdminApiSpineTest` (scope∩canDo, missing/
+expired/inactive/wrong-scope/wrong-IP, idempotent replay + single via_token audit, token-gated OpenAPI) and
+`ApiTokenAdminTest` (mint, destructive-scope co-owner gate, invalid-IP reject, capability gate). Migrate
+round-trip verified.
+
+**Apex-review fixes (verify-then-refute, 4 MEDIUM confirmed + closed before merge).** (1) **Trusted proxies** —
+`request()->ip()` (token ip_allowlist, audit ip, rate-limit key) resolved to the proxy behind nginx/CF, silently
+defeating IP pinning. Added an env-driven `TRUSTED_PROXIES` seam (unset = trust nothing, fail-closed) + docs.
+(2) **Mint 2FA gate** — the SFC gated 2FA on `isStaff()`, under-enforcing it for per-user/bundle admins; now any
+`admin.access` holder must carry a confirmed second factor to mint (mirrors `RequireTwoFactorForStaff`).
+(3) **Idempotency fingerprint** — the key was scoped to (token, key) only; a key reused on a DIFFERENT request
+would replay the wrong response. Now the stored method+path is a fingerprint — a mismatch is rejected (422).
+(4) **Idempotency concurrency** — the row was stored AFTER the mutation, so concurrent duplicates double-executed;
+now the key is RESERVED (pending row) BEFORE executing, so the unique index makes the mutation run at most once
+(a loser replays or 409s; a failure releases the reservation). Plus a LOW: `openapi.json` now requires an
+admin-scoped token (not any member token). The review correctly REFUTED a claimed "replay bypasses scope/canDo"
+— the replay path executes nothing; it only re-serves an already-authorized 2xx to the same token.
+
+**Deferred (per the 4E plan memo).** E2 (read surface) → E3 (write surface) → E4 (backups) → **E5 restore ◆◆** →
+**E7 self-upgrade ◆◆** → E8 (docs). E5/E7 are the spec's "most dangerous endpoints in the product" and are
+sequenced for a dedicated cycle rather than rushed at the tail of the v1.4 build (see the plan memo + the ☀️
+owner section of the morning report).

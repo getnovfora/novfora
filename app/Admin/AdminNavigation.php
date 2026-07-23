@@ -124,6 +124,7 @@ final class AdminNavigation
                 ['admin_accounts', 'admin.security.accounts', 'users'], // v3-a: Admin Manager (restricted admins)
                 ['permissions', 'admin.security.permissions', 'shield'],
                 ['active_delegations', 'admin.security.delegations', 'clock'], // v3-f: temporary-access delegation
+                ['api_tokens', 'admin.security.api-tokens', 'lock'], // E1: scoped Admin-API tokens
             ]],
         ]],
     ];
