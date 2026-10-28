@@ -16,7 +16,69 @@ namespace App\Theme\Sandbox;
  */
 final class TemplateContract
 {
-    public const VERSION = '1.0.0';
+    public const VERSION = '1.1.0';
+
+    /**
+     * The named TEMPLATE-HOOK anchors (U11 / ADR-0112) — points in core views where admin-authored sandbox
+     * fragments attach via <x-template-hook>. Anchored by NAME, not file content, so a core release never
+     * invalidates them: the upgrade-safe alternative to whole-file view overrides. Every fragment renders
+     * through the same sandbox (lint, data-only context, auto-escape, bounded); the variables listed are the
+     * per-anchor extras merged over the global site/user/stats context. Adding an anchor = MINOR.
+     *
+     * @return array<string, array{label:string, description:string, variables:array<string,string>}>
+     */
+    public static function hooks(): array
+    {
+        $global = ['site.name' => 'The board name', 'user.is_guest' => 'true for a signed-out visitor', 'user.username' => 'The signed-in member’s name'];
+
+        return [
+            'site.header.after' => [
+                'label' => 'Below the site header',
+                'description' => 'Rendered on every page, directly under the site header band.',
+                'variables' => $global,
+            ],
+            'site.footer.before' => [
+                'label' => 'Above the site footer',
+                'description' => 'Rendered on every page, directly above the footer block.',
+                'variables' => $global,
+            ],
+            'board.header' => [
+                'label' => 'Board — above the topic list',
+                'description' => 'Rendered on a board page above its topics.',
+                'variables' => $global + ['board.name' => 'The board name', 'board.description' => 'The board description'],
+            ],
+            'board.footer' => [
+                'label' => 'Board — below the topic list',
+                'description' => 'Rendered on a board page below its topics.',
+                'variables' => $global + ['board.name' => 'The board name', 'board.description' => 'The board description'],
+            ],
+            'topic.header' => [
+                'label' => 'Topic — above the posts',
+                'description' => 'Rendered on a topic page above the first post.',
+                'variables' => $global + ['topic.title' => 'The topic title', 'topic.reply_count' => 'Number of replies'],
+            ],
+            'topic.after_posts' => [
+                'label' => 'Topic — below the posts',
+                'description' => 'Rendered on a topic page after the last post (before the reply box).',
+                'variables' => $global + ['topic.title' => 'The topic title', 'topic.reply_count' => 'Number of replies'],
+            ],
+            'topic.post.footer' => [
+                'label' => 'Every post — footer',
+                'description' => 'Rendered at the foot of EACH post on a topic page.',
+                'variables' => $global + ['topic.title' => 'The topic title', 'post.author' => 'The post author’s name', 'post.position' => 'The post’s position in the topic'],
+            ],
+            'profile.header' => [
+                'label' => 'Profile — header',
+                'description' => 'Rendered at the top of a member profile page.',
+                'variables' => $global + ['profile.username' => 'The profile owner’s name'],
+            ],
+        ];
+    }
+
+    public static function hasHook(string $key): bool
+    {
+        return array_key_exists($key, self::hooks());
+    }
 
     /**
      * @return array<string, array{label:string, description:string, variables:array<string,string>, default:string}>

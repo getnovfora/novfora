@@ -100,7 +100,10 @@ it('renders a topic page with a bounded query count regardless of post count', f
     // <43 (was <42): v1.3 announcements render a banner on EVERY page behind a cached existence-gate; a warm
     // page pays 0 (cache hit — see QueryBudgetTest), but this deliberately-cold render pays the one-time
     // exists() probe, exactly the class of one-time miss this test already documents. Fixed-cost, not per-post.
-    expect($q)->toBeLessThan(43);
+    // <44 (was <43): U11 template hooks load their enabled-fragment map once behind a forever cache; a warm
+    // page pays 0 (QueryBudgetTest holds unchanged), but this deliberately-cold render pays the map's
+    // one-time miss. ONE fixed query for all eight anchors — never per-anchor, never per-post.
+    expect($q)->toBeLessThan(44);
 })->group('perf');
 
 it('renders search results with a bounded query count', function () {
