@@ -13,14 +13,98 @@
 
 ---
 
-## ▶ ACTIVE TASK — v1.4 "The Creator Release" (kickoff 2026-07-17, IN PROGRESS)
+## ▶ ACTIVE TASK — v1.4 "The Creator Release" — MORNING REPORT (build cycle 2026-07-22)
 
 Executing [`docs/product/FABLE-V1.4-KICKOFF-2026-07-17.md`](docs/product/FABLE-V1.4-KICKOFF-2026-07-17.md)
-end-to-end, unattended (owner pre-approved the BUILD-PROMPTS 5–8 plan gates by approving that doc). Order:
-**Phase 0 reconcile → 4A style engine → 4B ◆ template hooks/Diff3 → 4C ◆ export+Registry+importers (NOV-124
-spike self-gates GO/NO-GO) → 4D admin-at-scale → 4E ◆◆ admin API + self-upgrade → release run** ending at a
-**locally tagged `v1.4.0`** (owner pushes). One branch per slice off `main`; nothing merges until the release
-run; every ◆/◆◆ slice gets the verify-then-refute apex review with 0 open HIGH/MEDIUM before merge.
+end-to-end, unattended. Order: **Phase 0 → 4A → 4B ◆ → 4C ◆ → 4D → 4E ◆◆ → release run**. One branch per slice
+off `main`; nothing merges until the release run; every ◆/◆◆ slice gets the verify-then-refute apex review with
+**0 open HIGH/MEDIUM before merge — the review is the signal, not the suite**.
+
+**Where it stands: 4A–4D COMPLETE + 4E E1 (the API auth spine) COMPLETE. 4E E2–E8 locked in a plan memo and
+sequenced for a dedicated cycle. The release run (merge + tag `v1.4.0`) is DEFERRED to the owner as a scope
+decision (see ☀️) — 4E is intentionally partial, so tagging `v1.4.0` now would misrepresent the release.**
+
+Everything is committed on per-slice branches off `main`; **nothing new is merged to `main`** (Phase 0 was the
+only merge, `5c3800b`, in the prior session). Each slice below is green in `forum-dev` (full suite ~2.3k pass,
+`route:clear` first), Pint + Larastan(app/) clean, migrate round-trip verified, and — where ◆ — apex/focused
+reviewed to 0 open HIGH/MEDIUM.
+
+### Completed this program (branch · head · ADR · review)
+- **Phase 0 reconcile** — PROJECT-STATE trimmed 847→125, history moved, DECISIONS. Merged to `main` `5c3800b`.
+- **4A style engine** — U9 style props/dark tokens (`claude/v14-u9-style-props` `affe269`) · U10 style tree +
+  presets (`claude/v14-u10-style-tree` `d99f27c`).
+- **4B ◆ template hooks / Diff3** — `claude/v14-u11-template-hooks` `b193a08` (ADR-0112); apex-reviewed (lint
+  soundness HIGH fixed).
+- **4C ◆ export + Registry + importers** — U12 style I/O (`claude/v14-u12-style-io` `069adf8`) · Registry v1
+  (`claude/v14-registry-v1` `94f48bd`, ADR-0113; NOV-124 spike **GO**; 6 apex findings across 3 passes fixed) ·
+  MyBB/SMF importers (`claude/v14-importers` `cdca1ba`).
+- **4D admin-at-scale — ALL 5 SLICES DONE:**
+  - **U14** pending-member exit-ramp — `claude/v14-u14-registration` `1d233a8` (ADR-0119).
+  - **U13** ◆ CIDR/range IP-ban enforcement (elevated) — `claude/v14-u13-ip-bans` `8b20845` (ADR-0121); apex
+    **1 HIGH + 3 MEDIUM** fixed (IPv6 /32 downgrade, canonicalisation, /0 self-lockout across BOTH write paths).
+  - **U16** maintenance/logs/mail-test — `claude/v14-u16-maintenance` `5337af3` (NOV-114); focused review
+    **2 HIGH + 5 MEDIUM** fixed (log-redaction rewrite, counter ordering, queued-job robustness).
+  - **U19** custom topic fields + move-with-redirect — `claude/v14-u19-topic-fields` `d621cc6` (ADR-0122);
+    focused review **0 HIGH/MEDIUM** (untrusted-value validation + redirect-loop guard held), cheap LOWs fixed.
+  - **staff workflow + Hearth metrics** — `claude/v14-staff-workflow` `69154c3` (ADR-0114); focused review
+    **2 HIGH + 2 MEDIUM truthfulness** bugs fixed — as-of-day metrics, honest moderation allowlist, and the
+    **retention signal DROPPED** (not reproducible from overwrite-only `last_active_at` → omitted per "REAL
+    signals only"). This is the kickoff's hard rule honoured.
+- **4E ◆◆ Admin API — E1 (auth spine) DONE:** `claude/v14-e1-api-tokens` `783a6bb` (ADR-0115); apex review
+  **4 MEDIUM** fixed (trusted-proxy seam, mint-2FA gate widened, idempotency method/path fingerprint +
+  reserve-before-execute). Scoped `nvfa_` tokens, scope ∩ canDo, idempotency, audit-via-token, OpenAPI scaffold.
+
+### 4E E2–E8 — planned, NOT built (honest scoping)
+[`docs/product/plan-4e-admin-api-and-upgrade.md`](docs/product/plan-4e-admin-api-and-upgrade.md) (on the E1
+branch) locks the design for **E2 read → E3 write → E4 backups → E5 restore ◆◆ → E7 self-upgrade ◆◆ → E8 docs**
+(E6 Populate already shipped privately; 4E adds only the thin API round-trip). **E5 (restore) and E7 (self-upgrade)
+are, per the spec, "the most dangerous endpoints in the product"** — chunked untrusted-zip upload, streamed
+extraction, staged code-swap across three install layouts, ed25519 verification, auto-rollback. They warrant a
+**dedicated build cycle with fresh focus**, not a rushed pass at the tail of this marathon. Deferring them upholds
+the standing non-negotiable (0 open HIGH/MEDIUM before merge) rather than shipping under-reviewed restore/upgrade
+code. ADRs reserved: E4=0116, E5=0117, E7=0118.
+
+---
+
+## ☀️ OWNER SECTION — decisions, hand-offs, and what to run
+
+**1. Nothing is on `main` except Phase 0.** All 12 slices are on the branches listed above. **The release run
+(§6) was NOT executed** — see #2. `git config user.name/email` = `Tommy Huynh <tommy@saturnhq.net>`; all commits
+DCO-signed, no AI trailers.
+
+**2. RELEASE DECISION (yours) — do NOT assume v1.4.0 = shipped.** v1.4's exit gate (spec §5) requires the full
+end-to-end proof **including restore + self-upgrade**, which are not built. Two honest options:
+   - **(a) Ship 4A–4D + E1 as `v1.4.0` now** (a large, complete Creator-Release feature set; the Admin API lands
+     as the token spine only). Then E2–E8 become **v1.4.1 / v1.5**. Recommended if you want the 4D value out now.
+   - **(b) Hold the `v1.4.0` tag** until E2–E8 complete in the next cycle, shipping them together.
+   Either way the **merge order is phase order**: Phase 0 (done) → u9 → u10 → u11 → u12 → registry → importers →
+   u14 → u13 → u16 → u19 → staff → e1, `--no-ff`, **re-gating between**, then bump `config/app.php` → the chosen
+   version, `scripts/build-release.sh` → `verify-release.sh` (RELEASE_VERIFY=PASS), tag locally, you push. I did
+   not merge/tag because choosing the release scope with 4E partial is your call, not mine to guess.
+
+**3. Populate junction — VERIFY on any release zip.** `modules/novfora/populate` is a junction to the private
+`D:\novfora-populate` repo. It is **not committed on any branch here** and must be **absent from the release
+artifact** — `verify-release.sh` must confirm it. Never commit or ship it.
+
+**4. Linear is fully ABSENT in this environment** (no MCP server) — every write was blocked and **ledgered** in
+[`docs/product/v14-linear-ledger.md`](docs/product/v14-linear-ledger.md) (on `claude/v14-morning-report`
+`4f45bfa`). Flip by hand: NOV-112/111/114/116/127/135 → **Done on merge**; the discoveries below → **new issues**.
+
+**5. Open PRODUCT decisions (parked, not guessed):**
+   - **Self-upgrade auto-apply default** (E7): `off / security-only / all-patch`. Spec recommends **security-only,
+     chosen at install**. Yours to confirm when E7 is built.
+   - Carried from v1.3: **U8** imported-username revert (ADR-0106) · **U18** Turnstile fail-open (ADR-0107).
+
+**6. Discoveries to FILE as issues (found this cycle, deferred as LOW / non-blocking):**
+   - U13: per-*request* IP-ban enforcement middleware (today: registration boundary only); cache-outage fail-open.
+   - U16: unindexed `posts`/`sessions.ip_address` scans in the IP-investigation lookup (admin-gated).
+   - U19: a per-topic field-value **edit** surface (no topic-edit page exists); orphaned "moved" shadow cleanup.
+   - staff: a per-moderator staff-load breakdown + a true signup-cohort retention curve (need an activity-history
+     table) — both deferred from Hearth v1.
+   - E1: IP allowlist is exact-IP (CIDR lands once U13's `CidrMatcher` is on `main`); the same `isStaff()`-based
+     2FA self-guard pattern in the group-editor SFCs (pre-existing) should be widened like E1's mint gate.
+
+**7. Confirm `git config`** in your environment before pushing (the sandbox default may differ).
 
 ---
 
@@ -92,8 +176,8 @@ Scaffolded/disabled-by-default; unit-tested against fakes only. Enable + validat
   opcache reset, verify the group's `type` column.
 - **`novfora:trust:recompute --user`** prints the generic summary, not the per-user reason (engine correct; print
   is terser). Small polish.
-- **Pending-member exit-ramp** — spec'd at `docs/product/pending-member-review-kickoff.md`; **being absorbed by
-  v1.4 U14 (NOV-112)** this cycle.
+- **Pending-member exit-ramp** — **DONE** this cycle as v1.4 U14 (NOV-112, `claude/v14-u14-registration` `1d233a8`,
+  ADR-0119): pending/flagged review queue + `MemberActivationService` + optional config-gated auto-activation.
 - **demo.novfora.com** still runs pre-v1.3 — the v1.3.0 upgrade (and v1.4.0 after it) goes via the cron
   auto-upgrade path, backup-first (both carry migrations; not assets-only).
 
