@@ -145,6 +145,15 @@ Schedule::command('novfora:badges:recompute')
     ->withoutOverlapping(10)
     ->skip($duringRestore);
 
+// Counter denorm self-heal (U16 / NOV-114): reconcile forum/topic reply+post counters and users.post_count
+// to the live posts, in case a missed/reordered live delta (Post::booted, TopicCounters) left drift. SETs
+// authoritative COUNT/MAX values → idempotent; weekly is enough latency for a cosmetic count, same short-mutex
+// discipline. Also runnable on demand from the ACP Maintenance page (queued) or the CLI.
+Schedule::command('novfora:forums:recompute-counters')
+    ->weekly()
+    ->withoutOverlapping(10)
+    ->skip($duringRestore);
+
 // Baseline-tier cache hygiene (P2-M5 adversarial-review finding): version-keyed cache entries (feeds,
 // reaction tallies, ACL) are never read again after a version bump, and the DATABASE store only evicts
 // an expired row when that exact key is next read — so superseded rows accumulate forever. Prune expired

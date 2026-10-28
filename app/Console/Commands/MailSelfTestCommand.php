@@ -6,12 +6,13 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Support\Mail\TestMailer;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Mail;
 
 /**
  * `php artisan novfora:mail:test {email}` — deliverability self-test (ADR-0014). Sends one message through the
  * configured transport and prints the SPF/DKIM/DMARC + best-effort-baseline guidance the admin panel echoes.
+ * The send itself routes through the shared TestMailer (U16 / NOV-114) — the single self-test sender.
  */
 class MailSelfTestCommand extends Command
 {
@@ -19,16 +20,12 @@ class MailSelfTestCommand extends Command
 
     protected $description = 'Send a deliverability self-test email and print deliverability guidance.';
 
-    public function handle(): int
+    public function handle(TestMailer $mailer): int
     {
         $email = (string) $this->argument('email');
 
         try {
-            Mail::raw(
-                ' — if you received this, outbound email is working. '
-                .'For reliable delivery, verify SPF, DKIM and DMARC DNS records for your sending domain.',
-                fn ($message) => $message->to($email)->subject(''),
-            );
+            $mailer->send($email);
             $this->info("Self-test email dispatched to {$email}.");
         } catch (\Throwable $e) {
             $this->error('Self-test send failed: '.class_basename($e));
