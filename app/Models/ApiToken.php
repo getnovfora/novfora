@@ -19,6 +19,8 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string $token_hash
  * @property array<int,string>|null $abilities
+ * @property array<int,string>|null $scopes
+ * @property array<int,string>|null $ip_allowlist
  * @property Carbon|null $last_used_at
  * @property Carbon|null $expires_at
  */
@@ -31,6 +33,8 @@ class ApiToken extends Model
     {
         return [
             'abilities' => 'array',
+            'scopes' => 'array',
+            'ip_allowlist' => 'array',
             'last_used_at' => 'datetime',
             'expires_at' => 'datetime',
         ];
@@ -40,5 +44,17 @@ class ApiToken extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** Does this token carry the given admin scope (E1 / NOV-135)? */
+    public function hasScope(string $scope): bool
+    {
+        return in_array($scope, $this->scopes ?? [], true);
+    }
+
+    /** An admin-scoped token (carries at least one admin scope) vs a plain member token (no scopes). */
+    public function isAdminScoped(): bool
+    {
+        return ($this->scopes ?? []) !== [];
     }
 }

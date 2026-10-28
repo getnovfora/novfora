@@ -17,6 +17,13 @@ final class Audit
      */
     public static function log(string $action, ?Model $auditable = null, array $changes = []): void
     {
+        // Provenance (E1 / NOV-135): when the actor is acting through an Admin-API token, AuthenticateApiToken
+        // stamps its id on the request — fold it into the audit changes so a token-driven action is attributable.
+        $viaToken = request()->attributes->get('api_token_id');
+        if ($viaToken !== null) {
+            $changes['via_token'] = (int) $viaToken;
+        }
+
         AuditLog::create([
             'actor_id' => auth()->id(),
             'action' => $action,
