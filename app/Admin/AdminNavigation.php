@@ -87,6 +87,7 @@ final class AdminNavigation
         'plugins' => ['plug', 'admin.plugins', [
             [null, [
                 ['modules', 'admin.modules', 'plug'],
+                ['registry', 'admin.registry', 'globe'],
                 ['webhooks', 'admin.webhooks', 'mail'],
                 ['embeds', 'admin.embeds', 'globe'],
             ]],

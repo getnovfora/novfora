@@ -278,6 +278,7 @@ class Settings
             'default_density' => $this->string('appearance.default_density'),
             'poster_position' => $this->string('appearance.poster_position'),
             'board_list_style' => $this->string('appearance.board_list_style'),
+            'global_custom_css' => $this->string('appearance.global_custom_css'), // U12 (NOV-110)
         ];
     }
 
