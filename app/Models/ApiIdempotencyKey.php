@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 /**
  * A stored Admin-API response keyed by (token, idempotency-key) so a replayed mutating request returns the
@@ -20,8 +21,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $path
  * @property int $response_status
  * @property string $response_body
- * @property \Illuminate\Support\Carbon|null $expires_at
- * @property \Illuminate\Support\Carbon|null $created_at
+ * @property Carbon|null $expires_at
+ * @property Carbon|null $created_at
  */
 class ApiIdempotencyKey extends Model
 {
