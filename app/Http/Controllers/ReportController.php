@@ -61,7 +61,7 @@ class ReportController extends Controller
         // Message report — reportable_type = Message — stays a bare header) so the review renders the post
         // excerpt + author + permalink with NO per-report query.
         $reports = Report::where('status', 'open')
-            ->with(['reporter.groups', 'reportable' => function (Relation $morph): void {
+            ->with(['reporter.groups', 'assignee', 'reportable' => function (Relation $morph): void {
                 if ($morph instanceof MorphTo) {
                     $morph->morphWith([Post::class => ['author.groups', 'topic.forum']]);
                 }
@@ -76,12 +76,49 @@ class ReportController extends Controller
             ->mapWithKeys(fn (Report $report): array => [$report->id => $this->reviewCard($report, $viewer)])
             ->all();
 
-        // Loaded ONCE for the inline controls (not per card): move destinations + active warning types.
+        // Loaded ONCE for the inline controls (not per card): move destinations + active warning types + the
+        // assignable staff set (NOV-127 — the admins/moderators groups, i.e. the report-handler pool).
         $moveTargets = Forum::query()->whereNull('club_id')->where('type', 'forum')
             ->orderBy('position')->orderBy('title')->get(['id', 'title']);
         $warningTypes = WarningType::query()->where('is_active', true)->orderBy('label')->get(['id', 'label']);
+        $staff = User::query()->where('status', 'active')
+            ->whereHas('groups', fn ($g) => $g->whereIn('slug', ['admins', 'moderators']))
+            ->orderBy('username')->get(['id', 'username']);
 
-        return view('moderation.reports', compact('reports', 'cards', 'moveTargets', 'warningTypes'));
+        return view('moderation.reports', compact('reports', 'cards', 'moveTargets', 'warningTypes', 'staff'));
+    }
+
+    /**
+     * Assign / claim / unassign an open report (NOV-127). An empty `assigned_to` unassigns; a set one must be a
+     * report handler (bans.manage) — you can't route work to a non-staff account. Audited.
+     */
+    public function assign(Request $request, Report $report): RedirectResponse
+    {
+        $this->authorizeStaff($request);
+        // Only an OPEN report can be (re)assigned — a resolved/dismissed one is done (the queue only lists open,
+        // so this guards a crafted direct POST).
+        abort_unless($report->status === 'open', 422);
+
+        $data = $request->validate(['assigned_to' => ['nullable', 'integer', 'exists:users,id']]);
+
+        $assignee = null;
+        if (! empty($data['assigned_to'])) {
+            $assignee = User::find($data['assigned_to']);
+            // The assignee must be an ACTIVE report handler (bans.manage) — matching the staff picker the UI
+            // offers, so work is never routed to a suspended or non-staff account.
+            abort_unless(
+                $assignee instanceof User && $assignee->status === 'active' && $assignee->canDo('bans.manage', Scope::global()),
+                422,
+            );
+        }
+
+        $report->update([
+            'assigned_to' => $assignee?->getKey(),
+            'assigned_at' => $assignee ? now() : null,
+        ]);
+        Audit::log($assignee ? 'report.assigned' : 'report.unassigned', $report, ['assigned_to' => $assignee?->getKey()]);
+
+        return back();
     }
 
     /**

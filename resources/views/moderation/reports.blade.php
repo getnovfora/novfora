@@ -55,6 +55,35 @@
                         </p>
                     @endif
 
+                    {{-- Assignment (NOV-127): claim, reassign to another staff member, or release. --}}
+                    <div class="flex flex-wrap items-center gap-2 text-sm" dusk="report-assign-{{ $report->id }}">
+                        <span class="text-ink-subtle">Assigned:</span>
+                        @if ($report->assignee)
+                            <x-ui.badge variant="accent">{{ $report->assignee->username }}</x-ui.badge>
+                        @else
+                            <span class="text-ink-muted">Unassigned</span>
+                        @endif
+                        <form method="POST" action="{{ route('reports.assign', $report->id) }}" class="flex items-center gap-1.5">
+                            @csrf
+                            <label class="sr-only" for="assign-{{ $report->id }}">Assign to</label>
+                            <select id="assign-{{ $report->id }}" name="assigned_to"
+                                    class="min-h-9 rounded-md border border-line bg-surface px-2 text-xs text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                                <option value="">— Unassigned —</option>
+                                @foreach ($staff as $member)
+                                    <option value="{{ $member->id }}" @selected($report->assigned_to === $member->id)>{{ $member->username }}</option>
+                                @endforeach
+                            </select>
+                            <x-ui.button type="submit" variant="ghost" size="sm">Assign</x-ui.button>
+                        </form>
+                        @if ($report->assigned_to !== auth()->id())
+                            <form method="POST" action="{{ route('reports.assign', $report->id) }}">
+                                @csrf
+                                <input type="hidden" name="assigned_to" value="{{ auth()->id() }}">
+                                <x-ui.button type="submit" variant="ghost" size="sm" dusk="report-claim-{{ $report->id }}">Claim</x-ui.button>
+                            </form>
+                        @endif
+                    </div>
+
                     @if ($card['canSee'])
                         {{-- Context: the reported post (server-sanitised body_html_cache) + a link to it in its
                              topic. Only rendered when the viewer may see the forum — no private-club leak. --}}

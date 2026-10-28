@@ -48,6 +48,18 @@
                 </span>
             </a>
 
+            {{-- NOV-127: this staff member's personal workload — open reports assigned to them. --}}
+            <a href="{{ route('moderation.reports') }}"
+               class="group flex items-start gap-3 rounded-lg border border-line bg-surface-raised p-4 shadow-sm transition-colors hover:border-line-strong hover:bg-surface-sunken">
+                <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-soft-ink">
+                    <x-ui.icon name="user" class="h-5 w-5" />
+                </span>
+                <span class="min-w-0">
+                    <span class="block font-medium text-ink group-hover:text-accent">My workload</span>
+                    <span class="mt-0.5 block text-sm text-ink-muted nums">{{ $counts['assigned_to_me'] }} {{ trans_choice('report assigned to you|reports assigned to you', $counts['assigned_to_me']) }}</span>
+                </span>
+            </a>
+
             <a href="{{ route('moderation.recycle-bin') }}"
                class="group flex items-start gap-3 rounded-lg border border-line bg-surface-raised p-4 shadow-sm transition-colors hover:border-line-strong hover:bg-surface-sunken sm:col-span-2">
                 <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-surface-sunken text-ink-muted">

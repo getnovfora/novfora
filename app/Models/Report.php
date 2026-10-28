@@ -17,6 +17,7 @@ class Report extends Model
 
     protected $casts = [
         'handled_at' => 'datetime',
+        'assigned_at' => 'datetime',
     ];
 
     public function reportable(): MorphTo
@@ -32,5 +33,11 @@ class Report extends Model
     public function handler(): BelongsTo
     {
         return $this->belongsTo(User::class, 'handled_by');
+    }
+
+    /** @return BelongsTo<User, $this> the staff member this report is assigned to (NOV-127), or null */
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
     }
 }
