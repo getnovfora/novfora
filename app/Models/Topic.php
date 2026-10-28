@@ -157,6 +157,18 @@ class Topic extends Model
         return $this->morphToMany(Tag::class, 'taggable');
     }
 
+    /** @return HasMany<TopicFieldValue, $this> the topic's custom-field values (U19 / NOV-116) */
+    public function fieldValues(): HasMany
+    {
+        return $this->hasMany(TopicFieldValue::class);
+    }
+
+    /** @return BelongsTo<Topic, $this> the topic this one redirects to (a 'moved'/'merged' shadow shell; else null) */
+    public function movedTo(): BelongsTo
+    {
+        return $this->belongsTo(Topic::class, 'moved_to_topic_id');
+    }
+
     public function permissionScope(): Scope
     {
         return Scope::thread((int) $this->id);

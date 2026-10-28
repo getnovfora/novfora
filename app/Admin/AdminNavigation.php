@@ -42,6 +42,7 @@ final class AdminNavigation
             [null, [
                 ['structure', 'admin.structure', 'folder'],
                 ['prefixes', 'admin.prefixes', 'pin'],
+                ['topic_fields', 'admin.topic-fields', 'list'],
             ]],
         ]],
         'members' => ['users', 'admin.members', [

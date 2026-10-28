@@ -95,7 +95,7 @@
                                 @if ($card['canModerateTopic'])
                                     @if ($moveTargets->count() > 1)
                                         {{-- Move the topic to another board (existing topics.move route). --}}
-                                        <form method="POST" action="{{ route('topics.move', $card['topic']) }}" class="flex items-center gap-1">@csrf
+                                        <form method="POST" action="{{ route('topics.move', $card['topic']) }}" class="flex flex-wrap items-center gap-1">@csrf
                                             <label class="sr-only" for="move-{{ $report->id }}">Move topic to board</label>
                                             <select id="move-{{ $report->id }}" name="forum_id"
                                                     class="min-h-9 rounded-md border border-line bg-surface px-2 text-xs text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
@@ -103,6 +103,10 @@
                                                     <option value="{{ $target->id }}" @selected($target->id === $card['topic']->forum_id)>{{ $target->title }}</option>
                                                 @endforeach
                                             </select>
+                                            <label class="flex items-center gap-1 text-xs text-ink-muted" title="Leave a “moved” link in the old board that redirects here.">
+                                                <input type="checkbox" name="leave_redirect" value="1" class="rounded border-line text-accent focus:ring-accent">
+                                                Redirect
+                                            </label>
                                             <x-ui.button type="submit" variant="ghost" size="sm">Move</x-ui.button>
                                         </form>
                                     @endif

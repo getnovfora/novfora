@@ -46,6 +46,7 @@ return [
         'analytics' => 'Analytics',
         'structure' => 'Forums & structure',
         'prefixes' => 'Prefixes',
+        'topic_fields' => 'Topic fields',
         'groups' => 'Groups',
         'group_permissions' => 'Group permissions',
         'roles' => 'Roles',

@@ -33,6 +33,10 @@ new class extends Component
     // Prefix selector (P2-M1). The available prefixes are loaded once in mount; null means no prefix.
     public ?int $prefixId = null;
 
+    // Custom topic-field values (U19 / NOV-116), keyed by field key. Validated server-side in save().
+    /** @var array<string, string> */
+    public array $fieldValues = [];
+
     // Poll composition (P2-M1). The block is only offered to authors who hold poll.create at this forum
     // (resolved once in mount); $canCreatePoll is #[Locked] so the client cannot toggle the gate on.
     #[Locked]
@@ -76,6 +80,12 @@ new class extends Component
     protected function draftContext(): array
     {
         return ['topic', $this->forumId];
+    }
+
+    /** The custom topic fields (U19) that apply to this forum, for rendering inputs. */
+    public function topicFields()
+    {
+        return app(\App\Forum\TopicFieldService::class)->applicable($this->forum());
     }
 
     public function addPollOption(): void
@@ -162,6 +172,15 @@ new class extends Component
             }
         }
 
+        // Validate custom topic-field values (U19) BEFORE creating the topic, surfacing per-field errors.
+        $fieldErrors = app(\App\Forum\TopicFieldService::class)->validate($this->forum(), $this->fieldValues)['errors'];
+        foreach ($fieldErrors as $key => $message) {
+            $this->addError('fieldValues.'.$key, $message);
+        }
+        if ($fieldErrors !== []) {
+            return null;
+        }
+
         if (! $limiter->attempt(auth()->user())) {
             $this->addError('body', 'You are posting too quickly — please wait a moment and try again.');
 
@@ -171,7 +190,7 @@ new class extends Component
         [$format, $canonical] = $this->body();
 
         try {
-            $topic = $service->createTopic(auth()->user(), $this->forum(), $this->title, $format, $canonical, $this->prefixId);
+            $topic = $service->createTopic(auth()->user(), $this->forum(), $this->title, $format, $canonical, $this->prefixId, $this->fieldValues);
         } catch (ContentRejectedException $e) {
             $this->addError('body', $e->getMessage());
 
@@ -303,6 +322,34 @@ new class extends Component
             </select>
         </div>
     @endif
+
+    {{-- Custom topic fields (U19 / NOV-116) — admin-defined, forum-scoped, validated server-side. --}}
+    @foreach ($this->topicFields() as $field)
+        <div class="space-y-1.5" wire:key="tf-{{ $field->id }}">
+            <label for="tf-{{ $field->id }}" class="block text-sm font-medium text-ink">
+                {{ $field->label }}
+                @if ($field->is_required) <span class="text-danger">*</span>
+                @else <span class="text-ink-subtle font-normal">(optional)</span> @endif
+            </label>
+            @if ($field->type === 'textarea')
+                <textarea id="tf-{{ $field->id }}" wire:model="fieldValues.{{ $field->key }}" rows="3" maxlength="2000"
+                          class="w-full px-3 py-2 rounded-md bg-surface-raised text-ink border border-line focus:border-accent text-sm"></textarea>
+            @elseif ($field->type === 'select')
+                <select id="tf-{{ $field->id }}" wire:model="fieldValues.{{ $field->key }}"
+                        class="w-full min-h-11 px-3 rounded-md bg-surface-raised text-ink border border-line focus:border-accent text-sm">
+                    <option value="">— Select —</option>
+                    @foreach ((array) $field->options as $choice)
+                        <option value="{{ $choice }}">{{ $choice }}</option>
+                    @endforeach
+                </select>
+            @else
+                <input id="tf-{{ $field->id }}" type="{{ $field->type === 'url' ? 'url' : 'text' }}" maxlength="255"
+                       wire:model="fieldValues.{{ $field->key }}"
+                       class="w-full min-h-11 px-3 rounded-md bg-surface-raised text-ink border border-line focus:border-accent text-sm">
+            @endif
+            @error('fieldValues.'.$field->key) <p class="text-xs text-danger">{{ $message }}</p> @enderror
+        </div>
+    @endforeach
 
     <div class="flex items-center justify-between gap-2">
         <span class="text-sm text-ink-muted">Body</span>

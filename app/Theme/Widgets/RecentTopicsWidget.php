@@ -38,8 +38,10 @@ final class RecentTopicsWidget extends Widget
     {
         $count = max(1, min(20, (int) ($settings['count'] ?? 5)));
 
-        // SoftDeletes excludes trashed automatically. Most-recently-active first.
+        // SoftDeletes excludes trashed automatically. Most-recently-active first; skip redirect shells
+        // (U19 'moved' shadows have no posts and only 301 elsewhere), matching the feed/sitemap queries.
         $topics = Topic::query()
+            ->whereNull('moved_to_topic_id')
             ->orderByDesc('last_posted_at')->orderByDesc('id')
             ->limit($count)->get(['id', 'title', 'last_posted_at']);
 

@@ -132,7 +132,7 @@
                                         @endif
                                         <x-ui.avatar :user="$topic->author" size="sm" class="mt-0.5 hidden shrink-0 lg:inline-flex" />
                                         <div class="min-w-0">
-                                            @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix || $topic->tags->isNotEmpty())
+                                            @if ($topic->is_pinned || $topic->status === 'locked' || $topic->status === 'moved' || $topic->prefix || $topic->tags->isNotEmpty())
                                                 <div class="mb-0.5 flex flex-wrap items-center gap-1.5">
                                                     <x-forum.prefix-badge :prefix="$topic->prefix" />
                                                     @foreach ($topic->tags as $tag)
@@ -143,6 +143,9 @@
                                                     @endif
                                                     @if ($topic->status === 'locked')
                                                         <x-ui.badge variant="neutral"><x-ui.icon name="lock" class="h-3 w-3" /> {{ __('forum.locked') }}</x-ui.badge>
+                                                    @endif
+                                                    @if ($topic->status === 'moved')
+                                                        <x-ui.badge variant="neutral"><x-ui.icon name="external" class="h-3 w-3" /> {{ __('forum.moved') }}</x-ui.badge>
                                                     @endif
                                                 </div>
                                             @endif
@@ -197,7 +200,7 @@
                                     {{ __('forum.select') }}
                                 </label>
                             @endif
-                            @if ($topic->is_pinned || $topic->status === 'locked' || $topic->prefix || $topic->tags->isNotEmpty())
+                            @if ($topic->is_pinned || $topic->status === 'locked' || $topic->status === 'moved' || $topic->prefix || $topic->tags->isNotEmpty())
                                 <div class="mb-0.5 flex flex-wrap items-center gap-1.5">
                                     <x-forum.prefix-badge :prefix="$topic->prefix" />
                                     @foreach ($topic->tags as $tag)
@@ -208,6 +211,9 @@
                                     @endif
                                     @if ($topic->status === 'locked')
                                         <x-ui.badge variant="neutral"><x-ui.icon name="lock" class="h-3 w-3" /> {{ __('forum.locked') }}</x-ui.badge>
+                                    @endif
+                                    @if ($topic->status === 'moved')
+                                        <x-ui.badge variant="neutral"><x-ui.icon name="external" class="h-3 w-3" /> {{ __('forum.moved') }}</x-ui.badge>
                                     @endif
                                 </div>
                             @endif

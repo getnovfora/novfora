@@ -103,7 +103,10 @@ it('renders a topic page with a bounded query count regardless of post count', f
     // <44 (was <43): U11 template hooks load their enabled-fragment map once behind a forever cache; a warm
     // page pays 0 (QueryBudgetTest holds unchanged), but this deliberately-cold render pays the map's
     // one-time miss. ONE fixed query for all eight anchors — never per-anchor, never per-post.
-    expect($q)->toBeLessThan(44);
+
+    // <45 (was <44): U19 renders custom topic fields via one bounded topic_field_values lookup on the topic
+    // header — a single fixed query (never per-post; an N+1 across these 16 posts adds ≥15 and blows past this).
+    expect($q)->toBeLessThan(45);
 })->group('perf');
 
 it('renders search results with a bounded query count', function () {
