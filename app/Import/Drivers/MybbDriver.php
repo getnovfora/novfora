@@ -10,9 +10,10 @@ use App\Import\BbcodeConverter;
 use App\Import\Contracts\ProvidesAttachments;
 use App\Import\Contracts\SourceDriver;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\Query\Builder;
 
 /**
- * MyBB 1.8 source driver — SCAFFOLD (ADR-0034). It maps MyBB's public schema (`mybb_users`, `mybb_forums`,
+ * MyBB 1.8 source driver (ADR-0034; H2a fixture-verified, real-members filter parity with phpBB/XenForo). It maps MyBB's public schema (`mybb_users`, `mybb_forums`,
  * `mybb_threads`, `mybb_posts`) behind the same SourceDriver contract as the (fully-built + tested) phpBB
  * driver, so completing MyBB support is mapping work, not architecture. CLEAN-ROOM: schema only. NOTE: MyBB
  * stores `md5(md5(salt).md5(password))`, which Laravel cannot verify — imported MyBB users reset their
@@ -45,16 +46,26 @@ final class MybbDriver implements ProvidesAttachments, SourceDriver
     public function counts(): array
     {
         return [
-            'users' => $this->connection->table($this->prefix.'users')->count(),
+            'users' => $this->usersQuery()->count(),
             'forums' => $this->connection->table($this->prefix.'forums')->count(),
             'topics' => $this->connection->table($this->prefix.'threads')->count(),
             'posts' => $this->connection->table($this->prefix.'posts')->count(),
         ];
     }
 
+    /**
+     * The importable-users base query: real members only — MyBB primary usergroup 5 (awaiting activation)
+     * and 7 (banned) are excluded, mirroring phpBB's bot exclusion / XenForo's valid-only filter so preflight
+     * counts and the import agree.
+     */
+    private function usersQuery(): Builder
+    {
+        return $this->connection->table($this->prefix.'users')->whereNotIn('usergroup', [5, 7]);
+    }
+
     public function users(int $afterId, int $limit): array
     {
-        return $this->connection->table($this->prefix.'users')
+        return $this->usersQuery()
             ->where('uid', '>', $afterId)->orderBy('uid')->limit($limit)
             ->get(['uid', 'username', 'email', 'password', 'regdate'])
             ->map(fn ($r): array => [

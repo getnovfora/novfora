@@ -44,6 +44,7 @@ function legacySmf(): ConnectionInterface
         $t->string('member_name');
         $t->string('email_address');
         $t->integer('date_registered');
+        $t->integer('is_activated')->default(1);
     });
     $schema->create('smf_boards', function ($t) {
         $t->integer('id_board');
@@ -74,8 +75,10 @@ function legacySmf(): ConnectionInterface
     });
 
     $conn->table('smf_members')->insert([
-        ['id_member' => 1, 'member_name' => 'opal', 'email_address' => 'opal@old.test', 'date_registered' => 1500000000],
-        ['id_member' => 2, 'member_name' => 'pete', 'email_address' => 'pete@old.test', 'date_registered' => 1500000001],
+        ['id_member' => 1, 'member_name' => 'opal', 'email_address' => 'opal@old.test', 'date_registered' => 1500000000, 'is_activated' => 1],
+        ['id_member' => 2, 'member_name' => 'pete', 'email_address' => 'pete@old.test', 'date_registered' => 1500000001, 'is_activated' => 1],
+        // A not-yet-activated (0) member — excluded from counts + the import (matches the phpBB/XenForo bar).
+        ['id_member' => 3, 'member_name' => 'ghost', 'email_address' => 'ghost@old.test', 'date_registered' => 1500000002, 'is_activated' => 0],
     ]);
     // Child board (order 1) before its parent category (order 2): the order-independent import must still nest it.
     $conn->table('smf_boards')->insert([
@@ -102,7 +105,9 @@ it('imports an SMF board: members, hierarchy, title-from-first-message, content,
     $report = $runner->import($driver);
 
     expect(User::where('username', 'opal')->exists())->toBeTrue()
-        ->and(User::where('username', 'pete')->exists())->toBeTrue();
+        ->and(User::where('username', 'pete')->exists())->toBeTrue()
+        // A not-yet-activated (is_activated=0) member is excluded — the phpBB/XenForo bar.
+        ->and(User::where('username', 'ghost')->exists())->toBeFalse();
 
     $community = Forum::where('title', 'Community')->firstOrFail();
     $support = Forum::where('title', 'Support')->firstOrFail();
@@ -163,6 +168,8 @@ it('imports SMF attachments and verifies their checksums', function () {
         expect($attachment->original_name)->toBe('diagram.png')
             ->and($attachment->checksum)->toBe(hash('sha256', $content))
             ->and(Storage::disk('local')->get($attachment->path))->toBe($content)
+            // The uploader now resolves to the owning message's poster (opal, id_member 1) — no longer null.
+            ->and($attachment->user_id)->toBe(User::where('username', 'opal')->value('id'))
             ->and($report['attachments']['imported'])->toBe(1)
             ->and($report['attachments']['checksum_ok'])->toBeTrue()
             ->and($report['content']['ok'])->toBeTrue();

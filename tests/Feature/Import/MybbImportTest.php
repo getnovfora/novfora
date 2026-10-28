@@ -45,6 +45,7 @@ function legacyMybb(): ConnectionInterface
         $t->string('email');
         $t->string('password');
         $t->integer('regdate');
+        $t->integer('usergroup')->default(2);
     });
     $schema->create('mybb_forums', function ($t) {
         $t->integer('fid');
@@ -78,8 +79,11 @@ function legacyMybb(): ConnectionInterface
     });
 
     $conn->table('mybb_users')->insert([
-        ['uid' => 1, 'username' => 'mary', 'email' => 'mary@old.test', 'password' => 'saltedmd5hash', 'regdate' => 1500000000],
-        ['uid' => 2, 'username' => 'nate', 'email' => 'nate@old.test', 'password' => 'saltedmd5hash2', 'regdate' => 1500000001],
+        ['uid' => 1, 'username' => 'mary', 'email' => 'mary@old.test', 'password' => 'saltedmd5hash', 'regdate' => 1500000000, 'usergroup' => 2],
+        ['uid' => 2, 'username' => 'nate', 'email' => 'nate@old.test', 'password' => 'saltedmd5hash2', 'regdate' => 1500000001, 'usergroup' => 4],
+        // An awaiting-activation (5) and a banned (7) account — both excluded from counts + the import.
+        ['uid' => 3, 'username' => 'pending', 'email' => 'pending@old.test', 'password' => 'x', 'regdate' => 1500000002, 'usergroup' => 5],
+        ['uid' => 4, 'username' => 'banned', 'email' => 'banned@old.test', 'password' => 'x', 'regdate' => 1500000003, 'usergroup' => 7],
     ]);
     // Stored CHILD-first (disporder 1) then its PARENT category (disporder 2): the importer must still nest it.
     $conn->table('mybb_forums')->insert([
@@ -106,7 +110,10 @@ it('imports a MyBB board: users, child-before-parent hierarchy, content, redirec
     $report = $runner->import($driver);
 
     expect(User::where('username', 'mary')->exists())->toBeTrue()
-        ->and(User::where('username', 'nate')->exists())->toBeTrue();
+        ->and(User::where('username', 'nate')->exists())->toBeTrue()
+        // Awaiting-activation (usergroup 5) + banned (7) accounts are excluded — the phpBB/XenForo bar.
+        ->and(User::where('username', 'pending')->exists())->toBeFalse()
+        ->and(User::where('username', 'banned')->exists())->toBeFalse();
 
     $lounge = Forum::where('title', 'Lounge')->firstOrFail();
     $offtopic = Forum::where('title', 'Off-topic')->firstOrFail();
