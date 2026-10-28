@@ -11,6 +11,7 @@ use App\AntiSpam\TrustLevelManager;
 use App\Events\PostCreated;
 use App\Forum\AnnouncementService;
 use App\Forum\PostService;
+use App\Members\MemberActivationService;
 use App\Models\Forum;
 use App\Models\Post;
 use App\Models\ProfilePost;
@@ -285,6 +286,17 @@ class ModerationController extends Controller
         $author = $post->author;
         if ($author instanceof User) {
             app(TrustLevelManager::class)->recompute($author);
+
+            // U14 (ADR-0119): optional, config-gated auto-activation of a still-pending author. Fires ONLY on
+            // the human signal — K MOD-APPROVED posts (every post of a pending author is a manual approval) —
+            // and never a banned account (guarded inside the service). Default OFF; the admin stays in the loop.
+            if (($author->status ?? 'active') === 'pending' && (bool) config('novfora.antispam.auto_activation.enabled', false)) {
+                $threshold = max(1, (int) config('novfora.antispam.auto_activation.posts', 5));
+                $approved = Post::where('user_id', $author->getKey())->where('approved_state', 'approved')->count();
+                if ($approved >= $threshold) {
+                    app(MemberActivationService::class)->activate($author, null, 'auto');
+                }
+            }
         }
 
         return back();
