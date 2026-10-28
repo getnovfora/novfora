@@ -1,0 +1,82 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migration — NovFora</title>
+<meta name="description" content="Import your community from phpBB, XenForo, MyBB, or SMF — members, content, attachments, passwords, and SEO redirects preserved.">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<header><nav class="wrap">
+  <a class="logo" href="index.html"><span data-mark="30"></span> Nov<span class="fora">Fora</span></a>
+  <div class="links"><a href="features.html">Features</a><a href="compare.html">Compare</a><a href="hosting.html">Hosting</a><a href="migration.html" class="on">Migration</a><a href="roadmap.html">Roadmap</a></div>
+  <div class="right"><a href="#" class="chip" style="font-weight:500"><span style="font-size:16px">★</span> GitHub</a><a href="#" class="btn b-blue" style="padding:9px 16px">Get Started</a></div>
+</nav></header>
+
+<section class="page-hero"><div class="wrap">
+  <span class="eyebrow">Migration</span>
+  <h1>Bring your community <span class="a">with you</span></h1>
+  <p>Don't start from zero. NovFora imports members, forums, topics, posts, and attachments — with passwords preserved and your old URLs redirected — so the move keeps your people and your search rankings.</p>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:24px">
+    <span class="chip" style="background:var(--wink);border:1px solid var(--line);padding:9px 16px;border-radius:10px">phpBB</span>
+    <span class="chip" style="background:var(--wink);border:1px solid var(--line);padding:9px 16px;border-radius:10px">XenForo</span>
+    <span class="chip" style="background:var(--wink);border:1px solid var(--line);padding:9px 16px;border-radius:10px">MyBB</span>
+    <span class="chip" style="background:var(--wink);border:1px solid var(--line);padding:9px 16px;border-radius:10px">SMF</span>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sec-head"><span class="eyebrow">What comes across</span><h2>Your community, intact</h2></div>
+  <div class="grid g3">
+    <div class="card"><div class="ic" style="background:rgba(77,147,242,.16);color:var(--blue)">👥</div><h3>Members &amp; passwords</h3><p>Accounts come over with hashed passwords preserved — people keep their logins (a reset is prompted only if the old hash format differs).</p></div>
+    <div class="card"><div class="ic" style="background:rgba(235,169,75,.16);color:var(--amber)">🗂️</div><h3>Forums &amp; content</h3><p>Your category/forum structure, every topic and post — old BBCode translated to NovFora's clean format.</p></div>
+    <div class="card"><div class="ic" style="background:rgba(53,176,122,.16);color:var(--emerald)">📎</div><h3>Attachments, verified</h3><p>Files come across and are checksum-verified, so nothing arrives corrupted or missing.</p></div>
+    <div class="card"><div class="ic" style="background:rgba(142,118,230,.16);color:var(--violet)">🔗</div><h3>SEO 301 redirects</h3><p>Old URLs map to 301 redirects, so existing links and your search rankings survive the move.</p></div>
+    <div class="card"><div class="ic" style="background:rgba(111,170,247,.16);color:var(--blue2)">🔁</div><h3>Resumable &amp; idempotent</h3><p>Interrupted? Re-run it — the importer picks up where it left off and never duplicates.</p></div>
+    <div class="card"><div class="ic" style="background:rgba(53,176,122,.16);color:var(--emerald)">🤫</div><h3>Quiet by design</h3><p>Importing fires no notifications, reputation awards, or feed spam — members aren't blasted on day one.</p></div>
+  </div>
+</div></section>
+
+<section style="background:var(--wink);border-block:1px solid var(--line)"><div class="wrap">
+  <div class="sec-head"><span class="eyebrow">How it runs</span><h2>Safe on real, large forums</h2></div>
+  <div class="steps">
+    <div class="step"><div class="n"></div><div><h3>Preflight</h3><p>A read-only pass counts everything and plans the work, so you know the full scope before committing.</p></div></div>
+    <div class="step"><div class="n"></div><div><h3>Import</h3><p>Users, forums, topics, posts, and attachments come over in batches, tracked entity by entity.</p></div></div>
+    <div class="step"><div class="n"></div><div><h3>Verify</h3><p>Row counts and content are checked — including attachment checksums — to confirm a faithful copy.</p></div></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sec-head"><span class="eyebrow">Recommended cutover</span><h2>A calm switch-over plan</h2></div>
+  <div class="prose">
+    <ul>
+      <li><strong>Stand up NovFora</strong> on your target host with registration closed.</li>
+      <li><strong>Back up</strong> both the source forum and the fresh install.</li>
+      <li><strong>Preflight, then import</strong> from the admin panel (or <code>php artisan novfora:import</code>).</li>
+      <li><strong>Verify</strong> — spot-check members, big topics, and attachments; confirm old URLs redirect.</li>
+      <li><strong>Rebuild search</strong>, review permissions, and set up email.</li>
+      <li><strong>Open</strong> registration, announce the move, and keep the old site read-only for a while.</li>
+    </ul>
+    <p style="font-size:13.5px;color:var(--sub)">NovFora reads a source forum's database only to import your <strong>data</strong> — it never copies the other software. Your content moves; you're running NovFora.</p>
+  </div>
+</div></section>
+
+<section class="cta-band"><div class="wrap">
+  <h2>Move in without losing a thing</h2>
+  <p>Try an import on a copy first — it's read-only until you say go.</p>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><a href="#" class="btn b-blue">Read the migration guide →</a><a href="#" class="btn b-ghost">Explore the demo</a></div>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="fcols">
+    <div><a class="logo" href="index.html"><span data-mark="28"></span> Nov<span class="fora">Fora</span></a><p class="blurb">Self-hosted forum software for independent communities. Yours to own. Yours to shape. Here to stay.</p></div>
+    <div><h4>Product</h4><a href="features.html">Features</a><a href="compare.html">Compare</a><a href="hosting.html">Hosting</a><a href="roadmap.html">Roadmap</a></div>
+    <div><h4>Resources</h4><a href="#">Documentation</a><a href="migration.html">Migration</a><a href="#">Demo</a><a href="#">Changelog</a></div>
+    <div><h4>Community</h4><a href="#">GitHub</a><a href="#">Discussions</a><a href="#">Contributing</a><a href="#">License</a></div>
+  </div>
+  <div class="fbot"><span>© 2026 The NovFora Authors · Apache-2.0</span><span>Built for owners. Not platforms.</span></div>
+</div></footer>
+<script src="site.js"></script>
+</body>
+</html>
