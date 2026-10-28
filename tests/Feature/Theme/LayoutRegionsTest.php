@@ -27,7 +27,7 @@ uses(RefreshDatabase::class);
 beforeEach(fn () => Cache::flush());
 
 it('expands the region set and bumps the theme-API minor version', function () {
-    expect(ThemeApi::VERSION)->toBe('1.2.0');
+    expect(ThemeApi::VERSION)->toBe('1.3.0');
 
     $regions = app(LayoutManager::class)->regions();
     foreach (['board_top', 'board_bottom', 'topic_top', 'topic_bottom', 'profile_top', 'forum_sidebar', 'site_header', 'site_footer'] as $r) {

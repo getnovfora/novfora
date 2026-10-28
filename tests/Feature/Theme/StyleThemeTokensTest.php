@@ -21,7 +21,7 @@ use Tests\Support\Users;
 uses(RefreshDatabase::class);
 
 it('publishes the editable-token contract (API v1.1+)', function () {
-    expect(ThemeApi::VERSION)->toBe('1.2.0');
+    expect(ThemeApi::VERSION)->toBe('1.3.0');
 
     $keys = array_keys(ThemeApi::editableTokens());
     expect($keys)->toContain('surface', 'ink', 'ink_muted', 'line', 'radius');
@@ -29,6 +29,27 @@ it('publishes the editable-token contract (API v1.1+)', function () {
     foreach (ThemeApi::editableTokens() as $meta) {
         expect(ThemeApi::tokens())->toContain($meta['var']);
     }
+});
+
+it('publishes the U9 grouped style-property registry (API v1.3)', function () {
+    $registry = ThemeApi::editableTokens();
+
+    // The v1.3 additions are present and typed.
+    foreach (['ink_subtle', 'line_strong', 'ember', 'success', 'warn_soft', 'danger_strong'] as $key) {
+        expect($registry)->toHaveKey($key);
+        expect($registry[$key]['type'])->toBe('color');
+    }
+
+    // Every token belongs to a declared group, and every colour token carries a dark default.
+    foreach ($registry as $key => $meta) {
+        expect(ThemeApi::tokenGroups())->toContain($meta['group']);
+        if ($meta['type'] === 'color') {
+            expect($meta['dark_default'])->toMatch('/^#[0-9a-f]{6}$/');
+        }
+    }
+
+    // Lengths have no dark variant.
+    expect($registry['radius']['dark_default'])->toBeNull();
 });
 
 it('computes the WCAG contrast ratio (black on white = 21, identical = 1)', function () {
@@ -91,6 +112,73 @@ it('tokenCss only emits contract keys and ignores the rest', function () {
     expect($css)->toBe(':root{--ink:#222222;}');
     expect(StyleThemeManager::tokenCss(null))->toBe('');
     expect(StyleThemeManager::tokenCss([]))->toBe('');
+});
+
+it('persists dark token overrides through the same strict gate (U9)', function () {
+    $theme = app(StyleThemeManager::class)->create([
+        'name' => 'Nocturne',
+        'tokens_dark' => [
+            'surface' => '#000000',
+            'ink' => '#EEEEEE',              // normalised to lowercase
+            'line' => ':red;}body{',         // injection attempt — dropped
+            'bogus' => '#123456',            // not in the contract — dropped
+        ],
+    ]);
+
+    expect($theme->tokens_dark)->toBe(['surface' => '#000000', 'ink' => '#eeeeee']);
+});
+
+it('emits dark overrides under both dark selectors and leaves light untouched (U9)', function () {
+    $m = app(StyleThemeManager::class);
+    $m->create([
+        'name' => 'Oled',
+        'tokens' => ['ink' => '#111111'],
+        'tokens_dark' => ['surface' => '#000000'],
+        'activate' => true,
+    ]);
+
+    $css = $m->css();
+    expect($css)->toContain(':root{--ink:#111111;}')
+        ->and($css)->toContain("@media (prefers-color-scheme: dark){:root:not([data-theme='light']){--surface:#000000;}}")
+        ->and($css)->toContain(":root[data-theme='dark']{--surface:#000000;}");
+
+    // A dark-only value never leaks into the light :root block.
+    expect($css)->not->toContain(':root{--surface:#000000;}');
+});
+
+it('keeps the tuned built-in dark palette when no dark overrides are set', function () {
+    $m = app(StyleThemeManager::class);
+    $m->create(['name' => 'LightOnly', 'tokens' => ['surface' => '#ffffff'], 'activate' => true]);
+
+    expect($m->css())->not->toContain('prefers-color-scheme');
+});
+
+it('lets a 2FA admin save dark values through the grouped editor (U9)', function () {
+    $this->seed();
+    $this->actingAs(Users::withTwoFactor(Users::inGroups(['admins'])));
+
+    Livewire::test('admin.settings.themes')
+        ->call('newTheme')
+        ->set('name', 'Duotone')
+        ->set('tokens.surface', '#fafafa')
+        ->set('tokensDark.surface', '#050508')
+        ->set('tokensDark.ink', 'nope')     // invalid → dropped by the manager
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $theme = SiteTheme::where('name', 'Duotone')->firstOrFail();
+    expect($theme->tokens)->toBe(['surface' => '#fafafa']);
+    expect($theme->tokens_dark)->toBe(['surface' => '#050508']);
+});
+
+it('round-trips dark tokens when re-editing a theme (U9)', function () {
+    $this->seed();
+    $this->actingAs(Users::withTwoFactor(Users::inGroups(['admins'])));
+    $theme = app(StyleThemeManager::class)->create(['name' => 'Edit me', 'tokens_dark' => ['ink' => '#dddddd']]);
+
+    Livewire::test('admin.settings.themes')
+        ->call('edit', $theme->id)
+        ->assertSet('tokensDark.ink', '#dddddd');
 });
 
 it('lets a 2FA admin save token overrides through the editor, dropping invalid values', function () {

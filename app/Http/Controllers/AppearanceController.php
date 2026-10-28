@@ -6,7 +6,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\SiteTheme;
 use App\Models\User;
+use App\Theme\StyleThemeManager;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -32,6 +34,8 @@ class AppearanceController extends Controller
             'user' => $this->user($request),
             'colorModes' => self::COLOR_MODES,
             'densities' => self::DENSITIES,
+            // U10: the styles members may choose from (empty → the Style card doesn't render).
+            'styleOptions' => app(StyleThemeManager::class)->selectable(),
         ]);
     }
 
@@ -39,11 +43,18 @@ class AppearanceController extends Controller
     {
         $user = $this->user($request);
 
+        // U10: the chooser may only reference a LIVE user-selectable style ('' = back to the site default).
+        $selectableIds = array_map(
+            static fn (SiteTheme $t): int => (int) $t->getKey(),
+            app(StyleThemeManager::class)->selectable(),
+        );
+
         $data = $request->validate([
             'color_mode' => ['sometimes', 'required', Rule::in(self::COLOR_MODES)],
             'density' => ['sometimes', 'required', Rule::in(self::DENSITIES)],
             // Presence opt-in (Phase 4 · M4.3) — a privacy toggle; default false (security-by-default).
             'show_online_status' => ['sometimes', 'boolean'],
+            'style_theme_id' => ['sometimes', 'nullable', Rule::in($selectableIds)],
         ]);
 
         if (array_key_exists('color_mode', $data)) {
@@ -54,6 +65,11 @@ class AppearanceController extends Controller
         }
         if (array_key_exists('show_online_status', $data)) {
             $user->show_online_status = (bool) $data['show_online_status'];
+        }
+        if (array_key_exists('style_theme_id', $data)) {
+            $user->style_theme_id = $data['style_theme_id'] !== null && $data['style_theme_id'] !== ''
+                ? (int) $data['style_theme_id']
+                : null;
         }
         $user->save();
 

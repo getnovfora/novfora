@@ -57,6 +57,29 @@
                 </fieldset>
             </x-ui.card>
 
+            {{-- Style chooser (U10) — pick among the styles the admins have shared; only rendered when any exist. --}}
+            @if (($styleOptions ?? []) !== [])
+                <x-ui.card>
+                    <fieldset>
+                        <legend class="text-sm font-semibold text-ink">Style</legend>
+                        <p class="text-xs text-ink-muted mt-0.5 mb-3">Choose the look this site uses for you. “Site default” follows whatever the admins have set.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <label class="relative flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors {{ $user->style_theme_id === null ? 'border-accent bg-accent-soft' : 'border-line hover:border-line-strong' }}">
+                                <input type="radio" name="style_theme_id" value="" @checked($user->style_theme_id === null) class="h-4 w-4 border-line text-accent focus:ring-accent">
+                                <span class="text-sm font-medium text-ink">Site default</span>
+                            </label>
+                            @foreach ($styleOptions as $style)
+                                <label class="relative flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors {{ $user->style_theme_id === $style->id ? 'border-accent bg-accent-soft' : 'border-line hover:border-line-strong' }}">
+                                    <input type="radio" name="style_theme_id" value="{{ $style->id }}" @checked($user->style_theme_id === $style->id) class="h-4 w-4 border-line text-accent focus:ring-accent">
+                                    <span class="text-sm font-medium text-ink">{{ $style->name }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                        <p class="text-xs text-ink-subtle mt-2">Styles change colours and shape; the light/dark colour mode above still applies.</p>
+                    </fieldset>
+                </x-ui.card>
+            @endif
+
             {{-- Presence privacy (Phase 4 · M4.3) — opt in to appear in the "who's online" list. Default off. --}}
             <x-ui.card>
                 <fieldset>
