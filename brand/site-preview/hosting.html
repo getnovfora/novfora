@@ -1,0 +1,82 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hosting — NovFora</title>
+<meta name="description" content="NovFora runs anywhere PHP runs — from a $5 shared host (no SSH) to Docker and a VPS. One codebase, two tiers.">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<header><nav class="wrap">
+  <a class="logo" href="index.html"><span data-mark="30"></span> Nov<span class="fora">Fora</span></a>
+  <div class="links"><a href="features.html">Features</a><a href="compare.html">Compare</a><a href="hosting.html" class="on">Hosting</a><a href="migration.html">Migration</a><a href="roadmap.html">Roadmap</a></div>
+  <div class="right"><a href="#" class="chip" style="font-weight:500"><span style="font-size:16px">★</span> GitHub</a><a href="#" class="btn b-blue" style="padding:9px 16px">Get Started</a></div>
+</nav></header>
+
+<section class="page-hero"><div class="wrap">
+  <span class="eyebrow">Hosting</span>
+  <h1>Runs anywhere <span class="a">PHP runs</span></h1>
+  <p>Start on the commodity shared hosting you already have — no SSH, no daemons, just one cron line. Scale up to Docker and a VPS when you're ready, with the same codebase.</p>
+</div></section>
+
+<section class="light-sec"><div class="wrap">
+  <div class="sec-head"><span class="eyebrow">One codebase, two tiers</span><h2>Begin small. Grow without migrating.</h2><p>NovFora detects what your server offers and uses it — and never errors because an enhanced service isn't there.</p></div>
+  <div class="tbl" style="background:#fff;border-color:#E0D5C2"><table style="color:#221C13">
+    <thead><tr><th style="color:#221C13"></th><th style="color:#1F6B43">Baseline · shared host</th><th style="color:#245FBB">Enhanced · Docker / VPS</th></tr></thead>
+    <tbody style="color:#221C13">
+      <tr><td style="color:#5C5346">Cache &amp; queue</td><td>File / database, drained by cron</td><td>Redis + queue workers</td></tr>
+      <tr><td style="color:#5C5346">Search</td><td>MySQL full-text</td><td>Meilisearch / Typesense</td></tr>
+      <tr><td style="color:#5C5346">Real-time</td><td>Live polling</td><td>WebSockets (Reverb / Pusher)</td></tr>
+      <tr><td style="color:#5C5346">Media &amp; email</td><td>Local disk · host SMTP</td><td>S3 / MinIO · SES / Postmark</td></tr>
+      <tr><td style="color:#5C5346">Database</td><td>MySQL 8 / MariaDB</td><td>+ PostgreSQL supported</td></tr>
+      <tr><td style="color:#5C5346">Install</td><td>No-SSH web installer + one cron line</td><td>Docker compose, ready to go</td></tr>
+    </tbody>
+  </table></div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sec-head"><span class="eyebrow">What you need</span><h2>The baseline requirements</h2></div>
+  <div class="grid g3">
+    <div class="card"><div class="ic" style="background:rgba(77,147,242,.16);color:var(--blue)">🐘</div><h3>PHP 8.3+</h3><p>With the standard extensions (pdo_mysql, mbstring, openssl, zip, gd or imagick for images).</p></div>
+    <div class="card"><div class="ic" style="background:rgba(235,169,75,.16);color:var(--amber)">🗄️</div><h3>MySQL or MariaDB</h3><p>An empty database you create in your host's control panel. PostgreSQL on the enhanced tier.</p></div>
+    <div class="card"><div class="ic" style="background:rgba(53,176,122,.16);color:var(--emerald)">⏱️</div><h3>One cron job</h3><p>A single scheduled command every 1–5 minutes powers email, digests, upgrades, and backups.</p></div>
+  </div>
+</div></section>
+
+<section style="background:var(--wink);border-block:1px solid var(--line)"><div class="wrap">
+  <div class="sec-head"><span class="eyebrow">Install in minutes</span><h2>From upload to live in four steps</h2></div>
+  <div class="steps">
+    <div class="step"><div class="n"></div><div><h3>Upload &amp; point your domain</h3><p>Extract the release above your web root and point the domain at <code>public/</code>. Subfolders like <code>/community</code> are first-class too.</p></div></div>
+    <div class="step"><div class="n"></div><div><h3>Run the web installer</h3><p>Visit your site — every URL redirects to the installer. System check, paste the setup token, enter your database, create your admin.</p></div></div>
+    <div class="step"><div class="n"></div><div><h3>Add the cron line</h3><p>Paste the one cron command from the completion screen into your host's control panel. That's the engine for everything time-based.</p></div></div>
+    <div class="step"><div class="n"></div><div><h3>You're live</h3><p>The installer seals itself, you log in, and you're shaping forums. Configure mail in <code>.env</code> and you're ready to open.</p></div></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sec-head"><span class="eyebrow">When you scale</span><h2>Light up the enhanced tier</h2><p>Move to Docker or a VPS and NovFora picks up the better infrastructure automatically — no data migration, just speed and headroom.</p></div>
+  <div class="grid g2">
+    <div class="card"><div class="ic" style="background:rgba(77,147,242,.16);color:var(--blue)">⚡</div><h3>Redis + workers, Meilisearch</h3><p>Real queue workers replace cron draining, and typo-tolerant ranked search replaces full-text — same UX, more scale.</p></div>
+    <div class="card"><div class="ic" style="background:rgba(142,118,230,.16);color:var(--violet)">📡</div><h3>WebSockets + S3 + provider email</h3><p>Live updates over WebSockets, media on S3/MinIO, and high-volume email via SES/Postmark. Detected and used automatically.</p></div>
+  </div>
+</div></section>
+
+<section class="cta-band"><div class="wrap">
+  <h2>Host it your way</h2>
+  <p>Shared host today, VPS tomorrow — your community comes with you.</p>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><a href="#" class="btn b-blue">Get Started →</a><a href="#" class="btn b-ghost">Read the install guide</a></div>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="fcols">
+    <div><a class="logo" href="index.html"><span data-mark="28"></span> Nov<span class="fora">Fora</span></a><p class="blurb">Self-hosted forum software for independent communities. Yours to own. Yours to shape. Here to stay.</p></div>
+    <div><h4>Product</h4><a href="features.html">Features</a><a href="compare.html">Compare</a><a href="hosting.html">Hosting</a><a href="roadmap.html">Roadmap</a></div>
+    <div><h4>Resources</h4><a href="#">Documentation</a><a href="migration.html">Migration</a><a href="#">Demo</a><a href="#">Changelog</a></div>
+    <div><h4>Community</h4><a href="#">GitHub</a><a href="#">Discussions</a><a href="#">Contributing</a><a href="#">License</a></div>
+  </div>
+  <div class="fbot"><span>© 2026 The NovFora Authors · Apache-2.0</span><span>Built for owners. Not platforms.</span></div>
+</div></footer>
+<script src="site.js"></script>
+</body>
+</html>

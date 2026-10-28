@@ -1,0 +1,348 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 — NovFora.com homepage revamp (preview) -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NovFora — Own your forum. Build your home.</title>
+<meta name="description" content="NovFora is modern, extensible, self-hosted forum software for independent communities. Runs on the hosting you already have. Apache-2.0.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&family=Inter:wght@400;500;600&display=swap');
+:root{
+ --ob:#0B0B10; --wink:#14151D; --slate:#1E1C26; --raise:#26242F;
+ --cream:#F3E8DD; --sec:#CFC9BE; --sub:#938C7E;
+ --line:#262430; --lins:#3A3742;
+ --amber:#EBA94B; --aink:#1A1206; --blue:#4D93F2; --bink:#08121F; --blue2:#6FAAF7;
+ --emerald:#35B07A; --violet:#8E76E6; --coral:#E5705B;
+ --serif:'Newsreader',Georgia,serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--ob);color:var(--cream);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.6}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1140px;margin:0 auto;padding:0 24px}
+h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:.2px;line-height:1.1}
+.serif{font-family:var(--serif)}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--amber)}
+.btn{display:inline-flex;align-items:center;gap:8px;font:600 14px Inter;border-radius:11px;padding:12px 20px;border:1px solid transparent;cursor:pointer;transition:transform .1s ease}
+.btn:active{transform:scale(.98)}
+.b-blue{background:var(--blue);color:var(--bink);box-shadow:0 8px 26px -8px rgba(77,147,242,.65),0 0 0 1px rgba(77,147,242,.3)}
+.b-blue:hover{background:var(--blue2)}
+.b-ghost{border-color:var(--lins);color:var(--cream)}
+.b-ghost:hover{background:var(--wink)}
+.chip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--sec)}
+.chip .d{width:8px;height:8px;border-radius:3px}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--serif);font-weight:600;font-size:21px}
+.logo .fora{color:var(--amber)}
+
+/* nav */
+header{position:sticky;top:0;z-index:50;background:rgba(11,11,16,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+nav .links{display:flex;gap:26px;font-size:14px;color:var(--sec)}
+nav .links a:hover{color:var(--cream)}
+nav .right{display:flex;align-items:center;gap:14px}
+@media(max-width:780px){nav .links{display:none}}
+
+/* hero */
+.hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+.hero .scene{position:absolute;inset:0;z-index:0}
+.hero .heroimg{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:cover;object-position:68% center}
+.hero .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(90deg,rgba(9,9,14,.96) 0%,rgba(9,9,14,.84) 40%,rgba(9,9,14,.5) 68%,rgba(9,9,14,.18) 100%)}
+.hero .in{position:relative;z-index:3;padding:84px 0 70px}
+.hero h1{font-size:58px;max-width:14ch}
+.hero h1 .a{color:var(--amber)}
+.hero p.lede{font-size:18px;color:var(--sec);max-width:46ch;margin:20px 0 28px}
+.hero .cta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:26px}
+.hero .chips{display:flex;gap:18px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--blue2);background:rgba(77,147,242,.1);border:1px solid rgba(77,147,242,.28);border-radius:999px;padding:6px 14px;margin-bottom:22px}
+@media(max-width:780px){.hero h1{font-size:40px}.hero .ov{background:linear-gradient(180deg,rgba(9,9,14,.7),rgba(9,9,14,.95))}}
+
+/* stat bar */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-top:46px}
+.stats div{background:var(--ob);padding:20px 22px}
+.stats b{font-family:var(--serif);font-weight:600;font-size:26px;display:block}
+.stats span{font-size:12.5px;color:var(--sub)}
+@media(max-width:780px){.stats{grid-template-columns:1fr 1fr}}
+
+/* trust strip */
+.trust{padding:30px 0;border-bottom:1px solid var(--line);text-align:center}
+.trust p{font-size:12.5px;color:var(--sub);margin-bottom:14px;letter-spacing:.04em}
+.trust .row{display:flex;gap:30px;flex-wrap:wrap;justify-content:center;color:var(--sec);font-weight:600;font-size:15px;opacity:.85}
+
+/* sections */
+section{padding:84px 0}
+.sec-head{text-align:center;max-width:62ch;margin:0 auto 50px}
+.sec-head h2{font-size:38px;margin:10px 0 14px}
+.sec-head p{color:var(--sec);font-size:16px}
+
+/* problem grid */
+.grid{display:grid;gap:18px}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+@media(max-width:860px){.g3,.g2{grid-template-columns:1fr}}
+.card{background:var(--wink);border:1px solid var(--line);border-radius:16px;padding:24px}
+.card .ic{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-size:18px;margin-bottom:14px}
+.card h3{font-size:19px;margin-bottom:7px}
+.card p{font-size:14px;color:var(--sec)}
+.card .fix{font-size:13px;color:var(--emerald);margin-top:12px;display:flex;gap:7px;align-items:flex-start}
+
+/* feature list */
+.feat{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+@media(max-width:860px){.feat{grid-template-columns:1fr}}
+.feat .f{padding:22px;border:1px solid var(--line);border-radius:16px;background:var(--wink)}
+.feat .f .ic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:17px;margin-bottom:12px}
+.feat .f h3{font-size:17px;margin-bottom:6px}
+.feat .f p{font-size:13.5px;color:var(--sec)}
+
+/* light section */
+.light-sec{background:#F4EEE2;color:#221C13}
+.light-sec .sec-head h2{color:#221C13}.light-sec .sec-head p{color:#5C5346}
+.tier{max-width:880px;margin:0 auto;border:1px solid #E0D5C2;border-radius:18px;overflow:hidden;background:#fff}
+.tier table{width:100%;border-collapse:collapse;font-size:14.5px}
+.tier th,.tier td{padding:15px 20px;text-align:left;border-bottom:1px solid #efe6d5}
+.tier th{font-family:var(--serif);font-weight:600;font-size:15px}
+.tier thead th:nth-child(2){color:#1F6B43}.tier thead th:nth-child(3){color:#245FBB}
+.tier td:first-child{color:#5C5346}
+.tier tr:last-child td{border-bottom:0}
+.light-sec .note{text-align:center;color:#5C5346;font-size:14px;margin-top:22px}
+
+/* spotlight */
+.spot{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+@media(max-width:860px){.spot{grid-template-columns:1fr}}
+.spot h2{font-size:34px;margin-bottom:16px}
+.spot p{color:var(--sec);font-size:15.5px;margin-bottom:14px}
+.spot .pt{display:flex;gap:11px;margin-bottom:12px}
+.spot .pt .ic{color:var(--blue2);flex:none;margin-top:2px}
+.spot .pt b{font-weight:600}.spot .pt span{color:var(--sec);font-size:14px}
+.inspector{background:var(--wink);border:1px solid var(--line);border-radius:16px;padding:20px;font:13px ui-monospace,monospace;box-shadow:0 30px 60px -30px rgba(0,0,0,.7)}
+.inspector .q{color:var(--sub)}.inspector .verdict{color:var(--emerald);font-weight:600}
+.inspector .row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);color:var(--sec)}
+.inspector .row:last-child{border:0}.inspector .never{color:var(--coral)}.inspector .allow{color:var(--emerald)}
+
+/* CTA */
+.cta-band{text-align:center;background:radial-gradient(ellipse at 50% 120%,rgba(235,169,75,.14),transparent 60%),var(--ob)}
+.cta-band h2{font-size:44px;margin-bottom:14px}.cta-band h2 .a{color:var(--amber)}
+.cta-band p{color:var(--sec);font-size:17px;margin-bottom:26px}
+
+/* footer */
+footer{border-top:1px solid var(--line);padding:54px 0 40px}
+.fcols{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:30px;margin-bottom:36px}
+@media(max-width:780px){.fcols{grid-template-columns:1fr 1fr}}
+.fcols h4{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:14px}
+.fcols a{display:block;color:var(--sec);font-size:14px;margin-bottom:9px}.fcols a:hover{color:var(--cream)}
+.fcols .blurb{font-size:13.5px;color:var(--sub);max-width:30ch;margin-top:12px}
+.fbot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;border-top:1px solid var(--line);padding-top:22px;font-size:13px;color:var(--sub)}
+</style>
+</head>
+<body>
+<header>
+  <nav class="wrap">
+    <a class="logo" href="#"><span id="logo"></span> Nov<span class="fora">Fora</span></a>
+    <div class="links">
+      <a href="features.html">Features</a><a href="compare.html">Compare</a><a href="hosting.html">Hosting</a><a href="migration.html">Migration</a><a href="roadmap.html">Roadmap</a>
+    </div>
+    <div class="right">
+      <a href="#" class="chip" style="font-weight:500"><span style="font-size:16px">★</span> GitHub</a>
+      <a href="#" class="btn b-blue" style="padding:9px 16px">Get Started</a>
+    </div>
+  </nav>
+</header>
+
+<!-- HERO -->
+<section class="hero" style="padding:0">
+  <div class="scene" id="scene"></div>
+  <picture>
+    <source srcset="hero-cabin.webp" type="image/webp">
+    <img class="heroimg" src="hero-cabin.jpg" alt="A cabin on a hill at dusk under the milky way, with a community gathered" onerror="this.remove()">
+  </picture>
+  <div class="ov"></div>
+  <div class="in wrap">
+    <span class="pill">◆ v1.0 now available · Open source · Apache-2.0</span>
+    <h1>Own your forum.<br>Build your <span class="a">home.</span></h1>
+    <p class="lede">NovFora is modern, extensible, self-hosted forum software for independent communities. Your community, your data, your rules — on the hosting you already have.</p>
+    <div class="cta">
+      <a href="#" class="btn b-blue">Get Started →</a>
+      <a href="#" class="btn b-ghost">Explore the live demo</a>
+    </div>
+    <div class="chips">
+      <span class="chip"><span class="d" style="background:var(--amber)"></span>Self-hosted</span>
+      <span class="chip"><span class="d" style="background:var(--blue)"></span>Open source</span>
+      <span class="chip"><span class="d" style="background:var(--violet)"></span>Privacy-first</span>
+      <span class="chip"><span class="d" style="background:var(--emerald)"></span>No lock-in</span>
+    </div>
+    <div class="stats">
+      <div><b>$5/mo</b><span>Runs on commodity shared hosting</span></div>
+      <div><b>0</b><span>Daemons required on the baseline tier</span></div>
+      <div><b>1</b><span>Codebase, two tiers — it scales with you</span></div>
+      <div><b>Apache-2.0</b><span>Genuinely yours, forever</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST -->
+<div class="trust">
+  <div class="wrap">
+    <p>Runs anywhere PHP runs — from a $5 shared host to Docker and a VPS</p>
+    <div class="row"><span>Hostinger</span><span>cPanel</span><span>DigitalOcean</span><span>Linode</span><span>Docker</span><span>Ubuntu</span><span>MySQL · MariaDB</span></div>
+  </div>
+</div>
+
+<!-- PROBLEM -->
+<section id="why">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Why NovFora</span>
+      <h2>Forums fail for the same handful of reasons</h2>
+      <p>We studied what kills communities on phpBB, MyBB, SMF, XenForo, and Discourse — then fixed each one in the core, not as an afterthought.</p>
+    </div>
+    <div class="grid g3">
+      <div class="card"><div class="ic" style="background:rgba(229,112,91,.16);color:var(--coral)">🛡️</div><h3>Spam overwhelms</h3><p>Spam is the number-one forum killer, usually bolted on late.</p><div class="fix">✓ Trust levels wired into permissions, blocklist screening, swappable CAPTCHA, rate limits, and a hold queue — first-class from day one.</div></div>
+      <div class="card"><div class="ic" style="background:rgba(77,147,242,.16);color:var(--blue)">🔍</div><h3>Search is weak</h3><p>Members can't find what they need, so knowledge rots.</p><div class="fix">✓ MySQL full-text on shared hosting, Meilisearch when you scale — one experience, always permission-safe.</div></div>
+      <div class="card"><div class="ic" style="background:rgba(142,118,230,.16);color:var(--violet)">📱</div><h3>Mobile feels dated</h3><p>Most forums still feel like 2009 on a phone.</p><div class="fix">✓ A mobile-first interface and an installable PWA with push notifications.</div></div>
+      <div class="card"><div class="ic" style="background:rgba(235,169,75,.16);color:var(--amber)">🧩</div><h3>Add-ons break upgrades</h3><p>One plugin and you're stuck on an old version forever.</p><div class="fix">✓ A versioned module API with pre-upgrade compatibility checks — add-ons that survive upgrades.</div></div>
+      <div class="card"><div class="ic" style="background:rgba(53,176,122,.16);color:var(--emerald)">🎨</div><h3>Theming needs core edits</h3><p>Customize the look and the next update wipes it out.</p><div class="fix">✓ Point-and-click appearance, a layout configurator, and a sandboxed template layer — no core edits, ever.</div></div>
+      <div class="card"><div class="ic" style="background:rgba(111,170,247,.16);color:var(--blue2)">📦</div><h3>Migration is fragile</h3><p>Moving in loses attachments, passwords, and your SEO.</p><div class="fix">✓ Resumable importers with attachment verification, password preservation, and 301 redirect maps.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" style="background:var(--wink);border-block:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Everything, in the box</span><h2>A complete community platform</h2><p>NovFora 1.0 ships the fundamentals and the polish — no paid add-ons to reach feature parity.</p></div>
+    <div class="feat">
+      <div class="f" style="background:var(--ob)"><div class="ic" style="background:rgba(77,147,242,.16);color:var(--blue)">🔐</div><h3>Permissions you can reason about</h3><p>A three-state Allow / No / Never engine across categories, forums, and topics — with an inspector that tells you exactly why anyone can or can't do anything.</p></div>
+      <div class="f" style="background:var(--ob)"><div class="ic" style="background:rgba(235,169,75,.16);color:var(--amber)">✍️</div><h3>WYSIWYG-first editor</h3><p>Friendly by default, Markdown when you want it, BBCode for imports. Attachments, polls, mentions, and oEmbed built in.</p></div>
+      <div class="f" style="background:var(--ob)"><div class="ic" style="background:rgba(53,176,122,.16);color:var(--emerald)">🛡️</div><h3>First-class anti-spam</h3><p>Trust levels, StopForumSpam, CAPTCHA, rate limits, word filters, and a false-positive-guarded hold queue.</p></div>
+      <div class="f" style="background:var(--ob)"><div class="ic" style="background:rgba(142,118,230,.16);color:var(--violet)">👥</div><h3>Clubs & groups</h3><p>Member-run sub-communities with their own forums and privacy, plus auto-promoting groups and custom roles.</p></div>
+      <div class="f" style="background:var(--ob)"><div class="ic" style="background:rgba(111,170,247,.16);color:var(--blue2)">🔑</div><h3>SSO & accounts</h3><p>Sign in with Google, GitHub, or Discord; mandatory 2FA for staff; an enterprise SAML scaffold.</p></div>
+      <div class="f" style="background:var(--ob)"><div class="ic" style="background:rgba(235,169,75,.16);color:var(--amber)">⚙️</div><h3>REST API & webhooks</h3><p>A versioned, permission-aware API and HMAC-signed, SSRF-guarded webhooks to wire NovFora into anything.</p></div>
+      <div class="f" style="background:var(--ob)"><div class="ic" style="background:rgba(53,176,122,.16);color:var(--emerald)">⬆️</div><h3>Upgrades that don't break</h3><p>Reversible migrations and a backup-first, cron-driven auto-upgrade. No manual database surgery.</p></div>
+      <div class="f" style="background:var(--ob)"><div class="ic" style="background:rgba(77,147,242,.16);color:var(--blue)">📲</div><h3>PWA & notifications</h3><p>Installable on any device, with web push, digests, and a full in-app notification system.</p></div>
+      <div class="f" style="background:var(--ob)"><div class="ic" style="background:rgba(142,118,230,.16);color:var(--violet)">💳</div><h3>Paid memberships</h3><p>Membership tiers with perks gated cleanly through the permission engine — manual or Stripe, your call.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- TIERS (light) -->
+<section id="tiers" class="light-sec">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow" style="color:#B5731F">One codebase, two tiers</span><h2>Start on $5 hosting. Scale when you're ready.</h2><p>The same NovFora detects what your server offers and uses it — and never errors because an enhanced service isn't there.</p></div>
+    <div class="tier">
+      <table>
+        <thead><tr><th></th><th>Baseline · shared host</th><th>Enhanced · Docker / VPS</th></tr></thead>
+        <tbody>
+          <tr><td>Cache &amp; queue</td><td>File / database, drained by cron</td><td>Redis + queue workers</td></tr>
+          <tr><td>Search</td><td>MySQL full-text</td><td>Meilisearch / Typesense</td></tr>
+          <tr><td>Real-time</td><td>Live polling</td><td>WebSockets (Reverb / Pusher)</td></tr>
+          <tr><td>Media &amp; email</td><td>Local disk · host SMTP</td><td>S3 / MinIO · SES / Postmark</td></tr>
+          <tr><td>Install</td><td>No-SSH web installer + one cron line</td><td>Docker compose, ready to go</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Move up a tier without migrating the <em>meaning</em> of your data — just better infrastructure underneath.</p>
+  </div>
+</section>
+
+<!-- SPOTLIGHT: permissions -->
+<section id="compare">
+  <div class="wrap spot">
+    <div>
+      <span class="eyebrow">The permission engine</span>
+      <h2>Know exactly who can do what — and why</h2>
+      <p>Most forums make permissions a guessing game. NovFora gives you phpBB-grade control with something none of them have: an inspector that traces every verdict.</p>
+      <div class="pt"><span class="ic">◆</span><div><b>Three states, every scope.</b> <span>Allow, No, or Never across categories → forums → topics. Never is absolute.</span></div></div>
+      <div class="pt"><span class="ic">◆</span><div><b>Groups, roles & trust, merged.</b> <span>Individual, group, and trust-level grants resolve predictably.</span></div></div>
+      <div class="pt"><span class="ic">◆</span><div><b>The inspector.</b> <span>Ask "can this person do that here?" and see the decisive rule and every contributing entry.</span></div></div>
+    </div>
+    <div class="inspector">
+      <div class="q">Can <b style="color:var(--cream)">@maya</b> reply in <b style="color:var(--cream)">#announcements</b>?</div>
+      <div style="margin:12px 0 8px" class="verdict">✓ Allowed</div>
+      <div class="row"><span>members · global</span><span class="allow">reply = Allow</span></div>
+      <div class="row"><span>#announcements · forum</span><span class="never">start = Never</span></div>
+      <div class="row"><span>moderators · group</span><span class="allow">moderate = Allow</span></div>
+      <div class="row"><span>Decisive rule</span><span style="color:var(--cream)">members/global Allow</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- MIGRATION -->
+<section id="migrate" style="background:var(--wink);border-block:1px solid var(--line)">
+  <div class="wrap" style="text-align:center">
+    <span class="eyebrow">Bring your community with you</span>
+    <h2 style="font-size:38px;margin:12px 0 14px">Coming from phpBB, MyBB, SMF, or XenForo?</h2>
+    <p style="color:var(--sec);max-width:60ch;margin:0 auto 26px">Import members, forums, topics, posts, and attachments — with passwords preserved and your old URLs 301-redirected, so your search rankings survive the move. Resumable and idempotent, so a hiccup never means starting over.</p>
+    <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:26px">
+      <span class="chip" style="background:var(--ob);border:1px solid var(--line);padding:9px 16px;border-radius:10px">phpBB</span>
+      <span class="chip" style="background:var(--ob);border:1px solid var(--line);padding:9px 16px;border-radius:10px">XenForo</span>
+      <span class="chip" style="background:var(--ob);border:1px solid var(--line);padding:9px 16px;border-radius:10px">MyBB</span>
+      <span class="chip" style="background:var(--ob);border:1px solid var(--line);padding:9px 16px;border-radius:10px">SMF</span>
+    </div>
+    <a href="#" class="btn b-ghost">Read the migration guide →</a>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="roadmap" class="cta-band">
+  <div class="wrap">
+    <span id="ctamark" style="display:inline-block;margin-bottom:18px"></span>
+    <h2>Own your forum. Build your <span class="a">home.</span></h2>
+    <p>Open source, self-hosted, and built to last. Stand up your community in an afternoon.</p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <a href="#" class="btn b-blue">Get Started →</a>
+      <a href="#" class="btn b-ghost">★ Star on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="fcols">
+      <div>
+        <a class="logo" href="#"><span id="flogo"></span> Nov<span class="fora">Fora</span></a>
+        <p class="blurb">Self-hosted forum software for independent communities. Yours to own. Yours to shape. Here to stay.</p>
+      </div>
+      <div><h4>Product</h4><a href="features.html">Features</a><a href="compare.html">Compare</a><a href="hosting.html">Hosting</a><a href="roadmap.html">Roadmap</a></div>
+      <div><h4>Resources</h4><a href="#">Documentation</a><a href="migration.html">Migration</a><a href="#">Demo</a><a href="#">Changelog</a></div>
+      <div><h4>Community</h4><a href="#">GitHub</a><a href="#">Discussions</a><a href="#">Contributing</a><a href="#">License</a></div>
+    </div>
+    <div class="fbot"><span>© 2026 The NovFora Authors · Apache-2.0</span><span>Built for owners. Not platforms.</span></div>
+  </div>
+</footer>
+
+<script>
+function mark(s){return `<svg width="${s}" height="${s}" viewBox="0 0 64 64" aria-hidden="true"><path d="M31 6 A22 22 0 1 1 10.5 35.5 L6 46 L16 42.5 A22 22 0 0 1 31 6 Z" fill="none" stroke="#F3E8DD" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/><g stroke="#F3E8DD" stroke-width="1.3" stroke-dasharray="2 2.4" opacity=".7"><line x1="31" y1="30" x2="34" y2="16.5"/><line x1="31" y1="30" x2="18.5" y2="33"/><line x1="31" y1="30" x2="43.5" y2="30"/></g><circle cx="18.5" cy="33" r="3" fill="#4D93F2"/><circle cx="43.5" cy="30" r="3" fill="#4D93F2"/><path d="M34 9 C34.6 13.4 34.6 13.4 39 14 C34.6 14.6 34.6 14.6 34 19 C33.4 14.6 33.4 14.6 29 14 C33.4 13.4 33.4 13.4 34 9 Z" fill="#4D93F2"/><circle cx="31" cy="30" r="3.7" fill="#EBA94B"/></svg>`}
+document.getElementById('logo').innerHTML=mark(30);
+document.getElementById('flogo').innerHTML=mark(28);
+document.getElementById('ctamark').innerHTML=mark(46);
+
+/* cabin-at-dusk hero scene */
+(function(){
+ let stars='';for(let i=0;i<110;i++){stars+=`<circle cx="${(Math.random()*1400).toFixed(0)}" cy="${(Math.random()*460).toFixed(0)}" r="${(Math.random()*1.1+.2).toFixed(1)}" fill="#fff" opacity="${(Math.random()*.7+.2).toFixed(2)}"/>`}
+ let mw='';for(let i=0;i<150;i++){const t=Math.random();mw+=`<circle cx="${(820+t*520+(Math.random()-.5)*70).toFixed(0)}" cy="${(20+t*330+(Math.random()-.5)*36).toFixed(0)}" r="${(Math.random()*.9+.2).toFixed(1)}" fill="#cdd6ff" opacity="${(Math.random()*.5+.15).toFixed(2)}"/>`}
+ function person(x,y,s){return `<g transform="translate(${x},${y}) scale(${s})" fill="#070509"><circle cx="0" cy="0" r="3.1"/><path d="M-3.4 4 Q0 2 3.4 4 L2.6 21 -2.6 21 Z"/></g>`}
+ document.getElementById('scene').innerHTML=`
+ <svg viewBox="0 0 1400 560" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" style="display:block" role="img" aria-label="A lit cabin on a hill at dusk under the milky way, with people gathered nearby">
+  <defs>
+   <linearGradient id="sky" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#0a0d1e"/><stop offset=".48" stop-color="#181227"/><stop offset=".74" stop-color="#5a2f1d"/><stop offset="1" stop-color="#d07a26"/></linearGradient>
+   <radialGradient id="sun" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#f5b25a" stop-opacity=".95"/><stop offset="1" stop-color="#f5b25a" stop-opacity="0"/></radialGradient>
+   <radialGradient id="win" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="#ffd98a"/><stop offset="1" stop-color="#e8a94b"/></radialGradient>
+  </defs>
+  <rect width="1400" height="560" fill="url(#sky)"/>
+  <g transform="rotate(-22 1050 180)" opacity=".9">${mw}</g>${stars}
+  <ellipse cx="1230" cy="470" rx="420" ry="150" fill="url(#sun)" opacity=".7"/>
+  <path d="M0 380 Q280 320 520 360 T1000 356 L1400 344 V560 H0 Z" fill="#171a2b" opacity=".9"/>
+  <path d="M0 450 Q360 392 720 432 T1400 420 V560 H0 Z" fill="#0c0d18"/>
+  <path d="M740 560 Q900 410 1040 414 Q1220 414 1400 480 V560 Z" fill="#0a0810"/>
+  <g transform="translate(980,330)">
+   <rect x="0" y="48" width="160" height="92" fill="#100c12"/><path d="M-15 50 L80 6 L175 50 Z" fill="#1a1119"/><rect x="116" y="16" width="17" height="34" fill="#120d12"/>
+   <rect x="24" y="74" width="28" height="32" rx="2" fill="url(#win)"/><rect x="66" y="74" width="28" height="32" rx="2" fill="url(#win)"/><rect x="112" y="78" width="28" height="28" rx="2" fill="url(#win)"/><rect x="58" y="20" width="18" height="22" rx="2" fill="url(#win)"/>
+   <circle cx="80" cy="98" r="66" fill="url(#sun)" opacity=".35"/>
+  </g>
+  ${person(910,432,1.6)}${person(936,436,1.5)}${person(962,436,1.6)}${person(876,446,1.5)}${person(1180,448,1.6)}${person(1210,452,1.5)}
+ </svg>`;
+})();
+</script>
+</body>
+</html>

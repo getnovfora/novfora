@@ -1,0 +1,74 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compare — NovFora</title>
+<meta name="description" content="How NovFora compares to phpBB, MyBB, SMF, XenForo/Invision, and Discourse — honestly.">
+<link rel="stylesheet" href="site.css">
+<style>.tbl table{font-size:13.5px}.tbl th,.tbl td{padding:12px 14px}.tbl thead th:nth-child(2){color:var(--amber)}
+@media(max-width:780px){.tbl{overflow-x:auto}.tbl table{min-width:680px}}</style>
+</head>
+<body>
+<header><nav class="wrap">
+  <a class="logo" href="index.html"><span data-mark="30"></span> Nov<span class="fora">Fora</span></a>
+  <div class="links"><a href="features.html">Features</a><a href="compare.html" class="on">Compare</a><a href="hosting.html">Hosting</a><a href="migration.html">Migration</a><a href="roadmap.html">Roadmap</a></div>
+  <div class="right"><a href="#" class="chip" style="font-weight:500"><span style="font-size:16px">★</span> GitHub</a><a href="#" class="btn b-blue" style="padding:9px 16px">Get Started</a></div>
+</nav></header>
+
+<section class="page-hero"><div class="wrap">
+  <span class="eyebrow">Compare</span>
+  <h1>An honest look at <span class="a">the landscape</span></h1>
+  <p>Every platform here is capable and has shipped great communities. We built NovFora to combine the run-anywhere accessibility of the classics with modern polish — and to fix the pain points they share.</p>
+</div></section>
+
+<section><div class="wrap">
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Capability</th><th>NovFora</th><th>phpBB · MyBB · SMF</th><th>XenForo · Invision</th><th>Discourse</th></tr></thead>
+      <tbody>
+        <tr><td>License</td><td class="nf">Apache-2.0 (free)</td><td class="yes">GPL (free)</td><td class="no">Paid license</td><td class="yes">GPL (free)</td></tr>
+        <tr><td>Installs on $5 shared hosting</td><td class="nf">Yes — no SSH needed</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">Needs Docker/VPS</td></tr>
+        <tr><td>Three-state permission engine + inspector</td><td class="nf">Yes</td><td class="no">Basic / varies</td><td class="yes">Strong (no inspector)</td><td class="no">Trust-based, simpler</td></tr>
+        <tr><td>First-class anti-spam built in</td><td class="nf">Yes</td><td class="no">Add-ons</td><td class="yes">Good</td><td class="yes">Good</td></tr>
+        <tr><td>Search that scales (FTS → Meilisearch)</td><td class="nf">Yes, one UX</td><td class="no">Weak by default</td><td class="yes">Good (Elastic option)</td><td class="yes">Good</td></tr>
+        <tr><td>Mobile-first + installable PWA</td><td class="nf">Yes</td><td class="no">Dated</td><td class="yes">Responsive</td><td class="yes">Yes</td></tr>
+        <tr><td>Theming without core edits</td><td class="nf">Yes — visual + sandbox</td><td class="no">Often needs edits</td><td class="yes">Template system</td><td class="yes">Yes</td></tr>
+        <tr><td>Reversible, no-surgery upgrades</td><td class="nf">Yes — backup-first auto</td><td class="no">Manual, fragile</td><td class="yes">Managed</td><td class="yes">Managed</td></tr>
+        <tr><td>Importers (with passwords + 301s)</td><td class="nf">phpBB/XF/MyBB/SMF</td><td class="no">Limited</td><td class="yes">Strong</td><td class="yes">Good</td></tr>
+        <tr><td>REST API + signed webhooks</td><td class="nf">Yes</td><td class="no">Varies</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+        <tr><td>Clubs / sub-communities</td><td class="nf">Yes</td><td class="no">Add-ons</td><td class="yes">Yes</td><td class="no">Categories/groups</td></tr>
+        <tr><td>Paid memberships built in</td><td class="nf">Yes (manual or Stripe)</td><td class="no">Add-ons</td><td class="yes">Yes</td><td class="no">Add-ons</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="text-align:center;color:var(--sub);font-size:13px;margin-top:18px;max-width:70ch;margin-inline:auto">This table reflects typical out-of-the-box capability and is offered in good faith — each platform is actively developed and extensible, and the right choice depends on your community. Where we mark a gap, it's about defaults, not what's ultimately possible.</p>
+</div></section>
+
+<section style="background:var(--wink);border-block:1px solid var(--line)"><div class="wrap">
+  <div class="sec-head"><span class="eyebrow">Where NovFora fits</span><h2>Best when you want to own it</h2></div>
+  <div class="grid g3">
+    <div class="card"><div class="ic" style="background:rgba(235,169,75,.16);color:var(--amber)">🏠</div><h3>Run it yourself</h3><p>You want your community on your hosting, your data, your rules — without a paid license or a managed-cloud bill.</p></div>
+    <div class="card"><div class="ic" style="background:rgba(77,147,242,.16);color:var(--blue)">🧭</div><h3>Modern, not heavy</h3><p>You want XenForo-class polish and permissions but the run-anywhere simplicity of the classic forums.</p></div>
+    <div class="card"><div class="ic" style="background:rgba(53,176,122,.16);color:var(--emerald)">🛠️</div><h3>Built to last</h3><p>You value clean upgrades, a versioned plugin API, and an open Apache-2.0 license you can trust long-term.</p></div>
+  </div>
+</div></section>
+
+<section class="cta-band"><div class="wrap">
+  <h2>Try it before you switch</h2>
+  <p>Explore the live demo, or import your existing forum and see for yourself.</p>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><a href="#" class="btn b-blue">Explore the demo →</a><a href="migration.html" class="btn b-ghost">See migration</a></div>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="fcols">
+    <div><a class="logo" href="index.html"><span data-mark="28"></span> Nov<span class="fora">Fora</span></a><p class="blurb">Self-hosted forum software for independent communities. Yours to own. Yours to shape. Here to stay.</p></div>
+    <div><h4>Product</h4><a href="features.html">Features</a><a href="compare.html">Compare</a><a href="hosting.html">Hosting</a><a href="roadmap.html">Roadmap</a></div>
+    <div><h4>Resources</h4><a href="#">Documentation</a><a href="migration.html">Migration</a><a href="#">Demo</a><a href="#">Changelog</a></div>
+    <div><h4>Community</h4><a href="#">GitHub</a><a href="#">Discussions</a><a href="#">Contributing</a><a href="#">License</a></div>
+  </div>
+  <div class="fbot"><span>© 2026 The NovFora Authors · Apache-2.0</span><span>Built for owners. Not platforms.</span></div>
+</div></footer>
+<script src="site.js"></script>
+</body>
+</html>

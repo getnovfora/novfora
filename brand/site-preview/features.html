@@ -1,0 +1,105 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Features — NovFora</title>
+<meta name="description" content="Everything NovFora 1.0 ships: permissions, editor, anti-spam, clubs, SSO, API, importers, and more — no paid add-ons to reach parity.">
+<link rel="stylesheet" href="site.css">
+<style>.catgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}@media(max-width:860px){.catgrid{grid-template-columns:1fr}}
+.mini{background:var(--wink);border:1px solid var(--line);border-radius:14px;padding:18px}
+.mini .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:16px;margin-bottom:10px}
+.mini h3{font-size:16px;margin-bottom:5px}.mini p{font-size:13.5px;color:var(--sec)}
+.catlabel{display:flex;align-items:center;gap:12px;margin:0 0 22px}.catlabel h2{font-size:26px}.catlabel .ln{flex:1;height:1px;background:var(--line)}</style>
+</head>
+<body>
+<header><nav class="wrap">
+  <a class="logo" href="index.html"><span data-mark="30"></span> Nov<span class="fora">Fora</span></a>
+  <div class="links"><a href="features.html" class="on">Features</a><a href="compare.html">Compare</a><a href="hosting.html">Hosting</a><a href="migration.html">Migration</a><a href="roadmap.html">Roadmap</a></div>
+  <div class="right"><a href="#" class="chip" style="font-weight:500"><span style="font-size:16px">★</span> GitHub</a><a href="#" class="btn b-blue" style="padding:9px 16px">Get Started</a></div>
+</nav></header>
+
+<section class="page-hero"><div class="wrap">
+  <span class="eyebrow">Features</span>
+  <h1>A complete platform, <span class="a">in the box</span></h1>
+  <p>NovFora 1.0 ships the fundamentals and the polish — permissions, editor, anti-spam, community, extensibility, and operations — with no paid add-ons to reach feature parity.</p>
+</div></section>
+
+<section><div class="wrap">
+  <div class="catlabel"><h2>Forum &amp; content</h2><span class="ln"></span></div>
+  <div class="catgrid">
+    <div class="mini"><div class="ic" style="background:rgba(77,147,242,.16);color:var(--blue)">🗂️</div><h3>Categories → forums → topics</h3><p>A clear hierarchy with sub-forums, drag-and-drop structure, descriptions, and read-only areas.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(235,169,75,.16);color:var(--amber)">✍️</div><h3>WYSIWYG editor</h3><p>Friendly by default, optional Markdown, BBCode for imports. Server-sanitized — always safe.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(53,176,122,.16);color:var(--emerald)">📎</div><h3>Attachments &amp; polls</h3><p>Drag-drop uploads (EXIF-stripped, resized), inline polls, @mentions, and safe oEmbed.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(142,118,230,.16);color:var(--violet)">🏷️</div><h3>Prefixes &amp; tags</h3><p>Colored topic prefixes and cross-cutting tags keep busy forums scannable and findable.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(77,147,242,.16);color:var(--blue)">💾</div><h3>Drafts &amp; edit history</h3><p>Autosaved drafts so nothing's lost, full post revision history, and scheduled replies.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(235,169,75,.16);color:var(--amber)">🔖</div><h3>Bookmarks</h3><p>Save any topic or post to a personal list to come back to later.</p></div>
+  </div>
+</div></section>
+
+<section style="background:var(--wink);border-block:1px solid var(--line)"><div class="wrap">
+  <div class="catlabel"><h2>Permissions &amp; roles</h2><span class="ln"></span></div>
+  <div class="catgrid">
+    <div class="mini"><div class="ic" style="background:rgba(77,147,242,.16);color:var(--blue)">🔐</div><h3>Allow / No / Never engine</h3><p>Three-state permissions across every scope. Never is absolute — perfect for clean exceptions.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(53,176,122,.16);color:var(--emerald)">🔎</div><h3>Permission inspector</h3><p>Ask "why can (or can't) this person do that?" and see the decisive rule and every entry.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(142,118,230,.16);color:var(--violet)">👥</div><h3>Groups &amp; auto-promotion</h3><p>Membership models, AND/OR auto-promotion by participation, and a custom role builder.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(235,169,75,.16);color:var(--amber)">🛡️</div><h3>Per-forum moderators</h3><p>Hand a forum to a trusted regular with scoped, capability-bundled moderation powers.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(111,170,247,.16);color:var(--blue2)">👑</div><h3>Co-owners &amp; restricted admins</h3><p>Multiple owners with a last-owner guard, or grant someone just part of the admin panel.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(53,176,122,.16);color:var(--emerald)">⏱️</div><h3>Temporary delegation</h3><p>Lend one capability for a bounded window — it expires on its own, no cleanup to remember.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="catlabel"><h2>Community &amp; social</h2><span class="ln"></span></div>
+  <div class="catgrid">
+    <div class="mini"><div class="ic" style="background:rgba(235,169,75,.16);color:var(--amber)">❤️</div><h3>Reactions &amp; reputation</h3><p>Lightweight reactions that build reputation, plus achievement badges for milestones.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(142,118,230,.16);color:var(--violet)">👤</div><h3>Profiles &amp; custom fields</h3><p>Rich profiles with admin-defined custom fields, signatures, and activity.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(77,147,242,.16);color:var(--blue)">✉️</div><h3>Private messages</h3><p>Multi-participant, threaded conversations with the same safe editor as posts.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(53,176,122,.16);color:var(--emerald)">🏛️</div><h3>Clubs</h3><p>Member-run sub-communities with their own forums and public / closed / private privacy.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(111,170,247,.16);color:var(--blue2)">📇</div><h3>Members directory</h3><p>An opt-in directory and a reputation leaderboard, with follow and ignore controls.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(235,169,75,.16);color:var(--amber)">📈</div><h3>Activity &amp; trending</h3><p>What's-new feeds for what you follow, and permission-safe trending topics.</p></div>
+  </div>
+</div></section>
+
+<section style="background:var(--wink);border-block:1px solid var(--line)"><div class="wrap">
+  <div class="catlabel"><h2>Moderation &amp; anti-spam</h2><span class="ln"></span></div>
+  <div class="catgrid">
+    <div class="mini"><div class="ic" style="background:rgba(53,176,122,.16);color:var(--emerald)">✅</div><h3>Queue &amp; reports</h3><p>Approve held content and resolve member reports from a dedicated moderator panel.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(235,169,75,.16);color:var(--amber)">⚖️</div><h3>Warnings &amp; infractions</h3><p>Graduated, points-based warnings that decay and escalate consequences automatically.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(229,112,91,.16);color:var(--coral)">🧹</div><h3>Bans &amp; spam cleaner</h3><p>Reversible bans, plus one-click ban-and-remove-all-content for obvious spammers.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(77,147,242,.16);color:var(--blue)">📊</div><h3>Trust levels</h3><p>Five levels that grow with good participation and gate capabilities and post holds.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(142,118,230,.16);color:var(--violet)">🤖</div><h3>StopForumSpam &amp; CAPTCHA</h3><p>Crowd blocklist screening, swappable CAPTCHA (Turnstile), honeypot, and rate limits.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(53,176,122,.16);color:var(--emerald)">🗒️</div><h3>Staff notes &amp; word filters</h3><p>Private staff notes on members and server-side word filters with replace / flag / block.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="catlabel"><h2>Platform &amp; operations</h2><span class="ln"></span></div>
+  <div class="catgrid">
+    <div class="mini"><div class="ic" style="background:rgba(77,147,242,.16);color:var(--blue)">🔌</div><h3>Modules, API &amp; webhooks</h3><p>A versioned, no-core-edit module API, a permission-aware REST API, and signed webhooks.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(111,170,247,.16);color:var(--blue2)">🔑</div><h3>SSO &amp; 2FA</h3><p>Google / GitHub / Discord sign-in, mandatory staff 2FA, and an enterprise SAML scaffold.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(235,169,75,.16);color:var(--amber)">📦</div><h3>Importers</h3><p>Resumable phpBB / XenForo / MyBB / SMF imports with passwords and 301 redirects preserved.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(142,118,230,.16);color:var(--violet)">🎨</div><h3>Theming &amp; layout</h3><p>Point-and-click appearance, a layout configurator, and a sandboxed template editor.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(53,176,122,.16);color:var(--emerald)">⬆️</div><h3>Installer &amp; upgrades</h3><p>No-SSH web installer, reversible migrations, backup-first auto-upgrade, and panel backups.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(77,147,242,.16);color:var(--blue)">🌍</div><h3>PWA, push &amp; i18n</h3><p>Installable PWA with web push, full notifications, search, analytics, and RTL localization.</p></div>
+  </div>
+</div></section>
+
+<section class="cta-band"><div class="wrap">
+  <h2>See it all in one place</h2>
+  <p>Spin up a community in an afternoon, or poke around the live demo first.</p>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><a href="#" class="btn b-blue">Get Started →</a><a href="#" class="btn b-ghost">Explore the demo</a></div>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="fcols">
+    <div><a class="logo" href="index.html"><span data-mark="28"></span> Nov<span class="fora">Fora</span></a><p class="blurb">Self-hosted forum software for independent communities. Yours to own. Yours to shape. Here to stay.</p></div>
+    <div><h4>Product</h4><a href="features.html">Features</a><a href="compare.html">Compare</a><a href="hosting.html">Hosting</a><a href="roadmap.html">Roadmap</a></div>
+    <div><h4>Resources</h4><a href="#">Documentation</a><a href="migration.html">Migration</a><a href="#">Demo</a><a href="#">Changelog</a></div>
+    <div><h4>Community</h4><a href="#">GitHub</a><a href="#">Discussions</a><a href="#">Contributing</a><a href="#">License</a></div>
+  </div>
+  <div class="fbot"><span>© 2026 The NovFora Authors · Apache-2.0</span><span>Built for owners. Not platforms.</span></div>
+</div></footer>
+<script src="site.js"></script>
+</body>
+</html>
