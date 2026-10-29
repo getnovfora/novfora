@@ -15,8 +15,9 @@
 #      restored and the app brought back up; a failure DURING migrations leaves maintenance on (the runner's
 #      pre-upgrade backup is the restore point) and says so
 #
-# Idempotent and overlap-safe for an every-minute cron: a lock dir prevents concurrent runs and a done-marker
-# per commit makes later ticks no-ops, so the cron can be deleted at leisure.
+# Idempotent and overlap-safe for an every-minute cron: a lock dir prevents concurrent runs, and a done- or
+# failed-marker per commit makes later ticks no-ops (delete failed-<sha> to retry), so the cron can be deleted
+# at leisure.
 #
 # Usage: upgrade-in-place.sh <commit-sha> [app-dir] [public-url]
 set -uo pipefail
@@ -34,6 +35,8 @@ LOCK="$WORK/lock"
 
 mkdir -p "$WORK"
 [ -e "$DONE" ] && exit 0
+# A failed run stops further cron ticks (no repeated backups/maintenance windows); delete the marker to retry.
+[ -e "$WORK/failed-$SHA" ] && exit 0
 mkdir "$LOCK" 2>/dev/null || exit 0
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 exec >>"$LOG" 2>&1
@@ -119,9 +122,17 @@ if ! "$PHP" artisan novfora:upgrade; then
 fi
 "$PHP" artisan up || true
 
-# 5. Verify.
-PENDING="$("$PHP" artisan novfora:upgrade --check 2>&1 | tail -3)"
-say "after: $(grep -m1 "'version'" config/app.php | tr -s ' ') — $PENDING"
+# 5. Verify. novfora:upgrade can SKIP (e.g. not-installed, locked) with exit 0, so success is judged by the
+#    pending-migration count afterwards, never by the exit code alone.
+CHECK="$("$PHP" artisan novfora:upgrade --check 2>&1)"
+PENDING_COUNT="$(printf '%s\n' "$CHECK" | grep -i 'Pending migrations' | grep -oE '[0-9]+' | tail -1)"
+say "after: $(grep -m1 "'version'" config/app.php | tr -s ' ') — pending migrations: ${PENDING_COUNT:-?}"
+if [ "${PENDING_COUNT:-1}" != "0" ]; then
+  printf '%s\n' "$CHECK"
+  say "migrations still pending after novfora:upgrade — NOT marking done (the app is up on the new code;"
+  say "investigate the upgrade runner state above; old code: $WORK/code-before-$TS.tgz)"
+  touch "$WORK/failed-$SHA"; exit 1
+fi
 if [ -n "$URL" ] && command -v curl >/dev/null; then
   code=$(curl -s -o "$WORK/health-$SHA.json" -w '%{http_code}' -m 20 "$URL/health?cb=$TS")
   say "health HTTP $code: $(head -c 400 "$WORK/health-$SHA.json")"
