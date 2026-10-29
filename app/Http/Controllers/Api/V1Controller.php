@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Forum\PostService;
+use App\Forum\ReplyGate;
 use App\Http\Controllers\Controller;
 use App\Models\Forum;
 use App\Models\Post;
@@ -81,17 +82,13 @@ final class V1Controller extends Controller
         ]);
     }
 
-    public function createPost(Request $request, Topic $topic, PostService $posts): JsonResponse
+    public function createPost(Request $request, Topic $topic, PostService $posts, ReplyGate $gate): JsonResponse
     {
         $user = $this->user($request);
-        abort_unless($user->canDo('post.create', $topic->permissionScope()), 403);
-        // Club privacy (M1.5): replying in a club forum requires active membership (or staff), not just
-        // post.create (which the board grants everyone). 404 = no disclosure of the club's existence.
-        $topicForum = $topic->forum;
-        abort_unless($topicForum instanceof Forum && $topicForum->clubParticipationAllowed($user), 404);
-        // Honor the locked-topic moderation gate the web reply path enforces (P5.1): a moderator's lock must
-        // hold over the API too. Same Topic::isReplyable() predicate, so the surfaces cannot drift.
-        abort_unless($topic->isReplyable(), 403);
+        // NF-01: the same ReplyGate as the web composer and the scheduler — thread-scope forum.view +
+        // post.create, the pending-topic fence, the lock, and club visibility/participation (404 = no
+        // disclosure), so the API can never accept a reply the web path would refuse.
+        $gate->authorize($user, $topic);
 
         $data = $request->validate(['body' => ['required', 'string', 'max:50000']]);
         $post = $posts->reply($user, $topic, 'markdown', ['source' => $data['body']]);
