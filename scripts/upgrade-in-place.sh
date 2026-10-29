@@ -19,7 +19,7 @@
 # failed-marker per commit makes later ticks no-ops (delete failed-<sha> to retry), so the cron can be deleted
 # at leisure.
 #
-# Usage: [BUILD_ONLY=1] upgrade-in-place.sh <commit-sha> [app-dir] [public-url] [report-file]
+# Usage: [BUILD_ONLY=1] upgrade-in-place.sh [--build-only] <commit-sha> [app-dir] [public-url] [report-file]
 #   BUILD_ONLY=1 runs just the (interruptible) build phase, so the live-changing phase stays short.
 #   report-file: where to copy the run log on exit (e.g. a web-DENIED folder readable through a panel file API).
 set -uo pipefail
@@ -27,6 +27,9 @@ set -uo pipefail
 # Panel-managed cron may run with a minimal environment: derive HOME from the passwd entry when it is unset.
 HOME="${HOME:-$(getent passwd "$(id -un)" | cut -d: -f6)}"
 export HOME PATH="/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+
+# `--build-only` as the first argument is the same as BUILD_ONLY=1 (for cron panels that mangle `VAR=value`).
+if [ "${1:-}" = "--build-only" ]; then BUILD_ONLY=1; shift; fi
 
 SHA="${1:?usage: upgrade-in-place.sh <commit-sha> [app-dir] [public-url] [report-file]}"
 APP="${2:-$HOME/novfora}"
