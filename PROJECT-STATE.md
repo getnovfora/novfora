@@ -13,98 +13,104 @@
 
 ---
 
-## ▶ ACTIVE TASK — v1.4 "The Creator Release" — MORNING REPORT (build cycle 2026-07-22)
+## ▶ ACTIVE TASK: v1.4 release hardening (resumed 2026-10-29)
 
-Executing [`docs/product/FABLE-V1.4-KICKOFF-2026-07-17.md`](docs/product/FABLE-V1.4-KICKOFF-2026-07-17.md)
-end-to-end, unattended. Order: **Phase 0 → 4A → 4B ◆ → 4C ◆ → 4D → 4E ◆◆ → release run**. One branch per slice
-off `main`; nothing merges until the release run; every ◆/◆◆ slice gets the verify-then-refute apex review with
-**0 open HIGH/MEDIUM before merge — the review is the signal, not the suite**.
+**Where it stands:** the v1.4 feature work is **merged to `main`** but **not tagged**. On 2026-10-28 the owner merged
+all 12 v1.4 slices (4A–4D plus E1), the final-report docs and a docs sync. The merge train ran through
+`integ/v14-trial`, and `origin/main` = `728df58`. `config/app.php` is still `1.3.0`. Owner call (2026-10-29): **fix the
+security backlog first, then tag `v1.4.0`.** E2–E8 move to a later release (v1.4.x or v1.5).
 
-**Where it stands: 4A–4D COMPLETE + 4E E1 (the API auth spine) COMPLETE. 4E E2–E8 locked in a plan memo and
-sequenced for a dedicated cycle. The release run (merge + tag `v1.4.0`) is DEFERRED to the owner as a scope
-decision (see ☀️) — 4E is intentionally partial, so tagging `v1.4.0` now would misrepresent the release.**
+The July morning report that tracked these slices on their branches now lives in
+[`PROJECT-HISTORY.md`](PROJECT-HISTORY.md).
 
-Everything is committed on per-slice branches off `main`; **nothing new is merged to `main`** (Phase 0 was the
-only merge, `5c3800b`, in the prior session). Each slice below is green in `forum-dev` (full suite ~2.3k pass,
-`route:clear` first), Pint + Larastan(app/) clean, migrate round-trip verified, and — where ◆ — apex/focused
-reviewed to 0 open HIGH/MEDIUM.
+### Gate status on `main` @ `728df58` (verified 2026-10-29)
+- **Passing:**
+  - CI Pest (MySQL 8) and CI Dusk.
+  - Local Pest on SQLite: 2451 passed, 1 skipped.
+  - Local Pint and Larastan: clean.
+- **CI red since 2026-10-06** (`14f75d1`), for two reasons:
+  1. The brand gate matched `AGENTS.md`. Because it is the lint job's first step, Pint, Larastan and audit were
+     skipped on every run after that.
+  2. The assets-fresh check failed: `public/build` was not rebuilt after the merges.
 
-### Completed this program (branch · head · ADR · review)
-- **Phase 0 reconcile** — PROJECT-STATE trimmed 847→125, history moved, DECISIONS. Merged to `main` `5c3800b`.
-- **4A style engine** — U9 style props/dark tokens (`claude/v14-u9-style-props` `affe269`) · U10 style tree +
-  presets (`claude/v14-u10-style-tree` `d99f27c`).
-- **4B ◆ template hooks / Diff3** — `claude/v14-u11-template-hooks` `b193a08` (ADR-0112); apex-reviewed (lint
-  soundness HIGH fixed).
-- **4C ◆ export + Registry + importers** — U12 style I/O (`claude/v14-u12-style-io` `069adf8`) · Registry v1
-  (`claude/v14-registry-v1` `94f48bd`, ADR-0113; NOV-124 spike **GO**; 6 apex findings across 3 passes fixed) ·
-  MyBB/SMF importers (`claude/v14-importers` `cdca1ba`).
-- **4D admin-at-scale — ALL 5 SLICES DONE:**
-  - **U14** pending-member exit-ramp — `claude/v14-u14-registration` `1d233a8` (ADR-0119).
-  - **U13** ◆ CIDR/range IP-ban enforcement (elevated) — `claude/v14-u13-ip-bans` `8b20845` (ADR-0121); apex
-    **1 HIGH + 3 MEDIUM** fixed (IPv6 /32 downgrade, canonicalisation, /0 self-lockout across BOTH write paths).
-  - **U16** maintenance/logs/mail-test — `claude/v14-u16-maintenance` `5337af3` (NOV-114); focused review
-    **2 HIGH + 5 MEDIUM** fixed (log-redaction rewrite, counter ordering, queued-job robustness).
-  - **U19** custom topic fields + move-with-redirect — `claude/v14-u19-topic-fields` `d621cc6` (ADR-0122);
-    focused review **0 HIGH/MEDIUM** (untrusted-value validation + redirect-loop guard held), cheap LOWs fixed.
-  - **staff workflow + Hearth metrics** — `claude/v14-staff-workflow` `69154c3` (ADR-0114); focused review
-    **2 HIGH + 2 MEDIUM truthfulness** bugs fixed — as-of-day metrics, honest moderation allowlist, and the
-    **retention signal DROPPED** (not reproducible from overwrite-only `last_active_at` → omitted per "REAL
-    signals only"). This is the kickoff's hard rule honoured.
-- **4E ◆◆ Admin API — E1 (auth spine) DONE:** `claude/v14-e1-api-tokens` `783a6bb` (ADR-0115); apex review
-  **4 MEDIUM** fixed (trusted-proxy seam, mint-2FA gate widened, idempotency method/path fingerprint +
-  reserve-before-execute). Scoped `nvfa_` tokens, scope ∩ canDo, idempotency, audit-via-token, OpenAPI scaffold.
+  Both are fixed on `claude/project-status-review-uxmk9o` (`b1f58e2`, `34a6606`).
+- **`composer audit` fails:** about 28 advisories built up over the gap, including a Laravel TokenGuard bypass,
+  a Livewire `#[Authorize]` bypass and XSS, and commonmark XSS. Tracked as **NOV-162** (Urgent).
 
-### 4E E2–E8 — planned, NOT built (honest scoping)
-[`docs/product/plan-4e-admin-api-and-upgrade.md`](docs/product/plan-4e-admin-api-and-upgrade.md) (on the E1
-branch) locks the design for **E2 read → E3 write → E4 backups → E5 restore ◆◆ → E7 self-upgrade ◆◆ → E8 docs**
-(E6 Populate already shipped privately; 4E adds only the thin API round-trip). **E5 (restore) and E7 (self-upgrade)
-are, per the spec, "the most dangerous endpoints in the product"** — chunked untrusted-zip upload, streamed
-extraction, staged code-swap across three install layouts, ed25519 verification, auto-rollback. They warrant a
-**dedicated build cycle with fresh focus**, not a rushed pass at the tail of this marathon. Deferring them upholds
-the standing non-negotiable (0 open HIGH/MEDIUM before merge) rather than shipping under-reviewed restore/upgrade
-code. ADRs reserved: E4=0116, E5=0117, E7=0118.
+### Security backlog: blocks the `v1.4.0` tag
+The 2026-09-06 security review filed NF-01 to NF-13 in Linear (NOV-144 to NOV-156). Nothing about them was in the
+repo until now.
+
+| Priority | Issues |
+|---|---|
+| ◆ Urgent | **NF-01** NOV-144: reply authz is checked at board scope, not thread scope · **NF-02** NOV-145: pending-post attachments bypass moderation · **NF-03** NOV-146: REST API topic reads drift from web visibility · **NF-04** NOV-147: OAuth JIT sign-up must prove the email is verified · **NF-05** NOV-148: service-worker cache crosses the privacy boundary · **NOV-162**: dependency advisories |
+| High | **NF-06** NOV-149: API and web rate limits differ · **NF-07** NOV-150: board-offline doesn't gate member mutations · **NF-08** NOV-151: reply transaction and counter concurrency |
+| Medium / Low | NF-09 to NF-13, NOV-152 to NOV-156 |
+
+### ✅ Hardening slice DONE (2026-10-29), on `claude/project-status-review-uxmk9o`, head `05daf98`, pushed, NOT merged
+
+| Item | Commits | What changed |
+|---|---|---|
+| NOV-162 | `bc06d49` | Patch-level dependency bumps; `composer audit` clean |
+| NF-01 | `594c807` | `ReplyGate`, a single thread-scope reply predicate (composer, API, scheduler, `canReply`) |
+| NF-02 | `bbf878b` | `PostVisibility`; attachments never more public than their post |
+| NF-03 | `99b8936`, `fe7caa2` | `TopicVisibility`; API and board listing share one thread-scope selector with bounded candidate queries |
+| NF-04 | `0d058df`, `cd40969` | OAuth sign-up verified only on provider evidence; pre-hijack guard on password reset |
+| NF-05 | `9602781`, `288cbdd` | Service worker: navigations handled first, asset allowlist, namespaced cleanup, `v3`, credential-less offline precache |
+
+- **Design:** ADR-0123.
+- **Gates:** Pest 2493 passed / 1 skipped (42 new tests); Pint, Larastan, audit, brand gate and assets-fresh all
+  clean.
+- **Apex review** (3 independent reviewers, verify-then-refute): 5 MEDIUM confirmed and fixed, each with a
+  regression test that fails on the prior code; **0 HIGH/MEDIUM open.**
+- **Real-browser validation:** `scripts/pwa-sw-harness.cjs`, run at the domain root and under `/community/`.
+- **New issues from the review:** NOV-163 (thread-visibility drift on secondary listings; consolidate the
+  predicates) and NOV-164 (fonts 404 under a subdirectory mount).
+
+**Next:**
+1. Open a PR from `claude/project-status-review-uxmk9o` to get the CI signal (the branch is pushed).
+2. Codex cross-review of the slice.
+3. Merge to `main` (CI goes green: the brand-gate and assets fixes are on this branch).
+4. Run `scripts/pwa-sw-harness.cjs` on staging.
+5. NF-06 to NF-08 (High).
+6. The release run.
 
 ---
 
-## ☀️ OWNER SECTION — decisions, hand-offs, and what to run
+## ☀️ OWNER SECTION: decisions, hand-offs, and what to run
 
-**1. Nothing is on `main` except Phase 0.** All 12 slices are on the branches listed above. **The release run
-(§6) was NOT executed** — see #2. `git config user.name/email` = `Tommy Huynh <tommy@saturnhq.net>`; all commits
-DCO-signed, no AI trailers.
+**0. Push restored (2026-10-29).** The owner gave the Claude GitHub App write access, and the branch
+`claude/project-status-review-uxmk9o` is on `origin`. CI runs only on pushes to `main` and on PRs, so opening a
+PR is what gets the CI signal on this branch.
 
-**2. RELEASE DECISION (yours) — do NOT assume v1.4.0 = shipped.** v1.4's exit gate (spec §5) requires the full
-end-to-end proof **including restore + self-upgrade**, which are not built. Two honest options:
-   - **(a) Ship 4A–4D + E1 as `v1.4.0` now** (a large, complete Creator-Release feature set; the Admin API lands
-     as the token spine only). Then E2–E8 become **v1.4.1 / v1.5**. Recommended if you want the 4D value out now.
-   - **(b) Hold the `v1.4.0` tag** until E2–E8 complete in the next cycle, shipping them together.
-   Either way the **merge order is phase order**: Phase 0 (done) → u9 → u10 → u11 → u12 → registry → importers →
-   u14 → u13 → u16 → u19 → staff → e1, `--no-ff`, **re-gating between**, then bump `config/app.php` → the chosen
-   version, `scripts/build-release.sh` → `verify-release.sh` (RELEASE_VERIFY=PASS), tag locally, you push. I did
-   not merge/tag because choosing the release scope with 4E partial is your call, not mine to guess.
+**1. Release run, once the security slice is merged:**
+1. Bump `config/app.php` to `1.4.0`.
+2. Run `scripts/build-release.sh`, then `verify-release.sh` (expect `RELEASE_VERIFY=PASS`).
+3. Confirm `modules/novfora/populate` is **absent** from the zip. It is a junction to the private Populate repo;
+   never commit or ship it.
+4. Add `[1.3.0]` and `[1.4.0]` sections to `CHANGELOG.md`. Neither version has one; the security entries
+   currently sit under Unreleased.
+5. Tag locally; you push.
 
-**3. Populate junction — VERIFY on any release zip.** `modules/novfora/populate` is a junction to the private
-`D:\novfora-populate` repo. It is **not committed on any branch here** and must be **absent from the release
-artifact** — `verify-release.sh` must confirm it. Never commit or ship it.
+**2. Linear was reconciled on 2026-10-29:**
+- NOV-107–112, 114, 116 and 124–127 plus NOV-135 are now **Done**, each with a merge/SHA/ADR/review comment.
+- The July discoveries are filed as NOV-157 to NOV-161, and the dependency advisories as NOV-162.
+- NF-01 to NF-05 (NOV-144 to NOV-148) are **In Review**, with completion comments. NOV-162 is In Review. All of
+  them move to Done on merge.
+- NOV-140 and NOV-143 (the private Populate plugin, E6) have been **In Review since 2026-07-02**. That's your call,
+  since the plugin lives outside this repo.
 
-**4. Linear is fully ABSENT in this environment** (no MCP server) — every write was blocked and **ledgered** in
-[`docs/product/v14-linear-ledger.md`](docs/product/v14-linear-ledger.md) (on `claude/v14-morning-report`
-`4f45bfa`). Flip by hand: NOV-112/111/114/116/127/135 → **Done on merge**; the discoveries below → **new issues**.
+**3. Open product decisions (parked, not guessed):**
+- The default for self-upgrade auto-apply (E7): `off`, `security-only` or `all-patch`. The spec recommends
+  security-only, chosen at install time.
+- Carried from v1.3: **U8**, the imported-username revert (ADR-0106), and **U18**, Turnstile fail-open (ADR-0107).
 
-**5. Open PRODUCT decisions (parked, not guessed):**
-   - **Self-upgrade auto-apply default** (E7): `off / security-only / all-patch`. Spec recommends **security-only,
-     chosen at install**. Yours to confirm when E7 is built.
-   - Carried from v1.3: **U8** imported-username revert (ADR-0106) · **U18** Turnstile fail-open (ADR-0107).
-
-**6. Discoveries to FILE as issues (found this cycle, deferred as LOW / non-blocking):**
-   - U13: per-*request* IP-ban enforcement middleware (today: registration boundary only); cache-outage fail-open.
-   - U16: unindexed `posts`/`sessions.ip_address` scans in the IP-investigation lookup (admin-gated).
-   - U19: a per-topic field-value **edit** surface (no topic-edit page exists); orphaned "moved" shadow cleanup.
-   - staff: a per-moderator staff-load breakdown + a true signup-cohort retention curve (need an activity-history
-     table) — both deferred from Hearth v1.
-   - E1: IP allowlist is exact-IP (CIDR lands once U13's `CidrMatcher` is on `main`); the same `isStaff()`-based
-     2FA self-guard pattern in the group-editor SFCs (pre-existing) should be widened like E1's mint gate.
-
-**7. Confirm `git config`** in your environment before pushing (the sandbox default may differ).
+**4. Cloud-session gotchas:**
+- `composer install` can't reach the github.com API; seed `phpstan/phpstan` from git (see the Second Brain gotcha).
+- `git push` returns 403 ("Resource not accessible by integration") whenever the Claude GitHub App lacks write
+  access to `getnovfora/novfora`. Fix it in the App's installation settings on GitHub.
+- The PHP file cache (`storage/framework/cache`) is shared between ad-hoc local servers. Run `php artisan
+  cache:clear` when switching test databases, or stale ACL verdicts leak between them.
 
 ---
 
@@ -176,8 +182,6 @@ Scaffolded/disabled-by-default; unit-tested against fakes only. Enable + validat
   opcache reset, verify the group's `type` column.
 - **`novfora:trust:recompute --user`** prints the generic summary, not the per-user reason (engine correct; print
   is terser). Small polish.
-- **Pending-member exit-ramp** — **DONE** this cycle as v1.4 U14 (NOV-112, `claude/v14-u14-registration` `1d233a8`,
-  ADR-0119): pending/flagged review queue + `MemberActivationService` + optional config-gated auto-activation.
 - **demo.novfora.com** still runs pre-v1.3 — the v1.3.0 upgrade (and v1.4.0 after it) goes via the cron
   auto-upgrade path, backup-first (both carry migrations; not assets-only).
 
@@ -190,8 +194,9 @@ Scaffolded/disabled-by-default; unit-tested against fakes only. Enable + validat
 PostgreSQL on Docker/VPS; Vite prebuilt assets (no host Node). **Two tiers from one codebase** (baseline shared PHP
 host / enhanced Docker-VPS); WYSIWYG-first editor; phpBB-grade permission masks; strict clean-room.
 
-**Status:** shipped **1.0.0 (GA)**, then **v1.2.0** and **v1.3.0** (tagged + pushed; record above). Current work:
-**v1.4 "The Creator Release"** (active task above). The private Populate plugin (E6a/E6b) lives in its own repo
+**Status:** shipped **1.0.0 (GA)**, then **v1.2.0** and **v1.3.0** (tagged + pushed; record above). The v1.4 "Creator
+Release" feature set is merged to `main` but untagged. Current work is the security hardening that precedes the
+`v1.4.0` tag (active task above). The private Populate plugin (E6a/E6b) lives in its own repo
 `D:\novfora-populate`, junctioned at `modules/novfora/populate` — never committed here, never shipped.
 
 **How we work:** Claude Code builds (plan-before-code per phase); Claude Cowork does knowledge work (no app code);

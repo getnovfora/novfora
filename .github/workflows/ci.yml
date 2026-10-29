@@ -23,7 +23,7 @@ jobs:
           needle="$(printf 'ne''vo')"
           matches=$(git grep -il "$needle" -- . \
             ':(exclude)DECISIONS.md' ':(exclude)PROJECT-HISTORY.md' ':(exclude)PROJECT-STATE.md' \
-            ':(exclude)ROADMAP.md' ':(exclude)CLAUDE.md' ':(exclude)GEMINI.md' ':(exclude)CHANGELOG.md' \
+            ':(exclude)ROADMAP.md' ':(exclude)CLAUDE.md' ':(exclude)AGENTS.md' ':(exclude)GEMINI.md' ':(exclude)CHANGELOG.md' \
             ':(exclude)gemini-gem/' ':(exclude)docs/' ':(exclude).github/workflows/ci.yml' || true)
           if [ -n "$matches" ]; then
             echo "::error::Retired codename found outside historical ADR/doc references:"

@@ -11,6 +11,7 @@ use App\Discovery\RecommendationService;
 use App\Forum\BookmarkService;
 use App\Forum\PollService;
 use App\Forum\ReactionService;
+use App\Forum\ReplyGate;
 use App\Models\Forum;
 use App\Models\Post;
 use App\Models\Topic;
@@ -107,7 +108,9 @@ class TopicController extends Controller
                 ['last_read_at' => now()],
             );
         }
-        $canReply = $topic->isReplyable() && ($user?->canDo('post.create', $scope) ?? false);
+        // NF-01: the affordance and every reply mutation share one predicate (ReplyGate), so the composer is
+        // only rendered where a submit would actually be accepted.
+        $canReply = app(ReplyGate::class)->allows($user, $topic);
 
         // The Merge trigger mirrors MergeTopicsService's EXACT gate — topic.moderate PLUS out-ranking the
         // source author — so a moderator on an equal/higher-ranked author's topic isn't shown a control

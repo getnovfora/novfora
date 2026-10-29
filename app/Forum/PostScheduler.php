@@ -7,7 +7,6 @@ declare(strict_types=1);
 namespace App\Forum;
 
 use App\AntiSpam\ContentRejectedException;
-use App\Models\Forum;
 use App\Models\ScheduledPost;
 use App\Models\Topic;
 use App\Models\User;
@@ -28,7 +27,10 @@ use Illuminate\Support\Facades\DB;
  */
 final class PostScheduler
 {
-    public function __construct(private readonly PostService $posts) {}
+    public function __construct(
+        private readonly PostService $posts,
+        private readonly ReplyGate $gate,
+    ) {}
 
     /** Queue a reply to publish later. @throws \InvalidArgumentException if the time is not in the future. */
     public function scheduleReply(User $user, Topic $topic, string $format, array $canonical, CarbonInterface $publishAt): ScheduledPost
@@ -99,15 +101,11 @@ final class PostScheduler
 
             $topic = Topic::find($scheduled->topic_id);
             $user = User::find($scheduled->user_id);
-            $forum = $topic?->forum;
 
-            // No longer publishable → mark done with a null post (skip, never retry). post.create resolves the
-            // same at the topic's (thread) scope as at its forum's — the thread inherits the forum's grants.
-            // Club forums add a roster gate outside ACLs, so re-check it here just like the live composer/API.
-            if (! $topic instanceof Topic || ! $user instanceof User || $topic->status === 'locked'
-                || ! $forum instanceof Forum
-                || ! $user->canDo('post.create', $topic->permissionScope())
-                || ! $forum->clubParticipationAllowed($user)) {
+            // No longer publishable → mark done with a null post (skip, never retry). NF-01: the SAME ReplyGate
+            // as the live composer/API, evaluated at publish time — so a thread-level restriction, a lock, a
+            // pending-topic fence, or a lost club membership applied after scheduling still blocks the write.
+            if (! $topic instanceof Topic || ! $user instanceof User || ! $this->gate->allows($user, $topic)) {
                 $scheduled->update(['published_at' => now(), 'post_id' => null]);
 
                 return false;

@@ -84,6 +84,42 @@ it('derives its mount scope from the registration so it works under any mount', 
     $res->assertSee("SCOPE + 'icons/'", false);
 });
 
+it('keeps personal pages out of the asset cache — NF-05 privacy fences (NOV-148)', function () {
+    $sw = (string) $this->get('/sw.js')->assertOk()->getContent();
+
+    // Navigations are classified BEFORE assets, so an asset-looking URL that resolves to HTML never reaches
+    // the cache-first path…
+    expect(strpos($sw, "req.mode === 'navigate'"))->toBeLessThan(strpos($sw, 'isStaticAsset(url.pathname)'));
+    // …the asset cache is a directory/file ALLOWLIST, not a filename-extension regex…
+    expect($sw)->toContain("const ASSET_DIRS = [SCOPE + 'build/', SCOPE + 'icons/'];")
+        ->not->toContain('ASSET_RE');
+    // …an asset is stored only as a same-origin, non-redirected, non-HTML 200…
+    expect($sw)->toContain("res.type !== 'basic'")->toContain('res.redirected')->toContain("startsWith('text/html')");
+    // …and activation only retires NovFora's own older caches, never another app's Cache API entries.
+    expect($sw)->toContain("const CACHE_NAMESPACE = 'novfora-pwa-';")
+        ->toContain('k.startsWith(CACHE_NAMESPACE) && !k.startsWith(CACHE_VERSION)')
+        ->toContain("CACHE_NAMESPACE + 'v3'"); // v3 retires every v2 cache built under the old extension rule
+});
+
+it('precaches the offline fallback without credentials and only when the server flags it cacheable', function () {
+    $sw = (string) $this->get('/sw.js')->assertOk()->getContent();
+
+    // NF-05 review: install re-runs on every deploy while members are signed in — a credentialed precache would
+    // store THEIR page chrome as the fallback shown to whoever uses the browser next.
+    expect($sw)->toContain("new Request(OFFLINE_URL, { credentials: 'omit' })")
+        ->toContain("res.headers.get('X-PWA-Cacheable') === '1'")
+        ->not->toContain('cache.add(OFFLINE_URL)');
+});
+
+it('never flags the mid-login two-factor challenge as cacheable', function () {
+    $user = Users::withTwoFactor(Users::inGroups(['members']));
+
+    $res = $this->withSession(['login.id' => $user->id, 'login.remember' => false])->get('/two-factor-challenge');
+
+    $res->assertOk();
+    expect($res->headers->get('X-PWA-Cacheable'))->toBeNull();
+});
+
 it('serves an offline fallback page', function () {
     $this->get('/offline')->assertOk()->assertSee('offline');
 });

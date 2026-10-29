@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Forum\ForumNode;
+use App\Forum\TopicVisibility;
 use App\Models\Forum;
 use App\Models\Prefix;
 use App\Models\Topic;
@@ -60,7 +61,7 @@ class ForumController extends Controller
         return view('forum.index', compact('tree', 'viewer', 'lastTopics'));
     }
 
-    public function show(Request $request, Forum $forum): View
+    public function show(Request $request, Forum $forum, TopicVisibility $visibility): View
     {
         $viewer = $request->user() ?? User::guest();
         // M1.4/M1.5: a CLUB forum's content is gated by club visibility (members/staff for closed/private),
@@ -78,12 +79,10 @@ class ForumController extends Controller
         $topics = $forum->topics()
             // firstPost:id,body_text backs the M3 first-post excerpt in ONE bounded eager query (no N+1).
             ->with(['author.groups', 'lastPostUser.groups', 'prefix', 'tags', 'firstPost:id,body_text'])
-            ->unless($canModerate, fn ($q) => $q->where(function ($q2) use ($user) {
-                $q2->where('approved_state', 'approved');
-                if ($user) {
-                    $q2->orWhere('user_id', $user->getKey());
-                }
-            }))
+            // NF-03: the shared TopicVisibility selector — the pending-topic fence (author + local moderators)
+            // AND per-thread forum.view denials, applied before pagination so hidden topics are never listed
+            // or counted. The REST API lists through the same selector.
+            ->tap(fn ($q) => $visibility->constrain($q, $forum, $user))
             ->when(request('prefix'), fn ($q) => $q->where('prefix_id', request('prefix')))
             ->orderByDesc('is_pinned')
             ->orderByRaw('last_posted_at IS NULL') // posted topics before empty ones

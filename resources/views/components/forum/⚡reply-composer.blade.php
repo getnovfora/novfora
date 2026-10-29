@@ -5,6 +5,7 @@ use App\AntiSpam\PostRateLimiter;
 use App\Forum\Concerns\ManagesDrafts;
 use App\Forum\PostScheduler;
 use App\Forum\PostService;
+use App\Forum\ReplyGate;
 use App\Models\CannedReply;
 use App\Models\Post;
 use App\Models\Topic;
@@ -215,18 +216,12 @@ new class extends Component
         return $this->redirectRoute('topics.show', $this->topicId, navigate: true);
     }
 
+    /** NF-01: the shared ReplyGate re-derives thread-scope visibility + post.create + lock + club rules on
+     *  mount AND on every submit, so a restriction applied while this composer is open still blocks the write. */
     private function ensureCanReply(): void
     {
-        $topic = $this->topic();
         $user = auth()->user();
-        abort_unless(
-            $topic->isReplyable()
-            && $user instanceof User
-            && $user->canDo('post.create', $topic->forum->permissionScope())
-            // Club forums (M1.4): replying also requires active club membership (or staff).
-            && $topic->forum->clubParticipationAllowed($user),
-            403,
-        );
+        app(ReplyGate::class)->authorize($user instanceof User ? $user : null, $this->topic());
     }
 
     private function topic(): Topic

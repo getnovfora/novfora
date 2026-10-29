@@ -11,6 +11,24 @@ contracts** — a breaking change to either is a major-version event.
 
 ## [Unreleased]
 
+### Security
+- **Reply authorization (NF-01):** the reply composer, the REST API and scheduled publishing now share one
+  thread-scope gate, `ReplyGate`. A thread-level restriction, a lock, or the pending-topic fence applied while
+  a composer is open (or a reply is queued) now blocks the write.
+- **Attachments on held content (NF-02):** a file attached to a pending or rejected post or topic is served
+  only to its author/uploader and moderators, never to every reader of the forum.
+- **API topic visibility (NF-03):** `GET /api/v1/forums/{id}/topics` and `GET /api/v1/topics/{id}` now apply
+  the same pending-topic fence and per-thread `forum.view` denials as the web, before pagination and counts.
+  The web board listing now also hides topics denied at thread scope.
+- **OAuth sign-up (NF-04):** a new Google/GitHub/Discord account is email-verified only when the provider
+  proves the address is verified. Otherwise NovFora's own verification email is sent.
+- **Service worker (NF-05):** navigations are never stored in the asset cache. The asset cache is an
+  allowlist (`build/`, `icons/`, the favicons) and rejects HTML and redirected responses. Activation removes
+  only NovFora's own older caches. The cache version moves to `v3`, which retires all v2 caches.
+- **Dependencies:** patch-level bumps clear every `composer audit` advisory, including laravel/framework
+  13.39, livewire 4.4.8, league/commonmark 2.10.4, guzzle 7.16, symfony 7.4.22, flysystem 3.36 and phpseclib
+  3.0.57.
+
 ## [1.2.0] — 2026-07
 
 This release folds in **U7 (embed API / SSI / web components, ADR-0103)** and **U17 (plugin install-from-zip

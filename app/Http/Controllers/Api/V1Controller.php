@@ -7,6 +7,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Forum\PostService;
+use App\Forum\ReplyGate;
+use App\Forum\TopicVisibility;
 use App\Http\Controllers\Controller;
 use App\Models\Forum;
 use App\Models\Post;
@@ -51,24 +53,31 @@ final class V1Controller extends Controller
         return response()->json(['data' => $forums->all()]);
     }
 
-    public function topics(Request $request, Forum $forum): JsonResponse
+    public function topics(Request $request, Forum $forum, TopicVisibility $visibility): JsonResponse
     {
         $user = $this->user($request);
+        abort_unless($forum->clubContentVisibleTo($user), 404); // club content gate FIRST (no disclosure)
         abort_unless($user->canDo('forum.view', $forum->permissionScope()), 403);
-        abort_unless($forum->clubContentVisibleTo($user), 404); // club content gate (no disclosure)
 
-        $topics = Topic::query()->where('forum_id', $forum->getKey())
-            ->orderByDesc('id')->paginate(min(50, max(1, (int) $request->integer('per_page', 20))));
+        // NF-03: the same "topics visible to viewer" selector as the web board listing — the pending-topic fence
+        // and per-thread forum.view denials apply BEFORE pagination, so neither rows nor meta.total disclose a
+        // hidden topic.
+        $query = Topic::query()->where('forum_id', $forum->getKey());
+        $visibility->constrain($query, $forum, $user);
+        $topics = $query->orderByDesc('id')->paginate(min(50, max(1, (int) $request->integer('per_page', 20))));
 
         return $this->paginated($topics, fn (Topic $topic): array => $this->topicData($topic));
     }
 
-    public function topic(Request $request, Topic $topic): JsonResponse
+    public function topic(Request $request, Topic $topic, TopicVisibility $visibility): JsonResponse
     {
         $user = $this->user($request);
-        abort_unless($user->canDo('forum.view', $topic->permissionScope()), 403);
         $topicForum = $topic->forum;
         abort_unless($topicForum instanceof Forum && $topicForum->clubContentVisibleTo($user), 404);
+        abort_unless($user->canDo('forum.view', $topic->permissionScope()), 403);
+        // NF-03: the web topic page's moderation fence — a pending topic exists only for its author and
+        // topic.moderate holders; everyone else gets the same no-disclosure 404 (no title/metadata leak).
+        abort_unless($visibility->canView($user, $topic), 404);
 
         $posts = Post::query()->where('topic_id', $topic->getKey())->where('approved_state', 'approved')
             ->orderBy('position')->orderBy('id')
@@ -81,17 +90,13 @@ final class V1Controller extends Controller
         ]);
     }
 
-    public function createPost(Request $request, Topic $topic, PostService $posts): JsonResponse
+    public function createPost(Request $request, Topic $topic, PostService $posts, ReplyGate $gate): JsonResponse
     {
         $user = $this->user($request);
-        abort_unless($user->canDo('post.create', $topic->permissionScope()), 403);
-        // Club privacy (M1.5): replying in a club forum requires active membership (or staff), not just
-        // post.create (which the board grants everyone). 404 = no disclosure of the club's existence.
-        $topicForum = $topic->forum;
-        abort_unless($topicForum instanceof Forum && $topicForum->clubParticipationAllowed($user), 404);
-        // Honor the locked-topic moderation gate the web reply path enforces (P5.1): a moderator's lock must
-        // hold over the API too. Same Topic::isReplyable() predicate, so the surfaces cannot drift.
-        abort_unless($topic->isReplyable(), 403);
+        // NF-01: the same ReplyGate as the web composer and the scheduler — thread-scope forum.view +
+        // post.create, the pending-topic fence, the lock, and club visibility/participation (404 = no
+        // disclosure), so the API can never accept a reply the web path would refuse.
+        $gate->authorize($user, $topic);
 
         $data = $request->validate(['body' => ['required', 'string', 'max:50000']]);
         $post = $posts->reply($user, $topic, 'markdown', ['source' => $data['body']]);

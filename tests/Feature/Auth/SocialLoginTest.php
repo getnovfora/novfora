@@ -4,12 +4,17 @@
 
 declare(strict_types=1);
 
+use App\Auth\Social\SocialProviders;
 use App\Models\Ban;
 use App\Models\RegistrationCheck;
 use App\Models\SocialAccount;
 use App\Models\User;
 use App\Settings\Settings;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\AbstractProvider;
 use Laravel\Socialite\Two\InvalidStateException;
@@ -29,9 +34,12 @@ function enableProvider(string $provider = 'google'): void
     $s->set("oauth.{$provider}.client_secret", 'client-secret');
 }
 
-function fakeSocialUser(string $id, string $email, string $nick = 'handle'): SocialiteUser
+/** @param  array<string,mixed>  $raw  the provider's raw profile — by default carries the Google/Discord
+ *                                    "email verified" evidence (NF-04); pass [] for an evidence-free profile */
+function fakeSocialUser(string $id, string $email, string $nick = 'handle', array $raw = ['email_verified' => true, 'verified' => true]): SocialiteUser
 {
     $u = new SocialiteUser;
+    $u->setRaw($raw);
     $u->id = $id;
     $u->email = $email;
     $u->name = 'Test Person';
@@ -212,4 +220,106 @@ it('routes a flagged OAuth signup into the moderation queue as pending', functio
 
     $user = User::where('email', 'flagged@oauth.test')->firstOrFail();
     expect($user->status)->toBe('pending'); // created, but held for moderation — not silently active
+});
+
+// ── NF-04 (NOV-147): verified only on provider evidence ──────────────────────────────────────────────────
+
+dataset('verification evidence', [
+    'google verified' => ['google', ['email_verified' => true], true],
+    'google unverified' => ['google', ['email_verified' => false], false],
+    'google evidence absent' => ['google', [], false],
+    'discord verified' => ['discord', ['verified' => true], true],
+    'discord unverified' => ['discord', ['verified' => false], false],
+    'discord evidence absent' => ['discord', [], false],
+    'github (verified primary under user:email)' => ['github', [], true],
+]);
+
+it('marks a new provider account verified only when the provider proves the email', function (string $provider, array $raw, bool $verified) {
+    Notification::fake();
+    enableProvider($provider);
+    mockSocialiteReturning(fakeSocialUser('p-'.$provider, "nf04-{$provider}@oauth.test", 'nf04'.$provider, $raw));
+
+    $this->get(route('oauth.callback', $provider))->assertRedirect(route('home'));
+
+    $user = User::where('email', "nf04-{$provider}@oauth.test")->firstOrFail();
+    expect($user->hasVerifiedEmail())->toBe($verified);
+
+    // Unverified → routed through NovFora's own verification; verified → no verification mail.
+    $verified
+        ? Notification::assertNotSentTo($user, VerifyEmail::class)
+        : Notification::assertSentTo($user, VerifyEmail::class);
+})->with('verification evidence');
+
+it('keeps an unverified provider account behind the verified middleware', function () {
+    Notification::fake();
+    enableProvider('google');
+    mockSocialiteReturning(fakeSocialUser('g-unverified', 'unverified@oauth.test', 'unverified', ['email_verified' => false]));
+
+    $this->get(route('oauth.callback', 'google'));
+
+    $user = User::where('email', 'unverified@oauth.test')->firstOrFail();
+    expect($user->email_verified_at)->toBeNull();
+    $this->actingAs($user)->get(route('verification.notice'))->assertOk();
+});
+
+it('still refuses a missing provider email and an email collision, verified or not (no silent merge)', function () {
+    enableProvider('google');
+    mockSocialiteReturning(fakeSocialUser('g-noemail', '', 'noemail'));
+    $this->get(route('oauth.callback', 'google'))->assertRedirect(route('login'))->assertSessionHas('error');
+    $this->assertGuest();
+
+    $local = User::factory()->create(['email' => 'collide@oauth.test']);
+    mockSocialiteReturning(fakeSocialUser('g-collide', 'collide@oauth.test', 'collide', ['email_verified' => true]));
+    $this->get(route('oauth.callback', 'google'))->assertRedirect(route('login'))->assertSessionHas('error');
+    expect(SocialAccount::where('user_id', $local->id)->exists())->toBeFalse();
+});
+
+it('pins the GitHub user:email scope that makes a returned GitHub email verified (NF-04 invariant)', function () {
+    // Under user:email Socialite returns only GitHub's primary VERIFIED address; without it, the unverified
+    // public profile email — so SocialLogin's github evidence depends on this scope staying requested.
+    expect(SocialProviders::PROVIDERS['github']['scopes'])->toContain('user:email');
+});
+
+it('drops a provisional provider link when the email owner recovers the account (no OAuth pre-hijack)', function () {
+    Notification::fake();
+    enableProvider('discord');
+
+    // A squatter signs in with a Discord account carrying the victim's address, unverified at Discord.
+    mockSocialiteReturning(fakeSocialUser('d-squatter', 'victim@oauth.test', 'squatter', ['verified' => false]));
+    $this->get(route('oauth.callback', 'discord'))->assertRedirect(route('home'));
+    $account = User::where('email', 'victim@oauth.test')->firstOrFail();
+    expect($account->hasVerifiedEmail())->toBeFalse()
+        ->and(SocialAccount::where('user_id', $account->id)->exists())->toBeTrue();
+    Auth::logout();
+    $this->flushSession();
+
+    // The real owner recovers it via a password reset (the link goes to their inbox), then verifies.
+    $token = Password::broker()->createToken($account);
+    $this->post(route('password.update'), [
+        'token' => $token, 'email' => 'victim@oauth.test',
+        'password' => 'Victim-Str0ng-Passw0rd!!', 'password_confirmation' => 'Victim-Str0ng-Passw0rd!!',
+    ])->assertSessionHasNoErrors();
+    $account->refresh()->markEmailAsVerified();
+
+    // The squatter's Discord identity no longer opens the recovered account.
+    expect(SocialAccount::where('user_id', $account->id)->exists())->toBeFalse();
+    $this->get(route('oauth.callback', 'discord'));
+    expect(auth()->id())->not->toBe($account->id);
+});
+
+it('keeps provider links on a VERIFIED account through a password reset', function () {
+    enableProvider('google');
+    mockSocialiteReturning(fakeSocialUser('g-owner', 'owner@oauth.test', 'owner', ['email_verified' => true]));
+    $this->get(route('oauth.callback', 'google'));
+    $account = User::where('email', 'owner@oauth.test')->firstOrFail();
+    Auth::logout();
+    $this->flushSession();
+
+    $token = Password::broker()->createToken($account);
+    $this->post(route('password.update'), [
+        'token' => $token, 'email' => 'owner@oauth.test',
+        'password' => 'Owner-Str0ng-Passw0rd!!', 'password_confirmation' => 'Owner-Str0ng-Passw0rd!!',
+    ])->assertSessionHasNoErrors();
+
+    expect(SocialAccount::where('user_id', $account->id)->where('provider', 'google')->exists())->toBeTrue();
 });
