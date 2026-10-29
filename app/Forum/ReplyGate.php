@@ -60,7 +60,7 @@ final class ReplyGate
         }
 
         if ($topic->approved_state !== 'approved'
-            && (int) $topic->user_id !== (int) $user->getKey()
+            && ! TopicVisibility::isAuthor($user, $topic)
             && ! $user->canDo('topic.moderate', $scope)) {
             return self::HIDDEN;
         }

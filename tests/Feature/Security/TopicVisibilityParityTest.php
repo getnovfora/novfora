@@ -6,6 +6,8 @@ declare(strict_types=1);
 
 use App\Api\ApiTokenService;
 use App\Forum\PostService;
+use App\Forum\ReplyGate;
+use App\Forum\TopicVisibility;
 use App\Models\AclEntry;
 use App\Models\Ban;
 use App\Models\Forum;
@@ -13,6 +15,7 @@ use App\Models\Topic;
 use App\Models\User;
 use App\Permissions\PermissionResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\Users;
 
 /*
@@ -119,4 +122,71 @@ it('hides a topic from a viewer banned at that thread scope', function () {
     app(PermissionResolver::class)->flushMemo();
 
     expect(apiTitles($viewer, $forum, $this))->toBe([]);
+});
+
+// ── Apex-review regressions (NF-03 follow-up) ───────────────────────────────────────────────────────────
+
+it('keeps a forum moderator recused at the THREAD scope out of that held topic on every surface', function () {
+    $f = parityFixture();
+    $moderator = Users::inGroups(['members', 'moderators']);
+    AclEntry::create([
+        'permission_key' => 'topic.moderate', 'holder_type' => 'user', 'holder_id' => $moderator->getKey(),
+        'scope_type' => 'thread', 'scope_id' => $f['pendingOther']->getKey(), 'value' => -1,
+    ]);
+    app(PermissionResolver::class)->flushMemo();
+
+    $this->actingAs($moderator)->get(route('topics.show', $f['pendingOther']))->assertNotFound();
+    $this->actingAs($moderator)->get(route('forums.show', $f['forum']))->assertOk()->assertDontSee('Held topic by other');
+    expect(apiTitles($moderator, $f['forum'], $this))->not->toContain('Held topic by other')
+        ->toContain('Held topic by viewer'); // still a moderator everywhere else
+});
+
+it('lists a held topic for a member who moderates only that THREAD, matching the topic page', function () {
+    $f = parityFixture();
+    $threadMod = Users::inGroups(['members', 'tl1']);
+    AclEntry::create([
+        'permission_key' => 'topic.moderate', 'holder_type' => 'user', 'holder_id' => $threadMod->getKey(),
+        'scope_type' => 'thread', 'scope_id' => $f['pendingOther']->getKey(), 'value' => 1,
+    ]);
+    app(PermissionResolver::class)->flushMemo();
+
+    $this->actingAs($threadMod)->get(route('topics.show', $f['pendingOther']))->assertOk();
+    expect(apiTitles($threadMod, $f['forum'], $this))->toContain('Held topic by other')
+        ->not->toContain('Held topic by viewer');
+});
+
+it('does not resolve thread entries held by OTHER members when listing (bounded query cost)', function () {
+    $f = parityFixture();
+    $someoneElse = Users::inGroups(['members', 'tl1']);
+    $svc = app(PostService::class);
+    $extra = collect(range(1, 20))->map(fn (int $i) => $svc->createTopic($f['other'], $f['forum'], "Extra {$i}", 'markdown', ['source' => 'x']));
+    $baseline = function () use ($f) {
+        app(PermissionResolver::class)->flushMemo();
+        cache()->flush();
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $this->actingAs($f['viewer'])->get(route('forums.show', $f['forum']))->assertOk();
+
+        return count(DB::getQueryLog());
+    };
+    $before = $baseline();
+
+    // 20 thread-scoped forum.view grants held by someone else — none can change THIS viewer's verdict.
+    foreach ($extra as $topic) {
+        AclEntry::create([
+            'permission_key' => 'forum.view', 'holder_type' => 'user', 'holder_id' => $someoneElse->getKey(),
+            'scope_type' => 'thread', 'scope_id' => $topic->getKey(), 'value' => 1,
+        ]);
+    }
+
+    expect($baseline())->toBeLessThanOrEqual($before + 2);
+});
+
+it('never treats a guest as the author of an author-less held topic', function () {
+    $forum = Forum::create(['slug' => 'general', 'title' => 'General', 'type' => 'forum']);
+    $topic = app(PostService::class)->createTopic(Users::inGroups(['members', 'tl1']), $forum, 'Orphan held', 'markdown', ['source' => 'x']);
+    $topic->forceFill(['approved_state' => 'pending', 'user_id' => null])->saveQuietly();
+
+    expect(app(TopicVisibility::class)->canView(User::guest(), $topic))->toBeFalse()
+        ->and(app(ReplyGate::class)->check(User::guest(), $topic))->toBe(ReplyGate::HIDDEN);
 });
