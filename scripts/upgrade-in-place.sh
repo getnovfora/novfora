@@ -40,6 +40,10 @@ DONE="$WORK/done-$SHA"
 LOCK="$WORK/lock"
 
 mkdir -p "$WORK"
+if [ -n "$REPORT" ]; then
+  # The report may live under a web root (so a panel file API can read it): deny HTTP access to its folder.
+  mkdir -p "$(dirname "$REPORT")" && printf 'Require all denied\n' > "$(dirname "$REPORT")/.htaccess"
+fi
 [ -e "$DONE" ] && exit 0
 # A failed run stops further cron ticks (no repeated backups/maintenance windows); delete the marker to retry.
 [ -e "$WORK/failed-$SHA" ] && exit 0
