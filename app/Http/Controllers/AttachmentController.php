@@ -8,8 +8,8 @@ namespace App\Http\Controllers;
 
 use App\Forum\AttachmentRejected;
 use App\Forum\AttachmentService;
+use App\Forum\PostVisibility;
 use App\Models\Attachment;
-use App\Models\Forum;
 use App\Models\Post;
 use App\Models\Topic;
 use App\Models\User;
@@ -55,7 +55,7 @@ class AttachmentController extends Controller
     }
 
     /** Stream an attachment from off the web root. */
-    public function show(Request $request, Attachment $attachment): StreamedResponse
+    public function show(Request $request, Attachment $attachment, PostVisibility $visibility): StreamedResponse
     {
         // Object-level authorization (security §4 IDOR). The {attachment} key is a public, enumerable
         // auto-increment id, so each request must prove it may read THIS file:
@@ -67,23 +67,19 @@ class AttachmentController extends Controller
         if ($attachment->post_id === null) {
             abort_unless($request->user()?->getKey() === $attachment->user_id, 403);
         } else {
-            $viewer = $request->user() instanceof User ? $request->user() : User::guest();
+            // NF-02 (NOV-145): an attached file is never more public than its parent post. PostVisibility
+            // mirrors TopicController@show — club visibility, thread-scope forum.view, the recycle bin, AND the
+            // moderation fences: a pending topic/post (held by anti-spam or the approval queue) is readable only
+            // by its author and topic.moderate holders, so its files are too. Previously only forum.view and the
+            // trashed state were checked, so a held post's attachments leaked to every forum.view holder.
+            $user = $request->user() instanceof User ? $request->user() : null;
             $post = Post::withTrashed()->find($attachment->post_id);
-            $topic = $post ? Topic::withTrashed()->find($post->topic_id) : null;
-            $topicForum = $topic instanceof Topic ? $topic->forum : null;
-            // P5.1 — mirror TopicController's trashed gate: once a post/topic is soft-deleted (moderated to the
-            // recycle bin) its attachment must not stay readable to ordinary forum.view holders, only to the
-            // uploader and to a moderator who can review the recycled content.
-            $isTrashed = ($topic instanceof Topic && $topic->trashed()) || ($post instanceof Post && $post->trashed());
-            $canModerate = $request->user() instanceof User && $topic instanceof Topic
-                && $request->user()->canDo('topic.moderate', $topic->permissionScope());
-            $canView = $topic instanceof Topic
-                && $viewer->canDo('forum.view', $topic->permissionScope())
-                // M1.5: an attachment in a club forum is gated by club content visibility.
-                && $topicForum instanceof Forum && $topicForum->clubContentVisibleTo($request->user())
-                && (! $isTrashed || $canModerate);
-            // The uploader keeps access to their own file (covers their own still-pending/recycled post).
-            abort_unless($canView || $request->user()?->getKey() === $attachment->user_id, 403);
+            $topic = $post instanceof Post ? Topic::withTrashed()->find($post->topic_id) : null;
+            $canView = $post instanceof Post && $topic instanceof Topic
+                && $visibility->canView($user, $post, $topic);
+            // Intentional, explicit extra access: the uploader keeps their own file (covers their own still-pending
+            // or recycled post, and a file they uploaded into a post they no longer own).
+            abort_unless($canView || ($user !== null && $user->getKey() === $attachment->user_id), 403);
         }
 
         $disk = Storage::disk($attachment->disk);
