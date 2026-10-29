@@ -19,7 +19,8 @@
 # failed-marker per commit makes later ticks no-ops (delete failed-<sha> to retry), so the cron can be deleted
 # at leisure.
 #
-# Usage: upgrade-in-place.sh <commit-sha> [app-dir] [public-url] [report-file]
+# Usage: [BUILD_ONLY=1] upgrade-in-place.sh <commit-sha> [app-dir] [public-url] [report-file]
+#   BUILD_ONLY=1 runs just the (interruptible) build phase, so the live-changing phase stays short.
 #   report-file: where to copy the run log on exit (e.g. a web-DENIED folder readable through a panel file API).
 set -uo pipefail
 
@@ -50,6 +51,8 @@ fi
 [ -e "$DONE" ] && exit 0
 # A failed run stops further cron ticks (no repeated backups/maintenance windows); delete the marker to retry.
 [ -e "$WORK/failed-$SHA" ] && exit 0
+# A run killed hard (OOM, host limits) leaves its lock behind: treat a lock older than 30 minutes as stale.
+if [ -d "$LOCK" ] && [ -n "$(find "$LOCK" -maxdepth 0 -mmin +30 2>/dev/null)" ]; then rmdir "$LOCK" 2>/dev/null; fi
 mkdir "$LOCK" 2>/dev/null || exit 0
 trap 'rmdir "$LOCK" 2>/dev/null; [ -z "$REPORT" ] || cp "$LOG" "$REPORT" 2>/dev/null' EXIT
 exec >>"$LOG" 2>&1
@@ -83,6 +86,12 @@ if [ ! -f "$WORK/release-$SHA.zip" ]; then
   say "building release from $(git -C "$SRC" log --oneline -1)"
   SKIP_NPM=1 PATH="$(dirname "$PHP"):$PATH" sh "$SRC/scripts/build-release.sh" "$SRC" "$WORK/release-$SHA.zip" \
     || fail "build-release.sh"
+fi
+if [ "${BUILD_ONLY:-0}" = "1" ]; then
+  # Phase 1 only (safe to interrupt — nothing outside $WORK changes): build the release, then stop. A later
+  # normal run reuses release-<sha>.zip and only does the short backup/swap/migrate phase.
+  say "BUILD_ONLY: release ready at $WORK/release-$SHA.zip ($(du -h "$WORK/release-$SHA.zip" | cut -f1))"
+  exit 0
 fi
 STAGE="$WORK/stage-$SHA"
 rm -rf "$STAGE" && mkdir -p "$STAGE" && unzip -q "$WORK/release-$SHA.zip" -d "$STAGE" || fail "unzip release"
