@@ -14,6 +14,7 @@ use App\Settings\Settings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Laravel\Socialite\AbstractUser;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
 
 /**
@@ -65,8 +66,8 @@ class SocialLogin
         // P5.1 — just-in-time provisioning must honour the SAME server-side controls as the password
         // registration path (CreateNewUser); a provider identity is not a bypass. (1) the registration toggle;
         // (2) the anti-spam screener — an email/IP ban or a high-confidence listing BLOCKS, a borderline
-        // signal FLAGS the account into the moderation queue (status='pending'). The provider-verified email
-        // still skips email verification; only the account's existence + state are gated.
+        // signal FLAGS the account into the moderation queue (status='pending'). Whether the account starts
+        // email-verified is decided separately, from provider-specific evidence (NF-04, providerVerifiedEmail).
         if (! app(Settings::class)->bool('registration.enabled')) {
             throw new SocialAuthException('New account registration is currently closed.');
         }
@@ -80,7 +81,40 @@ class SocialLogin
             throw new SocialAuthException('Sign-up is not available from your network right now.');
         }
 
-        return $this->createUser($provider, $providerUserId, $email, $socialUser, $screening->flagged());
+        $verified = $this->providerVerifiedEmail($provider, $socialUser);
+        $user = $this->createUser($provider, $providerUserId, $email, $socialUser, $screening->flagged(), $verified);
+
+        // NF-04: without provider evidence of ownership the address is just a claim — the account starts
+        // UNVERIFIED and goes through NovFora's own verification (the `verified` middleware gates the rest).
+        if (! $verified) {
+            $user->sendEmailVerificationNotification();
+        }
+
+        return $user;
+    }
+
+    /**
+     * Provider-specific evidence that the provider itself verified the email it returned (NF-04, NOV-147). A
+     * syntactically valid address proves nothing — an unverified provider email must never mint a verified
+     * local account. Absent or false evidence → false; an unknown provider → false.
+     *   • google  — the OIDC userinfo claim `email_verified` (v3 userinfo, which Socialite's Google driver reads).
+     *   • discord — the user object's `verified` flag (Discord sets it only once the email is confirmed).
+     *   • github  — SocialProviders always requests the `user:email` scope, under which Socialite's GitHub
+     *               driver REPLACES the profile email with the primary address from /user/emails only when
+     *               GitHub marks it `verified` (else null, which resolveForLogin already refuses). The scope is
+     *               pinned by a test, since dropping it would let an unverified public profile email through.
+     */
+    private function providerVerifiedEmail(string $provider, SocialiteUser $socialUser): bool
+    {
+        $raw = $socialUser instanceof AbstractUser ? (array) $socialUser->getRaw() : [];
+        $flag = static fn (mixed $v): bool => $v === true || $v === 'true' || $v === 1 || $v === '1';
+
+        return match ($provider) {
+            'google' => $flag($raw['email_verified'] ?? null),
+            'discord' => $flag($raw['verified'] ?? null),
+            'github' => $this->normaliseEmail($socialUser->getEmail()) !== null,
+            default => false,
+        };
     }
 
     /**
@@ -128,9 +162,9 @@ class SocialLogin
     }
 
     /** Create a fresh local account from a provider profile and attach the identity. */
-    private function createUser(string $provider, string $providerUserId, string $email, SocialiteUser $socialUser, bool $flagged = false): User
+    private function createUser(string $provider, string $providerUserId, string $email, SocialiteUser $socialUser, bool $flagged, bool $emailVerified): User
     {
-        return DB::transaction(function () use ($provider, $providerUserId, $email, $socialUser, $flagged): User {
+        return DB::transaction(function () use ($provider, $providerUserId, $email, $socialUser, $flagged, $emailVerified): User {
             $user = new User;
             $username = $this->uniqueUsername($socialUser->getNickname() ?: $socialUser->getName() ?: explode('@', $email)[0]);
             $user->fill([
@@ -144,8 +178,8 @@ class SocialLogin
             ]);
             // A flagged screen routes the account into the moderation queue (pending) — matching CreateNewUser.
             $user->status = $flagged ? 'pending' : 'active';
-            // The provider verified this email and there was no local collision, so the account starts verified.
-            $user->forceFill(['email_verified_at' => now()])->save();
+            // Verified ONLY on provider evidence (NF-04); otherwise NovFora's own email verification applies.
+            $user->forceFill(['email_verified_at' => $emailVerified ? now() : null])->save();
 
             foreach (['members' => true, 'tl0' => false] as $slug => $isPrimary) {
                 $group = Group::where('slug', $slug)->first();
