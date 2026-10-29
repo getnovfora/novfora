@@ -8,6 +8,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Forum\PostService;
 use App\Forum\ReplyGate;
+use App\Forum\TopicVisibility;
 use App\Http\Controllers\Controller;
 use App\Models\Forum;
 use App\Models\Post;
@@ -52,24 +53,31 @@ final class V1Controller extends Controller
         return response()->json(['data' => $forums->all()]);
     }
 
-    public function topics(Request $request, Forum $forum): JsonResponse
+    public function topics(Request $request, Forum $forum, TopicVisibility $visibility): JsonResponse
     {
         $user = $this->user($request);
+        abort_unless($forum->clubContentVisibleTo($user), 404); // club content gate FIRST (no disclosure)
         abort_unless($user->canDo('forum.view', $forum->permissionScope()), 403);
-        abort_unless($forum->clubContentVisibleTo($user), 404); // club content gate (no disclosure)
 
-        $topics = Topic::query()->where('forum_id', $forum->getKey())
-            ->orderByDesc('id')->paginate(min(50, max(1, (int) $request->integer('per_page', 20))));
+        // NF-03: the same "topics visible to viewer" selector as the web board listing — the pending-topic fence
+        // and per-thread forum.view denials apply BEFORE pagination, so neither rows nor meta.total disclose a
+        // hidden topic.
+        $query = Topic::query()->where('forum_id', $forum->getKey());
+        $visibility->constrain($query, $forum, $user);
+        $topics = $query->orderByDesc('id')->paginate(min(50, max(1, (int) $request->integer('per_page', 20))));
 
         return $this->paginated($topics, fn (Topic $topic): array => $this->topicData($topic));
     }
 
-    public function topic(Request $request, Topic $topic): JsonResponse
+    public function topic(Request $request, Topic $topic, TopicVisibility $visibility): JsonResponse
     {
         $user = $this->user($request);
-        abort_unless($user->canDo('forum.view', $topic->permissionScope()), 403);
         $topicForum = $topic->forum;
         abort_unless($topicForum instanceof Forum && $topicForum->clubContentVisibleTo($user), 404);
+        abort_unless($user->canDo('forum.view', $topic->permissionScope()), 403);
+        // NF-03: the web topic page's moderation fence — a pending topic exists only for its author and
+        // topic.moderate holders; everyone else gets the same no-disclosure 404 (no title/metadata leak).
+        abort_unless($visibility->canView($user, $topic), 404);
 
         $posts = Post::query()->where('topic_id', $topic->getKey())->where('approved_state', 'approved')
             ->orderBy('position')->orderBy('id')
