@@ -4271,3 +4271,59 @@ admin-scoped token (not any member token). The review correctly REFUTED a claime
 **E7 self-upgrade ◆◆** → E8 (docs). E5/E7 are the spec's "most dangerous endpoints in the product" and are
 sequenced for a dedicated cycle rather than rushed at the tail of the v1.4 build (see the plan memo + the ☀️
 owner section of the morning report).
+
+### ADR-0123 — v1.4 security hardening: one predicate per decision (reply, topic, post visibility), provider-evidence email verification, a fenced service worker (NF-01..05, NOV-144..148, NOV-162) (2026-10-29)
+
+**Context.** The 2026-09-06 security review (NF-01..13, Linear NOV-144..156) found five Urgent defects. All were
+the same failure shape: a decision the topic page made correctly was re-derived, more weakly, on another surface
+(Livewire submit, REST API, cron, the attachment stream, the service worker). Separately, `composer audit` had
+built up about 28 advisories that CI never surfaced, because the brand gate failed first and the audit step
+was skipped (fixed in `34a6606`).
+
+**Decision.** Every decision gets exactly one predicate, which each surface calls at the moment it acts:
+1. **`App\Forum\ReplyGate`** (NF-01). The reply predicate, evaluated at THREAD scope when the reply is
+   submitted: club visibility (404), `forum.view` (403), the pending-topic fence (404, author/`topic.moderate`
+   only), `post.create`, the lock, the moved-shadow state, and club participation (403, since content
+   visibility has already passed). The composer (on mount and every submit), the API, the scheduler (at publish
+   time) and the topic page's `canReply` all call it. `PostService` stays authorization-free for system callers.
+2. **`App\Forum\TopicVisibility`** (NF-03). `canView()` mirrors `TopicController@show`. `constrain()` is the
+   query-aware listing form, applied before pagination and counts. It resolves the moderation fence AND
+   per-thread `forum.view` denials at thread scope, and only for candidate threads, which are filtered in SQL by
+   the viewer's holders, the decisive value and expiry (bans by expiry). Usually that means zero resolutions,
+   never one per listed topic. Used by the board listing and both API reads.
+3. **`App\Forum\PostVisibility`** (NF-02). One post's content visibility, for out-of-band byte serving (the
+   attachment endpoint): `TopicVisibility`'s fences plus the per-post moderation fence. The uploader's access to
+   their own file stays an explicit, null-safe extra rule.
+4. **OAuth verified email** (NF-04). A JIT account is verified only on provider evidence: Google
+   `email_verified`, Discord `verified`, and for GitHub the primary verified address Socialite returns under the
+   `user:email` scope (pinned by a test). Otherwise the account starts unverified and NovFora's verification
+   email is sent. `RevokeProvisionalSocialIdentities` closes the OAuth pre-hijack: a password reset on a
+   still-unverified account drops pre-proof social links, ends its sessions and clears the remember token.
+5. **Service worker** (NF-05). Navigations are handled first and only cache pages with `X-PWA-Cacheable`. The
+   asset cache is an allowlist (`build/`, `icons/`, the favicons) that refuses HTML and redirected responses.
+   The offline fallback is precached without credentials and only when flagged. Activation retires only
+   `novfora-pwa-*` caches. The `v3` bump drops all v2 caches.
+6. **Dependencies** (NOV-162). Patch-level bumps within the existing majors; `composer audit` is clean.
+
+**Consequences.**
+- Behaviour changes: a non-member replying in a readable club gets 403, not 404; the board listing now hides
+  topics denied at thread scope; OAuth sign-ups without provider evidence must verify their email.
+- Not yet covered by `TopicVisibility`: `RecommendationService`, `TagController`, `BookmarkController` and the
+  search forum filter, plus consolidating the three predicates (NOV-163).
+
+**Apex review (verify-then-refute, three independent reviewers).**
+- NF-01 held, with no bypass found.
+- Confirmed and fixed, each with a regression test that fails on the prior code:
+  - **NF-04 pre-hijack (MEDIUM)**
+  - **null-owner orphan attachment readable by guests after account deletion (MEDIUM, pre-existing)**
+  - **listing moderation fence at forum scope vs thread scope elsewhere (MEDIUM)**
+  - **O(candidates) cold-cache resolution cost (MEDIUM, performance)**
+  - **credentialed `/offline` precache storing a member's chrome (MEDIUM, pre-existing)**
+  - plus LOWs: guest as author of an author-less held topic; the 2FA challenge flagged cacheable; mail failure
+    500ing an OAuth sign-up
+- Accepted LOW: GitHub verification evidence depends on Socialite's driver behaviour; the scope it relies on is
+  pinned by a test.
+- 0 HIGH/MEDIUM open.
+- Validation: the real-browser harness `scripts/pwa-sw-harness.cjs` was run at the domain root and under
+  `/community/`. Recommended before tagging: a cross-family (Codex) review of the slice and a staging run of the
+  harness.
