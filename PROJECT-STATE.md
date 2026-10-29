@@ -47,23 +47,58 @@ repo until now.
 | High | **NF-06** NOV-149: API and web rate limits differ · **NF-07** NOV-150: board-offline doesn't gate member mutations · **NF-08** NOV-151: reply transaction and counter concurrency |
 | Medium / Low | NF-09 to NF-13, NOV-152 to NOV-156 |
 
-**Plan:** NOV-162 plus NF-01 to NF-05 as one hardening slice, with an apex review on each finding and a Codex
-cross-review. Then NF-06 to NF-08. Then the release run (§ owner section).
+### ✅ Hardening slice DONE (2026-10-29), on `claude/project-status-review-uxmk9o`, head `05daf98`, NOT merged
+
+| Item | Commits | What changed |
+|---|---|---|
+| NOV-162 | `bc06d49` | Patch-level dependency bumps; `composer audit` clean |
+| NF-01 | `594c807` | `ReplyGate`, a single thread-scope reply predicate (composer, API, scheduler, `canReply`) |
+| NF-02 | `bbf878b` | `PostVisibility`; attachments never more public than their post |
+| NF-03 | `99b8936`, `fe7caa2` | `TopicVisibility`; API and board listing share one thread-scope selector with bounded candidate queries |
+| NF-04 | `0d058df`, `cd40969` | OAuth sign-up verified only on provider evidence; pre-hijack guard on password reset |
+| NF-05 | `9602781`, `288cbdd` | Service worker: navigations handled first, asset allowlist, namespaced cleanup, `v3`, credential-less offline precache |
+
+- **Design:** ADR-0123.
+- **Gates:** Pest 2493 passed / 1 skipped (42 new tests); Pint, Larastan, audit, brand gate and assets-fresh all
+  clean.
+- **Apex review** (3 independent reviewers, verify-then-refute): 5 MEDIUM confirmed and fixed, each with a
+  regression test that fails on the prior code; **0 HIGH/MEDIUM open.**
+- **Real-browser validation:** `scripts/pwa-sw-harness.cjs`, run at the domain root and under `/community/`.
+- **New issues from the review:** NOV-163 (thread-visibility drift on secondary listings; consolidate the
+  predicates) and NOV-164 (fonts 404 under a subdirectory mount).
+
+**Next:**
+1. Push the branch: blocked by a 403, see the owner section.
+2. Codex cross-review of the slice.
+3. Merge to `main` (CI goes green: the brand-gate and assets fixes are on this branch).
+4. Run `scripts/pwa-sw-harness.cjs` on staging.
+5. NF-06 to NF-08 (High).
+6. The release run.
 
 ---
 
 ## ☀️ OWNER SECTION: decisions, hand-offs, and what to run
+
+**0. PUSH BLOCKED.** `git push` from the 2026-10-29 cloud session returned 403 ("Claude doesn't have GitHub
+access to getnovfora/novfora"), even after reconnecting GitHub. The branch `claude/project-status-review-uxmk9o` holds
+all the hardening commits (head `05daf98`) **only in that session's container**. Fix: install the Claude GitHub
+App on the `getnovfora` org (https://github.com/apps/claude/installations/select_target), then push from that
+session; or start a new session with the repo attached and replay the branch.
 
 **1. Release run, once the security slice is merged:**
 1. Bump `config/app.php` to `1.4.0`.
 2. Run `scripts/build-release.sh`, then `verify-release.sh` (expect `RELEASE_VERIFY=PASS`).
 3. Confirm `modules/novfora/populate` is **absent** from the zip. It is a junction to the private Populate repo;
    never commit or ship it.
-4. Tag locally; you push.
+4. Add `[1.3.0]` and `[1.4.0]` sections to `CHANGELOG.md`. Neither version has one; the security entries
+   currently sit under Unreleased.
+5. Tag locally; you push.
 
 **2. Linear was reconciled on 2026-10-29:**
 - NOV-107–112, 114, 116 and 124–127 plus NOV-135 are now **Done**, each with a merge/SHA/ADR/review comment.
 - The July discoveries are filed as NOV-157 to NOV-161, and the dependency advisories as NOV-162.
+- NF-01 to NF-05 (NOV-144 to NOV-148) are **In Review**, with completion comments. NOV-162 is In Review. All of
+  them move to Done on merge.
 - NOV-140 and NOV-143 (the private Populate plugin, E6) have been **In Review since 2026-07-02**. That's your call,
   since the plugin lives outside this repo.
 
@@ -74,7 +109,9 @@ cross-review. Then NF-06 to NF-08. Then the release run (§ owner section).
 
 **4. Cloud-session gotchas:**
 - `composer install` can't reach the github.com API; seed `phpstan/phpstan` from git (see the Second Brain gotcha).
-- `git push` returned 403 until the Claude GitHub App had access to the org.
+- `git push` returns 403 while the Claude GitHub App lacks access to the org (see item 0).
+- The PHP file cache (`storage/framework/cache`) is shared between ad-hoc local servers. Run `php artisan
+  cache:clear` when switching test databases, or stale ACL verdicts leak between them.
 
 ---
 
