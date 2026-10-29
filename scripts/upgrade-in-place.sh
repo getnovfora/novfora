@@ -19,12 +19,18 @@
 # failed-marker per commit makes later ticks no-ops (delete failed-<sha> to retry), so the cron can be deleted
 # at leisure.
 #
-# Usage: upgrade-in-place.sh <commit-sha> [app-dir] [public-url]
+# Usage: upgrade-in-place.sh <commit-sha> [app-dir] [public-url] [report-file]
+#   report-file: where to copy the run log on exit (e.g. a web-DENIED folder readable through a panel file API).
 set -uo pipefail
 
-SHA="${1:?usage: upgrade-in-place.sh <commit-sha> [app-dir] [public-url]}"
+# Panel-managed cron may run with a minimal environment: derive HOME from the passwd entry when it is unset.
+HOME="${HOME:-$(getent passwd "$(id -un)" | cut -d: -f6)}"
+export HOME PATH="/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+
+SHA="${1:?usage: upgrade-in-place.sh <commit-sha> [app-dir] [public-url] [report-file]}"
 APP="${2:-$HOME/novfora}"
 URL="${3:-}"
+REPORT="${4:-}"
 REPO="https://github.com/getnovfora/novfora.git"
 PHP="${PHP:-/usr/bin/php}"
 WORK="$HOME/novfora-deploy"
@@ -38,7 +44,7 @@ mkdir -p "$WORK"
 # A failed run stops further cron ticks (no repeated backups/maintenance windows); delete the marker to retry.
 [ -e "$WORK/failed-$SHA" ] && exit 0
 mkdir "$LOCK" 2>/dev/null || exit 0
-trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+trap 'rmdir "$LOCK" 2>/dev/null; [ -z "$REPORT" ] || cp "$LOG" "$REPORT" 2>/dev/null' EXIT
 exec >>"$LOG" 2>&1
 
 say() { echo "[$(date -u +%H:%M:%S)] $*"; }
