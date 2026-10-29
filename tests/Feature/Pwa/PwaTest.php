@@ -84,6 +84,23 @@ it('derives its mount scope from the registration so it works under any mount', 
     $res->assertSee("SCOPE + 'icons/'", false);
 });
 
+it('keeps personal pages out of the asset cache — NF-05 privacy fences (NOV-148)', function () {
+    $sw = (string) $this->get('/sw.js')->assertOk()->getContent();
+
+    // Navigations are classified BEFORE assets, so an asset-looking URL that resolves to HTML never reaches
+    // the cache-first path…
+    expect(strpos($sw, "req.mode === 'navigate'"))->toBeLessThan(strpos($sw, 'isStaticAsset(url.pathname)'));
+    // …the asset cache is a directory/file ALLOWLIST, not a filename-extension regex…
+    expect($sw)->toContain("const ASSET_DIRS = [SCOPE + 'build/', SCOPE + 'icons/'];")
+        ->not->toContain('ASSET_RE');
+    // …an asset is stored only as a same-origin, non-redirected, non-HTML 200…
+    expect($sw)->toContain("res.type !== 'basic'")->toContain('res.redirected')->toContain("startsWith('text/html')");
+    // …and activation only retires NovFora's own older caches, never another app's Cache API entries.
+    expect($sw)->toContain("const CACHE_NAMESPACE = 'novfora-pwa-';")
+        ->toContain('k.startsWith(CACHE_NAMESPACE) && !k.startsWith(CACHE_VERSION)')
+        ->toContain("CACHE_NAMESPACE + 'v3'"); // v3 retires every v2 cache built under the old extension rule
+});
+
 it('serves an offline fallback page', function () {
     $this->get('/offline')->assertOk()->assertSee('offline');
 });
