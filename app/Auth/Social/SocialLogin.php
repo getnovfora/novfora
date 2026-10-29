@@ -13,9 +13,11 @@ use App\Models\User;
 use App\Settings\Settings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Socialite\AbstractUser;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
+use Throwable;
 
 /**
  * The OAuth identity resolver (Phase 4 · M2 — APEX auth boundary). Two flows, both written to the
@@ -87,7 +89,13 @@ class SocialLogin
         // NF-04: without provider evidence of ownership the address is just a claim — the account starts
         // UNVERIFIED and goes through NovFora's own verification (the `verified` middleware gates the rest).
         if (! $verified) {
-            $user->sendEmailVerificationNotification();
+            // Best-effort: a mail-transport failure must not 500 a sign-in whose account already exists — the
+            // user can resend from the verification notice, which the `verified` middleware routes them to.
+            try {
+                $user->sendEmailVerificationNotification();
+            } catch (Throwable $e) {
+                Log::warning('OAuth sign-up: verification email could not be sent', ['user_id' => $user->getKey(), 'error' => $e->getMessage()]);
+            }
         }
 
         return $user;

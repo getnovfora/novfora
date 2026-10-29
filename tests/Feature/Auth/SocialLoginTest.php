@@ -12,7 +12,9 @@ use App\Models\User;
 use App\Settings\Settings;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\AbstractProvider;
 use Laravel\Socialite\Two\InvalidStateException;
@@ -276,4 +278,48 @@ it('pins the GitHub user:email scope that makes a returned GitHub email verified
     // Under user:email Socialite returns only GitHub's primary VERIFIED address; without it, the unverified
     // public profile email — so SocialLogin's github evidence depends on this scope staying requested.
     expect(SocialProviders::PROVIDERS['github']['scopes'])->toContain('user:email');
+});
+
+it('drops a provisional provider link when the email owner recovers the account (no OAuth pre-hijack)', function () {
+    Notification::fake();
+    enableProvider('discord');
+
+    // A squatter signs in with a Discord account carrying the victim's address, unverified at Discord.
+    mockSocialiteReturning(fakeSocialUser('d-squatter', 'victim@oauth.test', 'squatter', ['verified' => false]));
+    $this->get(route('oauth.callback', 'discord'))->assertRedirect(route('home'));
+    $account = User::where('email', 'victim@oauth.test')->firstOrFail();
+    expect($account->hasVerifiedEmail())->toBeFalse()
+        ->and(SocialAccount::where('user_id', $account->id)->exists())->toBeTrue();
+    Auth::logout();
+    $this->flushSession();
+
+    // The real owner recovers it via a password reset (the link goes to their inbox), then verifies.
+    $token = Password::broker()->createToken($account);
+    $this->post(route('password.update'), [
+        'token' => $token, 'email' => 'victim@oauth.test',
+        'password' => 'Victim-Str0ng-Passw0rd!!', 'password_confirmation' => 'Victim-Str0ng-Passw0rd!!',
+    ])->assertSessionHasNoErrors();
+    $account->refresh()->markEmailAsVerified();
+
+    // The squatter's Discord identity no longer opens the recovered account.
+    expect(SocialAccount::where('user_id', $account->id)->exists())->toBeFalse();
+    $this->get(route('oauth.callback', 'discord'));
+    expect(auth()->id())->not->toBe($account->id);
+});
+
+it('keeps provider links on a VERIFIED account through a password reset', function () {
+    enableProvider('google');
+    mockSocialiteReturning(fakeSocialUser('g-owner', 'owner@oauth.test', 'owner', ['email_verified' => true]));
+    $this->get(route('oauth.callback', 'google'));
+    $account = User::where('email', 'owner@oauth.test')->firstOrFail();
+    Auth::logout();
+    $this->flushSession();
+
+    $token = Password::broker()->createToken($account);
+    $this->post(route('password.update'), [
+        'token' => $token, 'email' => 'owner@oauth.test',
+        'password' => 'Owner-Str0ng-Passw0rd!!', 'password_confirmation' => 'Owner-Str0ng-Passw0rd!!',
+    ])->assertSessionHasNoErrors();
+
+    expect(SocialAccount::where('user_id', $account->id)->where('provider', 'google')->exists())->toBeTrue();
 });

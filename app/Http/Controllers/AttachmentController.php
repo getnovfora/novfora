@@ -65,7 +65,11 @@ class AttachmentController extends Controller
         //     the Guests group. Previously attached files were served unconditionally, leaking every
         //     attachment in private/staff-only forums to anyone walking the id space.
         if ($attachment->post_id === null) {
-            abort_unless($request->user()?->getKey() === $attachment->user_id, 403);
+            // A pseudonymised orphan (user_id NULL after account deletion) has NO owner — a guest's null id must
+            // never "match" it (apex-review MEDIUM: null === null streamed a deleted member's draft upload).
+            $owner = $request->user();
+            abort_unless($owner instanceof User && $attachment->user_id !== null
+                && (int) $owner->getKey() === (int) $attachment->user_id, 403);
         } else {
             // NF-02 (NOV-145): an attached file is never more public than its parent post. PostVisibility
             // mirrors TopicController@show — club visibility, thread-scope forum.view, the recycle bin, AND the
@@ -79,7 +83,8 @@ class AttachmentController extends Controller
                 && $visibility->canView($user, $post, $topic);
             // Intentional, explicit extra access: the uploader keeps their own file (covers their own still-pending
             // or recycled post, and a file they uploaded into a post they no longer own).
-            abort_unless($canView || ($user !== null && $user->getKey() === $attachment->user_id), 403);
+            abort_unless($canView || ($user !== null && $attachment->user_id !== null
+                && (int) $user->getKey() === (int) $attachment->user_id), 403);
         }
 
         $disk = Storage::disk($attachment->disk);

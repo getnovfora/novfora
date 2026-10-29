@@ -4,6 +4,7 @@
 
 declare(strict_types=1);
 
+use App\Account\AccountDeletionService;
 use App\Forum\AttachmentService;
 use App\Forum\PostService;
 use App\Models\Attachment;
@@ -104,4 +105,16 @@ it('still serves an approved post\'s attachment to guests and members of a publi
 
     $this->get(route('attachments.show', $file))->assertOk();
     $this->actingAs(Users::inGroups(['members', 'tl1']))->get(route('attachments.show', $file))->assertOk();
+});
+
+it('never serves a deleted member\'s orphan upload to a guest (null owner is not a match)', function () {
+    $uploader = Users::inGroups(['members', 'tl1']);
+    $orphan = app(AttachmentService::class)->store($uploader, UploadedFile::fake()->image('draft.png'));
+    $this->get(route('attachments.show', $orphan))->assertForbidden();
+
+    app(AccountDeletionService::class)->deleteOwnAccount($uploader);
+    expect($orphan->fresh()->user_id)->toBeNull();
+
+    auth()->logout();
+    $this->get(route('attachments.show', $orphan))->assertForbidden();
 });
