@@ -10,7 +10,7 @@
 // whose body contains PRIVATE-MARKER-123, and a forum with slug "general".
 //
 // Usage: node scripts/pwa-sw-harness.cjs http://127.0.0.1:8000[/community] <topicId>
-// Expect: unrelatedCacheKept=true, staleV2Deleted=true, anyCachedEntryLeaksPrivateHtml=false,
+// Expect: signedInInstallOfflineIsGuest=true, unrelatedCacheKept=true, staleV2Deleted=true, anyCachedEntryLeaksPrivateHtml=false,
 //         htmlInShellCache=[], guestSubresourceReplayServesMemberPage=false, offline*Served=true.
 const { chromium } = require('playwright');
 
@@ -69,6 +69,26 @@ async function waitForController(page) {
   await page.fill('input[name=email]', 'sw@test.local');
   await page.fill('input[name=password]', 'Password-123456');
   await Promise.all([page.waitForNavigation(), page.click('form[action$="/login"] button[type=submit]')]);
+
+  // Re-install the worker WHILE SIGNED IN (what every deploy does): the precached /offline fallback must
+  // still be the guest render, never this member's page chrome.
+  await page.evaluate(async () => { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); });
+  await page.evaluate(async () => { for (const k of await caches.keys()) if (k.startsWith('novfora-pwa-')) await caches.delete(k); });
+  await page.reload();
+  await waitForController(page);
+  await page.waitForTimeout(500);
+  results.signedInInstallOfflineIsGuest = await page.evaluate(async () => {
+    for (const name of await caches.keys()) {
+      if (!name.startsWith('novfora-pwa-')) continue;
+      const c = await caches.open(name);
+      for (const req of await c.keys()) {
+        if (!new URL(req.url).pathname.endsWith('/offline')) continue;
+        const body = await (await c.match(req)).text();
+        return !body.includes('name="novfora-auth"');
+      }
+    }
+    return 'no /offline entry';
+  });
 
   // Authenticated: an asset-LOOKING URL that resolves (301 → canonical) to a private HTML page, as a navigation
   // and as a subresource fetch.

@@ -20,7 +20,8 @@ class PwaResponseHeaders
 {
     /** Path prefixes never marked cacheable even for guests (auth surfaces, machine endpoints, the installer). */
     private const NEVER = [
-        'login', 'register', 'forgot-password', 'reset-password', 'two-factor', 'email', 'auth', 'install',
+        'login', 'register', 'forgot-password', 'reset-password', 'two-factor', 'two-factor-challenge', 'email',
+        'auth', 'install',
         'api', 'sitemap.xml', 'robots.txt', 'health', 'webhooks', 'unsubscribe', 'manifest.webmanifest', 'sw.js',
     ];
 

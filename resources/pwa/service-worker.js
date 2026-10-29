@@ -36,10 +36,19 @@ function isStaticAsset(pathname) {
   return ASSET_DIRS.some((dir) => pathname.startsWith(dir)) || ASSET_FILES.includes(pathname);
 }
 
+// The offline fallback is precached WITHOUT credentials and only if the server flags the response cacheable:
+// install re-runs on every deploy while members are signed in, and a credentialed fetch would store THEIR
+// page chrome (name, avatar, counts, staff links) for whoever opens the fallback next (NF-05 review MEDIUM).
+async function precacheOffline() {
+  const res = await fetch(new Request(OFFLINE_URL, { credentials: 'omit' }));
+  if (res.ok && res.headers.get('X-PWA-Cacheable') === '1') {
+    const cache = await caches.open(SHELL_CACHE);
+    await cache.put(OFFLINE_URL, res);
+  }
+}
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) => cache.add(OFFLINE_URL)).then(() => self.skipWaiting())
-  );
+  event.waitUntil(precacheOffline().catch(() => {}).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {

@@ -101,6 +101,25 @@ it('keeps personal pages out of the asset cache — NF-05 privacy fences (NOV-14
         ->toContain("CACHE_NAMESPACE + 'v3'"); // v3 retires every v2 cache built under the old extension rule
 });
 
+it('precaches the offline fallback without credentials and only when the server flags it cacheable', function () {
+    $sw = (string) $this->get('/sw.js')->assertOk()->getContent();
+
+    // NF-05 review: install re-runs on every deploy while members are signed in — a credentialed precache would
+    // store THEIR page chrome as the fallback shown to whoever uses the browser next.
+    expect($sw)->toContain("new Request(OFFLINE_URL, { credentials: 'omit' })")
+        ->toContain("res.headers.get('X-PWA-Cacheable') === '1'")
+        ->not->toContain('cache.add(OFFLINE_URL)');
+});
+
+it('never flags the mid-login two-factor challenge as cacheable', function () {
+    $user = Users::withTwoFactor(Users::inGroups(['members']));
+
+    $res = $this->withSession(['login.id' => $user->id, 'login.remember' => false])->get('/two-factor-challenge');
+
+    $res->assertOk();
+    expect($res->headers->get('X-PWA-Cacheable'))->toBeNull();
+});
+
 it('serves an offline fallback page', function () {
     $this->get('/offline')->assertOk()->assertSee('offline');
 });
