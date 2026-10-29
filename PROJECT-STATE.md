@@ -47,7 +47,7 @@ repo until now.
 | High | **NF-06** NOV-149: API and web rate limits differ · **NF-07** NOV-150: board-offline doesn't gate member mutations · **NF-08** NOV-151: reply transaction and counter concurrency |
 | Medium / Low | NF-09 to NF-13, NOV-152 to NOV-156 |
 
-### ✅ Hardening slice DONE (2026-10-29), on `claude/project-status-review-uxmk9o`, head `05daf98`, NOT merged
+### ✅ Hardening slice DONE (2026-10-29), on `claude/project-status-review-uxmk9o`, head `05daf98`, pushed, NOT merged
 
 | Item | Commits | What changed |
 |---|---|---|
@@ -68,7 +68,7 @@ repo until now.
   predicates) and NOV-164 (fonts 404 under a subdirectory mount).
 
 **Next:**
-1. Push the branch: blocked by a 403, see the owner section.
+1. Open a PR from `claude/project-status-review-uxmk9o` to get the CI signal (the branch is pushed).
 2. Codex cross-review of the slice.
 3. Merge to `main` (CI goes green: the brand-gate and assets fixes are on this branch).
 4. Run `scripts/pwa-sw-harness.cjs` on staging.
@@ -79,11 +79,9 @@ repo until now.
 
 ## ☀️ OWNER SECTION: decisions, hand-offs, and what to run
 
-**0. PUSH BLOCKED.** `git push` from the 2026-10-29 cloud session returned 403 ("Claude doesn't have GitHub
-access to getnovfora/novfora"), even after reconnecting GitHub. The branch `claude/project-status-review-uxmk9o` holds
-all the hardening commits (head `05daf98`) **only in that session's container**. Fix: install the Claude GitHub
-App on the `getnovfora` org (https://github.com/apps/claude/installations/select_target), then push from that
-session; or start a new session with the repo attached and replay the branch.
+**0. Push restored (2026-10-29).** The owner gave the Claude GitHub App write access, and the branch
+`claude/project-status-review-uxmk9o` is on `origin`. CI runs only on pushes to `main` and on PRs, so opening a
+PR is what gets the CI signal on this branch.
 
 **1. Release run, once the security slice is merged:**
 1. Bump `config/app.php` to `1.4.0`.
@@ -109,7 +107,8 @@ session; or start a new session with the repo attached and replay the branch.
 
 **4. Cloud-session gotchas:**
 - `composer install` can't reach the github.com API; seed `phpstan/phpstan` from git (see the Second Brain gotcha).
-- `git push` returns 403 while the Claude GitHub App lacks access to the org (see item 0).
+- `git push` returns 403 ("Resource not accessible by integration") whenever the Claude GitHub App lacks write
+  access to `getnovfora/novfora`. Fix it in the App's installation settings on GitHub.
 - The PHP file cache (`storage/framework/cache`) is shared between ad-hoc local servers. Run `php artisan
   cache:clear` when switching test databases, or stale ACL verdicts leak between them.
 
