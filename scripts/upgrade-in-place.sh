@@ -31,6 +31,9 @@ SHA="${1:?usage: upgrade-in-place.sh <commit-sha> [app-dir] [public-url] [report
 APP="${2:-$HOME/novfora}"
 URL="${3:-}"
 REPORT="${4:-}"
+# Relative arguments (handy for length-capped panel cron lines) resolve against the starting directory.
+case "$APP" in /*) ;; *) APP="$PWD/$APP" ;; esac
+case "$REPORT" in ""|/*) ;; *) REPORT="$PWD/$REPORT" ;; esac
 REPO="https://github.com/getnovfora/novfora.git"
 PHP="${PHP:-/usr/bin/php}"
 WORK="$HOME/novfora-deploy"
@@ -57,7 +60,18 @@ fail() { say "FAILED: $*"; touch "$WORK/failed-$SHA"; exit 1; }
 say "=== NovFora in-place upgrade to $SHA (app: $APP) ==="
 [ -f "$APP/artisan" ] && [ -f "$APP/.env" ] || fail "no NovFora install with a .env at $APP"
 command -v git >/dev/null || fail "git not available"
-command -v composer >/dev/null || fail "composer not available"
+if ! command -v composer >/dev/null; then
+  # Shared hosts often lack composer on cron's PATH: fetch the stable phar, verified against its published SHA-256.
+  mkdir -p "$WORK/bin"
+  curl -fsSL -o "$WORK/bin/composer.phar" https://getcomposer.org/download/latest-stable/composer.phar \
+    && want="$(curl -fsSL https://getcomposer.org/download/latest-stable/composer.phar.sha256 | awk '{print $1}')" \
+    && [ -n "$want" ] && [ "$(sha256sum "$WORK/bin/composer.phar" | awk '{print $1}')" = "$want" ] \
+    || fail "composer not available and the verified phar download failed"
+  printf '#!/bin/sh\nexec "%s" "%s" "$@"\n' "$PHP" "$WORK/bin/composer.phar" > "$WORK/bin/composer"
+  chmod +x "$WORK/bin/composer"
+  export PATH="$WORK/bin:$PATH"
+  say "using verified composer.phar ($(composer --version 2>/dev/null | head -1))"
+fi
 command -v unzip >/dev/null || fail "unzip not available"
 
 # 1. Build the release on the host from the pinned commit.
