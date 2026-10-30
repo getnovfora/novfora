@@ -4,6 +4,7 @@
 
 declare(strict_types=1);
 
+use App\Install\CronLine;
 use App\Install\DatabaseVerifier;
 use App\Install\EnvWriter;
 use App\Install\Installer;
@@ -295,12 +296,27 @@ it('drives the wizard to completion, clears passwords from state, and locks agai
         ->call('runInstall')
         ->assertSet('step', 5)
         ->assertSet('adminPassword', '')                        // wiped from component state post-install
-        ->assertSet('dbPassword', '');
+        ->assertSet('dbPassword', '')
+        ->assertSee(CronLine::line())                           // NOV-165: the absolute, cd-free cron line
+        ->assertDontSee('&& php artisan schedule:run');
 
     expect(app(Installer::class)->isInstalled())->toBeTrue();
 
     // Once installed, even a fresh wizard instance refuses to run (defence in depth at the action).
     Livewire::test('installer.wizard')->call('runInstall')->assertStatus(403);
+});
+
+it('prints the absolute, cd-free cron line at the end of a CLI install (NOV-165)', function () {
+    [, , , $db] = installSandbox();
+
+    $this->artisan('novfora:install', [
+        '--name' => 'CLI Forum', '--url' => 'https://cli.test', '--db-driver' => 'sqlite', '--db-database' => $db,
+        '--db-password' => '', '--admin-username' => 'cliadmin', '--admin-email' => 'cli@test.test',
+        '--admin-password' => 'Sup3rSecret!!', '--skip-checks' => true,
+    ])
+        ->expectsOutputToContain(CronLine::line())
+        ->doesntExpectOutputToContain('&& php artisan schedule:run')
+        ->assertSuccessful();
 });
 
 it('rejects weak or incomplete admin input before doing anything', function () {
