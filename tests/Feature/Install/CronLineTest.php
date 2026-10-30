@@ -38,3 +38,24 @@ it('quotes a path that contains spaces or shell metacharacters, and only then', 
 it('tolerates a trailing slash on the base path', function () {
     expect(CronLine::line('/usr/bin/php', '/srv/novfora/'))->toContain(' /srv/novfora/artisan schedule:run');
 });
+
+it('escapes a % so crontab does not turn it into a newline', function () {
+    expect(CronLine::line('/usr/bin/php', '/home/u1/50%off'))
+        ->toBe("* * * * * /usr/bin/php '/home/u1/50\\%off/artisan' schedule:run >> /dev/null 2>&1");
+});
+
+it('prefers the versioned CLI binary beside PHP-FPM over an unversioned alternatives link', function () {
+    $bin = sys_get_temp_dir().'/novfora-cronline-'.bin2hex(random_bytes(4));
+    mkdir($bin);
+    $versioned = $bin.'/php'.PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;
+    touch($versioned);
+    chmod($versioned, 0755);
+
+    try {
+        expect(CronLine::phpBinary('fpm-fcgi', $bin))->toBe($versioned)
+            ->and(CronLine::phpBinary('cli', $bin))->not->toBe($versioned);   // the CLI SAPI uses PHP_BINARY
+    } finally {
+        unlink($versioned);
+        rmdir($bin);
+    }
+});

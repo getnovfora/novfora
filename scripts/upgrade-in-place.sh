@@ -47,17 +47,40 @@ DONE="$WORK/done-$SHA"
 LOCK="$WORK/lock"
 
 mkdir -p "$WORK"
-if [ -n "$REPORT" ]; then
-  # The report may live under a web root (so a panel file API can read it): deny HTTP access to its folder.
-  mkdir -p "$(dirname "$REPORT")" && printf 'Require all denied\n' > "$(dirname "$REPORT")/.htaccess"
-fi
 [ -e "$DONE" ] && exit 0
 # A failed run stops further cron ticks (no repeated backups/maintenance windows); delete the marker to retry.
 [ -e "$WORK/failed-$SHA" ] && exit 0
-# A run killed hard (OOM, host limits) leaves its lock behind: treat a lock older than 30 minutes as stale.
-if [ -d "$LOCK" ] && [ -n "$(find "$LOCK" -maxdepth 0 -mmin +30 2>/dev/null)" ]; then rmdir "$LOCK" 2>/dev/null; fi
-mkdir "$LOCK" 2>/dev/null || exit 0
-trap 'rmdir "$LOCK" 2>/dev/null; [ -z "$REPORT" ] || cp "$LOG" "$REPORT" 2>/dev/null' EXIT
+if [ -n "$REPORT" ]; then
+  # The report may live under a web root (so a panel file API can read it), so its folder must deny HTTP access.
+  # Create that rule only where no .htaccess exists — never overwrite one (pointing the report at a docroot would
+  # otherwise replace the site's rewrite rules). A folder whose existing .htaccess doesn't deny gets no report.
+  RDIR="$(dirname "$REPORT")"
+  mkdir -p "$RDIR"
+  [ -e "$RDIR/.htaccess" ] || printf 'Require all denied\n' > "$RDIR/.htaccess"
+  grep -qx 'Require all denied' "$RDIR/.htaccess" 2>/dev/null || REPORT=""
+fi
+# One run at a time, however long a build or migration takes. flock(1) holds the lock for the life of this
+# process (and its children) and the kernel releases it if the run is killed, so nothing can go stale. Without
+# flock, fall back to a lock directory recording its owner's PID: it is reclaimed once that process is gone (or
+# after a 6-hour backstop), and only its owner removes it on exit.
+OWN_LOCK_DIR=0
+if command -v flock >/dev/null; then
+  exec 9>"$WORK/lock.flock"
+  flock -n 9 || exit 0
+else
+  if [ -d "$LOCK" ]; then
+    owner="$(cat "$LOCK/pid" 2>/dev/null)"
+    if [ -n "$owner" ] && ! kill -0 "$owner" 2>/dev/null; then
+      rm -rf "$LOCK"
+    elif [ -n "$(find "$LOCK" -maxdepth 0 -mmin +360 2>/dev/null)" ]; then
+      rm -rf "$LOCK" # no PID written, or a reused PID: a 6-hour backstop, far beyond any real run
+    fi
+  fi
+  mkdir "$LOCK" 2>/dev/null || exit 0
+  echo $$ > "$LOCK/pid"
+  OWN_LOCK_DIR=1
+fi
+trap '[ "$OWN_LOCK_DIR" = 1 ] && [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ] && rm -rf "$LOCK"; [ -z "$REPORT" ] || cp "$LOG" "$REPORT" 2>/dev/null' EXIT
 exec >>"$LOG" 2>&1
 
 say() { echo "[$(date -u +%H:%M:%S)] $*"; }
@@ -110,12 +133,15 @@ say "before: $(grep -m1 "'version'" config/app.php | tr -s ' ')"
 tar -czf "$WORK/code-before-$TS.tgz" --exclude=./storage -C "$APP" . || fail "code snapshot (nothing changed yet)"
 say "backups taken: novfora:backup + $WORK/code-before-$TS.tgz"
 
+MOVED=""
 rollback_code() {
-  say "rolling back: restoring the moved-aside trees, then the code snapshot over everything else"
-  for d in app config database lang resources routes vendor public/build public/icons; do
+  local d # its loops must not clobber the caller's $d, which names the failure
+  say "rolling back: restoring the trees this run moved aside, then the code snapshot over everything else"
+  # Only this run's .old trees: one left by an earlier failed run holds even older code.
+  for d in $MOVED; do
     if [ -d "$APP/$d.old" ]; then rm -rf "$APP/$d" && mv "$APP/$d.old" "$APP/$d"; fi
-    rm -rf "$APP/$d.new"
   done
+  for d in app bootstrap config database lang resources routes vendor public/build public/icons; do rm -rf "$APP/$d.new"; done
   tar -xzf "$WORK/code-before-$TS.tgz" -C "$APP" || say "WARNING: code snapshot extract failed"
   "$PHP" artisan optimize:clear || true
   "$PHP" artisan up || true
@@ -128,6 +154,15 @@ for d in app bootstrap config database lang resources routes vendor public/build
   [ -d "$STAGE/$d" ] || continue
   rm -rf "$APP/$d.new" && cp -a "$STAGE/$d" "$APP/$d.new" || { rollback_code; fail "stage $d"; }
 done
+# A SQLite database in database/ (the installer's suggested path) is live data, not shipped code: carry it, and
+# any WAL/SHM sidecars, into the new tree so the swap doesn't move it out from under the app. The site is down,
+# so the copy is quiescent; the original stays in database.old for a rollback.
+if [ -d "$APP/database.new" ]; then
+  for f in "$APP"/database/*.sqlite "$APP"/database/*.sqlite-wal "$APP"/database/*.sqlite-shm; do
+    [ -e "$f" ] || continue
+    cp -a "$f" "$APP/database.new/" || { rollback_code; fail "carry over $(basename "$f")"; }
+  done
+fi
 for d in app bootstrap config database lang resources routes vendor public/build public/icons; do
   [ -d "$APP/$d.new" ] || continue
   if [ "$d" = "bootstrap" ]; then
@@ -139,14 +174,20 @@ for d in app bootstrap config database lang resources routes vendor public/build
   fi
   rm -rf "$APP/$d.old" && { [ ! -e "$APP/$d" ] || mv "$APP/$d" "$APP/$d.old"; } && mv "$APP/$d.new" "$APP/$d" \
     || { rollback_code; fail "swap $d"; }
+  MOVED="$MOVED $d"
   SWAPPED=1
 done
-# First-party module/theme trees: overwrite in place (never delete — private modules live alongside).
+# First-party module/theme trees: overwrite in place (never delete — private modules live alongside). Then the
+# shipped root/public files. A copy failing part-way would leave a mixed-version install that still migrates and
+# verifies green, so it rolls back like any other swap failure.
 for d in modules themes; do
-  [ -d "$STAGE/$d" ] && cp -a "$STAGE/$d/." "$APP/$d/" || true
+  [ -d "$STAGE/$d" ] || continue
+  mkdir -p "$APP/$d" && cp -a "$STAGE/$d/." "$APP/$d/" || { rollback_code; fail "copy $d"; }
 done
-for f in artisan composer.json composer.lock .env.example; do cp -a "$STAGE/$f" "$APP/$f" || true; done
-cp -a "$STAGE/public/index.php" "$STAGE/public/.htaccess" "$APP/public/" 2>/dev/null || true
+for f in artisan composer.json composer.lock .env.example public/index.php public/.htaccess; do
+  [ -e "$STAGE/$f" ] || continue
+  cp -a "$STAGE/$f" "$APP/$f" || { rollback_code; fail "copy $f"; }
+done
 say "code swapped"
 
 # 4. Clear caches, migrate backup-first, come back up.

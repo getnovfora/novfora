@@ -28,20 +28,34 @@ final class CronLine
     }
 
     /**
-     * The CLI interpreter for this PHP install. Under PHP-FPM, PHP_BINARY is the FPM daemon, so this resolves
-     * the sibling CLI binary (PHP_BINDIR/php) instead — the same version the site runs on. Falls back to a bare
-     * `php` when nothing executable can be found (e.g. open_basedir hides the bin dir).
+     * The CLI interpreter for this PHP install. Under the CLI SAPI that is PHP_BINARY itself. Under PHP-FPM,
+     * PHP_BINARY is the FPM daemon, so prefer the versioned CLI binary beside it (`php8.3`): on Debian-style hosts
+     * the unversioned `php` is an alternatives link that can point at a different PHP version than the site runs.
+     * Otherwise Symfony's finder (PHP_BINDIR/php, then PATH); a bare `php` when nothing executable can be found
+     * (e.g. open_basedir hides the bin dir).
      */
-    public static function phpBinary(): string
+    public static function phpBinary(string $sapi = PHP_SAPI, string $binDir = PHP_BINDIR): string
     {
+        if (! in_array($sapi, ['cli', 'phpdbg'], true)) {
+            $versioned = rtrim($binDir, '/').'/php'.PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;
+            if (@is_executable($versioned) && ! @is_dir($versioned)) {
+                return $versioned;
+            }
+        }
+
         $found = (new PhpExecutableFinder)->find(false);
 
         return is_string($found) && $found !== '' ? $found : 'php';
     }
 
-    /** Quote a path only when it needs it, so the common case stays copy-paste readable. */
+    /**
+     * Quote a path only when it needs it, so the common case stays copy-paste readable. A `%` is escaped too:
+     * crontab turns a bare `%` into a newline.
+     */
     private static function arg(string $value): string
     {
-        return preg_match('#^[A-Za-z0-9_./-]+$#', $value) === 1 ? $value : escapeshellarg($value);
+        $arg = preg_match('#^[A-Za-z0-9_./-]+$#', $value) === 1 ? $value : escapeshellarg($value);
+
+        return str_replace('%', '\\%', $arg);
     }
 }
