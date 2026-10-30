@@ -47,7 +47,7 @@ repo until now.
 | High | **NF-06** NOV-149: API and web rate limits differ · **NF-07** NOV-150: board-offline doesn't gate member mutations · **NF-08** NOV-151: reply transaction and counter concurrency |
 | Medium / Low | NF-09 to NF-13, NOV-152 to NOV-156 |
 
-### ✅ Hardening slice DONE (2026-10-29), on `claude/project-status-review-uxmk9o`, head `05daf98`, pushed, NOT merged
+### ✅ Hardening slice MERGED (PR #52 → `main` @ `5079215`) and DEPLOYED to novfora.com/community (2026-10-30)
 
 | Item | Commits | What changed |
 |---|---|---|
@@ -67,13 +67,27 @@ repo until now.
 - **New issues from the review:** NOV-163 (thread-visibility drift on secondary listings; consolidate the
   predicates) and NOV-164 (fonts 404 under a subdirectory mount).
 
+**Live deploy (2026-10-30 00:26 UTC):** https://novfora.com/community/ upgraded in place to `5079215` by
+`scripts/upgrade-in-place.sh` (on this branch, not yet on `main`), driven from Hostinger cron:
+- A `novfora:backup` zip and a code tarball were taken first.
+- The code was swapped.
+- `novfora:upgrade` applied 11 migrations, after taking its own pre-upgrade backup.
+- Pending migrations: 0; `/health` and the home page returned 200.
+- The live `sw.js` is the v3 worker.
+
+Linear: NOV-144 to NOV-148 and NOV-162 are **Done**, each with a deploy comment.
+
+**Production scheduler fixed (2026-10-30):** `/health` had shown `queue.pending` = 82 with no heartbeat ever
+recorded. The hPanel cron line `cd ~/novfora && /usr/bin/php artisan schedule:run >> … 2>&1` never executed on
+Hostinger. It was replaced by `/usr/bin/php /home/u938587075/novfora/artisan schedule:run` (cron `pMdru7Z92p`).
+The heartbeat appeared within 60 s and the queue drained to 0. Our installer prints the failing form, so this is
+filed as **NOV-165** (High).
+
 **Next:**
-1. Open a PR from `claude/project-status-review-uxmk9o` to get the CI signal (the branch is pushed).
-2. Codex cross-review of the slice.
-3. Merge to `main` (CI goes green: the brand-gate and assets fixes are on this branch).
-4. Run `scripts/pwa-sw-harness.cjs` on staging.
-5. NF-06 to NF-08 (High).
-6. The release run.
+1. NOV-165: change the installer's cron line to the absolute-path form.
+2. Open a PR for `scripts/upgrade-in-place.sh` from this branch.
+3. NF-06 to NF-08 (High).
+4. The `v1.4.0` release run.
 
 ---
 
@@ -82,6 +96,13 @@ repo until now.
 **0. Push restored (2026-10-29).** The owner gave the Claude GitHub App write access, and the branch
 `claude/project-status-review-uxmk9o` is on `origin`. CI runs only on pushes to `main` and on PRs, so opening a
 PR is what gets the CI signal on this branch.
+
+**0a. Hostinger clean-up (needs hPanel; the connector can't delete files):**
+- Delete `public_html/.ops/`. It holds deploy scripts, logs and probe files; it is web-denied but should go.
+- `~/novfora-deploy/` holds the build tree and the pre-upgrade code tarball. Keep it until you're happy with the
+  release, then delete it.
+- The `dev` site cron (`5TWVODRZAC`) uses `cd …/dev/public && php artisan …`. There is no `artisan` in `public/`,
+  so it likely never runs. Point it at `/usr/bin/php …/dev/artisan schedule:run` if the dev site matters.
 
 **1. Release run, once the security slice is merged:**
 1. Bump `config/app.php` to `1.4.0`.
@@ -95,8 +116,8 @@ PR is what gets the CI signal on this branch.
 **2. Linear was reconciled on 2026-10-29:**
 - NOV-107–112, 114, 116 and 124–127 plus NOV-135 are now **Done**, each with a merge/SHA/ADR/review comment.
 - The July discoveries are filed as NOV-157 to NOV-161, and the dependency advisories as NOV-162.
-- NF-01 to NF-05 (NOV-144 to NOV-148) are **In Review**, with completion comments. NOV-162 is In Review. All of
-  them move to Done on merge.
+- NF-01 to NF-05 (NOV-144 to NOV-148) and NOV-162 are **Done** as of 2026-10-30 (merged in PR #52 and deployed),
+  each with a deploy comment. NOV-165 (installer cron line) is filed.
 - NOV-140 and NOV-143 (the private Populate plugin, E6) have been **In Review since 2026-07-02**. That's your call,
   since the plugin lives outside this repo.
 
