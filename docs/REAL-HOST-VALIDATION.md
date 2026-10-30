@@ -259,8 +259,12 @@ app kept above the web root.
 5 minutes on a budget host that limits cron frequency):
 
 ```
-* * * * * cd /home/USER/novfora && php artisan schedule:run >> /dev/null 2>&1
+* * * * * /usr/bin/php /home/USER/novfora/artisan schedule:run >> /dev/null 2>&1
 ```
+
+Paste the line exactly as the final screen shows it, with your host's PHP CLI path. Don't rewrite it as
+`cd … && php artisan …`: Hostinger's panel silently never runs that form (NOV-165). A minute later, `/health`
+must show a numeric `queue.last_drained_age_seconds`.
 
 This single line drives the queue drain (mail/search/notifications), trust-level automation, the storage
 mirror refresh, and backups. No daemon.

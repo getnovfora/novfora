@@ -84,7 +84,7 @@ The heartbeat appeared within 60 s and the queue drained to 0. Our installer pri
 filed as **NOV-165** (High).
 
 **Next:**
-1. NOV-165: change the installer's cron line to the absolute-path form.
+1. NOV-165 fixed on this branch: the installer prints the absolute-path cron line. Ships with the next PR.
 2. Open a PR for `scripts/upgrade-in-place.sh` from this branch.
 3. NF-06 to NF-08 (High).
 4. The `v1.4.0` release run.

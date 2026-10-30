@@ -69,8 +69,13 @@ Omit any option to be prompted (the password prompts are hidden). Both paths run
 Add **one** cron entry in your host's control panel (ADR-0011):
 
 ```cron
-* * * * * cd /path/to/novfora && php artisan schedule:run >> /dev/null 2>&1
+* * * * * /usr/bin/php /path/to/novfora/artisan schedule:run >> /dev/null 2>&1
 ```
+
+Use your host's PHP CLI path (the installer's final screen and `novfora:install` print the exact line for
+your server). Keep it a **single absolute command**. Don't use the `cd /path && php artisan …` form: some
+shared-host cron panels, Hostinger among them, silently never run it (NOV-165). To confirm cron is live, check
+`/health` a minute later: `queue.last_drained_age_seconds` should be a number, not `null`.
 
 That single line drives everything on the baseline tier:
 

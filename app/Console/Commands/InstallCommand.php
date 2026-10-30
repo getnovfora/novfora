@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Install\CronLine;
 use App\Install\Installer;
 use App\Install\InstallInput;
 use App\Install\InstallRunner;
@@ -102,11 +103,13 @@ class InstallCommand extends Command
             $this->line('  • '.$note);
         }
         $this->newLine();
-        $this->components->bulletList([
-            'Add the cron line so the queue, search, trust levels, and backups run:',
-            '  * * * * * cd '.base_path().' && php artisan schedule:run >> /dev/null 2>&1',
-            'Sign in as '.$validated['admin-email'].' — you will be required to set up 2FA (staff).',
-        ]);
+        // The cron line is printed raw: the console components rewrite absolute paths under base_path() to
+        // relative ones, which would mangle the one line the operator must copy verbatim (NOV-165).
+        $this->line('  Add this one cron line so the queue, search, trust levels, and backups run:');
+        $this->newLine();
+        $this->line('    '.CronLine::line());
+        $this->newLine();
+        $this->line('  Sign in as '.$validated['admin-email'].'. You will be required to set up 2FA (staff).');
 
         return self::SUCCESS;
     }

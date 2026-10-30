@@ -29,6 +29,13 @@ contracts** — a breaking change to either is a major-version event.
   13.39, livewire 4.4.8, league/commonmark 2.10.4, guzzle 7.16, symfony 7.4.22, flysystem 3.36 and phpseclib
   3.0.57.
 
+### Fixed
+- **Installer cron line (NOV-165):** the web installer and `novfora:install` now print a single absolute
+  command, `<php> <path>/artisan schedule:run >> /dev/null 2>&1`, with no `cd … &&` prefix. Hostinger's cron
+  panel silently never runs the old compound form, so the queue never drained on installs that copied it.
+  The CLI also printed the path stripped to `artisan`, because console components rewrite absolute paths. The
+  getting-started and real-host guides are updated to match.
+
 ## [1.2.0] — 2026-07
 
 This release folds in **U7 (embed API / SSI / web components, ADR-0103)** and **U17 (plugin install-from-zip

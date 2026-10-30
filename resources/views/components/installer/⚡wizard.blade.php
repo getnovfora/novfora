@@ -1,5 +1,6 @@
 <?php
 // SPDX-License-Identifier: Apache-2.0
+use App\Install\CronLine;
 use App\Install\DatabaseVerifier;
 use App\Install\InstallInput;
 use App\Install\InstallRunner;
@@ -205,7 +206,7 @@ new class extends Component
 
     public function cronLine(): string
     {
-        return '* * * * * cd '.base_path().' && php artisan schedule:run >> /dev/null 2>&1';
+        return CronLine::line();
     }
 };
 ?>
@@ -370,6 +371,7 @@ new class extends Component
             <strong>One last step — the cron line.</strong> Add this single line to your host's cron panel so
             email, search indexing, trust levels, and backups all run automatically:
             <pre style="white-space:pre-wrap;margin:.5rem 0 0"><code>{{ $this->cronLine() }}</code></pre>
+            <p class="muted" style="margin:.5rem 0 0">Paste it exactly as shown. Don't rewrite it as <code>cd … &amp;&amp; php artisan …</code>: some host panels never run that form. A minute later, <code>/health</code> should show a <code>last_drained_age_seconds</code> value instead of <code>null</code>.</p>
         </div>
 
         <div class="note">
