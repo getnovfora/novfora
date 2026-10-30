@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Admin\AdminV1Controller;
 use App\Http\Controllers\Api\V1Controller;
 use App\Http\Middleware\AuthenticateApiToken;
 use App\Http\Middleware\EnforceIdempotency;
+use App\Http\Middleware\EnsureBoardOnline;
 use App\Http\Middleware\PreventRequestsDuringUpgrade;
 use App\Http\Middleware\RedirectIfNotInstalled;
 use App\Http\Middleware\ThrottleApiMember;
@@ -16,7 +17,8 @@ use Illuminate\Support\Facades\Route;
 | /api/v1/... . Token-authenticated (AuthenticateApiToken sets the request user) and engine-authorized inside
 | the controller. Request rate is bounded twice (NF-06): `throttle:api` is a coarse per-IP ceiling ahead of
 | token auth, and ThrottleApiMember a per-member ceiling after it. Replies also spend the member's shared
-| trust-based posting budget (PostRateLimiter), the same one the web composer uses.
+| trust-based posting budget (PostRateLimiter), the same one the web composer uses. EnsureBoardOnline runs
+| after token auth (NF-07): while the board is offline a member token gets a JSON 503; an admin's passes.
 |
 | The install + upgrade/restore maintenance gates (P5.1) run AHEAD of token auth and the limiter so the API
 | never serves reads/writes against a half-migrated schema (RH-10/RH-11) or a pre-install DB — matching the
@@ -29,6 +31,7 @@ Route::prefix('v1')->middleware([
     PreventRequestsDuringUpgrade::class,
     'throttle:api',
     AuthenticateApiToken::class,
+    EnsureBoardOnline::class,
     ThrottleApiMember::class,
 ])->group(function () {
     Route::get('/me', [V1Controller::class, 'me'])->name('api.v1.me');
@@ -49,6 +52,7 @@ Route::prefix('admin/v1')->name('api.admin.v1.')->middleware([
     PreventRequestsDuringUpgrade::class,
     'throttle:api',
     AuthenticateApiToken::class,
+    EnsureBoardOnline::class,
     ThrottleApiMember::class,
     EnforceIdempotency::class,
 ])->group(function () {

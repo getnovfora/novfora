@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\AntiSpam\ContentScanner;
 use App\AntiSpam\LocalHeuristicsScanner;
+use App\Http\Middleware\EnsureBoardOnline;
 use App\Install\EnvWriter;
 use App\Install\Installer;
 use App\Listeners\AuditAuthEvents;
@@ -24,6 +25,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -71,6 +73,10 @@ class AppServiceProvider extends ServiceProvider
         // asset build needs no Composer and stays deterministic (PART 5 / CONTRIBUTING.md).
         Paginator::defaultView('pagination::novfora');
         Paginator::defaultSimpleView('pagination::simple-novfora');
+
+        // NF-07: Livewire re-applies EnsureBoardOnline to every component update, evaluated against the
+        // component's ORIGINATING route, so an editor opened before the board went offline can't keep writing.
+        Livewire::addPersistentMiddleware([EnsureBoardOnline::class]);
 
         // REST API request rate, layer 1 of 2 (ADR-0033, NF-06). `throttle:api` runs AHEAD of token auth, where no
         // user is known yet, so it is an explicit coarse per-IP ceiling that bounds unauthenticated / invalid-token
