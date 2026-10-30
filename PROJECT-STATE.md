@@ -68,7 +68,7 @@ repo until now.
   predicates) and NOV-164 (fonts 404 under a subdirectory mount).
 
 **Live deploy (2026-10-30 00:26 UTC):** https://novfora.com/community/ upgraded in place to `5079215` by
-`scripts/upgrade-in-place.sh` (on this branch, not yet on `main`), driven from Hostinger cron:
+`scripts/upgrade-in-place.sh` (merged to `main` in PR #53), driven from Hostinger cron:
 - A `novfora:backup` zip and a code tarball were taken first.
 - The code was swapped.
 - `novfora:upgrade` applied 11 migrations, after taking its own pre-upgrade backup.
@@ -84,8 +84,18 @@ The heartbeat appeared within 60 s and the queue drained to 0. Our installer pri
 filed as **NOV-165** (High).
 
 **Next:**
-1. NOV-165 fixed on this branch: the installer prints the absolute-path cron line. Ships with the next PR.
-2. Open a PR for `scripts/upgrade-in-place.sh` from this branch.
+1. ✅ **PR #53 merged (2026-10-30, `main` @ `0a10df4`, CI green):**
+   - **NOV-165 (Done):** the installer and `novfora:install` print the absolute, cd-free cron line. The CLI no
+     longer strips its path.
+   - **`scripts/upgrade-in-place.sh`, hardened in review:**
+     - flock process lock, replacing the age-based lock (Codex P1);
+     - copy failures roll back (Codex P2);
+     - a SQLite database in `database/` is carried over during the swap;
+     - the report folder's `.htaccess` is never overwritten;
+     - rollback restores only the trees this run moved aside.
+   - One LOW left as is: the script replaces `public/.htaccess` on upgrade (pre-existing behaviour).
+2. The live site runs `5079215`. #53 changes only the installer output and the ops script, so nothing needs
+   redeploying: the production cron already uses the new line.
 3. NF-06 to NF-08 (High).
 4. The `v1.4.0` release run.
 
@@ -117,7 +127,7 @@ PR is what gets the CI signal on this branch.
 - NOV-107–112, 114, 116 and 124–127 plus NOV-135 are now **Done**, each with a merge/SHA/ADR/review comment.
 - The July discoveries are filed as NOV-157 to NOV-161, and the dependency advisories as NOV-162.
 - NF-01 to NF-05 (NOV-144 to NOV-148) and NOV-162 are **Done** as of 2026-10-30 (merged in PR #52 and deployed),
-  each with a deploy comment. NOV-165 (installer cron line) is filed.
+  each with a deploy comment. NOV-165 (installer cron line) is Done (PR #53).
 - NOV-140 and NOV-143 (the private Populate plugin, E6) have been **In Review since 2026-07-02**. That's your call,
   since the plugin lives outside this repo.
 
