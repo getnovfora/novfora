@@ -96,8 +96,31 @@ filed as **NOV-165** (High).
    - One LOW left as is: the script replaces `public/.htaccess` on upgrade (pre-existing behaviour).
 2. The live site runs `5079215`. #53 changes only the installer output and the ops script, so nothing needs
    redeploying: the production cron already uses the new line.
-3. NF-06 to NF-08 (High).
-4. The `v1.4.0` release run.
+3. ✅ **PR #54 merged (2026-10-31, `main` @ `03e3e0f`, CI green): NF-06..08, ADR-0124.**
+   NOV-149, NOV-150 and NOV-151 are Done, each with a completion comment.
+   - **NF-06:** one posting budget shared by the web composer and the API, plus two API rate layers: per-IP
+     before token auth, per-member after (`ThrottleApiMember`). New env: `NOVFORA_API_IP_PER_MINUTE`,
+     `NOVFORA_API_USER_PER_MINUTE`.
+   - **NF-07:** `BoardState` plus `EnsureBoardOnline` as Livewire persistent middleware. A JSON 503 on the API
+     while the board is offline. Scheduled replies are deferred while offline.
+   - **NF-08:** reply write path. **This adds a migration** (`topics.last_position`, reversible and backfilled), so
+     the next deploy runs one.
+     - Positions come from a counter; no post-row lock is taken.
+     - Create-time aggregates are atomic.
+     - Delete/restore re-derivation runs after commit.
+     - Notifications, events and Scout run after commit.
+     - `scripts/stress/concurrent-replies.php` now runs in CI on MySQL. It passes on PostgreSQL 16 and
+       MariaDB 10.11 too.
+   - **Review fixes:** apex review, 0 HIGH; 1 MEDIUM and 2 LOWs fixed. Codex P2 deadlock fixed. Two CI MySQL
+     failures root-caused and fixed: a harness range lock, and a REPEATABLE READ lost update.
+   - **Filed:**
+     - NOV-166: idempotency aborts PostgreSQL transactions.
+     - NOV-167: the API returns 500 on a content rejection, and a reply racing a merge can land in the moved shell.
+     - NOV-168: lock-order deadlocks with account deletion and with topic creation.
+     - NOV-169: a concurrent double soft-delete double-decrements counts.
+4. **The security backlog that blocked the tag is cleared** (NF-01..08 and NOV-162). Before tagging, deploy
+   `main` to staging or the live community and run the staging harness (`scripts/pwa-sw-harness.cjs`).
+5. The `v1.4.0` release run (owner section §1).
 
 ---
 
