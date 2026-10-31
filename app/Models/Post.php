@@ -173,10 +173,22 @@ class Post extends Model
      */
     public function syncAggregates(int $forumDelta): void
     {
-        // NF-08 review: lock the topic, then the forum — the same order as the reply path — BEFORE deriving, so a
-        // delete/restore racing a reply waits for it and counts it, instead of overwriting its atomic +1 with a
-        // total read before it committed. (Outside a caller's transaction the locks are the first statements,
-        // so the derivation reads are fresh; the nightly recompute reconciles anything else.)
+        // NF-08: re-derive AFTER the outermost commit, in a transaction of its own that locks the topic, then the
+        // forum (the reply path's order), BEFORE its first plain read. Two reasons it can't run inline:
+        //   • freshness — inside the caller's transaction, MySQL REPEATABLE READ answers plain reads from the
+        //     snapshot of that transaction's FIRST read (SpamCleaner, moderation and the like read before they
+        //     delete), so a reply committed since would be missed and its atomic +1 overwritten; taking the lock
+        //     does not refresh the snapshot. Here the snapshot starts after the locks, and no reply can commit to
+        //     this topic while we hold them.
+        //   • lock order — the deleter would wait on the topic while holding the post it just deleted, the
+        //     inverse of a reply's topic-then-post order.
+        // A rolled-back delete/restore never runs it. A process killed between the commit and this callback
+        // leaves counters for the nightly novfora:forums:recompute-counters to reconcile.
+        DB::afterCommit(fn () => $this->rederiveAggregates($forumDelta));
+    }
+
+    private function rederiveAggregates(int $forumDelta): void
+    {
         DB::transaction(function () use ($forumDelta): void {
             $topic = Topic::withTrashed()->lockForUpdate()->find($this->topic_id);
             if (! $topic instanceof Topic) {

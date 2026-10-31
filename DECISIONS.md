@@ -4371,7 +4371,12 @@ the web page enforced was missing, or enforced more weakly, somewhere else:
    - Creating a post updates aggregates with atomic `UPDATE`s. Pointers advance only for a newer
      `(created_at, id)`, so out-of-order commits can't move them backwards. MySQL's left-to-right `SET` order
      is relied on, and noted in the code.
-   - Delete/restore re-derivation takes the topic lock, then the forum lock, before reading.
+   - Delete/restore re-derivation runs after the outermost commit, in its own transaction that locks the
+     topic, then the forum, before its first read.
+     - Run inline, a MySQL REPEATABLE READ snapshot taken earlier in the deleter's transaction missed
+       concurrent replies and overwrote their +1. CI's MySQL stress job caught this, and it was reproduced
+       3/3 locally on MariaDB.
+     - Deferring also means a deleter never waits on the topic while holding the post it deleted.
    - The forum last-post recomputes break same-second ties by `last_post_id`.
 
 **Consequences.**
@@ -4386,7 +4391,7 @@ the web page enforced was missing, or enforced more weakly, somewhere else:
     and 4 deleters). With the fix there were none.
   - During development it also caught a same-second forum last-post tie flip in the in-progress code, which is
     why the recomputes now tie-break by `last_post_id`.
-  - All modes pass.
+  - All modes pass on PostgreSQL 16 and MariaDB 10.11 (REPEATABLE READ).
 
 **Apex review (verify-then-refute).**
 - **Refuted:**
