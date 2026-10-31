@@ -100,33 +100,43 @@ final class PostService
             return $topic->refresh();
         });
 
-        // Notify @mentions in the opening post (after commit; only if approved). New topic → no reply target.
-        $op = Post::where('topic_id', $topic->getKey())->orderBy('position')->orderBy('id')->first();
-        if ($op instanceof Post) {
-            $this->dispatchPostNotifications($op);
-        }
-
-        // Activity feed (P2-M3): log topic.created post-commit, only for an APPROVED topic (a held topic is
-        // visible to author+mods only and must not leak into the public feed).
-        if ($topic->approved_state === 'approved') {
-            TopicCreated::dispatch($topic);
-        }
+        // Notify @mentions in the opening post, and log topic.created to the activity feed — after the OUTERMOST
+        // commit (NF-08), only if approved. New topic → no reply target. A held topic is visible to author+mods
+        // only and must not leak into the public feed.
+        DB::afterCommit(function () use ($topic): void {
+            $op = Post::where('topic_id', $topic->getKey())->orderBy('position')->orderBy('id')->first();
+            if ($op instanceof Post) {
+                $this->dispatchPostNotifications($op);
+            }
+            if ($topic->approved_state === 'approved') {
+                TopicCreated::dispatch($topic);
+            }
+        });
 
         return $topic;
     }
 
     public function reply(User $author, Topic $topic, string $format, array $canonical, ?int $parentPostId = null): Post
     {
-        $post = $this->writePost($author, $topic, $format, $canonical, $parentPostId);
-        Audit::log('post.created', $post);
+        // NF-08: the post and EVERY durable write tied to it (position, aggregates, attachment binding, spam
+        // record, audit) commit together or not at all — a later failure can't leave a half-written reply.
+        $post = DB::transaction(function () use ($author, $topic, $format, $canonical, $parentPostId): Post {
+            $post = $this->writePost($author, $topic, $format, $canonical, $parentPostId);
+            Audit::log('post.created', $post);
 
-        $this->dispatchPostNotifications($post);
+            return $post;
+        });
 
-        // Activity feed (P2-M3): log post.created post-commit, only for an APPROVED reply (a held reply must
-        // not leak into the public feed).
-        if ($post->approved_state === 'approved') {
-            PostCreated::dispatch($post);
-        }
+        // Notifications + the activity feed run only once the reply is COMMITTED — after the outermost
+        // transaction when called inside one (e.g. the scheduled-post publisher), immediately otherwise — so a
+        // rolled-back reply never notifies anyone. Activity feed (P2-M3): only for an APPROVED reply (a held
+        // reply must not leak into the public feed).
+        DB::afterCommit(function () use ($post): void {
+            $this->dispatchPostNotifications($post);
+            if ($post->approved_state === 'approved') {
+                PostCreated::dispatch($post);
+            }
+        });
 
         return $post;
     }
@@ -190,7 +200,16 @@ final class PostService
             throw new ContentRejectedException($verdict->reasons);
         }
 
-        $position = (int) Post::where('topic_id', $topic->id)->max('position') + 1;
+        // NF-08: allocate the next position under a per-topic lock, so concurrent replies can never share one.
+        // Lock the topic row (serialises every writer on this topic), then read the current max with a LOCKING
+        // read — which always sees the latest committed row, unlike a plain read inside a transaction whose
+        // snapshot may predate a concurrent commit (MySQL REPEATABLE READ). ORDER BY … LIMIT 1 rather than
+        // MAX(): PostgreSQL refuses FOR UPDATE on an aggregate. Trashed posts count too, so a restore can never
+        // collide with a position handed out while it was deleted. Callers hold a transaction (reply(),
+        // createTopic()), so the lock lasts until commit.
+        Topic::withTrashed()->whereKey($topic->getKey())->lockForUpdate()->value('id');
+        $position = (int) Post::withTrashed()->where('topic_id', $topic->getKey())
+            ->orderByDesc('position')->lockForUpdate()->value('position') + 1;
 
         $post = Post::create([
             'topic_id' => $topic->id,

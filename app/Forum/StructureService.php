@@ -187,7 +187,7 @@ class StructureService
 
         $activeTopic = Topic::where('forum_id', $forum->id)
             ->whereNotNull('last_posted_at')
-            ->orderByDesc('last_posted_at')
+            ->orderByDesc('last_posted_at')->orderByDesc('last_post_id') // (time, id): the same tie-break as the atomic create path (NF-08)
             ->first();
 
         $forum->forceFill([
