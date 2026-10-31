@@ -173,40 +173,46 @@ class Post extends Model
      */
     public function syncAggregates(int $forumDelta): void
     {
-        $topic = Topic::withTrashed()->find($this->topic_id);
-        if (! $topic instanceof Topic) {
-            return;
-        }
+        // NF-08 review: lock the topic, then the forum — the same order as the reply path — BEFORE deriving, so a
+        // delete/restore racing a reply waits for it and counts it, instead of overwriting its atomic +1 with a
+        // total read before it committed. (Outside a caller's transaction the locks are the first statements,
+        // so the derivation reads are fresh; the nightly recompute reconciles anything else.)
+        DB::transaction(function () use ($forumDelta): void {
+            $topic = Topic::withTrashed()->lockForUpdate()->find($this->topic_id);
+            if (! $topic instanceof Topic) {
+                return;
+            }
+            $forum = Forum::withTrashed()->lockForUpdate()->find($topic->forum_id);
 
-        $posts = Post::where('topic_id', $topic->getKey());
-        $total = (clone $posts)->count();
-        $first = (clone $posts)->orderBy('position')->orderBy('id')->first();
-        $last = (clone $posts)->orderByDesc('created_at')->orderByDesc('id')->first();
+            $posts = Post::where('topic_id', $topic->getKey());
+            $total = (clone $posts)->count();
+            $first = (clone $posts)->orderBy('position')->orderBy('id')->first();
+            $last = (clone $posts)->orderByDesc('created_at')->orderByDesc('id')->first();
 
-        $topic->forceFill([
-            'first_post_id' => $first?->getKey(),
-            'last_post_id' => $last?->getKey(),
-            'last_post_user_id' => $last?->user_id,
-            'last_posted_at' => $last?->created_at,
-            'reply_count' => max(0, $total - 1),
-        ])->saveQuietly();
-
-        $forum = Forum::withTrashed()->find($topic->forum_id);
-        if ($forum instanceof Forum) {
-            $activeTopic = Topic::where('forum_id', $forum->getKey())
-                ->whereNotNull('last_posted_at')
-                ->orderByDesc('last_posted_at')->orderByDesc('last_post_id') // (time, id): the same tie-break as the atomic create path (NF-08)
-                ->first();
-
-            DB::table('forums')->where('id', $forum->getKey())->update([
-                'post_count' => DB::raw('CASE WHEN post_count + ('.$forumDelta.') < 0 THEN 0 ELSE post_count + ('.$forumDelta.') END'),
-            ]);
-            $forum->forceFill([
-                'last_post_id' => $activeTopic?->last_post_id,
-                'last_topic_id' => $activeTopic?->getKey(),
-                'last_posted_at' => $activeTopic?->last_posted_at,
+            $topic->forceFill([
+                'first_post_id' => $first?->getKey(),
+                'last_post_id' => $last?->getKey(),
+                'last_post_user_id' => $last?->user_id,
+                'last_posted_at' => $last?->created_at,
+                'reply_count' => max(0, $total - 1),
             ])->saveQuietly();
-        }
+
+            if ($forum instanceof Forum) {
+                $activeTopic = Topic::where('forum_id', $forum->getKey())
+                    ->whereNotNull('last_posted_at')
+                    ->orderByDesc('last_posted_at')->orderByDesc('last_post_id') // (time, id): the same tie-break as the atomic create path (NF-08)
+                    ->first();
+
+                DB::table('forums')->where('id', $forum->getKey())->update([
+                    'post_count' => DB::raw('CASE WHEN post_count + ('.$forumDelta.') < 0 THEN 0 ELSE post_count + ('.$forumDelta.') END'),
+                ]);
+                $forum->forceFill([
+                    'last_post_id' => $activeTopic?->last_post_id,
+                    'last_topic_id' => $activeTopic?->getKey(),
+                    'last_posted_at' => $activeTopic?->last_posted_at,
+                ])->saveQuietly();
+            }
+        });
     }
 
     /**

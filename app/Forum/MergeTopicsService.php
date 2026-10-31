@@ -65,7 +65,8 @@ final class MergeTopicsService
             // The source's positions (1..n) collide with the target's, so OFFSET them past the target's
             // current max: the source posts APPEND after the target's (the target keeps its opening post as
             // the anchor), relative order preserved, no position clash. $offset is an int — safe to inline.
-            $offset = (int) Post::where('topic_id', $tgt->getKey())->max('position');
+            // withTrashed (NF-08): past the target's TRASHED posts too, so restoring one can never collide.
+            $offset = (int) Post::withTrashed()->where('topic_id', $tgt->getKey())->max('position');
             DB::table('posts')->where('topic_id', $src->getKey())->update([
                 'topic_id' => $tgt->getKey(),
                 'position' => DB::raw('position + '.$offset),

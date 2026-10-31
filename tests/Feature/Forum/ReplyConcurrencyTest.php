@@ -5,6 +5,7 @@
 declare(strict_types=1);
 
 use App\Events\PostCreated;
+use App\Forum\MergeTopicsService;
 use App\Forum\PostService;
 use App\Forum\TopicCounters;
 use App\Models\Forum;
@@ -16,6 +17,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
+use Laravel\Scout\Jobs\MakeSearchable;
 use Tests\Support\Users;
 
 /*
@@ -160,4 +163,45 @@ it('notifies and broadcasts only after the OUTERMOST transaction commits', funct
     DB::transaction(fn () => nf08Reply($member, $topic, 'inside a committed outer transaction'));
     Event::assertDispatchedTimes(PostCreated::class, 1);
     expect($author->notifications()->count())->toBe(1);
+});
+
+// ── Review follow-ups ─────────────────────────────────────────────────────────────────────────────────
+
+it('queues search indexing only after the OUTERMOST commit, and never for a rolled-back reply', function () {
+    config(['scout.queue' => true]);
+    [, $topic] = nf08Topic();
+    $member = Users::inGroups(['members', 'tl1']);
+    Queue::fake();
+
+    try {
+        DB::transaction(function () use ($member, $topic) {
+            nf08Reply($member, $topic, 'rolled back before indexing');
+            throw new RuntimeException('outer failure');
+        });
+    } catch (RuntimeException) {
+    }
+    Queue::assertNotPushed(MakeSearchable::class);
+
+    DB::transaction(function () use ($member, $topic) {
+        nf08Reply($member, $topic, 'indexed after commit');
+        // Still inside the transaction: a worker must not be handed a row that isn't committed yet.
+        Queue::assertNotPushed(MakeSearchable::class);
+    });
+    Queue::assertPushed(MakeSearchable::class);
+});
+
+it('offsets a merge past the target\'s trashed posts, so restoring one never collides', function () {
+    [$forum, $target] = nf08Topic();
+    $member = Users::inGroups(['members', 'tl1']);
+    nf08Reply($member, $target, 'target reply');
+    $trashed = nf08Reply($member, $target, 'target last, then trashed');
+    $trashed->delete();
+    $source = app(PostService::class)->createTopic($member, $forum, 'Source topic', 'markdown', ['source' => 'source op']);
+    nf08Reply($member, $source, 'source reply');
+
+    app(MergeTopicsService::class)->merge($source->fresh(), $target->fresh(), Users::inGroups(['members', 'moderators']));
+    $trashed->restore();
+
+    expect(Post::where('topic_id', $target->id)->pluck('position')->duplicates())->toBeEmpty();
+    nf08Parity($target);
 });
