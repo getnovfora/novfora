@@ -50,7 +50,12 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'after_commit' => false,
+    // NF-08 review: true. A reply is written inside a transaction (with an outer one when the scheduler publishes
+    // it), so a queued MakeSearchable dispatched mid-transaction could be picked up by a worker BEFORE the commit,
+    // find no row, and silently skip — the reply would never be indexed. With after_commit Scout queues/syncs only
+    // once the outermost transaction commits (and never for a rolled-back post). Outside a transaction it runs
+    // immediately, as before.
+    'after_commit' => true,
 
     /*
     |--------------------------------------------------------------------------

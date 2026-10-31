@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\AntiSpam\ContentScanner;
 use App\AntiSpam\LocalHeuristicsScanner;
+use App\Http\Middleware\EnsureBoardOnline;
 use App\Install\EnvWriter;
 use App\Install\Installer;
 use App\Listeners\AuditAuthEvents;
@@ -24,6 +25,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -72,12 +74,17 @@ class AppServiceProvider extends ServiceProvider
         Paginator::defaultView('pagination::novfora');
         Paginator::defaultSimpleView('pagination::simple-novfora');
 
-        // REST API rate limit (ADR-0033): 60 requests/minute, keyed by the authenticated user when known,
-        // else the client IP. `throttle:api` runs ahead of token auth, so unauthenticated floods are bounded
-        // by IP before they reach the token lookup.
-        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(60)->by(
-            $request->user()?->getAuthIdentifier() ?? $request->ip() ?? 'api'
-        ));
+        // NF-07: Livewire re-applies EnsureBoardOnline to every component update, evaluated against the
+        // component's ORIGINATING route, so an editor opened before the board went offline can't keep writing.
+        Livewire::addPersistentMiddleware([EnsureBoardOnline::class]);
+
+        // REST API request rate, layer 1 of 2 (ADR-0033, NF-06). `throttle:api` runs AHEAD of token auth, where no
+        // user is known yet, so it is an explicit coarse per-IP ceiling that bounds unauthenticated / invalid-token
+        // floods before they reach the token lookup. Layer 2 is the per-member ThrottleApiMember middleware AFTER
+        // token auth. Config-read per request (tunable without a cache clear).
+        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(
+            max(1, (int) config('novfora.api.rate_limits.ip', 120))
+        )->by('ip:'.($request->ip() ?? 'unknown')));
 
         // Embed surface rate limit (U7, ADR-0103): the endpoints are anonymous by design, so the key is the
         // client IP. Config-read per request so tests/operators can tune it without a cache clear; the

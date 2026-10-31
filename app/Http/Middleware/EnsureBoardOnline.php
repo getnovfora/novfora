@@ -7,10 +7,11 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Models\User;
-use App\Permissions\Scope;
-use App\Settings\Settings;
+use App\Settings\BoardState;
 use Closure;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
+use Livewire\Mechanisms\HandleRequests\HandleRequests;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -19,6 +20,15 @@ use Symfony\Component\HttpFoundation\Response;
  * straight through so they can keep working and flip the switch back. Auth, the installer, /health, the
  * ACP, and Livewire's endpoints stay reachable so an admin can always sign in and manage the site.
  *
+ * NF-07 — the same gate on every way a member can act, not just page loads:
+ *   • Livewire: the update endpoint itself is allowlisted, but this middleware is registered as Livewire
+ *     PERSISTENT middleware, so Livewire re-runs it for every component update against the component's
+ *     ORIGINATING route (its checksummed snapshot memo). A composer opened on a topic page before the switch
+ *     flipped is refused; components on allowlisted pages (sign-in, the ACP) keep working. Livewire ignores a
+ *     non-redirect response from persistent middleware, so here the refusal is thrown, not returned.
+ *   • REST API: it runs after token auth (so an admin token passes) and refuses with a JSON 503.
+ *   • Scheduled replies: PostScheduler defers them while offline (see BoardState).
+ *
  * The decision is one O(cache-read) settings lookup; pre-install it is never reached (RedirectIfNotInstalled
  * short-circuits to the wizard first).
  */
@@ -26,9 +36,9 @@ class EnsureBoardOnline
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $settings = app(Settings::class);
+        $board = app(BoardState::class);
 
-        if (! $settings->bool('general.board_offline')) {
+        if (! $board->isOffline()) {
             return $next($request);
         }
 
@@ -39,14 +49,22 @@ class EnsureBoardOnline
         }
 
         // Admins (anywhere) pass — they manage the site and lift the switch.
-        $user = $request->user();
-        if ($user instanceof User && $user->canDo('admin.access', Scope::global())) {
+        if ($board->allows($request->user() instanceof User ? $request->user() : null)) {
             return $next($request);
         }
 
-        return response()->view('maintenance.offline', [
-            'message' => $settings->string('general.board_offline_message'),
-        ], 503);
+        if ($request->is('api/*')) {
+            abort(503, $board->message()); // JSON for api/*, enveloped for api/admin/*
+        }
+
+        $offline = response()->view('maintenance.offline', ['message' => $board->message()], 503);
+
+        // Re-applied by Livewire to a component update (persistent middleware): only a thrown response stops it.
+        if (app(HandleRequests::class)->isLivewireRoute()) {
+            throw new HttpResponseException($offline);
+        }
+
+        return $offline;
     }
 
     private function isAllowlisted(Request $request): bool

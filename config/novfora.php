@@ -53,6 +53,17 @@ return [
     // awards the post author that many reputation points via the idempotent ledger (ReputationService);
     // negative weights subtract. Changing a weight affects FUTURE awards only — already-banked ledger rows
     // keep the points they were awarded at (revoke undoes the stored value, not the live config).
+    // REST API request-rate limits (ADR-0033, NF-06). Two layers: a coarse per-IP ceiling that runs BEFORE token
+    // auth (it bounds unauthenticated / invalid-token floods ahead of the token lookup), and a per-member ceiling
+    // that runs AFTER auth, keyed by the token's owner so one member can't multiply their allowance across IPs.
+    // Posting itself is further bound by the shared trust-based budget in antispam.rate_limits (web + API).
+    'api' => [
+        'rate_limits' => [
+            'ip' => (int) env('NOVFORA_API_IP_PER_MINUTE', 120),
+            'user' => (int) env('NOVFORA_API_USER_PER_MINUTE', 60),
+        ],
+    ],
+
     'reactions' => [
         'types' => [
             'like' => ['label' => 'Like', 'emoji' => '👍', 'score' => 1],

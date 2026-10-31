@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\AntiSpam\PostRateLimiter;
 use App\Forum\PostService;
 use App\Forum\ReplyGate;
 use App\Forum\TopicVisibility;
@@ -90,7 +91,7 @@ final class V1Controller extends Controller
         ]);
     }
 
-    public function createPost(Request $request, Topic $topic, PostService $posts, ReplyGate $gate): JsonResponse
+    public function createPost(Request $request, Topic $topic, PostService $posts, ReplyGate $gate, PostRateLimiter $limiter): JsonResponse
     {
         $user = $this->user($request);
         // NF-01: the same ReplyGate as the web composer and the scheduler — thread-scope forum.view +
@@ -99,6 +100,16 @@ final class V1Controller extends Controller
         $gate->authorize($user, $topic);
 
         $data = $request->validate(['body' => ['required', 'string', 'max:50000']]);
+
+        // NF-06: the same trust-based posting budget as the web composers (one bucket per member), so the API
+        // is never a second allowance. Checked after validation, like the composer, so a malformed request
+        // doesn't spend it.
+        if (! $limiter->attempt($user)) {
+            abort(429, 'You are posting too quickly — please wait a moment and try again.', [
+                'Retry-After' => (string) max(1, $limiter->availableIn($user)),
+            ]);
+        }
+
         $post = $posts->reply($user, $topic, 'markdown', ['source' => $data['body']]);
 
         return response()->json(['data' => $this->postData($post)], 201);

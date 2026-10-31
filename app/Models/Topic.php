@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class Topic extends Model
 {
@@ -204,7 +205,10 @@ class Topic extends Model
 
     public function adjustForumTopicCount(int $delta): void
     {
-        $forum = Forum::withTrashed()->find($this->forum_id);
-        $forum?->forceFill(['topic_count' => max(0, (int) $forum->topic_count + $delta)])->saveQuietly();
+        // NF-08: one atomic, zero-floored UPDATE — never a read-modify-write that concurrent topics could lose.
+        $delta = (int) $delta;
+        DB::table('forums')->where('id', (int) $this->forum_id)->update([
+            'topic_count' => DB::raw('CASE WHEN topic_count + ('.$delta.') < 0 THEN 0 ELSE topic_count + ('.$delta.') END'),
+        ]);
     }
 }

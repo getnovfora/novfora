@@ -10,6 +10,7 @@ use App\AntiSpam\ContentRejectedException;
 use App\Models\ScheduledPost;
 use App\Models\Topic;
 use App\Models\User;
+use App\Settings\BoardState;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +31,7 @@ final class PostScheduler
     public function __construct(
         private readonly PostService $posts,
         private readonly ReplyGate $gate,
+        private readonly BoardState $board,
     ) {}
 
     /** Queue a reply to publish later. @throws \InvalidArgumentException if the time is not in the future. */
@@ -101,6 +103,13 @@ final class PostScheduler
 
             $topic = Topic::find($scheduled->topic_id);
             $user = User::find($scheduled->user_id);
+
+            // NF-07: while the board is offline a member can't post live, so their scheduled reply doesn't post
+            // either. It is DEFERRED, not skipped: the row stays due and publishes on the first tick after the
+            // board is back. (An admin's still publishes — the same recovery exception as the live paths.)
+            if ($user instanceof User && ! $this->board->allows($user)) {
+                return false;
+            }
 
             // No longer publishable → mark done with a null post (skip, never retry). NF-01: the SAME ReplyGate
             // as the live composer/API, evaluated at publish time — so a thread-level restriction, a lock, a
