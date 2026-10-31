@@ -105,10 +105,15 @@ for ($d = 0; $d < $deleters; $d++) {
         for ($r = 0; $r < $replies; $r++) {
             try {
                 DB::transaction(function () use ($topicIds, $d, $r, $topicCount): void {
-                    // Lock the candidate first (post → then topic via the observer: the deleter lock order), so two
-                    // deleters never soft-delete the SAME post — a separate double-decrement race (NOV-169).
-                    $post = Post::where('topic_id', $topicIds[($d + $r) % $topicCount])->where('position', '>', 1)
-                        ->orderByDesc('position')->lockForUpdate()->first();
+                    // Like the real deleters (SpamCleaner, moderation): find the post with a plain read, then lock it
+                    // by PRIMARY KEY — a point lock, no gap — and delete; the observer then takes the topic (post →
+                    // topic, the deleter lock order). A locking RANGE read here would hold next-key gap locks on
+                    // (topic_id, position) that block every reply's INSERT on MySQL — a harness-only deadlock no
+                    // production path has. Skipping an already-trashed post keeps two deleters from double-deleting
+                    // the same one (a separate double-decrement race, NOV-169).
+                    $id = Post::where('topic_id', $topicIds[($d + $r) % $topicCount])->where('position', '>', 1)
+                        ->orderByDesc('position')->value('id');
+                    $post = $id === null ? null : Post::whereKey($id)->lockForUpdate()->first();
                     $post?->delete();
                 });
             } catch (Throwable $e) {
