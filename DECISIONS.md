@@ -4327,3 +4327,90 @@ was skipped (fixed in `34a6606`).
 - Validation: the real-browser harness `scripts/pwa-sw-harness.cjs` was run at the domain root and under
   `/community/`. Recommended before tagging: a cross-family (Codex) review of the slice and a staging run of the
   harness.
+
+### ADR-0124 — v1.4 reliability hardening: one posting budget, one board-offline gate, an atomic reply write path (NF-06..08, NOV-149..151) (2026-10-31)
+
+**Context.** The three High findings left from the 2026-09-06 review had the same shape as NF-01..05. A rule
+the web page enforced was missing, or enforced more weakly, somewhere else:
+- **NF-06:** API replies skipped the trust-based posting limiter. The API's general throttle ran before token
+  auth, so it keyed on IP.
+- **NF-07:** "board offline" blocked page loads only. Livewire updates are allowlisted, the API never ran the
+  gate, and the scheduler ignored it.
+- **NF-08:** a reply's writes were not transactional. Positions came from a racy `MAX()+1`, and the
+  topic/forum counters were read-modify-write.
+
+**Decision.**
+1. **Rate limits (NF-06).**
+   - One `PostRateLimiter` budget per member, spent by the web composers and `POST /api/v1/topics/{id}/posts`
+     alike (429 + `Retry-After`, checked after validation).
+   - API request rate has two layers. `throttle:api` is an explicit per-IP ceiling ahead of token auth.
+     `ThrottleApiMember` is a per-member ceiling after it, keyed by the token's owner.
+   - `ThrottleApiMember` is deliberately not Laravel's `ThrottleRequests`. That class is on the framework's
+     middleware priority list, and the sort would hoist it ahead of `AuthenticateApiToken`, where every member
+     would share one bucket. The test resets the auth guard between requests, as production's fresh app per
+     request does, so it catches this.
+2. **Board offline (NF-07).**
+   - `App\Settings\BoardState` is the single "offline, and who may still act" predicate. Admins are the
+     recovery exception everywhere.
+   - `EnsureBoardOnline` is registered as Livewire *persistent* middleware. Livewire re-runs it for every
+     component update against the component's originating route, taken from the checksummed snapshot memo.
+     It throws its 503, because Livewire ignores a non-redirect response from persistent middleware.
+   - It also runs in both API groups after token auth (a JSON 503).
+   - `PostScheduler` defers, not skips, a member's due reply while offline.
+3. **Reply write path (NF-08).**
+   - `reply()` runs in one transaction. Notifications, `PostCreated`/`TopicCreated` and Scout indexing
+     (`scout.after_commit = true`) run after the outermost commit only.
+   - The position comes from a per-topic counter, `topics.last_position` (new reversible migration, backfilled
+     from the highest position ever used, trashed posts included). The reply increments it under the topic row
+     lock it already holds and reads its own write back.
+     - It never locks a post row. The first version took a locking read of the highest post, which deadlocked
+       against moderation deletes, which lock a post and then the topic (Codex review on PR #54).
+     - A plain, lock-free read of the posts heals the counter when rows were written outside the allocator
+       (imports, legacy rows).
+     - Merge advances the target's counter; split starts the new topic's counter past its moved posts.
+   - Creating a post updates aggregates with atomic `UPDATE`s. Pointers advance only for a newer
+     `(created_at, id)`, so out-of-order commits can't move them backwards. MySQL's left-to-right `SET` order
+     is relied on, and noted in the code.
+   - Delete/restore re-derivation takes the topic lock, then the forum lock, before reading.
+   - The forum last-post recomputes break same-second ties by `last_post_id`.
+
+**Consequences.**
+- API clients may see 429 from the shared posting budget, and a JSON 503 while the board is offline.
+- Two operator settings are new: `NOVFORA_API_IP_PER_MINUTE` (default 120) and `NOVFORA_API_USER_PER_MINUTE`
+  (default 60).
+- Scout now indexes after commit on every tier.
+- CI's MySQL job runs `scripts/stress/concurrent-replies.php`. It forks real writers on their own connections,
+  optionally with deleters racing them, and fails on a deadlock, a duplicate or gapped position, or any
+  aggregate that differs from the recompute.
+  - With deleters, the head before the counter fix deadlocked 116–224 times per run (PostgreSQL 16, 16 writers
+    and 4 deleters). With the fix there were none.
+  - During development it also caught a same-second forum last-post tie flip in the in-progress code, which is
+    why the recomputes now tie-break by `last_post_id`.
+  - All modes pass.
+
+**Apex review (verify-then-refute).**
+- **Refuted:**
+  - NF-06: middleware ordering, key collisions, and bypasses via new tokens, other IPs or the admin API.
+  - NF-07: a member write while offline through multi-component, allowlisted-page or upload requests, and
+    an admin lockout.
+  - NF-08: the `SET` order, portability of the `CASE`/`COALESCE` SQL, timestamp bindings, and nesting of
+    `afterCommit`.
+- **Confirmed and fixed, each with a test that fails on the prior code:**
+  - MEDIUM: Scout indexing queued inside the new reply transaction could be dropped by a fast worker before
+    commit.
+  - LOW: a merge offset that ignored trashed posts.
+  - LOW: a delete/restore re-derivation that could overwrite a concurrent reply's atomic +1.
+- **Codex review (PR #54), P2 confirmed and fixed:** a deadlock between a reply's post-row lock and moderation
+  deletes. The fix is the position counter above, reproduced and verified with the stress harness.
+- **Filed:**
+  - NOV-168 (LOW): concurrent topic creation, and the account-deletion cascade's full-scan topic update. The
+    reply side of the deletion deadlock is gone with the counter.
+  - NOV-169 (LOW, pre-existing): two concurrent soft-deletes of the same post both fire the delete observers,
+    decrementing the counts twice.
+- **Accepted (LOW):** while offline, 200 or more deferred member replies can fill a scheduler batch ahead of
+  an admin's.
+- 0 HIGH/MEDIUM open.
+- Also filed from this cycle:
+  - NOV-166: the idempotency middleware aborts a PostgreSQL transaction (pre-existing).
+  - NOV-167: the API returns 500 on a content-rule rejection, and a reply racing a merge can land in the moved
+    shell topic (pre-existing).

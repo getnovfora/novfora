@@ -65,11 +65,19 @@ final class MergeTopicsService
             // The source's positions (1..n) collide with the target's, so OFFSET them past the target's
             // current max: the source posts APPEND after the target's (the target keeps its opening post as
             // the anchor), relative order preserved, no position clash. $offset is an int — safe to inline.
-            $offset = (int) Post::where('topic_id', $tgt->getKey())->max('position');
+            // withTrashed (NF-08): past the target's TRASHED posts too, so restoring one can never collide; and
+            // never below the target's position counter. Then advance that counter past the merged-in posts, or a
+            // reply allocating from it (whose read snapshot may predate this merge) would collide with them.
+            $offset = max(
+                (int) Post::withTrashed()->where('topic_id', $tgt->getKey())->max('position'),
+                (int) $tgt->last_position,
+            );
+            $sourceTop = (int) Post::withTrashed()->where('topic_id', $src->getKey())->max('position');
             DB::table('posts')->where('topic_id', $src->getKey())->update([
                 'topic_id' => $tgt->getKey(),
                 'position' => DB::raw('position + '.$offset),
             ]);
+            DB::table('topics')->where('id', $tgt->getKey())->update(['last_position' => $offset + $sourceTop]);
 
             // (c) Stamp the permanent redirect, then (d) soft-delete the now-empty source shell. The deleted
             // observer's topic_count -1 on the source forum is overwritten by the authoritative recompute below.

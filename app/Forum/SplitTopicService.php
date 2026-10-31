@@ -85,6 +85,10 @@ final class SplitTopicService
 
             // (c) Re-parent the selected posts in ONE statement (no per-row syncAggregates).
             DB::table('posts')->whereIn('id', $postIds)->update(['topic_id' => $newTopic->getKey()]);
+            // The moved posts keep their positions: start the new topic's position counter past them (NF-08).
+            DB::table('topics')->where('id', $newTopic->getKey())->update([
+                'last_position' => (int) DB::table('posts')->whereIn('id', $postIds)->max('position'),
+            ]);
 
             // (d) Authoritative recompute on BOTH topics + the (shared) forum. The new topic's created-observer
             // topic_count +1 is overwritten by the authoritative forum recompute.

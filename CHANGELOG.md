@@ -28,8 +28,23 @@ contracts** — a breaking change to either is a major-version event.
 - **Dependencies:** patch-level bumps clear every `composer audit` advisory, including laravel/framework
   13.39, livewire 4.4.8, league/commonmark 2.10.4, guzzle 7.16, symfony 7.4.22, flysystem 3.36 and phpseclib
   3.0.57.
+- **API rate limits (NF-06):** API replies now spend the same trust-based posting budget as the web composer,
+  so switching surfaces no longer grants a second allowance. API request rate has two layers: a coarse per-IP
+  ceiling ahead of token auth (`NOVFORA_API_IP_PER_MINUTE`, default 120) and a per-member ceiling after it,
+  keyed by the token's owner across IPs and tokens (`NOVFORA_API_USER_PER_MINUTE`, default 60).
+- **Board offline (NF-07):** taking the board offline now stops every member write, not just page loads:
+  - a Livewire editor opened before the switch;
+  - the REST API, which returns a JSON 503;
+  - scheduled replies, which are deferred until the board is back.
+
+  Admins keep working everywhere, as before.
 
 ### Fixed
+- **Concurrent replies (NF-08):** a reply and everything tied to it (position, counters, attachment binding,
+  spam record, audit) now commit together. Notifications go out only after the commit. Positions are
+  allocated under a per-topic lock, so simultaneous replies can't share one, and a restored post can't
+  collide with one handed out while it was deleted. Topic and forum counters and "last post" pointers update
+  atomically, so concurrent replies can't lose a count.
 - **Installer cron line (NOV-165):** the web installer and `novfora:install` now print a single absolute
   command, `<php> <path>/artisan schedule:run >> /dev/null 2>&1`, with no `cd … &&` prefix. Hostinger's cron
   panel silently never runs the old compound form, so the queue never drained on installs that copied it.

@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\RateLimiter;
  * Per-trust post-rate limiting (ADR-0007 §2.4). Backed by Laravel's RateLimiter over the cache store, so it
  * is DB-backed on the baseline tier and Redis on enhanced with no code change (tier-graceful, ADR-0011).
  * New (TL0) accounts get the tightest cap; trusted accounts get more.
+ *
+ * ONE budget per member across every posting surface — the web composers AND the REST API (NF-06) — keyed by
+ * user id, so switching surfaces never grants a second allowance.
  */
 final class PostRateLimiter
 {
@@ -26,6 +29,12 @@ final class PostRateLimiter
 
         // attempt() runs the callback (→ true) when under the cap, else returns false. 60s window.
         return RateLimiter::attempt('post-rate:'.$user->getKey(), $limit, fn () => true, 60) !== false;
+    }
+
+    /** Seconds until the user's posting budget frees up (for a Retry-After header). */
+    public function availableIn(User $user): int
+    {
+        return RateLimiter::availableIn('post-rate:'.$user->getKey());
     }
 
     private function limitFor(User $user): int
