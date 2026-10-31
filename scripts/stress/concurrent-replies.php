@@ -16,7 +16,7 @@ declare(strict_types=1);
 |   • every author's users.post_count equals their real post count.
 |
 | Usage (against a disposable, migrated + seeded database — it writes test data):
-|   php artisan migrate:fresh --seed --force && php scripts/stress/concurrent-replies.php [workers] [replies] [topics: 1|2]
+|   php artisan migrate:fresh --seed --force && php scripts/stress/concurrent-replies.php [workers] [replies] [topics: 1|2] [deleters]
 | Exit code 0 = PASS, 1 = FAIL (details printed). Requires the pcntl extension. Never point it at production.
 */
 
@@ -48,6 +48,10 @@ if ($driver === 'sqlite') {
 $workers = max(2, (int) ($argv[1] ?? 8));
 $replies = max(1, (int) ($argv[2] ?? 25));
 $topicCount = min(2, max(1, (int) ($argv[3] ?? 2))); // 1 = every worker on ONE topic (the sharpest position race)
+// Deleters race the repliers: each repeatedly soft-deletes the newest reply in a transaction — a POST lock, then
+// (via the deleted observer) the TOPIC lock: the SpamCleaner/moderation order. Repliers take the topic first, so a
+// reply path that also locked a post row would deadlock here (PR #54 review).
+$deleters = max(0, (int) ($argv[4] ?? 0));
 
 // ── Fixture: one forum, two topics, one member per worker ─────────────────────────────────────────────
 $groups = Group::whereIn('slug', ['members', 'tl1'])->pluck('id', 'slug');
@@ -68,7 +72,7 @@ for ($i = 0; $i < $workers; $i++) {
     $userIds[] = $mkUser()->getKey();
 }
 $topicIds = array_map(fn (Topic $t) => (int) $t->getKey(), $topics);
-printf("driver=%s workers=%d replies/worker=%d topics=%s\n", $driver, $workers, $replies, implode(',', $topicIds));
+printf("driver=%s workers=%d replies/worker=%d topics=%s deleters=%d\n", $driver, $workers, $replies, implode(',', $topicIds), $deleters);
 
 // ── Race: fork the workers; each opens its OWN connection and replies as fast as it can ───────────────
 DB::disconnect(); // never share the parent's socket with a child
@@ -93,6 +97,30 @@ foreach ($userIds as $n => $userId) {
     }
     $pids[] = $pid;
 }
+for ($d = 0; $d < $deleters; $d++) {
+    $pid = pcntl_fork();
+    if ($pid === 0) {
+        DB::purge();
+        $failures = 0;
+        for ($r = 0; $r < $replies; $r++) {
+            try {
+                DB::transaction(function () use ($topicIds, $d, $r, $topicCount): void {
+                    // Lock the candidate first (post → then topic via the observer: the deleter lock order), so two
+                    // deleters never soft-delete the SAME post — a separate double-decrement race (NOV-169).
+                    $post = Post::where('topic_id', $topicIds[($d + $r) % $topicCount])->where('position', '>', 1)
+                        ->orderByDesc('position')->lockForUpdate()->first();
+                    $post?->delete();
+                });
+            } catch (Throwable $e) {
+                $failures++;
+                fwrite(STDERR, "deleter {$d}: ".get_class($e).': '.$e->getMessage()."\n");
+            }
+            usleep(2000);
+        }
+        exit($failures === 0 ? 0 : 2);
+    }
+    $pids[] = $pid;
+}
 $workerFailures = 0;
 foreach ($pids as $pid) {
     pcntl_waitpid($pid, $status);
@@ -109,7 +137,7 @@ if ($workerFailures > 0) {
     $problems[] = "{$workerFailures} worker(s) hit errors writing replies (see stderr)";
 }
 $expectedReplies = $workers * $replies;
-$actualReplies = Post::whereIn('topic_id', $topicIds)->whereIn('user_id', $userIds)->count();
+$actualReplies = Post::withTrashed()->whereIn('topic_id', $topicIds)->whereIn('user_id', $userIds)->count();
 if ($actualReplies !== $expectedReplies) {
     $problems[] = "expected {$expectedReplies} replies, found {$actualReplies}";
 }

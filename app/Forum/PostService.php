@@ -200,16 +200,7 @@ final class PostService
             throw new ContentRejectedException($verdict->reasons);
         }
 
-        // NF-08: allocate the next position under a per-topic lock, so concurrent replies can never share one.
-        // Lock the topic row (serialises every writer on this topic), then read the current max with a LOCKING
-        // read — which always sees the latest committed row, unlike a plain read inside a transaction whose
-        // snapshot may predate a concurrent commit (MySQL REPEATABLE READ). ORDER BY … LIMIT 1 rather than
-        // MAX(): PostgreSQL refuses FOR UPDATE on an aggregate. Trashed posts count too, so a restore can never
-        // collide with a position handed out while it was deleted. Callers hold a transaction (reply(),
-        // createTopic()), so the lock lasts until commit.
-        Topic::withTrashed()->whereKey($topic->getKey())->lockForUpdate()->value('id');
-        $position = (int) Post::withTrashed()->where('topic_id', $topic->getKey())
-            ->orderByDesc('position')->lockForUpdate()->value('position') + 1;
+        $position = $this->allocatePosition((int) $topic->getKey());
 
         $post = Post::create([
             'topic_id' => $topic->id,
@@ -243,6 +234,28 @@ final class PostService
         }
 
         return $post;
+    }
+
+    /**
+     * The next thread position for a topic (NF-08). Concurrent replies can never share one, and only the TOPIC row
+     * is locked — never a post row — so this can't deadlock against a transaction that locks a post and then the
+     * topic (SpamCleaner, moderation deletes, account deletion). The atomic increment takes the topic row lock
+     * (held to commit by the caller's transaction: reply(), createTopic()); the locking read-back sees our own
+     * write. A plain read of the posts (no locks) then heals the counter if anything wrote positions outside this
+     * allocator (imports, legacy rows). Trashed posts count, so a restore can never collide.
+     */
+    private function allocatePosition(int $topicId): int
+    {
+        DB::table('topics')->where('id', $topicId)->update(['last_position' => DB::raw('last_position + 1')]);
+        $position = (int) DB::table('topics')->where('id', $topicId)->lockForUpdate()->value('last_position');
+
+        $highest = (int) Post::withTrashed()->where('topic_id', $topicId)->max('position');
+        if ($highest >= $position) {
+            $position = $highest + 1;
+            DB::table('topics')->where('id', $topicId)->update(['last_position' => $position]);
+        }
+
+        return $position;
     }
 
     /**

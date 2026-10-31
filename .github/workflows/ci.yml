@@ -89,7 +89,8 @@ jobs:
 
       - name: Concurrent-reply stress on MySQL (NF-08 — real multi-process races Pest can't run)
         # Forks workers that reply simultaneously (each on its own connection) to one topic, then to two topics
-        # in one forum; fails on a duplicate/gapped position or any aggregate that disagrees with the recompute.
+        # in one forum, then with deleters racing them (post lock → topic lock, the moderation order); fails on a
+        # deadlock, a duplicate/gapped position, or any aggregate that disagrees with the recompute.
         env:
           DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1
@@ -107,6 +108,8 @@ jobs:
           php scripts/stress/concurrent-replies.php 16 40 1
           php artisan migrate:fresh --seed --force
           php scripts/stress/concurrent-replies.php 16 40 2
+          php artisan migrate:fresh --seed --force
+          php scripts/stress/concurrent-replies.php 16 40 1 4
           php artisan migrate:fresh --force
 
       - name: Backup → restore round-trip on MySQL (exit criterion 6, on the baseline engine)

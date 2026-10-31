@@ -4360,9 +4360,14 @@ the web page enforced was missing, or enforced more weakly, somewhere else:
 3. **Reply write path (NF-08).**
    - `reply()` runs in one transaction. Notifications, `PostCreated`/`TopicCreated` and Scout indexing
      (`scout.after_commit = true`) run after the outermost commit only.
-   - The position is allocated under a per-topic lock: the topic row `FOR UPDATE`, then a locking read of the
-     max position (trashed posts included). A locking read sees the latest committed row, unlike a REPEATABLE
-     READ snapshot.
+   - The position comes from a per-topic counter, `topics.last_position` (new reversible migration, backfilled
+     from the highest position ever used, trashed posts included). The reply increments it under the topic row
+     lock it already holds and reads its own write back.
+     - It never locks a post row. The first version took a locking read of the highest post, which deadlocked
+       against moderation deletes, which lock a post and then the topic (Codex review on PR #54).
+     - A plain, lock-free read of the posts heals the counter when rows were written outside the allocator
+       (imports, legacy rows).
+     - Merge advances the target's counter; split starts the new topic's counter past its moved posts.
    - Creating a post updates aggregates with atomic `UPDATE`s. Pointers advance only for a newer
      `(created_at, id)`, so out-of-order commits can't move them backwards. MySQL's left-to-right `SET` order
      is relied on, and noted in the code.
@@ -4374,10 +4379,14 @@ the web page enforced was missing, or enforced more weakly, somewhere else:
 - Two operator settings are new: `NOVFORA_API_IP_PER_MINUTE` (default 120) and `NOVFORA_API_USER_PER_MINUTE`
   (default 60).
 - Scout now indexes after commit on every tier.
-- CI's MySQL job runs `scripts/stress/concurrent-replies.php`. It forks real writers on their own connections
-  and checks that positions are unique and contiguous and that every aggregate equals the recompute.
-  - It caught a pre-existing forum last-post tie flip on the old code (PostgreSQL, 24 workers × 60 replies).
-  - It passes on the new code in single- and two-topic modes.
+- CI's MySQL job runs `scripts/stress/concurrent-replies.php`. It forks real writers on their own connections,
+  optionally with deleters racing them, and fails on a deadlock, a duplicate or gapped position, or any
+  aggregate that differs from the recompute.
+  - With deleters, the head before the counter fix deadlocked 116–224 times per run (PostgreSQL 16, 16 writers
+    and 4 deleters). With the fix there were none.
+  - During development it also caught a same-second forum last-post tie flip in the in-progress code, which is
+    why the recomputes now tie-break by `last_post_id`.
+  - All modes pass.
 
 **Apex review (verify-then-refute).**
 - **Refuted:**
@@ -4391,7 +4400,13 @@ the web page enforced was missing, or enforced more weakly, somewhere else:
     commit.
   - LOW: a merge offset that ignored trashed posts.
   - LOW: a delete/restore re-derivation that could overwrite a concurrent reply's atomic +1.
-- **Filed:** lock-order deadlocks against account deletion and concurrent topic creation (NOV-168, LOW).
+- **Codex review (PR #54), P2 confirmed and fixed:** a deadlock between a reply's post-row lock and moderation
+  deletes. The fix is the position counter above, reproduced and verified with the stress harness.
+- **Filed:**
+  - NOV-168 (LOW): concurrent topic creation, and the account-deletion cascade's full-scan topic update. The
+    reply side of the deletion deadlock is gone with the counter.
+  - NOV-169 (LOW, pre-existing): two concurrent soft-deletes of the same post both fire the delete observers,
+    decrementing the counts twice.
 - **Accepted (LOW):** while offline, 200 or more deferred member replies can fill a scheduler batch ahead of
   an admin's.
 - 0 HIGH/MEDIUM open.

@@ -205,3 +205,46 @@ it('offsets a merge past the target\'s trashed posts, so restoring one never col
     expect(Post::where('topic_id', $target->id)->pluck('position')->duplicates())->toBeEmpty();
     nf08Parity($target);
 });
+
+it('allocates positions from the topic counter, healing it when rows were written outside the allocator', function () {
+    [, $topic] = nf08Topic();
+    $member = Users::inGroups(['members', 'tl1']);
+
+    $reply = nf08Reply($member, $topic, 'counted');
+    expect((int) DB::table('topics')->where('id', $topic->id)->value('last_position'))->toBe($reply->position);
+
+    // An import (or a pre-counter legacy row) writes a position directly, leaving the counter behind…
+    DB::table('posts')->where('id', $reply->id)->update(['position' => 40]);
+    // …and the next reply still lands past it, and the counter catches up.
+    $next = nf08Reply($member, $topic, 'after the import');
+    expect($next->position)->toBe(41)
+        ->and((int) DB::table('topics')->where('id', $topic->id)->value('last_position'))->toBe(41);
+});
+
+it('never takes a lock on an existing post row while allocating a reply position', function () {
+    [, $topic] = nf08Topic();
+    $member = Users::inGroups(['members', 'tl1']);
+    nf08Reply($member, $topic, 'earlier reply');
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    nf08Reply($member, $topic, 'probe reply');
+    $postLocks = collect(DB::getQueryLog())->pluck('query')
+        ->filter(fn (string $sql) => preg_match('/from ["`]?posts["`]?.*for update/is', $sql) === 1);
+
+    // A locking read of a post row would invert the lock order against post-then-topic deleters (deadlock).
+    expect($postLocks)->toBeEmpty();
+});
+
+it('advances the target topic counter on merge and starts a split-off topic past its moved posts', function () {
+    [$forum, $target] = nf08Topic();
+    $member = Users::inGroups(['members', 'tl1']);
+    $mod = Users::inGroups(['members', 'moderators']);
+    $source = app(PostService::class)->createTopic($member, $forum, 'Source', 'markdown', ['source' => 'src op']);
+    nf08Reply($member, $source, 'src reply');
+
+    app(MergeTopicsService::class)->merge($source->fresh(), $target->fresh(), $mod);
+    $after = nf08Reply($member, $target, 'after merge');
+    expect(Post::where('topic_id', $target->id)->pluck('position')->duplicates())->toBeEmpty()
+        ->and($after->position)->toBe((int) Post::where('topic_id', $target->id)->max('position'));
+});
