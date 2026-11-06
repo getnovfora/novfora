@@ -2,7 +2,7 @@
 
 # Self-upgrade adversarial review — 2026-11-06
 
-**Status:** local verify-then-refute review complete; no confirmed HIGH or MEDIUM findings remain open in this slice. Root reviewed the load-bearing lock, snapshot, and recovery changes after independent review. Full Pest passed 2,581 tests with one skipped (17,303 assertions); subsequent fixes passed 36 affected tests, then the final snapshot-lease delta passed 27 tests (158 assertions). Final full Pint/Larastan, dependency audit, and asset build passed. Validation used isolated PHP 8.5/SQLite installations and loopback HTTP; PHP 8.3/MySQL/browser CI and live Hostinger acceptance remain outstanding.
+**Status:** local verify-then-refute review complete; no confirmed HIGH or MEDIUM findings remain open in this slice. Root reviewed the load-bearing lock, snapshot, and recovery changes after independent review. PHP 8.3.6 full Pest passed 2,585 tests with one skipped (17,331 assertions); Pint, Larastan, platform checks, dependency audit, and asset build passed. The later transport delta passed 23 tests (146 assertions), and version fixtures passed 18 tests (101 assertions). Isolated SQLite packaged upgrades, MariaDB backup/restore, and the actual browser Upgrade/cron/health flow passed. A separate `/community` entry check passed its cookie and status redirect. Remote CI and live Hostinger acceptance remain outstanding.
 
 ## Confirmed findings and fixes
 
@@ -17,6 +17,7 @@
 | Independent restore/schema work could overlap a release | A CLI restore or already-dispatched schema operation could start after the release request's state check. | Restore and independent schema runners now hold the same release OS lock across execution and refuse an active release. Only the frozen migration child, whose parent holds that lock, bypasses reacquisition. Tests exercise refusal without data changes and assert the lock remains held during restore validation. |
 | Web OPcache can retain replaced code | CLI cache invalidation does not prove that the web PHP process has dropped old bytecode. Disabling timestamp validation can retain it indefinitely. | Request preflight refuses enabled web OPcache without timestamp validation. Both installation and code recovery retain maintenance through the recorded revalidation interval; tests exercise deferred health/recovery and restart without perpetually resetting the deadline. |
 | Normal backup retention could delete a live recovery point | The migration runner takes another backup; a retention count of one can prune the coordinator's earlier archive before a resumed worker validates it. | The coordinator copies the verified data backup into its private run directory before replacement. The regression removes normal retained archives and verifies the private recovery copy is intact. |
+| URL streams disabled while cURL remains available | A real PHP 8.3 signed upgrade applied files and migrations but remained held because the frozen health probe used a disabled URL stream. | The standalone worker prefers cURL with verified TLS, no redirects, a total timeout and a 1 MiB response bound; the bounded stream fallback requires URL streams. Preflight refuses hosts with neither transport. Real loopback, canonical packaged upgrade and browser-triggered old-to-new checks passed with URL streams disabled. |
 
 ## Refuted candidate and remaining limits
 

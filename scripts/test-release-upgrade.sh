@@ -141,8 +141,10 @@ elif [ "$LAYOUT" = option_b ] || [ "$LAYOUT" = option_c ]; then
 fi
 ENV_HASH="$(sha256sum "$LIVE/.env" | cut -d ' ' -f 1)"
 
-echo '>> preparing a signed synthetic 1.4.0 candidate'
-php -r '$p=$argv[1]; $s=file_get_contents($p); $n=0; $s=preg_replace("/\x27version\x27\\s*=>\\s*env\\(\\s*\x27APP_VERSION\x27\\s*,\\s*\x271\\.3\\.0\x27\\s*\\)/", "\x27version\x27 => env(\x27APP_VERSION\x27, \x271.4.0\x27)", $s, 1, $n); if($n!==1)exit(1); file_put_contents($p,$s);' "$CANDIDATE/config/app.php"
+BASE_VERSION="$(php -r '$m=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); $v=$m["version"]??""; if(!preg_match("/^\\d+\\.\\d+\\.\\d+$/D",$v))exit(1); echo $v;' "$LIVE/release-manifest.json")"
+CANDIDATE_VERSION="$(php -r '$p=array_map("intval",explode(".",$argv[1])); $p[2]++; echo implode(".",$p);' "$BASE_VERSION")"
+echo ">> preparing a signed synthetic $CANDIDATE_VERSION candidate"
+php -r '$p=$argv[1]; $s=file_get_contents($p); $old="env(\x27APP_VERSION\x27, \x27".$argv[2]."\x27)"; $new="env(\x27APP_VERSION\x27, \x27".$argv[3]."\x27)"; $s=str_replace($old,$new,$s,$n); if($n!==1)exit(1); file_put_contents($p,$s);' "$CANDIDATE/config/app.php" "$BASE_VERSION" "$CANDIDATE_VERSION"
 printf 'new-release-icon' > "$CANDIDATE/public/favicon.ico"
 printf '\n' >> "$CANDIDATE/public/build/manifest.json"
 ASSET_HASH="$(sha256sum "$CANDIDATE/public/favicon.ico" | cut -d ' ' -f 1)"
@@ -172,10 +174,10 @@ require $argv[1].'/vendor/autoload.php';
 $app = require $argv[1].'/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 config(['releases.trusted_keys' => ['smoke-key' => trim(file_get_contents($argv[2]))]]);
-$base = 'https://github.com/getnovfora/novfora/releases/download/v1.4.0/';
+$base = 'https://github.com/getnovfora/novfora/releases/download/v'.$argv[5].'/';
 \Illuminate\Support\Facades\Http::fake([
     'api.github.com/repos/getnovfora/novfora/releases/latest' => \Illuminate\Support\Facades\Http::response([
-        'draft' => false, 'prerelease' => false, 'tag_name' => 'v1.4.0',
+        'draft' => false, 'prerelease' => false, 'tag_name' => 'v'.$argv[5],
         'published_at' => '2026-11-06T00:00:00Z',
         'assets' => [
             ['name' => 'novfora-release.zip', 'browser_download_url' => $base.'novfora-release.zip'],
@@ -215,7 +217,7 @@ if (($run['phase'] ?? '') !== 'applying') {
 PHP
 
 echo '>> preparing real coordinator with faked signed GitHub assets'
-php "$WORK/queue.php" "$LIVE" "$WORK/pub" "$WORK/novfora-release.zip" "$SERVED" > "$WORK/queue.log" 2>&1 || {
+php "$WORK/queue.php" "$LIVE" "$WORK/pub" "$WORK/novfora-release.zip" "$SERVED" "$CANDIDATE_VERSION" > "$WORK/queue.log" 2>&1 || {
   tail -n 35 "$WORK/queue.log" >&2
   exit 1
 }
@@ -255,12 +257,12 @@ $state = json_decode(file_get_contents($root.'/storage/framework/release-upgrade
 $checks['phase'] = ($state['phase'] ?? null) === 'complete';
 $context = stream_context_create(['http' => ['timeout' => 5, 'ignore_errors' => true]]);
 $health = json_decode((string) @file_get_contents($argv[4].'/health', false, $context), true);
-$checks['health'] = ($health['version'] ?? null) === '1.4.0' && ($health['installed'] ?? null) === true;
+$checks['health'] = ($health['version'] ?? null) === $argv[10] && ($health['installed'] ?? null) === true;
 $servedIcon = @file_get_contents($argv[4].'/favicon.ico', false, $context);
 $checks['http_asset'] = is_string($servedIcon) && hash('sha256', $servedIcon) === $argv[3];
 foreach ($checks as $name => $ok) echo strtoupper($name).'='.($ok ? 'PASS' : 'FAIL')."\n";
 if (in_array(false, $checks, true)) exit(1);
 PHP
-php "$WORK/check.php" "$LIVE" "$ENV_HASH" "$ASSET_HASH" "$APP_URL" "$SERVED" "$BUILD_HASH" "$LAYOUT" "${SERVED_INDEX_HASH:-}" "${SERVED_HTACCESS_HASH:-}"
+php "$WORK/check.php" "$LIVE" "$ENV_HASH" "$ASSET_HASH" "$APP_URL" "$SERVED" "$BUILD_HASH" "$LAYOUT" "${SERVED_INDEX_HASH:-}" "${SERVED_HTACCESS_HASH:-}" "$CANDIDATE_VERSION"
 echo "RELEASE_SMOKE_${LAYOUT}=PASS"
 passed=1

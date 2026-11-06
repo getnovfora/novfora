@@ -59,14 +59,15 @@ manifest. The installer checks all digests before accepting the package.
 
 Provision the core public key in `config/releases.php` through a trusted deployment. The matching secret
 key belongs in a private release-signing environment outside Git and outside the hosted application. The
-updater does not download trust keys from the same server that supplies releases. The shipped empty key
-list intentionally prevents installation until a trusted key is configured.
+updater does not download trust keys from the same server that supplies releases. The release pins
+`core-2026-11`; older installations receive that public key through the trusted initial bootstrap.
+A private build with an empty key list refuses automatic installation.
 
 Build and sign with the existing release builder:
 
 ```bash
 NOVFORA_RELEASE_SIGNING_KEY_FILE=/private/path/core-release.key \
-NOVFORA_RELEASE_KEY_ID=core-2026 \
+NOVFORA_RELEASE_KEY_ID=core-2026-11 \
   sh scripts/build-release.sh
 ```
 

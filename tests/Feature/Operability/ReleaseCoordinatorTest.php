@@ -23,7 +23,6 @@ beforeEach(function (): void {
     $this->seed();
     $this->releaseDir = sys_get_temp_dir().'/novfora-coordinator-'.bin2hex(random_bytes(8));
     app()->instance(ReleaseRunState::class, new ReleaseRunState($this->releaseDir));
-    config(['app.version' => '1.3.0']);
 });
 
 afterEach(function (): void {
@@ -44,6 +43,14 @@ function coordinatorOwner(): User
     return $owner->fresh();
 }
 
+function coordinatorNextVersion(): string
+{
+    $parts = array_map('intval', explode('.', (string) config('app.version')));
+    $parts[2]++;
+
+    return implode('.', $parts);
+}
+
 /** @return array{zip:string,sig:string,key:string} */
 function coordinatorSignedArtifact(array $extraFiles = []): array
 {
@@ -61,7 +68,7 @@ function coordinatorSignedArtifact(array $extraFiles = []): array
         $hashes[$name] = hash('sha256', $body);
     }
     $zip->addFromString('release-manifest.json', json_encode([
-        'format' => 1, 'version' => '1.4.0', 'php' => '>=8.3', 'files' => $hashes,
+        'format' => 1, 'version' => coordinatorNextVersion(), 'php' => '>=8.3', 'files' => $hashes,
     ], JSON_THROW_ON_ERROR));
     $zip->close();
     $pair = sodium_crypto_sign_keypair();
@@ -78,9 +85,10 @@ function coordinatorSignedArtifact(array $extraFiles = []): array
 
 function fakeCoordinatorRelease(?array $artifact = null): void
 {
-    $base = 'https://github.com/getnovfora/novfora/releases/download/v1.4.0/';
+    $version = coordinatorNextVersion();
+    $base = 'https://github.com/getnovfora/novfora/releases/download/v'.$version.'/';
     $responses = ['api.github.com/repos/getnovfora/novfora/releases/latest' => Http::response([
-        'draft' => false, 'prerelease' => false, 'tag_name' => 'v1.4.0',
+        'draft' => false, 'prerelease' => false, 'tag_name' => 'v'.$version,
         'published_at' => '2026-11-06T00:00:00Z',
         'assets' => [
             ['name' => 'novfora-release.zip', 'browser_download_url' => $base.'novfora-release.zip'],

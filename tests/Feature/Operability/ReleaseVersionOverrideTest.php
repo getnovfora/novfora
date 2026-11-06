@@ -18,14 +18,17 @@ beforeEach(function () {
     $this->seed();
     $this->releaseVersionDirectory = sys_get_temp_dir().'/novfora-release-version-'.bin2hex(random_bytes(8));
     app()->instance(ReleaseRunState::class, new ReleaseRunState($this->releaseVersionDirectory));
-    config(['app.version' => '1.3.0', 'releases.trusted_keys' => ['test' => base64_encode(str_repeat('x', 32))]]);
+    config(['releases.trusted_keys' => ['test' => base64_encode(str_repeat('x', 32))]]);
     $this->originalAppVersion = [getenv('APP_VERSION'), $_ENV['APP_VERSION'] ?? null, $_SERVER['APP_VERSION'] ?? null];
     putenv('APP_VERSION');
     unset($_ENV['APP_VERSION'], $_SERVER['APP_VERSION']);
-    $base = 'https://github.com/getnovfora/novfora/releases/download/v1.4.0/';
+    $parts = array_map('intval', explode('.', (string) config('app.version')));
+    $parts[2]++;
+    $version = implode('.', $parts);
+    $base = 'https://github.com/getnovfora/novfora/releases/download/v'.$version.'/';
     Http::preventStrayRequests();
     Http::fake(['api.github.com/repos/getnovfora/novfora/releases/latest' => Http::response([
-        'draft' => false, 'prerelease' => false, 'tag_name' => 'v1.4.0',
+        'draft' => false, 'prerelease' => false, 'tag_name' => 'v'.$version,
         'published_at' => '2026-11-06T00:00:00Z',
         'assets' => [
             ['name' => 'novfora-release.zip', 'browser_download_url' => $base.'novfora-release.zip'],
@@ -55,7 +58,7 @@ afterEach(function () {
 });
 
 it('rejects a pinned old APP_VERSION before creating release state', function () {
-    putenv('APP_VERSION=1.3.0');
+    putenv('APP_VERSION='.config('app.version'));
 
     expect(fn () => app(ReleaseCoordinator::class)->request($this->releaseVersionOwner))
         ->toThrow(RuntimeException::class, 'APP_VERSION is pinned');

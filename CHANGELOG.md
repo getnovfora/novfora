@@ -11,6 +11,27 @@ contracts** — a breaking change to either is a major-version event.
 
 ## [Unreleased]
 
+## [1.4.0] — release candidate
+
+### Added
+- **Themes and styles (U9–U12):** typed style properties and a dark layer, parent/child style inheritance,
+  a per-user style chooser, targeted template hooks with three-way merge, and style import/export with
+  a global custom-CSS box.
+- **Packages and imports:** Registry v1 browses a signed feed and installs signed packages; the MyBB and
+  SMF importers were completed alongside the existing phpBB and XenForo import paths.
+- **Moderation and administration:** registration approval, CIDR/range IP bans and IP investigation,
+  custom topic fields and move-with-redirect, staff assignment and health metrics, and a System →
+  Maintenance panel for caches, counters, redacted logs, and a mail test.
+- **Admin API (E1):** scoped token authentication provides the authorization spine for future admin
+  endpoints.
+- **Admin stable-release upgrades (NOV-141):** a co-owner with confirmed two-factor authentication can
+  request the latest signed stable release from Admin → System → Upgrade. Cron stages and verifies the
+  package, takes recovery snapshots, replaces managed files, applies migrations, and checks site health.
+  The existing schema-only migration action remains available separately. Initial installation of the
+  updater and its pinned public signing key requires a trusted deployment.
+- **In-place deployment recovery:** the cron-driven host upgrade script can build without immediately
+  applying, and its file lock, copy rollback, and health checks were hardened.
+
 ### Security
 - **Reply authorization (NF-01):** the reply composer, the REST API and scheduled publishing now share one
   thread-scope gate, `ReplyGate`. A thread-level restriction, a lock, or the pending-topic fence applied while
@@ -27,7 +48,7 @@ contracts** — a breaking change to either is a major-version event.
   only NovFora's own older caches. The cache version moves to `v3`, which retires all v2 caches.
 - **Dependencies:** patch-level bumps clear every `composer audit` advisory, including laravel/framework
   13.39, livewire 4.4.8, league/commonmark 2.10.4, guzzle 7.16, symfony 7.4.22, flysystem 3.36 and phpseclib
-  3.0.57.
+  3.0.57. Selected Symfony components received a further 7.4.23 patch.
 - **API rate limits (NF-06):** API replies now spend the same trust-based posting budget as the web composer,
   so switching surfaces no longer grants a second allowance. API request rate has two layers: a coarse per-IP
   ceiling ahead of token auth (`NOVFORA_API_IP_PER_MINUTE`, default 120) and a per-member ceiling after it,
@@ -50,6 +71,19 @@ contracts** — a breaking change to either is a major-version event.
   panel silently never runs the old compound form, so the queue never drained on installs that copied it.
   The CLI also printed the path stripped to `artisan`, because console components rewrite absolute paths. The
   getting-started and real-host guides are updated to match.
+
+## [1.3.0] — 2026-07-03
+
+### Added
+- **Forum and community:** a card-based board index, more visible search on small screens, multi-quote,
+  followed tags and the Watched view, targeted announcement banners, a moderated profile wall, inline
+  moderation for held replies, and a welcome email with a dismissible new-member checklist.
+- **Permission-aware interface:** shared action affordances and route-level friendly 403 pages bring
+  visible controls into line with the permission engine.
+
+### Fixed
+- Guarded removal of the last plain administrator and delegation fan-out; completed CI browser journeys
+  and cold-render checks, with fail-soft layout widgets.
 
 ## [1.2.0] — 2026-07
 

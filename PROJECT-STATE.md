@@ -17,7 +17,9 @@
 
 Owner requested an admin-panel Upgrade action that updates the existing Hostinger `/community` installation
 in place, and selected **latest published stable release**. Astra orchestrates with Sol implementation agents.
-Branch: `codex/admin-stable-upgrade`, based on `main` at `03e3e0f`. Linear **NOV-141 is In Progress**.
+Release branch: `codex/admin-stable-release`, based on `main` at `03e3e0f`, with dependency fix `ac8f65f`,
+updater implementation `36799e3`, and cURL health transport fix `64e6aea`. Linear **NOV-141 is In Progress**.
+The activation worktree is `/home/tommy/.codex/worktrees/novfora-release-activation/novfora`.
 
 Implementation plan: `docs/product/plan-admin-stable-upgrade-2026-11-06.md`; architecture: ADR-0125.
 Implemented locally: signed build manifests, bounded stable-release discovery/download/verification,
@@ -29,30 +31,47 @@ backup retention. Web OPcache and version overrides have explicit preflight/reva
 Real packaged-app smoke passed canonical, full-public-symlink, scaffold, and copied-public layouts, including
 `/community`, signed synthetic releases, migration, forum/settings data, uploads, custom module, `.env`,
 and served-asset preservation. These used isolated SQLite/loopback fixtures with ephemeral signing keys.
-Local verification: full Pest **2,581 passed, 1 skipped** (17,303 assertions); after the final rollback/cache
-and pinned-backup fixes, affected suites **36 passed** (187 assertions); the final snapshot-lease delta passed
-**27 tests** (158 assertions). Final full Pint/Larastan, asset build,
-and dependency audit passed. Logs: `/tmp/novfora-gate-mirror/{pest-full,pest-final-focused,pint-final,larastan-final}.log`.
+PHP 8.3.6 verification of `36799e3`: full Pest **2,585 passed, 1 skipped** (17,331 assertions), Composer
+platform checks, Pint, Larastan and dependency audit passed. Candidate version fixtures passed 18 affected
+tests (101 assertions); the transport delta passed 23 tests (146 assertions). Asset build passed.
+Logs: `/tmp/novfora-php83/{pest,pint,phpstan,audit}.log`.
+Disposable MariaDB backup/restore preserved 98 tables and 110 migration records. Ten baseline browser
+journeys passed. A real browser Upgrade click from the old source plus minimal bootstrap completed a signed
+1.4.0 installation through cron, with URL streams disabled, HTTP health 200, owner/upload preservation, and
+completion shown in the ACP. A separate `/community` browser entry check passed its cookie and status redirect;
+that separate check did not perform the file swap. No production data was used.
 Review: `docs/product/admin-upgrade-review-2026-11-06.md`.
 Preparation takes an exclusive activity lease before the data/code snapshots, not merely before replacement.
 During preparation, preboot runs the pending release command directly in the cron process to avoid a parent
 scheduler retaining its shared lease while waiting on the child. Operational guide: `docs/admin-release-upgrades.md`.
 
-Production acceptance remains outstanding: provision a core release signing key, publish signed assets,
-verify Hostinger's actual layout/PHP settings, deploy the initial updater, and exercise the real admin-triggered
-upgrade. `config/releases.php` deliberately has an empty trusted-key list. No production changes, pushes,
-tags, or release publication have been made. Dependency security fixes are committed locally as `ac8f65f`.
-The signed-in hPanel route is authorized, but the browser tool rejects this chat's WSL `sandboxCwd` before
-opening a window. Owner chose to reopen `C:\Users\TommyHuynh\Documents\ChatGPT\NovFora`; the latest retry
-still reported the WSL path. Retry after the chat is actually using the Windows workspace.
+The source version is now 1.4.0 and `config/releases.php` pins `core-2026-11`. Its matching private key is
+outside Git and the host, protected by 0700/0600 permissions. The release ZIP passed cold-boot/i18n checks;
+the 19-file updater bootstrap passed 80 tests against the exact old dependency lock, Pint, scoped Larastan,
+and read-only hash verification. See `docs/product/release-activation-2026-11-06.md` for artifact and acceptance
+details. A candidate is not a published release.
 
-Local runtime is portable (no system package changes):
-`PHP_INI_SCAN_DIR=:/tmp/novfora-php85/conf.d`,
-`LD_LIBRARY_PATH=/tmp/novfora-php85/root/usr/lib/x86_64-linux-gnu`, and Node in
-`/tmp/novfora-node/node-v24.15.0-linux-x64/bin`. Local PHP is 8.5; PHP 8.3 CI still required.
+Production acceptance remains outstanding: publish signed assets, verify Hostinger's actual layout/PHP
+settings, deploy the initial updater, and exercise the real admin-triggered upgrade. No production changes,
+pushes, tags, or release publication have been made. Live health on 2026-11-06 still reports healthy 1.3.0.
+The signed-in hPanel route is authorized, but browser control rejects both the original `/mnt/c/...` URI and
+this managed `/home/tommy/...` worktree URI before opening a window. The configured Hostinger OAuth connector
+has no tools loaded in this chat. The owner will reopen the native Windows project and restart Codex;
+inspect the resulting tool/session state before retrying. Second Brain currently requires reauthentication.
+
+Local runtimes are portable (no system package changes): PHP 8.3 via `PATH=/tmp/novfora-php83/bin:$PATH`;
+PHP 8.5 via `PHP_INI_SCAN_DIR=:/tmp/novfora-php85/conf.d` and
+`LD_LIBRARY_PATH=/tmp/novfora-php85/root/usr/lib/x86_64-linux-gnu`; Node is in
+`/tmp/novfora-node/node-v24.15.0-linux-x64/bin`. Local PHP 8.3 verification passed; remote CI has not run on
+the unpushed branch.
 Do not treat focused passing tests as proof of the production upgrade flow.
 
 ## Previous task: v1.4 release hardening (resumed 2026-10-29)
+
+**Historical section below:** NF-06 through NF-08 subsequently merged in PR #54 (`03e3e0f`, 2026-10-31),
+with ADR-0124's verify-then-refute review and Linear NOV-149/150/151 marked Done. Their earlier blocking
+status below describes the October 29 baseline, not the current candidate. NOV-167 remains a separate,
+pre-existing Medium backlog issue recorded in ADR-0124; the updater review does not claim to resolve it.
 
 **Where it stands:** the v1.4 feature work is **merged to `main`** but **not tagged**. On 2026-10-28 the owner merged
 all 12 v1.4 slices (4A–4D plus E1), the final-report docs and a docs sync. The merge train ran through
@@ -135,8 +154,8 @@ filed as **NOV-165** (High).
    - One LOW left as is: the script replaces `public/.htaccess` on upgrade (pre-existing behaviour).
 2. The live site runs `5079215`. #53 changes only the installer output and the ops script, so nothing needs
    redeploying: the production cron already uses the new line.
-3. NF-06 to NF-08 (High).
-4. The `v1.4.0` release run.
+3. ✅ NF-06 to NF-08 merged in PR #54 (`03e3e0f`); NOV-149/150/151 are Done.
+4. The `v1.4.0` release run is now in progress in the active task above.
 
 ---
 

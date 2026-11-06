@@ -20,7 +20,7 @@ beforeEach(function () {
     $this->seed();
     $this->releaseStateDirectory = sys_get_temp_dir().'/novfora-panel-release-'.bin2hex(random_bytes(8));
     app()->instance(ReleaseRunState::class, new ReleaseRunState($this->releaseStateDirectory));
-    config(['app.version' => '1.3.0', 'releases.trusted_keys' => ['test' => base64_encode(str_repeat('x', 32))]]);
+    config(['releases.trusted_keys' => ['test' => base64_encode(str_repeat('x', 32))]]);
 });
 
 afterEach(function () {
@@ -33,6 +33,14 @@ function releasePanelOwner(): User
     $owner->groups()->updateExistingPivot((int) Group::where('slug', 'admins')->value('id'), ['is_co_owner' => true]);
 
     return $owner->fresh();
+}
+
+function releasePanelNextVersion(): string
+{
+    $parts = array_map('intval', explode('.', (string) config('app.version')));
+    $parts[2]++;
+
+    return implode('.', $parts);
 }
 
 function fakeStableRelease(string $version): void
@@ -51,13 +59,13 @@ function fakeStableRelease(string $version): void
 
 it('does not fetch a release on page load and offers a newer stable version after an owner checks', function () {
     $this->actingAs(releasePanelOwner());
-    fakeStableRelease('1.4.0');
+    fakeStableRelease(releasePanelNextVersion());
 
     $panel = Livewire::test('admin.upgrade')->assertSee('Installed version:')->assertDontSee('Newer stable release:');
     Http::assertNothingSent();
 
     $panel->call('checkRelease')
-        ->assertSet('availableVersion', '1.4.0')
+        ->assertSet('availableVersion', releasePanelNextVersion())
         ->assertSee('Newer stable release:')
         ->assertSee('Upgrade');
     Http::assertSentCount(1);
@@ -65,7 +73,7 @@ it('does not fetch a release on page load and offers a newer stable version afte
 
 it('reports when no newer release with both assets is available', function () {
     $this->actingAs(releasePanelOwner());
-    fakeStableRelease('1.3.0');
+    fakeStableRelease((string) config('app.version'));
 
     Livewire::test('admin.upgrade')->call('checkRelease')
         ->assertSet('availableVersion', null)
@@ -76,14 +84,14 @@ it('queues an upgrade with a trusted server-side public directory', function () 
     $owner = releasePanelOwner();
     $this->actingAs($owner);
     config(['app.url' => 'https://forum.example/community']);
-    fakeStableRelease('1.4.0');
+    fakeStableRelease(releasePanelNextVersion());
 
     Livewire::test('admin.upgrade')->call('upgradeRelease')
         ->assertRedirect('https://forum.example/community/admin/system/upgrade');
 
     $run = app(ReleaseRunState::class)->read();
     expect($run['phase'])->toBe('requested')
-        ->and($run['version'])->toBe('1.4.0')
+        ->and($run['version'])->toBe(releasePanelNextVersion())
         ->and($run['actor_id'])->toBe((int) $owner->id)
         ->and($run['public_dir'])->toBe(realpath(public_path()));
 });
@@ -91,7 +99,7 @@ it('queues an upgrade with a trusted server-side public directory', function () 
 it('rejects a non-owner or revoked owner on Livewire actions', function () {
     $admin = Users::withTwoFactor(Users::inGroups(['admins']));
     $this->actingAs($admin);
-    fakeStableRelease('1.4.0');
+    fakeStableRelease(releasePanelNextVersion());
     Livewire::test('admin.upgrade')->call('checkRelease')->assertForbidden();
     Http::assertNothingSent();
 
@@ -110,7 +118,7 @@ it('rejects a non-owner or revoked owner on Livewire actions', function () {
 it('blocks the separate migration action during an active release and never displays private state errors', function () {
     $this->actingAs(releasePanelOwner());
     app(ReleaseRunState::class)->locked(fn () => app(ReleaseRunState::class)->write([
-        'phase' => 'applying', 'version' => '1.4.0', 'error' => '/private/release/secret-path',
+        'phase' => 'applying', 'version' => releasePanelNextVersion(), 'error' => '/private/release/secret-path',
     ]));
     $this->mock(UpgradeRunner::class)->shouldNotReceive('runManual');
 
@@ -118,7 +126,7 @@ it('blocks the separate migration action during an active release and never disp
         ->assertSee('Cron continues the upgrade')
         ->assertDontSee('/private/release/secret-path')
         ->call('releaseStatus')
-        ->assertReturned(['phase' => 'applying', 'version' => '1.4.0'])
+        ->assertReturned(['phase' => 'applying', 'version' => releasePanelNextVersion()])
         ->call('apply')
         ->assertSee('release upgrade is already in progress');
 });
