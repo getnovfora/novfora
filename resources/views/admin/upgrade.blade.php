@@ -12,6 +12,11 @@
 @section('content')
     <x-admin.shell title="Upgrade">
         <p class="text-sm text-ink-muted max-w-2xl">
+            Co-owners with two-factor authentication can check for a newer stable release and queue an upgrade.
+            Cron downloads and verifies the signed release, takes a backup, and applies it behind a brief
+            maintenance page. Keep cron running until the upgrade finishes.
+        </p>
+        <p class="text-sm text-ink-muted max-w-2xl">
             When you deploy a new release, {{ config('app.name', 'NovFora') }} migrates the database itself —
             no SSH, no manual SQL. With <strong class="font-semibold text-ink">automatic upgrades</strong> on
             (the default), the cron line applies pending migrations behind a brief maintenance page within a

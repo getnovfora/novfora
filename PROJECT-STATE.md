@@ -13,7 +13,46 @@
 
 ---
 
-## ▶ ACTIVE TASK: v1.4 release hardening (resumed 2026-10-29)
+## ▶ ACTIVE TASK: admin stable-release upgrade (2026-11-06)
+
+Owner requested an admin-panel Upgrade action that updates the existing Hostinger `/community` installation
+in place, and selected **latest published stable release**. Astra orchestrates with Sol implementation agents.
+Branch: `codex/admin-stable-upgrade`, based on `main` at `03e3e0f`. Linear **NOV-141 is In Progress**.
+
+Implementation plan: `docs/product/plan-admin-stable-upgrade-2026-11-06.md`; architecture: ADR-0125.
+Implemented locally: signed build manifests, bounded stable-release discovery/download/verification,
+file-backed run state, atomic file replacement and recovery, a frozen pre-bootstrap recovery worker,
+Hostinger public asset mirroring, and ACP/cron integration. Shared execution leases protect in-flight HTTP/CLI
+processes; restore/schema operations share the release lock. Recovery snapshots are pinned outside normal
+backup retention. Web OPcache and version overrides have explicit preflight/revalidation handling.
+
+Real packaged-app smoke passed canonical, full-public-symlink, scaffold, and copied-public layouts, including
+`/community`, signed synthetic releases, migration, forum/settings data, uploads, custom module, `.env`,
+and served-asset preservation. These used isolated SQLite/loopback fixtures with ephemeral signing keys.
+Local verification: full Pest **2,581 passed, 1 skipped** (17,303 assertions); after the final rollback/cache
+and pinned-backup fixes, affected suites **36 passed** (187 assertions); the final snapshot-lease delta passed
+**27 tests** (158 assertions). Final full Pint/Larastan, asset build,
+and dependency audit passed. Logs: `/tmp/novfora-gate-mirror/{pest-full,pest-final-focused,pint-final,larastan-final}.log`.
+Review: `docs/product/admin-upgrade-review-2026-11-06.md`.
+Preparation takes an exclusive activity lease before the data/code snapshots, not merely before replacement.
+During preparation, preboot runs the pending release command directly in the cron process to avoid a parent
+scheduler retaining its shared lease while waiting on the child. Operational guide: `docs/admin-release-upgrades.md`.
+
+Production acceptance remains outstanding: provision a core release signing key, publish signed assets,
+verify Hostinger's actual layout/PHP settings, deploy the initial updater, and exercise the real admin-triggered
+upgrade. `config/releases.php` deliberately has an empty trusted-key list. No production changes, pushes,
+tags, or release publication have been made. Dependency security fixes are committed locally as `ac8f65f`.
+The signed-in hPanel route is authorized, but the browser tool rejects this chat's WSL `sandboxCwd` before
+opening a window. Owner chose to reopen `C:\Users\TommyHuynh\Documents\ChatGPT\NovFora`; the latest retry
+still reported the WSL path. Retry after the chat is actually using the Windows workspace.
+
+Local runtime is portable (no system package changes):
+`PHP_INI_SCAN_DIR=:/tmp/novfora-php85/conf.d`,
+`LD_LIBRARY_PATH=/tmp/novfora-php85/root/usr/lib/x86_64-linux-gnu`, and Node in
+`/tmp/novfora-node/node-v24.15.0-linux-x64/bin`. Local PHP is 8.5; PHP 8.3 CI still required.
+Do not treat focused passing tests as proof of the production upgrade flow.
+
+## Previous task: v1.4 release hardening (resumed 2026-10-29)
 
 **Where it stands:** the v1.4 feature work is **merged to `main`** but **not tagged**. On 2026-10-28 the owner merged
 all 12 v1.4 slices (4A–4D plus E1), the final-report docs and a docs sync. The merge train ran through

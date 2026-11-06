@@ -10,6 +10,7 @@ use App\Models\Group;
 use App\Models\Role;
 use App\Permissions\PermissionSync;
 use App\Permissions\PermissionSyncReport;
+use App\Upgrade\ReleaseRunState;
 use App\Upgrade\SchemaState;
 use App\Upgrade\UpgradeRunner;
 use Illuminate\Support\Facades\Artisan;
@@ -58,9 +59,20 @@ function upgradeSandbox(string $fixture = 'ok'): array
     ]]);
 
     app(SchemaState::class)->forget();
+    app()->instance(ReleaseRunState::class, new ReleaseRunState($dir.'/release-upgrade'));
 
     return [$dir, $backupDir];
 }
+
+it('refuses an independent schema migration after a code upgrade is accepted', function () {
+    upgradeSandbox();
+    $release = app(ReleaseRunState::class);
+    $release->locked(fn () => $release->write(['phase' => 'requested']));
+
+    expect(app(UpgradeRunner::class)->runManual()->reason)->toBe('release-in-progress')
+        ->and(app(UpgradeRunner::class)->runAutomatic()->reason)->toBe('release-in-progress')
+        ->and(Schema::hasTable('rh10_probe'))->toBeFalse();
+});
 
 afterEach(function () {
     // Release the upgrade lock between tests so a held-lock test can't leak into the next.

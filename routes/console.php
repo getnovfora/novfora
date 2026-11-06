@@ -8,6 +8,7 @@ use App\Http\Controllers\HealthController;
 use App\Install\PublicStorageLinker;
 use App\Models\ApiIdempotencyKey;
 use App\Registry\RegistryClient;
+use App\Upgrade\ReleaseRunState;
 use App\Upgrade\UpgradeRunner;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -34,7 +35,14 @@ Artisan::command('inspire', function () {
 // the restore window (RH-11): a `->skip()` predicate that mirrors the HTTP maintenance gate. This is the
 // scheduler-side analogue of PreventRequestsDuringUpgrade — the auto-upgrade tick already self-guards, and
 // the restore drain itself + the cache-only heartbeat are intentionally NOT skipped.
-$duringRestore = fn () => app(RestoreState::class)->shouldGateRequests();
+$duringRelease = fn () => app(ReleaseRunState::class)->isActive();
+$duringRestore = fn () => app(RestoreState::class)->shouldGateRequests() || $duringRelease();
+
+// Prepare signed releases in a short-lived CLI process. The next cron invocation resumes the frozen
+// code-swap worker before Composer loads, so even an interrupted vendor replacement is recoverable.
+Schedule::command('novfora:release-upgrade --advance')
+    ->everyMinute()
+    ->name('novfora-release-upgrade');
 
 // Drain the database queue in bounded, overlap-locked batches — queued email, search indexing, and
 // notifications. `--stop-when-empty` + `--max-time` keep each run short on a coarse interval; on the
@@ -76,7 +84,8 @@ $upgradeMutexMinutes = max(2, (int) ceil(((int) config('novfora.upgrade.lock_sec
 Schedule::call(fn () => app(UpgradeRunner::class)->runAutomatic())
     ->everyMinute()
     ->name('novfora-auto-upgrade')
-    ->withoutOverlapping($upgradeMutexMinutes);
+    ->withoutOverlapping($upgradeMutexMinutes)
+    ->skip($duringRelease);
 
 // No-SSH panel restore (RH-11 / ADR-0022): the Admin → System → Backups "Restore" action records a request
 // in a FILE (App\Backup\RestoreState — not the cache/DB, which the restore overwrites), and this tick drains
@@ -89,7 +98,8 @@ $restoreMutexMinutes = $upgradeMutexMinutes;
 Schedule::call(fn () => app(RestoreRunner::class)->runPending())
     ->everyMinute()
     ->name('novfora-panel-restore')
-    ->withoutOverlapping($restoreMutexMinutes);
+    ->withoutOverlapping($restoreMutexMinutes)
+    ->skip($duringRelease);
 
 // Anti-spam trust automation (ADR-0007 §2.3): auto promotion/demotion. Idempotent + overlap-guarded so a
 // long run on a large board never doubles up on a coarse interval. Skipped during a restore (writes users).

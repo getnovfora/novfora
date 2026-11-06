@@ -8,6 +8,7 @@ namespace App\Backup;
 
 use App\Install\Installer;
 use App\Support\Audit;
+use App\Upgrade\ReleaseRunState;
 use App\Upgrade\SchemaState;
 use App\Upgrade\UpgradeRunner;
 use Illuminate\Support\Facades\Artisan;
@@ -67,6 +68,19 @@ class RestoreRunner
      */
     public function request(string $archiveName, ?int $actorId, ?string $actorName): void
     {
+        // Serialize new restore requests with new code-upgrade requests. Both operations replace live
+        // state; neither may start while the other has already been accepted.
+        $release = app(ReleaseRunState::class);
+        $release->locked(function () use ($release, $archiveName, $actorId, $actorName): void {
+            if ($release->isActive()) {
+                throw new BackupException('A code upgrade is pending. Wait for it to finish before restoring.');
+            }
+            $this->requestWhenIdle($archiveName, $actorId, $actorName);
+        });
+    }
+
+    private function requestWhenIdle(string $archiveName, ?int $actorId, ?string $actorName): void
+    {
         $path = $this->resolveArchive($archiveName);
         if ($path === null) {
             throw new BackupException('That backup could not be found.');
@@ -80,6 +94,15 @@ class RestoreRunner
 
     /** Cron path: perform a pending panel-requested restore, if any. A cheap no-op the rest of the time. */
     public function runPending(): RestoreResult
+    {
+        $release = app(ReleaseRunState::class);
+
+        return $release->locked(fn () => $release->isActive()
+            ? RestoreResult::skipped('release-in-progress')
+            : $this->runPendingWhenIdle());
+    }
+
+    private function runPendingWhenIdle(): RestoreResult
     {
         if (! $this->installer->isInstalled()) {
             return RestoreResult::skipped('not-installed');
@@ -117,7 +140,11 @@ class RestoreRunner
             return RestoreResult::failed('validate', 'Backup archive not found: '.$archivePath, basename($archivePath));
         }
 
-        return $this->locked(fn () => $this->execute($archivePath, auth()->id(), auth()->user()?->name, 'cli'));
+        $release = app(ReleaseRunState::class);
+
+        return $release->locked(fn () => $release->isActive()
+            ? RestoreResult::skipped('release-in-progress')
+            : $this->locked(fn () => $this->execute($archivePath, auth()->id(), auth()->user()?->name, 'cli')));
     }
 
     /** @param array{archive:string, actor_id:?int, actor_name:?string, requested_at:int} $req */

@@ -42,6 +42,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ['middleware' => ['web']],
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // The pre-Laravel release status handler verifies this short-lived capability itself.
+        $middleware->encryptCookies(except: ['novfora_release_recovery']);
         // Until NovFora is installed, force every web request to the no-SSH installer (M5). Appended so it
         // runs after the session has started — the wizard is a Livewire component and needs the session.
         $middleware->web(append: [

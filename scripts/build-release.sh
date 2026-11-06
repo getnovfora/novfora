@@ -33,6 +33,13 @@ OUT="${2:-$SRC/novfora-release.zip}"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
+# A half-configured release must never appear successfully signed.
+if { [ -n "${NOVFORA_RELEASE_SIGNING_KEY_FILE:-}" ] && [ -z "${NOVFORA_RELEASE_KEY_ID:-}" ]; } ||
+   { [ -z "${NOVFORA_RELEASE_SIGNING_KEY_FILE:-}" ] && [ -n "${NOVFORA_RELEASE_KEY_ID:-}" ]; }; then
+  echo "FATAL: set both NOVFORA_RELEASE_SIGNING_KEY_FILE and NOVFORA_RELEASE_KEY_ID, or neither" >&2
+  exit 1
+fi
+
 if [ "${SKIP_NPM:-0}" = "1" ]; then
   echo ">> SKIP_NPM=1 — assets pre-built on the host; skipping in-build npm (this env has no Node)"
   [ -d "$SRC/public/build" ] || { echo "FATAL: SKIP_NPM=1 but $SRC/public/build is missing — run 'npm ci && npm run build' on the host first"; exit 1; }
@@ -49,7 +56,12 @@ mkdir -p "$STAGE/database"
 cp -a "$SRC/database/migrations" "$STAGE/database/"
 cp -a "$SRC/database/seeders"    "$STAGE/database/"
 mkdir -p "$STAGE/bootstrap/cache"
-cp -a "$SRC/bootstrap/app.php" "$SRC/bootstrap/providers.php" "$STAGE/bootstrap/"
+# Include source-controlled bootstrap helpers (such as the frozen upgrade worker entrypoint).
+# Runtime cache files remain excluded; only packages.php is generated below.
+for bootstrap_file in "$SRC/bootstrap/"*.php; do
+  [ -f "$bootstrap_file" ] || continue
+  cp -a "$bootstrap_file" "$STAGE/bootstrap/"
+done
 cp -a "$SRC/bootstrap/cache/.gitignore" "$STAGE/bootstrap/cache/"
 mkdir -p "$STAGE/public"
 # robots.txt is NO LONGER a static file (U20/ADR-0108): the /robots.txt route serves it dynamically with a
@@ -65,9 +77,32 @@ cp -a "$SRC/public/icons" "$STAGE/public/"
 # example themes. They autoload at runtime via ModuleLoader/ThemeManager (NOT composer) and carry no enabled
 # state, so a default install activates none — nothing boots them until an admin opts in. Conditional so a
 # checkout that legitimately lacks either tree still builds.
-for d in modules themes; do
-  if [ -d "$SRC/$d" ]; then cp -a "$SRC/$d" "$STAGE/$d"; fi
-done
+if [ -L "$SRC/modules" ] || [ -L "$SRC/modules/novfora" ]; then
+  echo "FATAL: release module root is a symlink" >&2
+  exit 1
+fi
+if [ -d "$SRC/modules" ]; then
+  mkdir -p "$STAGE/modules"
+  for module_owner in "$SRC/modules"/*; do
+    [ -e "$module_owner" ] || [ -L "$module_owner" ] || continue
+    owner_name="$(basename "$module_owner")"
+    if [ -L "$module_owner" ]; then
+      echo "FATAL: release module owner is a symlink: $owner_name" >&2
+      exit 1
+    fi
+    if [ "$owner_name" = "novfora" ] && [ -d "$module_owner" ]; then
+      mkdir -p "$STAGE/modules/novfora"
+      for module in "$module_owner"/*; do
+        [ -e "$module" ] || [ -L "$module" ] || continue
+        [ "$(basename "$module")" = "populate" ] && continue
+        cp -a "$module" "$STAGE/modules/novfora/"
+      done
+    else
+      cp -a "$module_owner" "$STAGE/modules/"
+    fi
+  done
+fi
+if [ -d "$SRC/themes" ]; then cp -a "$SRC/themes" "$STAGE/themes"; fi
 for rel in app/.gitignore app/private/.gitignore app/public/.gitignore \
            framework/.gitignore framework/cache/.gitignore framework/cache/data/.gitignore \
            framework/sessions/.gitignore framework/testing/.gitignore framework/views/.gitignore \
@@ -76,6 +111,14 @@ for rel in app/.gitignore app/private/.gitignore app/public/.gitignore \
   cp -a "$SRC/storage/$rel" "$STAGE/storage/$rel"
 done
 for f in artisan composer.json composer.lock .env.example LICENSE README.md; do cp -a "$SRC/$f" "$STAGE/$f"; done
+
+# Reject links before Composer executes staged code. Populate is deliberately never copied,
+# whether it is a junction, symlink, or ordinary private directory.
+if [ -n "$(find "$STAGE" -type l -print -quit)" ]; then
+  echo "FATAL: release staging contains a symlink; refusing to package it" >&2
+  find "$STAGE" -type l -print >&2
+  exit 1
+fi
 
 echo ">> composer install --no-dev --optimize-autoloader (production deps only)"
 ( cd "$STAGE" && COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader \
@@ -105,9 +148,15 @@ find "$STAGE/storage/logs" -type f ! -name '.gitignore' -delete 2>/dev/null || t
 
 [ -f "$STAGE/bootstrap/cache/packages.php" ] || { echo "FATAL: packages.php was not generated"; exit 1; }
 
+echo ">> writing release-manifest.json (hashes of every packaged regular file)"
+php "$SRC/scripts/lib/release-manifest.php" "$STAGE"
+
 echo ">> zipping -> $OUT"
-rm -f "$OUT"
+rm -f "$OUT" "$OUT.sig"
 php "$SRC/scripts/lib/zip-dir.php" "$STAGE" "$OUT"
+if [ -n "${NOVFORA_RELEASE_SIGNING_KEY_FILE:-}" ]; then
+  php "$SRC/scripts/sign-release.php" "$OUT" "$NOVFORA_RELEASE_SIGNING_KEY_FILE" "$NOVFORA_RELEASE_KEY_ID"
+fi
 
 echo "=== BUILD COMPLETE ==="
 ls -l "$OUT"

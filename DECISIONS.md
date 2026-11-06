@@ -4419,3 +4419,36 @@ the web page enforced was missing, or enforced more weakly, somewhere else:
   - NOV-166: the idempotency middleware aborts a PostgreSQL transaction (pre-existing).
   - NOV-167: the API returns 500 on a content-rule rejection, and a reply racing a merge can land in the moved
     shell topic (pre-existing).
+
+### ADR-0125 — Owner-triggered stable release upgrades on shared hosting (2026-11-06)
+
+**Decision.** Resume NOV-141/E7 for an admin-panel Upgrade button on the existing Hostinger installation.
+The owner explicitly selected the latest published stable release. Unattended auto-apply remains off.
+
+GitHub Releases supplies `novfora-release.zip` and its detached Ed25519 signature; independently pinned core
+release keys authorize installation. Every packaged file appears in an authenticated SHA-256 manifest.
+Unsigned, prerelease, downgrade, unsafe-path and wrong-version artifacts are rejected before live changes.
+Private Populate content is excluded at build time and refused by the verifier.
+
+The panel queues a private file-backed run after current co-owner and 2FA checks. Cron rechecks the requesting
+owner before preparation. OS-held file locks serialize requests and never expire while their process lives.
+Ordinary HTTP/CLI processes hold shared execution leases; snapshots, file replacement and recovery require an
+exclusive lease. A pending preparation tick runs directly from the cron entrypoint so a scheduler parent cannot
+deadlock the snapshot's lease promotion. Independent restore/schema runs share the release operation lock. Web OPcache must validate timestamps,
+and maintenance stays active through its revalidation interval after both replacement and code restoration.
+The updater stages and verifies the archive, enters maintenance, snapshots data and the exact mutation set,
+then freezes a dependency-free worker. Artisan resumes that worker before loading Composer; the public
+entrypoint serves maintenance before loading code. Atomic per-file replacement is repeatable after process
+termination. New-code migrations and cache clearing run in fresh PHP processes. Environment, uploads, SQLite
+data, private/custom modules/themes, and host routing are preserved. Separate public asset copies are updated.
+
+The maintenance gate stays closed through fresh-code and health validation. Failure after migrations holds
+for operator recovery; code rollback never implies a database rollback. Backup and restore requests serialize
+against release-upgrade requests. A private pinned data-backup copy survives ordinary retention. The owner
+gets a two-hour status/recovery capability; after expiry, an empty run-specific marker created through host
+File Manager queues verified code recovery. Signed build/publishing, production key provisioning, all Hostinger layout
+checks, interruption/recovery tests, and an actual admin-triggered production upgrade remain acceptance gates,
+not assumptions established by unit tests.
+
+**Plan:** `docs/product/plan-admin-stable-upgrade-2026-11-06.md`. This implements the source-delivery gap before
+RH-10's existing schema upgrade runner; it does not require the unrelated Admin API expansion.

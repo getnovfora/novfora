@@ -11,6 +11,7 @@ use App\Backup\RestoreService;
 use App\Backup\RestoreState;
 use App\Models\AuditLog;
 use App\Models\User;
+use App\Upgrade\ReleaseRunState;
 use App\Upgrade\SchemaState;
 use App\Upgrade\UpgradeRunner;
 use Illuminate\Support\Facades\Artisan;
@@ -50,9 +51,47 @@ function restoreSandbox(): array
 
     app(RestoreState::class)->forget();
     app(SchemaState::class)->forget();
+    app()->instance(ReleaseRunState::class, new ReleaseRunState($dir.'/release-upgrade'));
 
     return [$dir, $backupDir, $db];
 }
+
+it('refuses CLI and cron restores while a release is pending without altering live data', function () {
+    [, $backupDir] = restoreSandbox();
+    $target = app(BackupService::class)->create(0)->name();
+    $user = User::factory()->create(); // Would be removed by restoring the earlier snapshot.
+    $release = app(ReleaseRunState::class);
+    $release->locked(fn () => $release->write(['phase' => 'requested']));
+
+    $cli = app(RestoreRunner::class)->runNow($backupDir.'/'.$target);
+    expect($cli->reason)->toBe('release-in-progress')
+        ->and(User::whereKey($user->id)->exists())->toBeTrue();
+    // Reproduce a pending request observed by another cron before a release was accepted.
+    app(RestoreState::class)->request($target, null, 'Owner');
+    $cron = app(RestoreRunner::class)->runPending();
+    expect($cron->reason)->toBe('release-in-progress')
+        ->and(User::whereKey($user->id)->exists())->toBeTrue();
+});
+
+it('holds the shared release lock for the entire restore operation', function () {
+    [, $backupDir] = restoreSandbox();
+    $target = app(BackupService::class)->create(0)->name();
+    $release = app(ReleaseRunState::class);
+    $excluded = false;
+    $this->mock(RestoreService::class, function ($mock) use ($release, &$excluded) {
+        $mock->shouldReceive('validate')->once()->andReturnUsing(function () use ($release, &$excluded) {
+            try {
+                $release->locked(fn () => null);
+            } catch (RuntimeException $error) {
+                $excluded = $error->getMessage() === 'Another upgrade operation is running.';
+            }
+            throw new BackupException('Stop after verifying mutual exclusion.');
+        });
+    });
+
+    expect(app(RestoreRunner::class)->runNow($backupDir.'/'.$target)->stage)->toBe('validate')
+        ->and($excluded)->toBeTrue();
+});
 
 /** A zip that passes manifest+hash validation but is NOT applicable to a SQLite site (kind=sql → driver
  *  mismatch at the restore step), so we can exercise a mid-restore failure that keeps SQLite usable. */

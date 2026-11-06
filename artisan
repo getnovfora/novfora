@@ -6,6 +6,12 @@ use Symfony\Component\Console\Input\ArgvInput;
 
 define('LARAVEL_START', microtime(true));
 
+// A code swap may have replaced vendor files. Resume the frozen worker before loading Composer.
+require_once __DIR__.'/bootstrap/release-upgrade.php';
+if (novfora_release_preboot(__DIR__, true, $argv)) {
+    exit(0);
+}
+
 // Register the Composer autoloader...
 require __DIR__.'/vendor/autoload.php';
 

@@ -146,6 +146,11 @@ copy of your uploaded files, and an integrity manifest. They're kept to the newe
 
 ### Upgrading (no SSH needed)
 
+**Admin release updater:** installations with the release updater and a provisioned core signing key can
+use **Admin → System → Upgrade → Upgrade** to install the latest published stable package. See
+[admin release upgrades](admin-release-upgrades.md) for prerequisites, supported hosting layouts,
+signing setup, and recovery. The steps below describe the older manual file-upload workflow.
+
 To upgrade, **extract the new release zip over your existing install — that's the only step.** NovFora
 notices the new code carries database changes and migrates itself from the same cron line that runs
 everything else. Concretely, with `NOVFORA_AUTO_UPGRADE=true` (the default):

@@ -5,6 +5,10 @@ use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
+// Serve maintenance without touching a potentially mixed-version Composer tree.
+require_once __DIR__.'/../bootstrap/release-upgrade.php';
+novfora_release_preboot(dirname(__DIR__), false);
+
 // Determine if the application is in maintenance mode...
 if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
     require $maintenance;

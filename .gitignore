@@ -41,6 +41,7 @@ novfora-spike/playwright-report/
 /storage/hearth-restore.json
 /storage/hearth-restore.lock
 /storage/backups
+/storage/framework/release-upgrade/
 /storage/dusk-install
 /storage/pail
 /bootstrap/ssr
@@ -54,6 +55,7 @@ yarn-error.log
 # /*.zip covers novfora-release.zip + any future root release archive (and the retired hearth-release.zip);
 # replaces the prior duplicated /novfora-release.zip entries.
 /*.zip
+/*.zip.sig
 
 # Owner's local visual-feedback drops (round screenshots) + the scratch PR-body draft — local-only.
 /1st_Visual_Feedback/

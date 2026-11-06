@@ -123,6 +123,26 @@ class UpgradeRunner
 
     private function runLocked(bool $auto): UpgradeResult
     {
+        $release = app(ReleaseRunState::class);
+        $run = $release->read();
+        $child = getenv('NOVFORA_RELEASE_UPGRADE_CHILD');
+        // The frozen parent already holds the OS lock while this fresh CLI process migrates.
+        if (PHP_SAPI === 'cli' && ($run['phase'] ?? null) === 'migrating'
+            && is_string($run['run_id'] ?? null) && is_string($child)
+            && hash_equals($run['run_id'], $child)) {
+            return $this->runSchemaLocked($auto);
+        }
+
+        return $release->locked(fn () => $release->isActive()
+            ? UpgradeResult::skipped('release-in-progress')
+            : $this->runSchemaLocked($auto));
+    }
+
+    private function runSchemaLocked(bool $auto): UpgradeResult
+    {
+        if ($this->restoreState->shouldGateRequests()) {
+            return UpgradeResult::skipped('restore-in-progress');
+        }
         // The closure runs only if the lock is acquired, and the lock is released afterwards (even on
         // throw). A non-UpgradeResult return means the lock was already held by a concurrent run.
         $ran = Cache::lock(self::LOCK, max(60, (int) config('novfora.upgrade.lock_seconds', 600)))
