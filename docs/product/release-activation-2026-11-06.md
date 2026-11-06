@@ -36,6 +36,15 @@ commit ID. Do not rebuild or re-zip after signing. Release artifacts and the rec
 in the Windows-accessible sibling folder `NovFora-Releases/v1.4.0/`. An earlier unsigned candidate was
 superseded when the release gate identified editor dependency advisories; it must not be published.
 
+Final frozen source: `cc70a05d188f2ee19669821308ea64d3b90f2942`. Final ZIP SHA-256:
+`da51fa3b920aa0dc28383a38c593fb46d96fe8b0b6cab70922def0550616c63b`. Detached signature SHA-256:
+`e935ab8e6637c369477ff8dcfb9bdb6ac03139db88d30d617bd5f3e7d34ac392`.
+The actual PHP 8.3 `ReleaseVerifier` accepted this persistent-key signature and all 10,464 manifest entries.
+All 1,079 packaged source-controlled files match the frozen Git commit. Packaging, cold boot/i18n, and a
+final canonical signed upgrade smoke passed after the dependency changes. The clean Node 20/Vite 8.1.6
+asset rebuild matches all 49 committed files byte for byte. No merge to `main`, release tag or publication
+has occurred; the source branch and reviewed candidate are ready for the remaining host acceptance steps.
+
 ## One-time bootstrap
 
 The documented live source is `5079215a41cd78445dfa5a362687f56a2575f15b`, still declaring 1.3.0. This is

@@ -56,9 +56,18 @@ the 19-file updater bootstrap passed 80 tests against the exact old dependency l
 and read-only hash verification. See `docs/product/release-activation-2026-11-06.md` for artifact and acceptance
 details. A candidate is not a published release.
 
+**Signed candidate frozen:** source `cc70a05d188f2ee19669821308ea64d3b90f2942`; ZIP SHA-256
+`da51fa3b920aa0dc28383a38c593fb46d96fe8b0b6cab70922def0550616c63b`. The actual PHP 8.3 updater verifier
+accepted the persistent-key signature and all 10,464 manifest entries. All 1,079 packaged source-controlled
+files match the frozen commit; the clean Vite 8.1.6 rebuild matches all 49 committed assets. The final ZIP
+passed another canonical signed upgrade smoke. Artifacts, `release-receipt.json`, `SHA256SUMS` and the operator
+handoff are in `/mnt/c/Users/TommyHuynh/Documents/ChatGPT/NovFora-Releases/v1.4.0/`. Keep the exact signed bytes.
+
 Production acceptance remains outstanding: publish signed assets, verify Hostinger's actual layout/PHP
 settings, deploy the initial updater, and exercise the real admin-triggered upgrade. No production changes,
-pushes, tags, or release publication have been made. Live health on 2026-11-06 still reports healthy 1.3.0.
+pushes, tags, or release publication have been made. Live health at 2026-11-06 19:00 UTC still reports healthy
+1.3.0, zero pending queue jobs and no pending migrations. `origin/main` remains `03e3e0f`; the local release
+branch is not merged to `main`. Merge/tag/publication remain separate from this prepared candidate.
 The signed-in hPanel route is authorized, but browser control rejects both the original `/mnt/c/...` URI and
 this managed `/home/tommy/...` worktree URI before opening a window. The configured Hostinger OAuth connector
 has no tools loaded in this chat. The owner will reopen the native Windows project and restart Codex;
