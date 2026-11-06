@@ -236,7 +236,7 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-CRtdgKOO.js",
+    "file": "assets/app-DgOgHPaq.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -245,7 +245,7 @@
     ]
   },
   "resources/js/editor/novfora-editor.js": {
-    "file": "assets/novfora-editor-w5FLr3ox.js",
+    "file": "assets/novfora-editor-SO0xAIk0.js",
     "name": "novfora-editor",
     "src": "resources/js/editor/novfora-editor.js",
     "isDynamicEntry": true

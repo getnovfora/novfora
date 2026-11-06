@@ -49,6 +49,9 @@ contracts** — a breaking change to either is a major-version event.
 - **Dependencies:** patch-level bumps clear every `composer audit` advisory, including laravel/framework
   13.39, livewire 4.4.8, league/commonmark 2.10.4, guzzle 7.16, symfony 7.4.22, flysystem 3.36 and phpseclib
   3.0.57. Selected Symfony components received a further 7.4.23 patch.
+- **Editor and build dependencies:** Tiptap 3.30.5 and ProseMirror view 1.42.9 patch attribute handling,
+  Markdown parsing and paste advisories. Compatible updates to Vite, concurrently and their dependencies
+  clear the remaining npm advisories; prebuilt browser assets were refreshed and the editor journey passed.
 - **API rate limits (NF-06):** API replies now spend the same trust-based posting budget as the web composer,
   so switching surfaces no longer grants a second allowance. API request rate has two layers: a coarse per-IP
   ceiling ahead of token auth (`NOVFORA_API_IP_PER_MINUTE`, default 120) and a per-member ceiling after it,

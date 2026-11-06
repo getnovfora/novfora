@@ -14,8 +14,10 @@ registry, importer, moderation, administration, and reliability changes, plus th
 The changelog distinguishes this candidate from a published release.
 
 The preceding NF-06/07/08 hardening is already merged in PR #54 (`03e3e0f`); NOV-149/150/151 are Done.
-ADR-0124 records its review and separately defers pre-existing issues including NOV-167 (Medium). That
-backlog item is not fixed by this updater slice, whose zero-open-HIGH/MEDIUM review applies to its own scope.
+ADR-0124 records its review and separately identifies pre-existing issues including NOV-167 (Medium).
+NOV-167 remains in Backlog, with no explicit v1.4 disposition found. It is not fixed by this updater slice,
+whose zero-open-HIGH/MEDIUM review applies to its own scope; release readiness must not be represented as
+proof that every repository security or reliability issue has been resolved.
 
 The public trust key ID is `core-2026-11`; its raw Ed25519 public-key SHA-256 is
 `fcd9b1ae535035ee74f50569b02b6f5a73c18877b12f261117435fcc0e4d0c12`.
@@ -28,13 +30,11 @@ Publish exactly `novfora-release.zip` and `novfora-release.zip.sig` on the stabl
 verification. The tag, source version, signed manifest, and asset bytes must agree. Existing v1.3.0 assets
 are unsigned and must not be replaced or relabeled to bootstrap this feature.
 
-The final candidate ZIP SHA-256 is
-`db5771df4b7d743dc2826cf9f62b60a904ebba857da529787a99a7d8e01c6712`.
-Its 1.4.0 manifest covers 10,464 regular files. Populate, `.env`, Git metadata, and private signing material
-are absent. The release builder excludes this document and does not embed a source commit ID; the adjacent
-artifact receipt records the committed source SHA and the exact signed bytes. Do not rebuild or re-zip after
-signing. Release artifacts and the receipt are kept outside Git in the Windows-accessible sibling folder
-`NovFora-Releases/v1.4.0/`.
+The adjacent artifact receipt records the final ZIP and detached-signature hashes, committed source SHA,
+manifest count, and verification results. The builder excludes this document and does not embed a source
+commit ID. Do not rebuild or re-zip after signing. Release artifacts and the receipt are kept outside Git
+in the Windows-accessible sibling folder `NovFora-Releases/v1.4.0/`. An earlier unsigned candidate was
+superseded when the release gate identified editor dependency advisories; it must not be published.
 
 ## One-time bootstrap
 
@@ -44,9 +44,9 @@ files, leaving the old business code, `config/app.php`, Composer lock and vendor
 subsequent Upgrade click performs a real old-to-new application upgrade.
 
 The conditional packet is `novfora-updater-bootstrap-507-to-64e6aea.zip`, SHA-256
-`7e5df5cbee632f013e7d14d871a500b07f91c3e3fce0122f24ba610d4dc6b21e`.
-Its 8 replacements and 11 new files derive from `64e6aea`, with the public-key pin supplied by this release
-preparation. The packet contains no private key or application data.
+`def866edccd96a713dd3b9773382897bb45d22fcee1b8f2d86f408996fabe4be`.
+Its 8 replacements and 11 new files derive from `64e6aea`, with the public-key pin from commit `288f46b`.
+All 19 payloads match their cited committed sources. The packet contains no private key or application data.
 
 Its read-only verifier checks old hashes for every replaced file, absence of each newly added file,
 unchanged version and lock files, payload integrity, and the actual served entrypoint. A mismatch requires
@@ -68,7 +68,13 @@ application update.
 - A disposable MariaDB 11.8.6 applied 110 migrations. Pure-PHP backup and restore into a separate database
   preserved 98 tables and 110 migration records; the restored schema had no pending migrations.
 - Headless Chrome journey checks passed mobile navigation, administration and editor flows (10 tests).
-  The full installer browser harness has not been run in this local setup.
+  The installer wizard also passed on PHP 8.3 and a disposable MariaDB database (one test, nine assertions).
+- The complete migration apply/reset/re-apply cycle passed on a separate disposable MariaDB database:
+  110 migration records, 98 tables, zero pending. Accessibility suites passed 34 tests (83 assertions).
+- Editor and build-tool dependencies were patched within existing majors after the final gate found npm
+  advisories. Full npm audit is now clean, asset budgets and manifest checks pass, and the final editor
+  bundle passed all four browser journey tests (13 assertions). The dependency review and bounded
+  security regressions are recorded in `admin-upgrade-review-2026-11-06.md`.
 - The conditional bootstrap passed 80 tests on the exact old dependency lock, with Pint and scoped
   Larastan clean. Its verifier accepted the matching baseline and refused a one-byte source drift.
 - Release packaging and cold boot/i18n verification passed. The canonical signed upgrade smoke passed

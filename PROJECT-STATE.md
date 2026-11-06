@@ -36,10 +36,15 @@ platform checks, Pint, Larastan and dependency audit passed. Candidate version f
 tests (101 assertions); the transport delta passed 23 tests (146 assertions). Asset build passed.
 Logs: `/tmp/novfora-php83/{pest,pint,phpstan,audit}.log`.
 Disposable MariaDB backup/restore preserved 98 tables and 110 migration records. Ten baseline browser
-journeys passed. A real browser Upgrade click from the old source plus minimal bootstrap completed a signed
+journeys passed; the installer wizard also passed (one test, nine assertions). The complete MariaDB migration
+apply/reset/re-apply cycle passed, as did 34 accessibility tests (83 assertions). A real browser Upgrade click from the old source plus minimal bootstrap completed a signed
 1.4.0 installation through cron, with URL streams disabled, HTTP health 200, owner/upload preservation, and
 completion shown in the ACP. A separate `/community` browser entry check passed its cookie and status redirect;
 that separate check did not perform the file swap. No production data was used.
+The release gate found editor and build-tool npm advisories. Compatible updates retain Tiptap 3, ProseMirror 1,
+Vite 8 and concurrently 9; the full npm audit now reports zero vulnerabilities. Updated assets pass size and
+manifest checks, targeted upstream-security regressions pass, and the final editor bundle passed four browser
+tests (13 assertions). The earlier unsigned candidate was superseded; use only the final artifact receipt.
 Review: `docs/product/admin-upgrade-review-2026-11-06.md`.
 Preparation takes an exclusive activity lease before the data/code snapshots, not merely before replacement.
 During preparation, preboot runs the pending release command directly in the cron process to avoid a parent

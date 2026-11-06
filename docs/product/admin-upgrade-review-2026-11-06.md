@@ -25,6 +25,26 @@
 - **Code rollback is not a database restore.** The frozen worker deliberately restores code and validates the saved snapshot; it does not reverse an already applied migration. An incompatible schema needs the separate data-backup/restore procedure.
 - **No production claim:** the real smoke test used an ephemeral Ed25519 key, faked pinned GitHub release endpoints, a signed test ZIP, and a loopback server. It passed canonical, full-public-symlink, generated scaffold, and copied-public layouts, including `/community/health`, migrations, forum/settings data, uploads, custom module, `.env`, served assets, and scaffold-file preservation. Hostinger permissions, cron behavior, and live HTTP remain unverified.
 
+## Release dependency follow-up
+
+The final asset gate detected existing npm advisories in the editor and build tools. Tiptap was updated
+within major 3 to 3.30.5 and ProseMirror view within major 1 to 1.42.9. The relevant upstream reports are
+[Markdown parsing](https://github.com/advisories/GHSA-j95f-988m-3j2f),
+[attribute merging](https://github.com/advisories/GHSA-cp6q-959q-f8rh), and
+[clipboard attributes](https://github.com/advisories/GHSA-c8x8-7fp4-3x9w).
+
+Verify-then-refute: root inspected the installed attribute-merging and parsing fixes. A JSON-owned
+`__proto__` key no longer changes the merged object's prototype or exposes inherited executable attributes;
+the advisory's bounded block/inline parser inputs completed in under 2 ms in the local regression. The
+apparent absence of `checkAttrs` in the latest clipboard implementation was refuted by inspection and an
+invalid-attribute test: ProseMirror model 1.25.12 validates during node creation, and clipboard code catches
+validation failures. This verifies the dependency fix without claiming that every advisory was exploitable
+through NovFora's own editor configuration.
+
+Compatible updates to Vite 8.1.6, concurrently 9.2.5 and their dependencies clear the build-tool advisories.
+The full npm audit reports zero vulnerabilities. Asset budgets and the PHP 8.3 manifest tests pass; the
+finished browser bundle passed all four editor journey tests (13 assertions). No framework major changed.
+
 ## Reproducible local smoke
 
 Build a release ZIP, then run `scripts/test-release-upgrade.sh <zip>` with `SMOKE_LAYOUT=canonical`, `option_a`, `option_b`, or `option_c`. The harness creates its app, SQLite database, temporary signing key, and server under `/tmp`; it rejects unsafe ZIP paths/links before extraction, prevents unmatched Laravel HTTP requests, and contacts only loopback during the test. Use a locally built ZIP in an isolated CI job. On failure it prints `SMOKE_WORK` and leaves the sandbox for diagnosis; the ephemeral signing secret is removed.
