@@ -13,16 +13,19 @@
 
 ---
 
-## ▶ ACTIVE TASK: admin stable-release upgrade (2026-11-06)
+## ▶ LATEST COMPLETED TASK: admin stable-release upgrade (2026-11-06)
 
 Owner requested an admin-panel Upgrade action that updates the existing Hostinger `/community` installation
 in place, and selected **latest published stable release**. Astra orchestrates with Sol implementation agents.
 Release branch: `codex/admin-stable-release`, based on `main` at `03e3e0f`, with dependency fix `ac8f65f`,
-updater implementation `36799e3`, and cURL health transport fix `64e6aea`. Linear **NOV-141 is In Progress**.
+updater implementation `36799e3`, and cURL health transport fix `64e6aea`. The finalized source
+`9f9b0a3` is on remote `main` and tagged `v1.4.0`. Linear **NOV-141 is In Progress**: its original E7
+umbrella includes manual ZIP, version selection, API, and automatic-update work outside this owner-selected
+latest-stable slice.
 The activation worktree is `/home/tommy/.codex/worktrees/novfora-release-activation/novfora`.
 
 Implementation plan: `docs/product/plan-admin-stable-upgrade-2026-11-06.md`; architecture: ADR-0125.
-Implemented locally: signed build manifests, bounded stable-release discovery/download/verification,
+Implementation includes signed build manifests, bounded stable-release discovery/download/verification,
 file-backed run state, atomic file replacement and recovery, a frozen pre-bootstrap recovery worker,
 Hostinger public asset mirroring, and ACP/cron integration. Shared execution leases protect in-flight HTTP/CLI
 processes; restore/schema operations share the release lock. Recovery snapshots are pinned outside normal
@@ -54,30 +57,48 @@ The source version is now 1.4.0 and `config/releases.php` pins `core-2026-11`. I
 outside Git and the host, protected by 0700/0600 permissions. The release ZIP passed cold-boot/i18n checks;
 the 19-file updater bootstrap passed 80 tests against the exact old dependency lock, Pint, scoped Larastan,
 and read-only hash verification. See `docs/product/release-activation-2026-11-06.md` for artifact and acceptance
-details. A candidate is not a published release.
+details. The signed `v1.4.0` release is now published; live installation remains separate.
 
-**Signed candidate frozen:** source `cc70a05d188f2ee19669821308ea64d3b90f2942`; ZIP SHA-256
+**Signed v1.4.0 artifact:** frozen runtime source `cc70a05d188f2ee19669821308ea64d3b90f2942`; ZIP SHA-256
 `da51fa3b920aa0dc28383a38c593fb46d96fe8b0b6cab70922def0550616c63b`. The actual PHP 8.3 updater verifier
 accepted the persistent-key signature and all 10,464 manifest entries. All 1,079 packaged source-controlled
 files match the frozen commit; the clean Vite 8.1.6 rebuild matches all 49 committed assets. The final ZIP
 passed another canonical signed upgrade smoke. Artifacts, `release-receipt.json`, `SHA256SUMS` and the operator
 handoff are in `/mnt/c/Users/TommyHuynh/Documents/ChatGPT/NovFora-Releases/v1.4.0/`. Keep the exact signed bytes.
 
-Production acceptance remains outstanding: publish signed assets and exercise the real admin-triggered
-upgrade. The owner approved the initial bootstrap and completed the coordinated hPanel process stop.
+**Published source and remote gates:** Codex pushed `main` at `9f9b0a3bd7d270d45116ff53f33158694f2fa824`
+with the owner's explicit approval; annotated tag `v1.4.0` points there. Commits after the frozen runtime
+source change documentation only.
+GitHub release `437036807` is published with the exact signed ZIP and `.sig` assets. CI run `42291976769`
+passed all four jobs: Pest **2,586 passed, 1 skipped** (17,340 assertions); Dusk installer 1 passed
+(9 assertions) and application journeys 37 passed, 2 skipped (94 assertions); Pint, Larastan,
+Composer audit, MySQL migration/rollback, concurrency, backup/restore, and asset checks passed.
+Compact evidence: `NovFora-Releases/v1.4.0/evidence/remote-ci-42291976769.json`.
+
+**Live upgrade acceptance observed:** the owner-triggered run `27ad87cdde4bf8e8cfc6ea47644b8281`
+completed at 21:49:09 UTC. At 21:50:04 UTC all 15 pre-existing storage files were present and unchanged,
+with no additions; `.env`, served wrapper, routing, and build/storage links were unchanged. At 21:50:46 UTC
+`/community/health` returned HTTP 200, status `ok`, version 1.4.0. Baseline database, cache, and queue checks
+were `ok`; queue pending was 0 with a 36-second heartbeat. Schema pending/upgrading/stuck were false, its
+last migration succeeded at 21:49:05 UTC (one migration), and restore was false. The homepage and current
+CSS/JS returned 200; all 12 recorded forum/topic URLs returned 200 with unchanged H1 hashes. The full
+21:50 scheduler tick completed its jobs. At 21:55 UTC the retained SQL backup and all 10,441 old-code
+snapshot files passed integrity checks; one old public asset snapshot also verified. Both temporary observer
+helpers and cron jobs were removed, with only the original twelve `.ops` items and production/development
+schedulers remaining. Private recovery files were retained. The owner has been asked to confirm the final
+rendered completion screen; that additional UI observation is not yet received. The owner approved the
+initial bootstrap and coordinated hPanel process stop.
 At 20:20 UTC the 19-file bootstrap installed successfully after fresh data/code snapshots; the served
-wrapper, routing and asset links were preserved. Health at 20:21 UTC reports healthy 1.3.0, zero pending
-queue jobs and no pending migrations; homepage and built CSS/JS return 200. The source is merged to local
-`main`; `origin/main` remains `03e3e0f`. The owner still needs to push finalized source and tag. No remote
-push or 1.4.0 release publication has occurred. Signed package bytes remain unchanged.
+wrapper, routing and asset links were preserved. Health at 20:21 UTC reported healthy 1.3.0, zero pending
+queue jobs and no pending migrations; homepage and built CSS/JS return 200. Signed package bytes remain unchanged.
 **Hostinger connection restored after restart (2026-11-06):** the OAuth MCP tools now authenticate and can
 inspect the account. Windows browser control still rejects the Linux workspace URI, but that no longer
 prevents account inspection. The owner reactivated the goal. Live read-only probes at 19:30–19:38 UTC proved
 all ten baseline hashes and eleven new-path absences, the 59-byte delegating `/community/index.php` wrapper,
 and the canonical build/storage links. Both CLI and web run PHP 8.5.12 with proc_open/cURL/Sodium/ZIP; web
 OPcache validates timestamps every two seconds. No APP_VERSION override exists, and the co-owner has
-confirmed 2FA. The minute scheduler is active. Both diagnostic files self-removed and their temporary cron
-was removed; the existing two cron jobs were preserved. No application files were overwritten.
+confirmed 2FA. At that preflight the minute scheduler was active. Both diagnostic files self-removed and
+their temporary cron was removed; those read-only probes did not overwrite application files.
 
 Readiness evidence is under the artifact folder's `evidence/host-*.json`. The delegating wrapper and custom
 `.htaccess` must remain untouched during bootstrap: verify the canonical index separately from the wrapper.
@@ -107,16 +128,21 @@ release advancement and queue processing. Postcheck verified all nineteen instal
 prerequisites, wrapper/routing/links and retained backup. All temporary upload files and cron jobs were
 removed; the existing development job remains. Health at 20:26 UTC is 200/1.3.0 with a fresh queue heartbeat.
 Saved settings and observed evidence are in `evidence/host-bootstrap-activation.json` beside the receipt.
-Complete owner push, signed publication and the real admin-triggered upgrade. The owner has been asked
-to confirm the rendered new Upgrade section; that authenticated UI observation remains pending.
+The owner confirmed the new Upgrade section in the authenticated ACP, then clicked Upgrade for the published
+stable release. Live run `27ad87cdde4bf8e8cfc6ea47644b8281` was requested at 21:40:48 UTC, passed its
+snapshot/drain window, and completed at 21:49:09 UTC. The health, data, asset, route, and scheduler checks
+above passed. Recovery verification and temporary monitor cleanup passed. One custom extension was counted
+after the upgrade; no pre-upgrade fingerprint was captured, so no byte-for-byte preservation claim is made
+for it. The verified mutation plan excludes custom extension paths. The owner-rendered completion screen
+confirmation remains an optional follow-up; the actual server run and live installation are complete.
 GitHub CLI authentication and repository permissions were verified;
 the portable CLI is `/tmp/novfora-gh-cli/gh`. Second Brain currently requires reauthentication.
 
 Local runtimes are portable (no system package changes): PHP 8.3 via `PATH=/tmp/novfora-php83/bin:$PATH`;
 PHP 8.5 via `PHP_INI_SCAN_DIR=:/tmp/novfora-php85/conf.d` and
 `LD_LIBRARY_PATH=/tmp/novfora-php85/root/usr/lib/x86_64-linux-gnu`; Node is in
-`/tmp/novfora-node/node-v24.15.0-linux-x64/bin`. Local PHP 8.3 verification passed; remote CI has not run on
-the unpushed branch.
+`/tmp/novfora-node/node-v24.15.0-linux-x64/bin`. Local PHP 8.3 verification and remote CI on the pushed
+release commit passed.
 Do not treat focused passing tests as proof of the production upgrade flow.
 
 ## Previous task: v1.4 release hardening (resumed 2026-10-29)

@@ -3,15 +3,17 @@
 # v1.4.0 signed release and updater activation
 
 The owner selected the latest published stable GitHub release as the update source and authorized access
-through the signed-in Hostinger hPanel. This document records release preparation and the initial live
-updater bootstrap. It is not evidence of a published or live-installed signed 1.4.0 release.
+through the signed-in Hostinger hPanel. This document records the published signed release, the initial
+live updater bootstrap, and the owner-started upgrade. The live run completed and independent health/data
+checks passed; the owner completion-UI confirmation and temporary monitor cleanup remain pending.
 
-## Release candidate
+## Published signed release
 
 The release branch is `codex/admin-stable-release`, based on the reviewed updater commit `36799e3`,
-dependency fix `ac8f65f`, and transport fix `64e6aea`. The source default version is 1.4.0. The candidate includes the earlier v1.4 theme,
-registry, importer, moderation, administration, and reliability changes, plus the admin release updater.
-The changelog distinguishes this candidate from a published release.
+dependency fix `ac8f65f`, and transport fix `64e6aea`. The source default version is 1.4.0. The published
+release includes the earlier v1.4 theme, registry, importer, moderation, administration, and reliability
+changes, plus the admin release updater.
+The changelog dates the published 1.4.0 release.
 
 The preceding NF-06/07/08 hardening is already merged in PR #54 (`03e3e0f`); NOV-149/150/151 are Done.
 ADR-0124 records its review and separately identifies pre-existing issues including NOV-167 (Medium).
@@ -26,8 +28,8 @@ outside the host, with directory mode 0700 and key mode 0600. A challenge-signat
 matches the public key pinned in `config/releases.php`. The private key must never be uploaded to Hostinger
 or included in release assets.
 
-Publish exactly `novfora-release.zip` and `novfora-release.zip.sig` on the stable `v1.4.0` release after final
-verification. The tag, source version, signed manifest, and asset bytes must agree. Existing v1.3.0 assets
+The stable `v1.4.0` release publishes exactly `novfora-release.zip` and `novfora-release.zip.sig`.
+The tag, source version, signed manifest, and asset bytes agree. Existing v1.3.0 assets
 are unsigned and must not be replaced or relabeled to bootstrap this feature.
 
 The adjacent artifact receipt records the final ZIP and detached-signature hashes, committed source SHA,
@@ -42,9 +44,12 @@ Final frozen source: `cc70a05d188f2ee19669821308ea64d3b90f2942`. Final ZIP SHA-2
 The actual PHP 8.3 `ReleaseVerifier` accepted this persistent-key signature and all 10,464 manifest entries.
 All 1,079 packaged source-controlled files match the frozen Git commit. Packaging, cold boot/i18n, and a
 final canonical signed upgrade smoke passed after the dependency changes. The clean Node 20/Vite 8.1.6
-asset rebuild matches all 49 committed files byte for byte. The reviewed source has been fast-forwarded to
-local `main`. Remote source/tag publication remains subject to the repository's owner-push convention;
-no signed 1.4.0 release has been published yet.
+asset rebuild matches all 49 committed files byte for byte. With the owner's explicit approval, Codex pushed
+finalized source `9f9b0a3bd7d270d45116ff53f33158694f2fa824` to remote `main` and tagged it `v1.4.0`.
+Changes after `cc70a05` are documentation only, so the signed runtime ZIP still matches the tag's
+packaged source.
+GitHub release `437036807` publishes the exact ZIP and signature; the public latest-stable endpoint returns
+`v1.4.0` with both asset names.
 
 ## One-time bootstrap
 
@@ -72,6 +77,13 @@ application update.
 
 ## Verification evidence and remaining acceptance
 
+- Remote CI run `42291976769` completed successfully on release source `9f9b0a3` with all four jobs green.
+  Pest on PHP 8.3/MySQL 8: **2,586 passed, 1 skipped, 17,340 assertions**. Dusk: installer 1 passed
+  (9 assertions); app journeys 37 passed, 2 skipped (94 assertions). MySQL applied and rolled back 110
+  migrations; three 640-reply concurrency runs passed, as did both backup/restore paths. Pint passed
+  1,133 files, Larastan had no errors, Composer audit found no advisories, and assets-fresh/budgets passed.
+  Compact read-derived evidence: `NovFora-Releases/v1.4.0/evidence/remote-ci-42291976769.json`.
+
 - Exact updater source `36799e3` passed PHP 8.3.6 Composer platform checks, full Pest (2,585 passed, one
   skipped; 17,331 assertions), Pint, Larastan, and dependency audit in an isolated Linux mirror.
 - The candidate version/test-fixture changes passed 18 affected tests (101 assertions) on PHP 8.3.
@@ -97,7 +109,8 @@ application update.
   cookie and standalone status redirect. The wrong root-path status URL returned 404. This separate check
   stopped before the file swap; the full browser upgrade above ran at a local domain root.
 
-Publication and an actual admin-triggered upgrade on `novfora.com/community` remain required. The owner
+The signed release is published. The owner started an actual admin-triggered upgrade on
+`novfora.com/community`, and the run completed at 21:49:09 UTC. The owner
 approved the initial bootstrap, which completed at 20:20 UTC after the verified maintenance gate, cron
 pause, owner-confirmed hPanel process stop, and fresh backups. All nineteen installed hashes passed;
 the served wrapper, routing and links were preserved. Health and assets returned 200 on the existing
@@ -121,11 +134,31 @@ eight replacement files. The helper loads only configuration and database servic
 and module provider boot. The 977,126-byte archive has SHA-256
 `1fec8bfe30a14787974edeb33183f699fb768f02d80ddef355738f5ff249847b`; its dump and all fifteen storage files
 passed validation. This live-site backup is explicitly preliminary: it does not establish cross-table or
-database/storage consistency. Fresh backups after the maintenance gate and process stop remain required.
+database/storage consistency. Fresh backups after the maintenance gate and process stop were taken by the
+approved bootstrap runner.
 The helper and its temporary cron were removed, the original two cron jobs were preserved, and health at
 20:00 UTC remained 200/1.3.0 with zero pending queue jobs or migrations. Detailed private evidence is beside
 the release receipt. No application code was replaced during that preliminary backup step. The later
 approved bootstrap completed as recorded above; its temporary files and jobs were cleaned up. The original
 production scheduler command/timing was restored under a new job UID and its first observed run completed
-all tasks successfully. Second Brain requires reauthentication; this repository and the artifact evidence
-are the current handoff source.
+all tasks successfully. The owner confirmed that the new Upgrade section rendered in the authenticated ACP
+and clicked Upgrade. Live run `27ad87cdde4bf8e8cfc6ea47644b8281` was requested at 21:40:48 UTC,
+passed its snapshot/drain window, and completed at 21:49:09 UTC. The 21:50:04 UTC observer found all 15
+pre-existing storage files unchanged with none missing or added; `.env`, served wrapper, routing, and
+build/storage links were unchanged. At 21:50:46 UTC `/community/health` returned HTTP 200, status `ok`,
+version 1.4.0. Baseline database/cache/queue checks were `ok`, queue pending was zero with a 36-second
+heartbeat, schema pending/upgrading/stuck were false, and restore was false. One migration succeeded at
+21:49:05 UTC. Homepage and current CSS/JS returned 200; all 12 recorded forum/topic URLs returned 200
+with unchanged H1 hashes. The full 21:50 scheduler tick completed its jobs. At 21:55:06 UTC the retained
+976,494-byte data backup passed ZIP consistency and SQL dump hash checks (SHA-256
+`44b5e467c4684f4b135dda20c2e29090f1ede0c8f276ee31437c398b822451ce`). All 10,441 old-code snapshot
+files and the one existing public asset snapshot matched their pre-upgrade hashes. The temporary observer
+and cleanup helpers self-removed, both temporary cron jobs were deleted, and readback confirmed the original
+twelve `.ops` items plus only the production/development schedulers. Private backups and evidence remain.
+One custom extension was counted after the swap; no prior fingerprint exists, so its byte-for-byte
+preservation is unproven. The checked mutation plan contains only managed core/bundled paths.
+The owner has been asked for final rendered completion-screen confirmation; it remains an optional UI
+follow-up to the verified server completion and live acceptance. NOV-141 remains In Progress
+because its original E7 umbrella also names manual ZIP, version selection, API, and automatic-update work
+beyond ADR-0125's latest-stable slice. Second Brain requires reauthentication; this repository and the
+artifact evidence are the current handoff source.
