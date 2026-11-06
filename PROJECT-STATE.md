@@ -88,8 +88,14 @@ was live; it is preliminary, not a consistent final cutover snapshot. The helper
 cron was deleted, and both original cron jobs remain intact. Evidence: `evidence/host-backup-readiness-2026-11-06.json`
 beside the release receipt. `/proc` exposed two CLI PHP processes; it did not prove visibility of web workers.
 
-Next: finish review of the guarded two-phase activation procedure, obtain the final deployment confirmation
-required by the Hostinger skill, then apply the minimal bootstrap and publish/test the signed upgrade.
+The guarded two-phase activation procedure passed focused review after adding fresh external cron-pause
+evidence and complete storage-inventory verification to the post-stop backup. Local fixtures covered
+success, process-survivor refusal, missing cron proof, incomplete archives, partial-copy rollback and
+recovery after an interrupted apply. The final disabled runner is SHA-256
+`11abadc16aaefaaeb2b7ad047514fad7547cfcec1a48b6dae3457298b73b734a`; operator artifacts and the concrete
+`BOOTSTRAP-MAINTENANCE-PLAN.md` are beside the release receipt. Zero HIGH/MEDIUM remain in that bounded review.
+The owner has been asked to confirm the maintenance window and remain available for the hPanel step.
+Next: receive that confirmation, apply the minimal bootstrap, then publish/test the signed upgrade.
 The draft pauses the production scheduler, installs a strict pre-Composer maintenance response, verifies
 actual HTTP responses, and requires the owner's official hPanel **Stop running processes** action before
 fresh backups and code replacement. It remains disabled. `max_execution_time`, sleeping, or a partial
