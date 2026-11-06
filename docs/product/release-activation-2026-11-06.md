@@ -3,8 +3,8 @@
 # v1.4.0 signed release and updater activation
 
 The owner selected the latest published stable GitHub release as the update source and authorized access
-through the signed-in Hostinger hPanel. This document records release preparation; it is not evidence of
-publication or a live deployment.
+through the signed-in Hostinger hPanel. This document records release preparation and the initial live
+updater bootstrap. It is not evidence of a published or live-installed signed 1.4.0 release.
 
 ## Release candidate
 
@@ -42,8 +42,9 @@ Final frozen source: `cc70a05d188f2ee19669821308ea64d3b90f2942`. Final ZIP SHA-2
 The actual PHP 8.3 `ReleaseVerifier` accepted this persistent-key signature and all 10,464 manifest entries.
 All 1,079 packaged source-controlled files match the frozen Git commit. Packaging, cold boot/i18n, and a
 final canonical signed upgrade smoke passed after the dependency changes. The clean Node 20/Vite 8.1.6
-asset rebuild matches all 49 committed files byte for byte. No merge to `main`, release tag or publication
-has occurred; the source branch and reviewed candidate are ready for the remaining host acceptance steps.
+asset rebuild matches all 49 committed files byte for byte. The reviewed source has been fast-forwarded to
+local `main`. Remote source/tag publication remains subject to the repository's owner-push convention;
+no signed 1.4.0 release has been published yet.
 
 ## One-time bootstrap
 
@@ -96,8 +97,12 @@ application update.
   cookie and standalone status redirect. The wrong root-path status URL returned 404. This separate check
   stopped before the file swap; the full browser upgrade above ran at a local domain root.
 
-Publication, initial live bootstrap, and an actual admin-triggered upgrade on `novfora.com/community`
-remain required. After the owner's restart, Hostinger MCP authenticated successfully. Account reads and
+Publication and an actual admin-triggered upgrade on `novfora.com/community` remain required. The owner
+approved the initial bootstrap, which completed at 20:20 UTC after the verified maintenance gate, cron
+pause, owner-confirmed hPanel process stop, and fresh backups. All nineteen installed hashes passed;
+the served wrapper, routing and links were preserved. Health and assets returned 200 on the existing
+1.3.0 installation afterward. This bootstrap success is not the later signed 1.4.0 upgrade acceptance.
+After the owner's restart, Hostinger MCP authenticated successfully. Account reads and
 temporary read-only probes verified the live baseline hashes, new-path absences, wrapper and asset links,
 PHP 8.5.12 CLI/web capabilities, web OPcache timestamp validation (two-second interval), absence of a version
 override, and co-owner 2FA readiness. Both probes and the temporary cron were removed; existing application
@@ -109,7 +114,7 @@ hashes. Preserve the wrapper; replacing it with the canonical index would change
 Before activating, resolve exclusion of requests that began before the new activity lease existed. Enter
 maintenance before establishing that exclusion and retain it through the protected work. A PHP execution
 time setting or arbitrary sleep does not by itself prove old requests have finished. The local activation
-runner draft stays disabled until that procedure is reviewed.
+runner passed focused review and was enabled only after the owner's explicit maintenance confirmation.
 
 At 19:59 UTC a reviewed CLI helper created a private preliminary MySQL/storage backup and snapshots of the
 eight replacement files. The helper loads only configuration and database services, avoiding application
@@ -119,5 +124,8 @@ passed validation. This live-site backup is explicitly preliminary: it does not 
 database/storage consistency. Fresh backups after the maintenance gate and process stop remain required.
 The helper and its temporary cron were removed, the original two cron jobs were preserved, and health at
 20:00 UTC remained 200/1.3.0 with zero pending queue jobs or migrations. Detailed private evidence is beside
-the release receipt. No application code was replaced. Second Brain requires reauthentication; this
-repository and the artifact evidence are the current handoff source.
+the release receipt. No application code was replaced during that preliminary backup step. The later
+approved bootstrap completed as recorded above; its temporary files and jobs were cleaned up. The original
+production scheduler command/timing was restored under a new job UID and its first observed run completed
+all tasks successfully. Second Brain requires reauthentication; this repository and the artifact evidence
+are the current handoff source.

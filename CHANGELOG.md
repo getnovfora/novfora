@@ -11,7 +11,7 @@ contracts** — a breaking change to either is a major-version event.
 
 ## [Unreleased]
 
-## [1.4.0] — release candidate
+## [1.4.0] — 2026-11-06
 
 ### Added
 - **Themes and styles (U9–U12):** typed style properties and a dark layer, parent/child style inheritance,

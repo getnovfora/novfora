@@ -63,11 +63,13 @@ files match the frozen commit; the clean Vite 8.1.6 rebuild matches all 49 commi
 passed another canonical signed upgrade smoke. Artifacts, `release-receipt.json`, `SHA256SUMS` and the operator
 handoff are in `/mnt/c/Users/TommyHuynh/Documents/ChatGPT/NovFora-Releases/v1.4.0/`. Keep the exact signed bytes.
 
-Production acceptance remains outstanding: publish signed assets, deploy the initial updater, and exercise
-the real admin-triggered upgrade. No application deployment, pushes, tags, or release publication have been
-made. Live health at 2026-11-06 20:00 UTC still reports healthy
-1.3.0, zero pending queue jobs and no pending migrations. `origin/main` remains `03e3e0f`; the local release
-branch is not merged to `main`. Merge/tag/publication remain separate from this prepared candidate.
+Production acceptance remains outstanding: publish signed assets and exercise the real admin-triggered
+upgrade. The owner approved the initial bootstrap and completed the coordinated hPanel process stop.
+At 20:20 UTC the 19-file bootstrap installed successfully after fresh data/code snapshots; the served
+wrapper, routing and asset links were preserved. Health at 20:21 UTC reports healthy 1.3.0, zero pending
+queue jobs and no pending migrations; homepage and built CSS/JS return 200. The source is merged to local
+`main`; `origin/main` remains `03e3e0f`. The owner still needs to push finalized source and tag. No remote
+push or 1.4.0 release publication has occurred. Signed package bytes remain unchanged.
 **Hostinger connection restored after restart (2026-11-06):** the OAuth MCP tools now authenticate and can
 inspect the account. Windows browser control still rejects the Linux workspace URI, but that no longer
 prevents account inspection. The owner reactivated the goal. Live read-only probes at 19:30–19:38 UTC proved
@@ -94,12 +96,21 @@ success, process-survivor refusal, missing cron proof, incomplete archives, part
 recovery after an interrupted apply. The final disabled runner is SHA-256
 `11abadc16aaefaaeb2b7ad047514fad7547cfcec1a48b6dae3457298b73b734a`; operator artifacts and the concrete
 `BOOTSTRAP-MAINTENANCE-PLAN.md` are beside the release receipt. Zero HIGH/MEDIUM remain in that bounded review.
-The owner has been asked to confirm the maintenance window and remain available for the hPanel step.
-Next: receive that confirmation, apply the minimal bootstrap, then publish/test the signed upgrade.
-The draft pauses the production scheduler, installs a strict pre-Composer maintenance response, verifies
-actual HTTP responses, and requires the owner's official hPanel **Stop running processes** action before
-fresh backups and code replacement. It remains disabled. `max_execution_time`, sleeping, or a partial
-process census alone is not proof of exclusion. Second Brain currently requires reauthentication.
+The owner approved the window and confirmed the official hPanel process stop after all five HTTP gate
+probes passed. An enabled copy changed only the production flag, SHA-256
+`5c886a2552179e95df9d51ae3f4f9c70af1744190539ae0ef897812fa3db34c8`. The applied run verified all nineteen
+new hashes and a fresh post-stop backup containing all fifteen storage files; backup SHA-256
+`eacecc1ff4f86aab29a8582c5d9848f4cf08efcee2f333201e6f5768b44e72a9`. The strict gate was removed after
+cache clearing and OPcache revalidation. The production scheduler was restored with its exact original
+command and timing under new UID `LPeuMjmMmM`; its 20:25 run completed every scheduled task, including
+release advancement and queue processing. Postcheck verified all nineteen installed hashes, both unchanged
+prerequisites, wrapper/routing/links and retained backup. All temporary upload files and cron jobs were
+removed; the existing development job remains. Health at 20:26 UTC is 200/1.3.0 with a fresh queue heartbeat.
+Saved settings and observed evidence are in `evidence/host-bootstrap-activation.json` beside the receipt.
+Complete owner push, signed publication and the real admin-triggered upgrade. The owner has been asked
+to confirm the rendered new Upgrade section; that authenticated UI observation remains pending.
+GitHub CLI authentication and repository permissions were verified;
+the portable CLI is `/tmp/novfora-gh-cli/gh`. Second Brain currently requires reauthentication.
 
 Local runtimes are portable (no system package changes): PHP 8.3 via `PATH=/tmp/novfora-php83/bin:$PATH`;
 PHP 8.5 via `PHP_INI_SCAN_DIR=:/tmp/novfora-php85/conf.d` and
