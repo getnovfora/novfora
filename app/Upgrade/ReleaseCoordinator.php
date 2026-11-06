@@ -166,6 +166,10 @@ class ReleaseCoordinator
                 if (! function_exists('proc_open')) {
                     throw new RuntimeException('This host cannot run the release recovery worker (proc_open is disabled).');
                 }
+                if (! function_exists('curl_init') && (! (bool) ini_get('allow_url_fopen')
+                    || ! in_array('https', stream_get_wrappers(), true))) {
+                    throw new RuntimeException('This host cannot probe release health: enable cURL or HTTPS URL streams.');
+                }
                 $directory = $this->state->directory.'/runs/'.$run['run_id'];
                 if (! is_dir($directory) && ! mkdir($directory, 0700, true) && ! is_dir($directory)) {
                     throw new RuntimeException('Cannot create the private release workspace.');

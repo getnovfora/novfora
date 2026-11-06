@@ -364,19 +364,81 @@ final class ReleaseWorker
     /** @return array{status:int,body:string} */
     private function requestHealth(string $url, string $token): array
     {
+        if (function_exists('curl_init')) {
+            $curl = curl_init($url);
+            if ($curl === false) {
+                return ['status' => 0, 'body' => ''];
+            }
+            $body = '';
+            $oversized = false;
+            $options = [
+                CURLOPT_HTTPGET => true,
+                CURLOPT_HTTPHEADER => ["X-NovFora-Upgrade-Probe: {$token}", 'Accept: application/json'],
+                CURLOPT_CONNECTTIMEOUT => 5,
+                CURLOPT_TIMEOUT => 20,
+                CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_MAXREDIRS => 0,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_RETURNTRANSFER => false,
+                CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$body, &$oversized): int {
+                    $length = strlen($chunk);
+                    if (strlen($body) + $length > 1_048_576) {
+                        $oversized = true;
+
+                        return 0; // Abort before retaining an oversized response.
+                    }
+                    $body .= $chunk;
+
+                    return $length;
+                },
+            ];
+            if (defined('CURLOPT_PROTOCOLS_STR')) {
+                $options[CURLOPT_PROTOCOLS_STR] = str_starts_with($url, 'https://') ? 'https' : 'http';
+            } else {
+                $options[CURLOPT_PROTOCOLS] = str_starts_with($url, 'https://') ? CURLPROTO_HTTPS : CURLPROTO_HTTP;
+            }
+            try {
+                if (! curl_setopt_array($curl, $options)) {
+                    return ['status' => 0, 'body' => ''];
+                }
+                $ok = curl_exec($curl);
+                $status = $ok === true && ! $oversized ? (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE) : 0;
+
+                return ['status' => $status, 'body' => $status > 0 ? $body : ''];
+            } finally {
+                unset($curl); // CurlHandle releases itself; curl_close() is a deprecated no-op in PHP 8.5.
+            }
+        }
+        if (! (bool) ini_get('allow_url_fopen') || ! in_array('https', stream_get_wrappers(), true)) {
+            return ['status' => 0, 'body' => ''];
+        }
         $context = stream_context_create(['http' => [
             'method' => 'GET',
             'header' => "X-NovFora-Upgrade-Probe: {$token}\r\nAccept: application/json\r\n",
             'timeout' => 20,
             'follow_location' => 0,
+            'max_redirects' => 0,
             'ignore_errors' => true,
         ]]);
-        $body = @file_get_contents($url, false, $context);
-        $headers = $http_response_header;
+        $stream = @fopen($url, 'rb', false, $context);
+        if ($stream === false) {
+            return ['status' => 0, 'body' => ''];
+        }
+        try {
+            $body = stream_get_contents($stream, 1_048_577);
+            $meta = stream_get_meta_data($stream);
+        } finally {
+            fclose($stream);
+        }
+        if ($body === false || strlen($body) > 1_048_576) {
+            return ['status' => 0, 'body' => ''];
+        }
+        $headers = $meta['wrapper_data'] ?? [];
         $status = isset($headers[0]) && preg_match('~^HTTP/\S+ (\d{3})(?:\s|$)~', $headers[0], $matches) === 1
             ? (int) $matches[1] : 0;
 
-        return ['status' => $status, 'body' => is_string($body) ? $body : ''];
+        return ['status' => $status, 'body' => $body];
     }
 
     /** @param list<string> $command */
