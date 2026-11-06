@@ -63,9 +63,9 @@ files match the frozen commit; the clean Vite 8.1.6 rebuild matches all 49 commi
 passed another canonical signed upgrade smoke. Artifacts, `release-receipt.json`, `SHA256SUMS` and the operator
 handoff are in `/mnt/c/Users/TommyHuynh/Documents/ChatGPT/NovFora-Releases/v1.4.0/`. Keep the exact signed bytes.
 
-Production acceptance remains outstanding: publish signed assets, verify Hostinger's actual layout/PHP
-settings, deploy the initial updater, and exercise the real admin-triggered upgrade. No production changes,
-pushes, tags, or release publication have been made. Live health at 2026-11-06 19:00 UTC still reports healthy
+Production acceptance remains outstanding: publish signed assets, deploy the initial updater, and exercise
+the real admin-triggered upgrade. No application deployment, pushes, tags, or release publication have been
+made. Live health at 2026-11-06 20:00 UTC still reports healthy
 1.3.0, zero pending queue jobs and no pending migrations. `origin/main` remains `03e3e0f`; the local release
 branch is not merged to `main`. Merge/tag/publication remain separate from this prepared candidate.
 **Hostinger connection restored after restart (2026-11-06):** the OAuth MCP tools now authenticate and can
@@ -79,10 +79,21 @@ was removed; the existing two cron jobs were preserved. No application files wer
 
 Readiness evidence is under the artifact folder's `evidence/host-*.json`. The delegating wrapper and custom
 `.htaccess` must remain untouched during bootstrap: verify the canonical index separately from the wrapper.
-Next: finish a concrete maintenance/process-exclusion procedure, verify private backups, obtain the final
-deployment confirmation required by the Hostinger skill, then apply the minimal bootstrap and publish/test
-the signed upgrade. A draft activation runner is deliberately disabled until old requests can be excluded;
-`max_execution_time` or sleeping alone is not proof. Second Brain currently requires reauthentication.
+**Private preliminary backup verified (19:59 UTC):** a reviewed, CLI-only helper used configuration and
+database services without booting application/module providers. All ten old hashes, eleven absent new
+paths, and the served wrapper matched; eight replacement files were snapshotted. The private MySQL/storage
+archive is 977,126 bytes, SHA-256 `1fec8bfe30a14787974edeb33183f699fb768f02d80ddef355738f5ff249847b`.
+Its dump and all fifteen storage files passed archive validation. This backup was taken while the site
+was live; it is preliminary, not a consistent final cutover snapshot. The helper self-removed, its temporary
+cron was deleted, and both original cron jobs remain intact. Evidence: `evidence/host-backup-readiness-2026-11-06.json`
+beside the release receipt. `/proc` exposed two CLI PHP processes; it did not prove visibility of web workers.
+
+Next: finish review of the guarded two-phase activation procedure, obtain the final deployment confirmation
+required by the Hostinger skill, then apply the minimal bootstrap and publish/test the signed upgrade.
+The draft pauses the production scheduler, installs a strict pre-Composer maintenance response, verifies
+actual HTTP responses, and requires the owner's official hPanel **Stop running processes** action before
+fresh backups and code replacement. It remains disabled. `max_execution_time`, sleeping, or a partial
+process census alone is not proof of exclusion. Second Brain currently requires reauthentication.
 
 Local runtimes are portable (no system package changes): PHP 8.3 via `PATH=/tmp/novfora-php83/bin:$PATH`;
 PHP 8.5 via `PHP_INI_SCAN_DIR=:/tmp/novfora-php85/conf.d` and

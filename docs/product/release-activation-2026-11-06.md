@@ -47,8 +47,8 @@ has occurred; the source branch and reviewed candidate are ready for the remaini
 
 ## One-time bootstrap
 
-The documented live source is `5079215a41cd78445dfa5a362687f56a2575f15b`, still declaring 1.3.0. This is
-historical evidence, not a live fingerprint. The conditional bootstrap overlays only 19 updater-related
+The documented live source is `5079215a41cd78445dfa5a362687f56a2575f15b`, still declaring 1.3.0. Live checks
+on November 6 matched all ten required baseline hashes and eleven new-path absences. The conditional bootstrap overlays only 19 updater-related
 files, leaving the old business code, `config/app.php`, Composer lock and vendor tree in place. Thus the
 subsequent Upgrade click performs a real old-to-new application upgrade.
 
@@ -109,6 +109,15 @@ hashes. Preserve the wrapper; replacing it with the canonical index would change
 Before activating, resolve exclusion of requests that began before the new activity lease existed. Enter
 maintenance before establishing that exclusion and retain it through the protected work. A PHP execution
 time setting or arbitrary sleep does not by itself prove old requests have finished. The local activation
-runner draft stays disabled until that procedure is reviewed. Private backup and live acceptance steps are
-still outstanding. Second Brain requires reauthentication; this repository and the artifact evidence are
-the current handoff source.
+runner draft stays disabled until that procedure is reviewed.
+
+At 19:59 UTC a reviewed CLI helper created a private preliminary MySQL/storage backup and snapshots of the
+eight replacement files. The helper loads only configuration and database services, avoiding application
+and module provider boot. The 977,126-byte archive has SHA-256
+`1fec8bfe30a14787974edeb33183f699fb768f02d80ddef355738f5ff249847b`; its dump and all fifteen storage files
+passed validation. This live-site backup is explicitly preliminary: it does not establish cross-table or
+database/storage consistency. Fresh backups after the maintenance gate and process stop remain required.
+The helper and its temporary cron were removed, the original two cron jobs were preserved, and health at
+20:00 UTC remained 200/1.3.0 with zero pending queue jobs or migrations. Detailed private evidence is beside
+the release receipt. No application code was replaced. Second Brain requires reauthentication; this
+repository and the artifact evidence are the current handoff source.
