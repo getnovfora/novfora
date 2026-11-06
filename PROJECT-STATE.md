@@ -68,10 +68,21 @@ settings, deploy the initial updater, and exercise the real admin-triggered upgr
 pushes, tags, or release publication have been made. Live health at 2026-11-06 19:00 UTC still reports healthy
 1.3.0, zero pending queue jobs and no pending migrations. `origin/main` remains `03e3e0f`; the local release
 branch is not merged to `main`. Merge/tag/publication remain separate from this prepared candidate.
-The signed-in hPanel route is authorized, but browser control rejects both the original `/mnt/c/...` URI and
-this managed `/home/tommy/...` worktree URI before opening a window. The configured Hostinger OAuth connector
-has no tools loaded in this chat. The owner will reopen the native Windows project and restart Codex;
-inspect the resulting tool/session state before retrying. Second Brain currently requires reauthentication.
+**Hostinger connection restored after restart (2026-11-06):** the OAuth MCP tools now authenticate and can
+inspect the account. Windows browser control still rejects the Linux workspace URI, but that no longer
+prevents account inspection. The owner reactivated the goal. Live read-only probes at 19:30–19:38 UTC proved
+all ten baseline hashes and eleven new-path absences, the 59-byte delegating `/community/index.php` wrapper,
+and the canonical build/storage links. Both CLI and web run PHP 8.5.12 with proc_open/cURL/Sodium/ZIP; web
+OPcache validates timestamps every two seconds. No APP_VERSION override exists, and the co-owner has
+confirmed 2FA. The minute scheduler is active. Both diagnostic files self-removed and their temporary cron
+was removed; the existing two cron jobs were preserved. No application files were overwritten.
+
+Readiness evidence is under the artifact folder's `evidence/host-*.json`. The delegating wrapper and custom
+`.htaccess` must remain untouched during bootstrap: verify the canonical index separately from the wrapper.
+Next: finish a concrete maintenance/process-exclusion procedure, verify private backups, obtain the final
+deployment confirmation required by the Hostinger skill, then apply the minimal bootstrap and publish/test
+the signed upgrade. A draft activation runner is deliberately disabled until old requests can be excluded;
+`max_execution_time` or sleeping alone is not proof. Second Brain currently requires reauthentication.
 
 Local runtimes are portable (no system package changes): PHP 8.3 via `PATH=/tmp/novfora-php83/bin:$PATH`;
 PHP 8.5 via `PHP_INI_SCAN_DIR=:/tmp/novfora-php85/conf.d` and

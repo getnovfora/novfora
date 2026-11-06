@@ -97,8 +97,18 @@ application update.
   stopped before the file swap; the full browser upgrade above ran at a local domain root.
 
 Publication, initial live bootstrap, and an actual admin-triggered upgrade on `novfora.com/community`
-remain required. Hostinger's MCP connection is configured for OAuth, but its tools are absent from the
-current chat. Browser control fails before opening a window because the chat supplies a Linux workspace URI.
-The latest retry explicitly rejected the managed `/home/tommy/...` worktree path. The owner will reopen the
-native Windows project and restart Codex. Second Brain also requires reauthentication; this repository is
+remain required. After the owner's restart, Hostinger MCP authenticated successfully. Account reads and
+temporary read-only probes verified the live baseline hashes, new-path absences, wrapper and asset links,
+PHP 8.5.12 CLI/web capabilities, web OPcache timestamp validation (two-second interval), absence of a version
+override, and co-owner 2FA readiness. Both probes and the temporary cron were removed; existing application
+files and scheduler jobs were preserved. The browser-control runtime still rejects the Linux workspace URI.
+
+The live layout requires a reviewed variation of the packet's generic index instructions: run its canonical
+code verifier against the app's own `public/index.php`, and separately pin the served wrapper and routing
+hashes. Preserve the wrapper; replacing it with the canonical index would change `__DIR__` resolution.
+Before activating, resolve exclusion of requests that began before the new activity lease existed. Enter
+maintenance before establishing that exclusion and retain it through the protected work. A PHP execution
+time setting or arbitrary sleep does not by itself prove old requests have finished. The local activation
+runner draft stays disabled until that procedure is reviewed. Private backup and live acceptance steps are
+still outstanding. Second Brain requires reauthentication; this repository and the artifact evidence are
 the current handoff source.
