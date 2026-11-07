@@ -5,7 +5,8 @@
 The owner selected the latest published stable GitHub release as the update source and authorized access
 through the signed-in Hostinger hPanel. This document records the published signed release, the initial
 live updater bootstrap, and the owner-started upgrade. The live run completed and independent health/data
-checks passed; the owner completion-UI confirmation and temporary monitor cleanup remain pending.
+checks passed. Temporary monitor cleanup is complete, and the owner confirmed the status page reports
+successful completion to 1.4.0. No acceptance follow-up remains for this latest-stable slice.
 
 ## Published signed release
 
@@ -157,8 +158,8 @@ and cleanup helpers self-removed, both temporary cron jobs were deleted, and rea
 twelve `.ops` items plus only the production/development schedulers. Private backups and evidence remain.
 One custom extension was counted after the swap; no prior fingerprint exists, so its byte-for-byte
 preservation is unproven. The checked mutation plan contains only managed core/bundled paths.
-The owner has been asked for final rendered completion-screen confirmation; it remains an optional UI
-follow-up to the verified server completion and live acceptance. NOV-141 remains In Progress
+The owner confirmed that the rendered status page reports successful completion to 1.4.0, closing the
+final UI observation alongside the verified server completion and live acceptance. NOV-141 remains In Progress
 because its original E7 umbrella also names manual ZIP, version selection, API, and automatic-update work
 beyond ADR-0125's latest-stable slice. Second Brain requires reauthentication; this repository and the
 artifact evidence are the current handoff source.

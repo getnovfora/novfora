@@ -57,7 +57,7 @@ The source version is now 1.4.0 and `config/releases.php` pins `core-2026-11`. I
 outside Git and the host, protected by 0700/0600 permissions. The release ZIP passed cold-boot/i18n checks;
 the 19-file updater bootstrap passed 80 tests against the exact old dependency lock, Pint, scoped Larastan,
 and read-only hash verification. See `docs/product/release-activation-2026-11-06.md` for artifact and acceptance
-details. The signed `v1.4.0` release is now published; live installation remains separate.
+details. The signed `v1.4.0` release is published and its live installation is verified below.
 
 **Signed v1.4.0 artifact:** frozen runtime source `cc70a05d188f2ee19669821308ea64d3b90f2942`; ZIP SHA-256
 `da51fa3b920aa0dc28383a38c593fb46d96fe8b0b6cab70922def0550616c63b`. The actual PHP 8.3 updater verifier
@@ -85,8 +85,8 @@ CSS/JS returned 200; all 12 recorded forum/topic URLs returned 200 with unchange
 21:50 scheduler tick completed its jobs. At 21:55 UTC the retained SQL backup and all 10,441 old-code
 snapshot files passed integrity checks; one old public asset snapshot also verified. Both temporary observer
 helpers and cron jobs were removed, with only the original twelve `.ops` items and production/development
-schedulers remaining. Private recovery files were retained. The owner has been asked to confirm the final
-rendered completion screen; that additional UI observation is not yet received. The owner approved the
+schedulers remaining. Private recovery files were retained. The owner confirmed that the rendered status
+page shows the upgrade completed successfully to 1.4.0. The owner approved the
 initial bootstrap and coordinated hPanel process stop.
 At 20:20 UTC the 19-file bootstrap installed successfully after fresh data/code snapshots; the served
 wrapper, routing and asset links were preserved. Health at 20:21 UTC reported healthy 1.3.0, zero pending
@@ -126,15 +126,15 @@ cache clearing and OPcache revalidation. The production scheduler was restored w
 command and timing under new UID `LPeuMjmMmM`; its 20:25 run completed every scheduled task, including
 release advancement and queue processing. Postcheck verified all nineteen installed hashes, both unchanged
 prerequisites, wrapper/routing/links and retained backup. All temporary upload files and cron jobs were
-removed; the existing development job remains. Health at 20:26 UTC is 200/1.3.0 with a fresh queue heartbeat.
+removed; the existing development job remains. Health at 20:26 UTC was 200/1.3.0 with a fresh queue heartbeat.
 Saved settings and observed evidence are in `evidence/host-bootstrap-activation.json` beside the receipt.
 The owner confirmed the new Upgrade section in the authenticated ACP, then clicked Upgrade for the published
 stable release. Live run `27ad87cdde4bf8e8cfc6ea47644b8281` was requested at 21:40:48 UTC, passed its
 snapshot/drain window, and completed at 21:49:09 UTC. The health, data, asset, route, and scheduler checks
 above passed. Recovery verification and temporary monitor cleanup passed. One custom extension was counted
 after the upgrade; no pre-upgrade fingerprint was captured, so no byte-for-byte preservation claim is made
-for it. The verified mutation plan excludes custom extension paths. The owner-rendered completion screen
-confirmation remains an optional follow-up; the actual server run and live installation are complete.
+for it. The verified mutation plan excludes custom extension paths. The owner confirmed the rendered
+completion screen reports successful 1.4.0 installation; no acceptance follow-up remains for this slice.
 GitHub CLI authentication and repository permissions were verified;
 the portable CLI is `/tmp/novfora-gh-cli/gh`. Second Brain currently requires reauthentication.
 
